@@ -1,0 +1,151 @@
+{
+  "name": "spamscanner",
+  "description": "SpamScanner - The Best Anti-Spam Scanning Service and Anti-Spam API",
+  "version": "0.0.0",
+  "author": "Nick Baugh <niftylettuce@gmail.com> (http://niftylettuce.com/)",
+  "bugs": {
+    "url": "https://github.com/spamscanner/spamscanner/issues",
+    "email": "niftylettuce@gmail.com"
+  },
+  "commitlint": {
+    "extends": [
+      "@commitlint/config-conventional"
+    ]
+  },
+  "contributors": [
+    "Nick Baugh <niftylettuce@gmail.com> (http://niftylettuce.com/)"
+  ],
+  "dependencies": {},
+  "devDependencies": {
+    "@commitlint/cli": "latest",
+    "@commitlint/config-conventional": "latest",
+    "ava": "latest",
+    "codecov": "latest",
+    "cross-env": "latest",
+    "eslint": "latest",
+    "eslint-config-xo-lass": "latest",
+    "fixpack": "latest",
+    "husky": "latest",
+    "lint-staged": "latest",
+    "nyc": "latest",
+    "remark-cli": "latest",
+    "remark-preset-github": "latest",
+    "xo": "latest"
+  },
+  "engines": {
+    "node": ">=8.3"
+  },
+  "homepage": "https://github.com/spamscanner/spamscanner",
+  "husky": {
+    "hooks": {
+      "pre-commit": "lint-staged && npm test",
+      "commit-msg": "commitlint -E HUSKY_GIT_PARAMS"
+    }
+  },
+  "keywords": [
+    "adult",
+    "api",
+    "assasin",
+    "assassin",
+    "assassin",
+    "bayes",
+    "bayesian",
+    "benchmark",
+    "check",
+    "checker",
+    "classifier",
+    "classify",
+    "content",
+    "cop",
+    "daemon",
+    "data",
+    "dclassfiy",
+    "detection",
+    "detector",
+    "ham",
+    "haus",
+    "idn",
+    "malware",
+    "markov",
+    "model",
+    "modeling",
+    "naieve",
+    "parse",
+    "parser",
+    "postmark",
+    "punycode",
+    "safe",
+    "scan",
+    "scanner",
+    "scanning",
+    "score",
+    "service",
+    "spam",
+    "spamassasin",
+    "spamassassin",
+    "spamd",
+    "spamhaus",
+    "strict",
+    "test",
+    "testing",
+    "tool",
+    "utility",
+    "virus"
+  ],
+  "license": "Business Source License 1.1",
+  "lint-staged": {
+    "*.js": [
+      "xo --fix",
+      "git add"
+    ],
+    "*.md": [
+      "remark . -qfo",
+      "git add"
+    ],
+    "package.json": [
+      "fixpack",
+      "git add"
+    ]
+  },
+  "main": "index.js",
+  "nyc": {
+    "check-coverage": true,
+    "lines": 100,
+    "functions": 100,
+    "branches": 100,
+    "reporter": [
+      "lcov",
+      "html",
+      "text"
+    ]
+  },
+  "prettier": {
+    "singleQuote": true,
+    "bracketSpacing": true,
+    "trailingComma": "none"
+  },
+  "remarkConfig": {
+    "plugins": [
+      "preset-github"
+    ]
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/spamscanner/spamscanner"
+  },
+  "scripts": {
+    "ava": "cross-env NODE_ENV=test ava",
+    "coverage": "nyc report --reporter=text-lcov > coverage.lcov && codecov",
+    "lint": "xo && remark . -qfo",
+    "nyc": "cross-env NODE_ENV=test nyc ava",
+    "test": "yarn run lint && yarn run ava",
+    "test-coverage": "yarn run lint && yarn run nyc"
+  },
+  "xo": {
+    "prettier": true,
+    "space": true,
+    "extends": [
+      "xo-lass"
+    ]
+  }
+}
