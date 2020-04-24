@@ -1,27 +1,59 @@
+const path = require('path');
+
 const test = require('ava');
 
-const Script = require('..');
+const SpamScanner = require('..');
 
-test.beforeEach((t) => {
-  const script = new Script({});
-  Object.assign(t.context, { script });
+function fixtures(name) {
+  return path.join(__dirname, 'fixtures', `${name}.eml`);
+}
+
+const scanner = new SpamScanner();
+
+test.before(async () => {
+  await scanner.load();
 });
 
-test('returns itself', (t) => {
-  t.true(t.context.script instanceof Script);
+test('should detect spam', async t => {
+  const scan = await scanner.scan(fixtures('spam'));
+  t.log(scan);
+  t.true(scan.is_spam);
 });
 
-test('sets a config object', (t) => {
-  const script = new Script(false);
-  t.true(script instanceof Script);
+test('should detect spam fuzzy', async t => {
+  const scan = await scanner.scan(fixtures('spam-fuzzy'));
+  t.log(scan);
+  t.true(scan.is_spam);
 });
 
-test('renders name', (t) => {
-  const { script } = t.context;
-  t.is(script.renderName(), 'script');
+test('should detect ham', async t => {
+  const scan = await scanner.scan(fixtures('ham'));
+  t.log(scan);
+  t.false(scan.is_spam);
 });
 
-test('sets a default name', (t) => {
-  const { script } = t.context;
-  t.is(script._name, 'script');
+test('should detect phishing', async t => {
+  const scan = await scanner.scan(fixtures('phishing'));
+  t.log(scan);
+  t.true(scan.is_spam);
+  t.true(scan.results.phishing.length > 0);
 });
+
+test('should detect idn masquerading', async t => {
+  const scan = await scanner.scan(fixtures('idn'));
+  t.log(scan);
+  t.true(scan.is_spam);
+  t.true(scan.results.phishing.length > 0);
+});
+
+test('should detect executable files', async t => {
+  const scan = await scanner.scan(fixtures('executable'));
+  t.log(scan);
+  t.true(scan.is_spam);
+  t.true(scan.results.executables.length > 0);
+});
+
+test.todo('should check against openphish');
+test.todo('should check against phishtank');
+test.todo('should detect nsfw using nsfw.js');
+test.todo('should detect phishing querystring redirections');
