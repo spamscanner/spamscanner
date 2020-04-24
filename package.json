@@ -16,8 +16,9 @@
     "Nick Baugh <niftylettuce@gmail.com> (http://niftylettuce.com/)"
   ],
   "dependencies": {
+    "del": "^5.1.0",
     "file-extension": "^4.0.5",
-    "file-type": "^14.1.4",
+    "file-type": "^14.2.0",
     "get-urls": "^9.2.0",
     "i18n-locales": "^0.0.4",
     "iconv": "^2.3.5",
@@ -25,11 +26,14 @@
     "is-string-and-not-blank": "^0.0.2",
     "is-valid-path": "^0.1.1",
     "mailparser": "^2.7.7",
-    "mime-types": "^2.1.26",
-    "natural": "^0.6.3",
+    "mime-types": "^2.1.27",
+    "ml-naivebayes": "^4.0.0",
+    "natural": "^1.0.1",
     "node-html-parser": "^1.2.16",
-    "parse-domain": "^2.3.4",
+    "parse-domain": "^3.0.0",
     "punycode": "^2.1.1",
+    "sanitize-html": "^1.23.0",
+    "shelljs": "^0.8.3",
     "striptags": "^3.1.1",
     "universalify": "^1.0.0",
     "url-parse": "^1.4.7",
@@ -47,6 +51,7 @@
     "husky": "latest",
     "lint-staged": "latest",
     "nyc": "latest",
+    "p-map": "^4.0.0",
     "read-dir-deep": "^7.0.1",
     "remark-cli": "latest",
     "remark-preset-github": "latest",
@@ -58,7 +63,8 @@
   "files": [
     "index.js",
     "executables.js",
-    "classifier.json"
+    "classifier.json",
+    "bag-of-words.json"
   ],
   "homepage": "https://github.com/spamscanner/spamscanner",
   "husky": {
@@ -163,7 +169,8 @@
     ],
     "ignores": [
       "data",
-      "classifier.json"
+      "classifier.json",
+      "bag-of-words.json"
     ]
   }
 }

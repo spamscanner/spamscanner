@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const { promisify } = require('util');
 
+const { Iconv } = require('iconv');
 const FileType = require('file-type');
 const Url = require('url-parse');
 const fileExtension = require('file-extension');
@@ -15,14 +16,14 @@ const natural = require('natural');
 const parseDomain = require('parse-domain');
 // eslint-disable-next-line node/no-deprecated-api
 const punycode = require('punycode');
+const sanitizeHtml = require('sanitize-html');
 const striptags = require('striptags');
 const universalify = require('universalify');
 const validator = require('validator');
-const { Iconv } = require('iconv');
+const { GaussianNB } = require('ml-naivebayes');
 const { parse } = require('node-html-parser');
 const { simpleParser } = require('mailparser');
 
-const loadClassifier = promisify(natural.BayesClassifier.load);
 const readFile = promisify(fs.readFile);
 const issues = 'https://github.com/spamscanner/spamscanner/issues/new';
 const locales = i18nLocales.map(l => l.toLowerCase());
@@ -34,11 +35,15 @@ class SpamScanner {
   constructor(config) {
     this.config = {
       // <https://nodemailer.com/extras/mailparser/>
-      simpleParser: {
-        Iconv
-      },
+      // NOTE: `iconv` package's Iconv cannot be used in worker threads
+      // AND it can not also be shared in worker threads either (e.g. cloned)
+      // <https://github.com/bnoordhuis/node-iconv/issues/211>
+      // BUT we MUST use it because otherwise emails won't get parsed
+      simpleParser: { Iconv },
       // <https://github.com/NaturalNode/natural#bayesian-and-logistic-regression>
       classifier: path.join(__dirname, 'classifier.json'),
+      // bag of words
+      bagOfWords: path.join(__dirname, 'bag-of-words.json'),
       // <https://github.com/sindresorhus/get-urls#options>
       getUrls: {
         requireSchemeOrWww: false
@@ -47,6 +52,107 @@ class SpamScanner {
       locale: 'en',
       // we recommend to use axe/cabin, see https://cabinjs.com
       logger: console,
+      // <https://github.com/apostrophecms/sanitize-html#what-are-the-default-options>
+      // <https://developer.mozilla.org/en-US/docs/Web/HTML/Element>
+      sanitizeHtml: {
+        allowedTags: [
+          'address',
+          'article',
+          'aside',
+          'footer',
+          'header',
+          'h1',
+          'h2',
+          'h3',
+          'h4',
+          'h5',
+          'h6',
+          'hgroup',
+          'nav',
+          'section',
+          'blockquote',
+          'dd',
+          'div',
+          'dl',
+          'dt',
+          'figcaption',
+          'figure',
+          'hr',
+          'li',
+          'main',
+          'ol',
+          'p',
+          'pre',
+          'ul',
+          'a',
+          'abbr',
+          'b',
+          'bdi',
+          'bdo',
+          'br',
+          'cite',
+          'code',
+          'data',
+          'dfn',
+          'em',
+          'i',
+          'kbd',
+          'mark',
+          'q',
+          'rp',
+          'rt',
+          'rtc',
+          'ruby',
+          's',
+          'samp',
+          'span',
+          'strong',
+          'sub',
+          'sup',
+          'time',
+          'u',
+          'var',
+          'wbr',
+          // area
+          // audio
+          // img
+          // map
+          // track
+          // video
+          // embed
+          // iframe
+          // object
+          // param
+          // picture
+          // source
+          // canvas
+          // noscript
+          // script
+          'del',
+          'ins',
+          'caption',
+          'col',
+          'colgroup',
+          'table',
+          'tbody',
+          'td',
+          'tfoot',
+          'th',
+          'thead',
+          'tr',
+          // NO FORM STUFF
+          'details',
+          'dalog',
+          'menu',
+          'summary',
+          // slot
+          // template
+          'center',
+          'marquee',
+          'strike'
+        ],
+        allowedAttributes: false
+      },
       ...config
     };
 
@@ -55,8 +161,7 @@ class SpamScanner {
     this.getTokensAndMailFromSource = universalify.fromPromise(
       this.getTokensAndMailFromSource.bind(this)
     );
-    this.getPhishingResults =
-      this.getPhishingResults.bind(this);
+    this.getPhishingResults = this.getPhishingResults.bind(this);
     // this.getNSFWResuls = universalify.fromPromise(this.getNSFWResults.bind(this));
     this.getExecutableResults = universalify.fromPromise(
       this.getExecutableResults.bind(this)
@@ -64,17 +169,43 @@ class SpamScanner {
     this.scan = universalify.fromPromise(this.scan.bind(this));
     this.getTokens = this.getTokens.bind(this);
     this.parseLocale = this.parseLocale.bind(this);
+    this.getBagOfWords = this.getBagOfWords.bind(this);
 
     if (!locales.includes(this.parseLocale(this.config.locale)))
       throw new Error(
-        `Locale of ${this.config.locale} was not valid according to locales list`
+        `Locale of ${this.config.locale} was not valid according to locales list.`
       );
   }
 
-  async load(classifier) {
-    this.classifier = await loadClassifier(
-      classifier || this.config.classifier
+  async load(classifier, bagOfWords) {
+    classifier = classifier || this.config.classifier;
+    bagOfWords = bagOfWords || this.config.bagOfWords;
+    const model =
+      typeof classifier === 'object'
+        ? classifier
+        : typeof classifier === 'string'
+        ? isValidPath(classifier)
+          ? await readFile(classifier, 'utf8')
+          : classifier
+        : false;
+    if (!model)
+      throw new Error(
+        'Classifier passed to load could not be loaded as a model; it needs to be an parsed JSON Object, a stringified JSON Object, or a valid file path.'
+      );
+    bagOfWords = Array.isArray(bagOfWords)
+      ? bagOfWords
+      : typeof bagOfWords === 'string'
+      ? isValidPath(bagOfWords)
+        ? await readFile(bagOfWords, 'utf8')
+        : bagOfWords
+      : false;
+    if (typeof bagOfWords === 'string') bagOfWords = JSON.parse(bagOfWords);
+    if (!Array.isArray(bagOfWords))
+      throw new Error('Bag of words passed to load was not an Array');
+    this.classifier = GaussianNB.load(
+      typeof model === 'string' ? JSON.parse(model) : model
     );
+    this.bagOfWords = bagOfWords;
     return this;
   }
 
@@ -101,7 +232,7 @@ class SpamScanner {
       for (const meta of metas) {
         if (
           meta.getAttribute('http-equiv') === 'Content-Language' &&
-          meta.getAttribute('content') &&
+          isSANB(meta.getAttribute('content')) &&
           locales.includes(this.parseLocale(meta.getAttribute('content')))
         ) {
           locale = this.parseLocale(meta.getAttribute('content'));
@@ -113,14 +244,14 @@ class SpamScanner {
         const html = root.querySelector('html');
         if (
           html &&
-          html.getAttribute('lang') &&
+          isSANB(html.getAttribute('lang')) &&
           locales.includes(this.parseLocale(html.getAttribute('lang')))
         )
           locale = this.parseLocale(html.getAttribute('lang'));
       }
     }
 
-    locale = this.parseLocale(locale || this.config.locale);
+    locale = this.parseLocale(isSANB(locale) ? locale : this.config.locale);
 
     if (!locales.includes(locale)) {
       this.config.logger.debug(
@@ -166,7 +297,19 @@ class SpamScanner {
         stemmer = natural.PorterStemmer;
     }
 
-    return stemmer.tokenizeAndStem(isHTML ? striptags(str) : str);
+    return stemmer.tokenizeAndStem(
+      isHTML ? striptags(sanitizeHtml(str, this.config.sanitizeHtml)) : str
+    );
+  }
+
+  getBagOfWords(tokens) {
+    const arr = new Array(this.bagOfWords.length).fill(0);
+    for (const token of tokens) {
+      const idx = this.bagOfWords.indexOf(token);
+      if (idx !== -1) arr[idx]++;
+    }
+
+    return arr;
   }
 
   // TODO: we may also want to tokenize other mail headers (e.g. from/to/cc)
@@ -339,20 +482,20 @@ class SpamScanner {
   async scan(str) {
     if (!this.classifier)
       throw new Error(
-        'Classifier not loaded, you must run `scanner.load()` before calling `scanner.scan()`'
+        'Classifier not loaded, you must run `scanner.load()` before calling `scanner.scan()`.'
       );
+
+    if (!this.bagOfWords) throw new Error('Bag of words was not loaded');
 
     const { tokens, mail } = await this.getTokensAndMailFromSource(str);
 
     const [
       classification,
-      classifications,
       phishing,
       // nsfw,
       executables
     ] = await Promise.all([
-      Promise.resolve(this.classifier.classify(tokens)),
-      Promise.resolve(this.classifier.getClassifications(tokens)),
+      Promise.resolve(this.classifier.predict([this.getBagOfWords(tokens)])[0]),
       Promise.resolve(this.getPhishingResults(mail)),
       // Promise.resolve(this.getNSFWResults(mail)),
       this.getExecutableResults(mail)
@@ -360,7 +503,7 @@ class SpamScanner {
 
     const messages = [];
 
-    if (classification === 'spam')
+    if (classification)
       messages.push('Spam detected from Naive Bayesian classifier.');
 
     for (const message of phishing) {
@@ -380,8 +523,10 @@ class SpamScanner {
       message:
         messages.length === 0 ? 'Not detected as spam.' : messages.join(' '),
       results: {
-        classification,
-        classifications,
+        // classifier prediction
+        // 0 = ham
+        // 1 = spam
+        classification: classification ? 'spam' : 'ham',
         phishing,
         // nsfw,
         executables,

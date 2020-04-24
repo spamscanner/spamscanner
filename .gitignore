@@ -5,3 +5,5 @@ node_modules
 coverage
 .nyc_output
 data
+dictionary.txt
+token-sets.txt

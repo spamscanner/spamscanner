@@ -157,7 +157,6 @@ The `results` are returned as an Object with the following properties (descripti
   message: String,
   results: {
     classification: String,
-    classifications: Array,
     phishing: Array,
     executables: Array,
     tokens: Array,
@@ -172,7 +171,6 @@ The `results` are returned as an Object with the following properties (descripti
 | `message`                 | String  | A human-friendly message indicating why the `source` was classified as spam or ham (e.g. all messages/reasons from `results.classification`, `results.phishing`, and `results.executables` are joined together) |
 | `results`                 | Object  | An object of properties that provide detailed information about the scan (very useful for debugging)                                                                                                            |
 | `results.classification`  | String  | A value of `"spam"` or `"ham"` is returned based off the category determined from classification against the Naive Bayes classifier                                                                             |
-| `results.classifications` | Array   | An array of Objects that indicate probabilities determined of `"spam"` or `"ham"` classification categories (e.g. `[ { label: 'spam', value: 0.8 }, { label: 'ham', value: 0.2 } ]`)                            |
 | `results.phishing`        | Array   | An array of Strings indicating phishing attempts detected on the `source`                                                                                                                                       |
 | `results.executables`     | Array   | An array of Strings indicating executable attacks detected on the `source`                                                                                                                                      |
 | `results.tokens`          | Array   | An array of tokenized and stemmed words (parsed from the `source`, with respect to determined locale) used internally (for classification against the classifier) and exposed for debugging                     |
