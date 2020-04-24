@@ -21,6 +21,7 @@ const model = new GaussianNB();
     await del(path.join(__dirname, 'dictionary.txt'));
     await del(path.join(__dirname, 'token-sets.txt'));
     await del(path.join(__dirname, 'classifier.json'));
+    await del(path.join(__dirname, 'bag-of-words.json'));
 
     const dictionary = fs.createWriteStream(
       path.join(__dirname, 'dictionary.txt'),
