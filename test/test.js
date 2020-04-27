@@ -18,18 +18,21 @@ test('should detect spam', async t => {
   const scan = await scanner.scan(fixtures('spam'));
   t.log(scan);
   t.true(scan.is_spam);
+  t.is(scan.results.classification.category, 'spam');
 });
 
 test('should detect spam fuzzy', async t => {
   const scan = await scanner.scan(fixtures('spam-fuzzy'));
   t.log(scan);
   t.true(scan.is_spam);
+  t.is(scan.results.classification.category, 'spam');
 });
 
 test('should detect ham', async t => {
   const scan = await scanner.scan(fixtures('ham'));
   t.log(scan);
   t.false(scan.is_spam);
+  t.is(scan.results.classification.category, 'ham');
 });
 
 test('should detect phishing', async t => {

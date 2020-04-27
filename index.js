@@ -1,39 +1,83 @@
 const fs = require('fs');
-const path = require('path');
 const { promisify } = require('util');
 
-const { Iconv } = require('iconv');
 const FileType = require('file-type');
+const NaiveBayes = require('naivebayes');
+const RE2 = require('re2');
 const Url = require('url-parse');
+const emailRegex = require('email-regex');
+const escapeStringRegexp = require('escape-string-regexp');
 const fileExtension = require('file-extension');
-const getUrls = require('get-urls');
+const getSymbolFromCurrency = require('currency-symbol-map');
 const i18nLocales = require('i18n-locales');
 const isBuffer = require('is-buffer');
 const isSANB = require('is-string-and-not-blank');
 const isValidPath = require('is-valid-path');
 const mime = require('mime-types');
 const natural = require('natural');
+// locked to v2.x due to <https://github.com/peerigon/parse-domain/issues/106>
 const parseDomain = require('parse-domain');
 // eslint-disable-next-line node/no-deprecated-api
 const punycode = require('punycode');
 const sanitizeHtml = require('sanitize-html');
 const striptags = require('striptags');
+const sw = require('stopword');
 const universalify = require('universalify');
+const urlRegex = require('url-regex');
 const validator = require('validator');
-const { GaussianNB } = require('ml-naivebayes');
+const { Iconv } = require('iconv');
+const { codes } = require('currency-codes');
 const { parse } = require('node-html-parser');
 const { simpleParser } = require('mailparser');
+const normalizeUrl = require('normalize-url');
 
-const readFile = promisify(fs.readFile);
 const issues = 'https://github.com/spamscanner/spamscanner/issues/new';
 const locales = i18nLocales.map(l => l.toLowerCase());
+
+const readFile = promisify(fs.readFile);
+
+// <https://stackoverflow.com/a/5917217>
+const NUMBER_REGEX = new RE2(/\d[\d,.]*/g);
+const ALPHA_REGEX = new RE2(/^[a-z]+$/i);
+const URL_REGEX = new RE2(urlRegex({ exact: false, strict: false }));
+const EMAIL_REGEX = new RE2(emailRegex({ exact: false }));
+
+const currencySymbols = [];
+for (const code of codes()) {
+  const symbol = getSymbolFromCurrency(code);
+  if (
+    typeof symbol === 'string' &&
+    !currencySymbols.includes(symbol) &&
+    !ALPHA_REGEX.test(symbol)
+  )
+    currencySymbols.push(escapeStringRegexp(symbol));
+}
+
+const CURRENCY_REGEX = new RE2(new RegExp(currencySymbols.join('|'), 'g'));
+
+// <https://github.com/kevva/url-regex/issues/70
+// <https://github.com/sindresorhus/get-urls/blob/master/index.js
+function getUrls(text) {
+  const urls = text.match(URL_REGEX) || [];
+  const arr = [];
+  for (const url of urls) {
+    const normalized = normalizeUrl(url.trim().replace(/\.+$/, ''));
+    if (!arr.includes(normalized)) arr.push(normalized);
+  }
+
+  return arr;
+}
 
 // <https://kb.smarshmail.com/Article/23567>
 const executables = require('./executables.json');
 
 class SpamScanner {
-  constructor(config) {
+  constructor(config = {}) {
     this.config = {
+      debug: process.env.NODE_ENV === 'test',
+      // note that if you attempt to train an existing `scanner.classifier`
+      // then you will need to re-use these, so we suggest you store them
+      replacements: config.replacements || require('./replacements.json'),
       // <https://nodemailer.com/extras/mailparser/>
       // NOTE: `iconv` package's Iconv cannot be used in worker threads
       // AND it can not also be shared in worker threads either (e.g. cloned)
@@ -41,13 +85,7 @@ class SpamScanner {
       // BUT we MUST use it because otherwise emails won't get parsed
       simpleParser: { Iconv },
       // <https://github.com/NaturalNode/natural#bayesian-and-logistic-regression>
-      classifier: path.join(__dirname, 'classifier.json'),
-      // bag of words
-      bagOfWords: path.join(__dirname, 'bag-of-words.json'),
-      // <https://github.com/sindresorhus/get-urls#options>
-      getUrls: {
-        requireSchemeOrWww: false
-      },
+      classifier: config.classifier || require('./classifier.json'),
       // default locale validated against i18n-locales
       locale: 'en',
       // we recommend to use axe/cabin, see https://cabinjs.com
@@ -169,7 +207,6 @@ class SpamScanner {
     this.scan = universalify.fromPromise(this.scan.bind(this));
     this.getTokens = this.getTokens.bind(this);
     this.parseLocale = this.parseLocale.bind(this);
-    this.getBagOfWords = this.getBagOfWords.bind(this);
 
     if (!locales.includes(this.parseLocale(this.config.locale)))
       throw new Error(
@@ -177,35 +214,29 @@ class SpamScanner {
       );
   }
 
-  async load(classifier, bagOfWords) {
+  async load(classifier) {
     classifier = classifier || this.config.classifier;
-    bagOfWords = bagOfWords || this.config.bagOfWords;
-    const model =
+
+    this.classifier =
       typeof classifier === 'object'
         ? classifier
         : typeof classifier === 'string'
         ? isValidPath(classifier)
-          ? await readFile(classifier, 'utf8')
-          : classifier
+          ? require(classifier)
+          : JSON.parse(classifier)
         : false;
-    if (!model)
-      throw new Error(
-        'Classifier passed to load could not be loaded as a model; it needs to be an parsed JSON Object, a stringified JSON Object, or a valid file path.'
-      );
-    bagOfWords = Array.isArray(bagOfWords)
-      ? bagOfWords
-      : typeof bagOfWords === 'string'
-      ? isValidPath(bagOfWords)
-        ? await readFile(bagOfWords, 'utf8')
-        : bagOfWords
-      : false;
-    if (typeof bagOfWords === 'string') bagOfWords = JSON.parse(bagOfWords);
-    if (!Array.isArray(bagOfWords))
-      throw new Error('Bag of words passed to load was not an Array');
-    this.classifier = GaussianNB.load(
-      typeof model === 'string' ? JSON.parse(model) : model
-    );
-    this.bagOfWords = bagOfWords;
+
+    if (typeof classifier !== 'object')
+      throw new Error('Classifier must be an Object');
+
+    // TODO: we still need to limit vocabulary size
+    // <https://github.com/surmon-china/naivebayes/issues/4>
+    this.classifier = NaiveBayes.fromJson(this.classifier);
+    // since we do tokenization ourselves
+    this.classifier.tokenizer = function(tokens) {
+      return tokens;
+    };
+
     return this;
   }
 
@@ -216,6 +247,8 @@ class SpamScanner {
       .split('_')[0];
   }
 
+  // <https://medium.com/analytics-vidhya/building-a-spam-filter-from-scratch-using-machine-learning-fc58b178ea56>
+  // <https://towardsdatascience.com/empirical-analysis-on-email-classification-using-the-enron-dataset-19054d558697>
   // <https://blog.logrocket.com/natural-language-processing-for-node-js/>
   // <https://github.com/NaturalNode/natural#stemmers>
   // eslint-disable-next-line complexity
@@ -260,8 +293,13 @@ class SpamScanner {
       locale = this.parseLocale(this.config.locale);
     }
 
+    // set stemmer and remove stopwords based off locale
     let stemmer;
     switch (locale) {
+      case 'es':
+        // <https://github.com/NaturalNode/natural/issues/522>
+        stemmer = natural.PorterStemmerEs;
+        break;
       case 'nl':
         stemmer = natural.PorterStemmerNl;
         break;
@@ -273,6 +311,7 @@ class SpamScanner {
         break;
       case 'id':
       case 'in':
+        // <https://github.com/NaturalNode/natural/issues/521>
         stemmer = natural.StemmerId;
         break;
       case 'it':
@@ -284,6 +323,9 @@ class SpamScanner {
       case 'no':
         stemmer = natural.PorterStemmerNo;
         break;
+      // note: there is no Polish stemmer
+      // case: 'pl'
+      // <https://github.com/NaturalNode/natural/blob/73acfeb3527ba4091f821759d056ac83d01ffe71/lib/natural/index.js#L38>
       case 'pt':
         stemmer = natural.PorterStemmerPt;
         break;
@@ -297,19 +339,19 @@ class SpamScanner {
         stemmer = natural.PorterStemmer;
     }
 
-    return stemmer.tokenizeAndStem(
-      isHTML ? striptags(sanitizeHtml(str, this.config.sanitizeHtml)) : str
-    );
-  }
+    if (isHTML) str = sanitizeHtml(str, this.config.sanitizeHtml);
 
-  getBagOfWords(tokens) {
-    const arr = new Array(this.bagOfWords.length).fill(0);
-    for (const token of tokens) {
-      const idx = this.bagOfWords.indexOf(token);
-      if (idx !== -1) arr[idx]++;
-    }
+    str = striptags(str)
+      // replace email addresses
+      .replace(EMAIL_REGEX, ` ${this.config.replacements.email} `)
+      // replace urls
+      .replace(URL_REGEX, ` ${this.config.replacements.url} `)
+      // replace numbers
+      .replace(NUMBER_REGEX, ` ${this.config.replacements.number} `)
+      // replace currency
+      .replace(CURRENCY_REGEX, ` ${this.config.replacements.currency} `);
 
-    return arr;
+    return sw.removeStopwords(stemmer.tokenizeAndStem(str), sw[locale]);
   }
 
   // TODO: we may also want to tokenize other mail headers (e.g. from/to/cc)
@@ -360,7 +402,9 @@ class SpamScanner {
 
     // parse <a> tags with different org domain in text vs the link
     if (isSANB(mail.html)) {
-      for (const link of getUrls(mail.html, this.config.getUrls)) {
+      for (const link of getUrls(
+        sanitizeHtml(mail.html, this.config.sanitizeHtml)
+      )) {
         links.push(link);
       }
 
@@ -405,7 +449,7 @@ class SpamScanner {
     // <https://www.wandera.com/punycode-attacks/>
     // parse the mail.html and mail.text for links (e.g. w/o <a>)
     if (isSANB(mail.text)) {
-      for (const link of getUrls(mail.text, this.config.getUrls)) {
+      for (const link of getUrls(mail.text)) {
         links.push(link);
       }
     }
@@ -485,8 +529,6 @@ class SpamScanner {
         'Classifier not loaded, you must run `scanner.load()` before calling `scanner.scan()`.'
       );
 
-    if (!this.bagOfWords) throw new Error('Bag of words was not loaded');
-
     const { tokens, mail } = await this.getTokensAndMailFromSource(str);
 
     const [
@@ -495,7 +537,7 @@ class SpamScanner {
       // nsfw,
       executables
     ] = await Promise.all([
-      Promise.resolve(this.classifier.predict([this.getBagOfWords(tokens)])[0]),
+      Promise.resolve(this.classifier.categorize(tokens, true)),
       Promise.resolve(this.getPhishingResults(mail)),
       // Promise.resolve(this.getNSFWResults(mail)),
       this.getExecutableResults(mail)
@@ -503,7 +545,7 @@ class SpamScanner {
 
     const messages = [];
 
-    if (classification)
+    if (classification.category === 'spam')
       messages.push('Spam detected from Naive Bayesian classifier.');
 
     for (const message of phishing) {
@@ -526,13 +568,12 @@ class SpamScanner {
         // classifier prediction
         // 0 = ham
         // 1 = spam
-        classification: classification ? 'spam' : 'ham',
+        classification,
         phishing,
         // nsfw,
-        executables,
-        tokens,
-        mail
-      }
+        executables
+      },
+      ...(this.config.debug ? { tokens, mail } : {})
     };
   }
 }

@@ -29,13 +29,14 @@
   * [`scanner.getPhishingResults(mail)`](#scannergetphishingresultsmail)
   * [`scanner.getExecutableResults(mail)`](#scannergetexecutableresultsmail)
   * [`scanner.getTokens(str, locale, isHTML = false)`](#scannergettokensstr-locale-ishtml--false)
+  * [`scanner.parseLocale(locale)`](#scannerparselocalelocale)
 * [Contributors](#contributors)
 * [License](#license)
 
 
 ## Foreword
 
-SpamScanner is a tool and service built by [@niftylettuce][niftylettuce] after hitting countless roadblocks with existing spam-detection solutions.  In other words, it's our current [plan for spam][plan-for-spam].
+SpamScanner is a tool and service built by [@niftylettuce][niftylettuce] after hitting countless roadblocks with existing spam-detection solutions.  In other words, it's our current [plan][plan-for-spam] [spam][better-plan-for-spam].
 
 Our goal is to build and utilize a scalable, performant, simple, easy to maintain, and powerful API for use in our service at [ForwardEmail.net][forward-email] to limit spam and provide other measures to prevent attacks on our users.
 
@@ -52,7 +53,7 @@ SpamScanner boasts several features to help reduce spam, phishing, and executabl
 
 ### Spam Content Detection
 
-Provides an out of the box trained Naive Bayesian classifier (uses [natural][] under the hood) is provided and sourced from hundreds of thousands of spam and ham emails.  This classifier relies upon tokenized and stemmed words (with respect to the language of the email as well) into two categories ("spam" and "ham").
+Provides an out of the box trained Naive Bayesian classifier (uses [naivebayes][] and [natural][] under the hood) is provided and sourced from hundreds of thousands of spam and ham emails.  This classifier relies upon tokenized and stemmed words (with respect to the language of the email as well) into two categories ("spam" and "ham").
 
 ### Phishing Content Detection
 
@@ -156,25 +157,25 @@ The `results` are returned as an Object with the following properties (descripti
   is_spam: Boolean,
   message: String,
   results: {
-    classification: String,
+    classification: Object,
     phishing: Array,
     executables: Array,
-    tokens: Array,
-    mail: Object
-  }
+  },
+  tokens: Array,
+  mail: Object
 }
 ```
 
-| Property                  | Type    | Description                                                                                                                                                                                                     |
-| ------------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `is_spam`                 | Boolean | A value of `true` is returned if the classification under `results.classification` was determined to be `"spam"`, otherwise `false`                                                                             |
-| `message`                 | String  | A human-friendly message indicating why the `source` was classified as spam or ham (e.g. all messages/reasons from `results.classification`, `results.phishing`, and `results.executables` are joined together) |
-| `results`                 | Object  | An object of properties that provide detailed information about the scan (very useful for debugging)                                                                                                            |
-| `results.classification`  | String  | A value of `"spam"` or `"ham"` is returned based off the category determined from classification against the Naive Bayes classifier                                                                             |
-| `results.phishing`        | Array   | An array of Strings indicating phishing attempts detected on the `source`                                                                                                                                       |
-| `results.executables`     | Array   | An array of Strings indicating executable attacks detected on the `source`                                                                                                                                      |
-| `results.tokens`          | Array   | An array of tokenized and stemmed words (parsed from the `source`, with respect to determined locale) used internally (for classification against the classifier) and exposed for debugging                     |
-| `results.mail`            | Object  | A parsed `mailparser.simpleParser` object used internally and exposed for debugging                                                                                                                             |
+| Property                 | Type    | Description                                                                                                                                                                                                                                                                                        |
+| ------------------------ | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `is_spam`                | Boolean | A value of `true` is returned if `category` property of the `results.classification` Object was determined to be `"spam"`, otherwise `false`                                                                                                                                                       |
+| `message`                | String  | A human-friendly message indicating why the `source` was classified as spam or ham (e.g. all messages/reasons from `results.classification`, `results.phishing`, and `results.executables` are joined together)                                                                                    |
+| `results`                | Object  | An Object of properties that provide detailed information about the scan (very useful for debugging)                                                                                                                                                                                               |
+| `results.classification` | Object  | An Object with `category` (String) and `probability` (Number) values returned based off the categorization of the `source` from the Naive Bayes classifier                                                                                                                                         |
+| `results.phishing`       | Array   | An Array of Strings indicating phishing attempts detected on the `source`                                                                                                                                                                                                                          |
+| `results.executables`    | Array   | An Array of Strings indicating executable attacks detected on the `source`                                                                                                                                                                                                                         |
+| `tokens`                 | Array   | **Debug only:** An Array of tokenized and stemmed words (parsed from the `source`, with respect to determined locale) used internally (for classification against the classifier) and exposed for debugging.  This property is only returned when `debug` option in the instance is set to `true`. |
+| `mail`                   | Object  | **Debug only:** A parsed `mailparser.simpleParser` object used internally and exposed for debugging.  This property is only returned when `debug` option in the instance is set to `true`.                                                                                                         |
 
 ### `scanner.getTokensAndMailFromSource(source)`
 
@@ -186,8 +187,8 @@ Currently SpamScanner supports the following locales for tokenization:
 
 | Name       | Locale       |
 | ---------- | ------------ |
-| English    | `en`         |
 | Dutch      | `nl`         |
+| English    | `en`         |
 | Farsi      | `fa`         |
 | French     | `fr`         |
 | Indonesian | `id` or `in` |
@@ -196,6 +197,7 @@ Currently SpamScanner supports the following locales for tokenization:
 | Norwegian  | `no`         |
 | Portugese  | `pt`         |
 | Russian    | `ru`         |
+| Spanish    | `es`         |
 | Swedish    | `sv`         |
 
 This method returns a Promise that resolves with a `{ tokens, mail }` Object.  You can also use this method with a second callback argument.
@@ -254,10 +256,10 @@ Accepts a `locale` and returns it as a lowercase string with affixed localizatio
 
 ## License
 
-[Business Source License 1.1](LICENSE) © [Nick Baugh](http://niftylettuce.com/)
+[Business Source License 1.1](LICENSE) © [Niftylettuce, LLC.](https://niftylettuce.com/)
 
 
-##
+## 
 
 [npm]: https://www.npmjs.com/
 
@@ -290,3 +292,7 @@ Accepts a `locale` and returns it as a lowercase string with affixed localizatio
 [bag-of-words]: https://en.wikipedia.org/wiki/Bag-of-words_model
 
 [plan-for-spam]: http://www.paulgraham.com/spam.html
+
+[naivebayes]: https://github.com/surmon-china/naivebayes
+
+[better-plan-for-spam]: http://www.paulgraham.com/better.html

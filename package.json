@@ -2,7 +2,7 @@
   "name": "spamscanner",
   "description": "SpamScanner - The Best Anti-Spam Scanning Service and Anti-Spam API",
   "version": "0.0.1",
-  "author": "Nick Baugh <niftylettuce@gmail.com> (http://niftylettuce.com/)",
+  "author": "Niftylettuce, LLC. <niftylettuce@gmail.com> (https://niftylettuce.com/)",
   "bugs": {
     "url": "https://github.com/spamscanner/spamscanner/issues",
     "email": "niftylettuce@gmail.com"
@@ -16,10 +16,12 @@
     "Nick Baugh <niftylettuce@gmail.com> (http://niftylettuce.com/)"
   ],
   "dependencies": {
-    "del": "^5.1.0",
+    "currency-codes": "^2.1.0",
+    "currency-symbol-map": "^4.0.4",
+    "email-regex": "^4.0.0",
+    "escape-string-regexp": "^4.0.0",
     "file-extension": "^4.0.5",
     "file-type": "^14.2.0",
-    "get-urls": "^9.2.0",
     "i18n-locales": "^0.0.4",
     "iconv": "^2.3.5",
     "is-buffer": "^2.0.4",
@@ -27,16 +29,19 @@
     "is-valid-path": "^0.1.1",
     "mailparser": "^2.7.7",
     "mime-types": "^2.1.27",
-    "ml-naivebayes": "^4.0.0",
+    "naivebayes": "^0.5.0",
     "natural": "^1.0.1",
     "node-html-parser": "^1.2.16",
-    "parse-domain": "^3.0.0",
+    "normalize-url": "^5.0.0",
+    "parse-domain": "2.x",
     "punycode": "^2.1.1",
+    "re2": "^1.11.0",
     "sanitize-html": "^1.23.0",
-    "shelljs": "^0.8.3",
+    "stopword": "^1.0.1",
     "striptags": "^3.1.1",
     "universalify": "^1.0.0",
     "url-parse": "^1.4.7",
+    "url-regex": "^5.0.0",
     "validator": "^13.0.0"
   },
   "devDependencies": {
@@ -45,11 +50,14 @@
     "ava": "latest",
     "codecov": "latest",
     "cross-env": "latest",
+    "crypto-random-string": "^3.2.0",
     "eslint": "latest",
     "eslint-config-xo-lass": "latest",
     "fixpack": "latest",
     "husky": "latest",
     "lint-staged": "latest",
+    "make-dir": "^3.1.0",
+    "node-mbox": "^1.0.0",
     "nyc": "latest",
     "p-map": "^4.0.0",
     "read-dir-deep": "^7.0.1",
@@ -64,7 +72,7 @@
     "index.js",
     "executables.js",
     "classifier.json",
-    "bag-of-words.json"
+    "replacements.json"
   ],
   "homepage": "https://github.com/spamscanner/spamscanner",
   "husky": {
