@@ -4,13 +4,12 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { Worker } = require('worker_threads');
 
 const NaiveBayes = require('naivebayes');
 const cryptoRandomString = require('crypto-random-string');
 const pMap = require('p-map');
 const { readDirDeep } = require('read-dir-deep');
-
-const SpamScanner = require('.');
 
 const concurrency = os.cpus().length;
 
@@ -35,6 +34,8 @@ try {
     abbreviation: `abbreviation${cryptoRandomString(randomOptions)}`
   };
 }
+
+const classifierWorker = path.join(__dirname, 'classifier-worker.js');
 
 // simply delete the classifier.json to retrain from scratch
 let json;
@@ -67,27 +68,24 @@ if (
 if (typeof process.env.SCAN_DIRECTORY !== 'string')
   throw new Error('SCAN_DIRECTORY environment variable missing');
 
-const scanner = new SpamScanner({
-  replacements,
-  classifier: true
-});
-
 async function mapper(source) {
   try {
     console.log('source', source);
-    const { tokens } = await scanner.getTokensAndMailFromSource(source);
-    if (tokens.length === 0) return;
-    // to bias against false positives we can (at least for now)
-    // take the token count for ham and double it (duplicate it)
-    if (process.env.SPAM_CATEGORY === 'ham') {
-      const { length } = tokens;
-      // NOTE: concat is slower than push so we use push
-      for (let i = 0; i < length; i++) {
-        tokens.push(tokens[i]);
+    const worker = new Worker(classifierWorker, {
+      workerData: {
+        replacements,
+        source
       }
-    }
-
-    classifier.learn(tokens, process.env.SPAM_CATEGORY);
+    });
+    const tokens = await new Promise((resolve, reject) => {
+      worker.on('message', resolve);
+      worker.on('error', reject);
+      worker.on('exit', code => {
+        if (code !== 0)
+          return reject(new Error(`Worker stopped with exit code ${code}`));
+      });
+    });
+    if (tokens.length > 0) classifier.learn(tokens, process.env.SPAM_CATEGORY);
   } catch (err) {
     console.log('source error', source);
     console.error(err);

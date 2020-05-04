@@ -36,7 +36,7 @@
 
 ## Foreword
 
-SpamScanner is a tool and service built by [@niftylettuce][niftylettuce] after hitting countless roadblocks with existing spam-detection solutions.  In other words, it's our current [plan][plan-for-spam] [spam][better-plan-for-spam].
+SpamScanner is a tool and service built by [@niftylettuce][niftylettuce] after hitting countless roadblocks with existing spam-detection solutions.  In other words, it's our current [plan][plan-for-spam] for [spam][better-plan-for-spam].
 
 Our goal is to build and utilize a scalable, performant, simple, easy to maintain, and powerful API for use in our service at [ForwardEmail.net][forward-email] to limit spam and provide other measures to prevent attacks on our users.
 
@@ -53,7 +53,7 @@ SpamScanner boasts several features to help reduce spam, phishing, and executabl
 
 ### Spam Content Detection
 
-Provides an out of the box trained Naive Bayesian classifier (uses [naivebayes][] and [natural][] under the hood) is provided and sourced from hundreds of thousands of spam and ham emails.  This classifier relies upon tokenized and stemmed words (with respect to the language of the email as well) into two categories ("spam" and "ham").
+Provides an out of the box trained Naive Bayesian classifier (uses [naivebayes][] and [natural][] under the hood), which is sourced from hundreds of thousands of spam and ham emails.  This classifier relies upon tokenized and stemmed words (with respect to the language of the email as well) into two categories ("spam" and "ham").
 
 ### Phishing Content Detection
 

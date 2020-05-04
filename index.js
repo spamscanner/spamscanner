@@ -5,6 +5,7 @@ const FileType = require('file-type');
 const NaiveBayes = require('naivebayes');
 const RE2 = require('re2');
 const Url = require('url-parse');
+const contractions = require('expand-contractions');
 const emailRegex = require('email-regex');
 const escapeStringRegexp = require('escape-string-regexp');
 const fileExtension = require('file-extension');
@@ -20,6 +21,7 @@ const parseDomain = require('parse-domain');
 // eslint-disable-next-line node/no-deprecated-api
 const punycode = require('punycode');
 const sanitizeHtml = require('sanitize-html');
+const snowball = require('node-snowball');
 const striptags = require('striptags');
 const sw = require('stopword');
 const universalify = require('universalify');
@@ -31,16 +33,55 @@ const { parse } = require('node-html-parser');
 const { simpleParser } = require('mailparser');
 const normalizeUrl = require('normalize-url');
 
+const aggressiveTokenizer = new natural.AggressiveTokenizer();
+const orthographyTokenizer = new natural.OrthographyTokenizer({
+  language: 'fi'
+});
+const aggressiveTokenizerFa = new natural.AggressiveTokenizerFa();
+const aggressiveTokenizerFr = new natural.AggressiveTokenizerFr();
+const aggressiveTokenizerId = new natural.AggressiveTokenizerId();
+const aggressiveTokenizerIt = new natural.AggressiveTokenizerIt();
+const tokenizerJa = new natural.TokenizerJa();
+const aggressiveTokenizerNo = new natural.AggressiveTokenizerNo();
+const aggressiveTokenizerPl = new natural.AggressiveTokenizerPl();
+const aggressiveTokenizerPt = new natural.AggressiveTokenizerPt();
+const aggressiveTokenizerEs = new natural.AggressiveTokenizerEs();
+const aggressiveTokenizerSv = new natural.AggressiveTokenizerSv();
+const aggressiveTokenizerRu = new natural.AggressiveTokenizerRu();
+const aggressiveTokenizerVi = new natural.AggressiveTokenizerVi();
+
+const stopwordsEn = require('natural/lib/natural/util/stopwords').words;
+const stopwordsEs = require('natural/lib/natural/util/stopwords_es').words;
+const stopwordsFa = require('natural/lib/natural/util/stopwords_fa').words;
+const stopwordsFr = require('natural/lib/natural/util/stopwords_fr').words;
+const stopwordsId = require('natural/lib/natural/util/stopwords_id').words;
+const stopwordsIt = require('natural/lib/natural/util/stopwords_it').words;
+const stopwordsJa = require('natural/lib/natural/util/stopwords_ja').words;
+const stopwordsNl = require('natural/lib/natural/util/stopwords_nl').words;
+const stopwordsNo = require('natural/lib/natural/util/stopwords_no').words;
+const stopwordsPl = require('natural/lib/natural/util/stopwords_pl').words;
+const stopwordsPt = require('natural/lib/natural/util/stopwords_pt').words;
+const stopwordsRu = require('natural/lib/natural/util/stopwords_ru').words;
+const stopwordsSv = require('natural/lib/natural/util/stopwords_sv').words;
+const stopwordsZh = require('natural/lib/natural/util/stopwords_zh').words;
+
 const issues = 'https://github.com/spamscanner/spamscanner/issues/new';
 const locales = i18nLocales.map(l => l.toLowerCase());
 
 const readFile = promisify(fs.readFile);
 
+// <https://github.com/NaturalNode/natural/issues/523#issuecomment-623287047>
+// <https://github.com/yoshuawuyts/newline-remove>
+const NEWLINE_REGEX = new RE2(/\r\n|\n|\r/gm);
 // <https://stackoverflow.com/a/5917217>
 const NUMBER_REGEX = new RE2(/\d[\d,.]*/g);
 const ALPHA_REGEX = new RE2(/^[a-z]+$/i);
 const URL_REGEX = new RE2(urlRegex({ exact: false, strict: false }));
 const EMAIL_REGEX = new RE2(emailRegex({ exact: false }));
+// <https://superuser.com/a/1182181>
+const INITIALISM_REGEX = new RE2(/\b(?:[A-Z][a-z]*){2,}/g);
+// <https://stackoverflow.com/q/35076016>
+const ABBREVIATION_REGEX = new RE2(/\b(?:[a-zA-Z]\.){2,}/g);
 
 const currencySymbols = [];
 for (const code of codes()) {
@@ -230,6 +271,7 @@ class SpamScanner {
       throw new Error('Classifier must be an Object');
 
     // TODO: we still need to limit vocabulary size
+    // (especially since we don't filter out gibberish)
     // <https://github.com/surmon-china/naivebayes/issues/4>
     this.classifier = NaiveBayes.fromJson(this.classifier);
     // since we do tokenization ourselves
@@ -253,10 +295,23 @@ class SpamScanner {
   // <https://github.com/NaturalNode/natural#stemmers>
   // eslint-disable-next-line complexity
   getTokens(str, locale, isHTML = false) {
+    //
     // parse HTML for <html> tag with lang attr
     // otherwise if that wasn't found then look for this
     // <meta http-equiv="Content-Language" content="en-us">
-
+    //
+    //
+    // NOTE: we shouldn't rely on parsing the locale from the metadata
+    // nor from the header, instead we should utilize the metadata passed
+    // and if none exist, then we should use something like:
+    // - <https://github.com/wooorm/franc>
+    // - <https://github.com/FGRibreau/node-language-detect>
+    //
+    // It may be necessary to have a whitelisted dictionary of all words
+    // in English (e.g. via WordNet DB) and then run it through
+    // Google Translate using the `mandarin` package I made
+    //
+    //
     if (!locale && isHTML) {
       const root = parse(str);
 
@@ -293,55 +348,126 @@ class SpamScanner {
       locale = this.parseLocale(this.config.locale);
     }
 
-    // set stemmer and remove stopwords based off locale
-    let stemmer;
+    // <https://github.com/hthetiot/node-snowball#supported-language-second-argument>
+    // <https://github.com/NaturalNode/natural#tokenizers>
+    let tokenizer = aggressiveTokenizer;
+    let stopwords = stopwordsEn;
+    let language = 'english';
     switch (locale) {
-      case 'es':
-        // <https://github.com/NaturalNode/natural/issues/522>
-        stemmer = natural.PorterStemmerEs;
+      case 'ar':
+        language = 'arabic';
+        break;
+      case 'da':
+        language = 'danish';
         break;
       case 'nl':
-        stemmer = natural.PorterStemmerNl;
+        stopwords = stopwordsNl;
+        language = 'dutch';
+        break;
+      case 'en':
+        language = 'english';
+        break;
+      case 'fi':
+        language = 'finnish';
+        tokenizer = orthographyTokenizer;
         break;
       case 'fa':
-        stemmer = natural.PorterStemmerFa;
+        language = 'farsi';
+        tokenizer = aggressiveTokenizerFa;
+        stopwords = stopwordsFa;
         break;
       case 'fr':
-        stemmer = natural.PorterStemmerFr;
+        language = 'french';
+        tokenizer = aggressiveTokenizerFr;
+        stopwords = stopwordsFr;
         break;
-      case 'id':
+      case 'de':
+        language = 'german';
+        break;
+      case 'hu':
+        language = 'hungarian';
+        break;
       case 'in':
-        // <https://github.com/NaturalNode/natural/issues/521>
-        stemmer = natural.StemmerId;
+        language = 'indonesian';
+        tokenizer = aggressiveTokenizerId;
+        stopwords = stopwordsId;
         break;
       case 'it':
-        stemmer = natural.PorterStemmerIt;
+        language = 'italian';
+        tokenizer = aggressiveTokenizerIt;
+        stopwords = stopwordsIt;
         break;
-      case 'jp':
-        stemmer = natural.StemmerJa;
+      case 'ja':
+        tokenizer = tokenizerJa;
+        stopwords = stopwordsJa;
         break;
-      case 'no':
-        stemmer = natural.PorterStemmerNo;
+      case 'nb':
+      case 'nn':
+        language = 'norwegian';
+        tokenizer = aggressiveTokenizerNo;
+        stopwords = stopwordsNo;
         break;
-      // note: there is no Polish stemmer
-      // case: 'pl'
-      // <https://github.com/NaturalNode/natural/blob/73acfeb3527ba4091f821759d056ac83d01ffe71/lib/natural/index.js#L38>
+      case 'po':
+        language = 'polish';
+        tokenizer = aggressiveTokenizerPl;
+        stopwords = stopwordsPl;
+        break;
       case 'pt':
-        stemmer = natural.PorterStemmerPt;
+        language = 'portuguese';
+        tokenizer = aggressiveTokenizerPt;
+        stopwords = stopwordsPt;
         break;
-      case 'ru':
-        stemmer = natural.PorterStemmerRu;
+      case 'es':
+        language = 'spanish';
+        tokenizer = aggressiveTokenizerEs;
+        stopwords = stopwordsEs;
         break;
       case 'sv':
-        stemmer = natural.PorterStemmerSv;
+        language = 'swedish';
+        tokenizer = aggressiveTokenizerSv;
+        stopwords = stopwordsSv;
+        break;
+      case 'ro':
+        language = 'romanian';
+        break;
+      case 'ru':
+        language = 'russian';
+        tokenizer = aggressiveTokenizerRu;
+        stopwords = stopwordsRu;
+        break;
+      case 'ta':
+        language = 'tamil';
+        break;
+      case 'tr':
+        language = 'turkish';
+        break;
+      case 'vi':
+        language = 'vietnamese';
+        tokenizer = aggressiveTokenizerVi;
+        break;
+      case 'zh':
+        language = 'chinese';
+        stopwords = stopwordsZh;
         break;
       default:
-        stemmer = natural.PorterStemmer;
     }
 
     if (isHTML) str = sanitizeHtml(str, this.config.sanitizeHtml);
 
     str = striptags(str)
+      // replace newlines
+      .replace(NEWLINE_REGEX, ' ')
+      // handle initialism(e.g. "AFK" -> "abbrev$crypto$afk")
+      .replace(
+        INITIALISM_REGEX,
+        s => `${this.config.replacements.initialism}${s}`
+      )
+      // handle abbreviations (e.g. "u.s." -> "abbrev$crypto$us")
+      // (note we have to replace the periods here)
+      .replace(
+        ABBREVIATION_REGEX,
+        s => `${this.config.replacements.abbreviation}${s.split('.').join('')}`
+      )
       // replace email addresses
       .replace(EMAIL_REGEX, ` ${this.config.replacements.email} `)
       // replace urls
@@ -351,7 +477,45 @@ class SpamScanner {
       // replace currency
       .replace(CURRENCY_REGEX, ` ${this.config.replacements.currency} `);
 
-    return sw.removeStopwords(stemmer.tokenizeAndStem(str), sw[locale]);
+    // expand contractions so "they're" -> [ they, are ] vs. [ they, re ]
+    // <https://github.com/NaturalNode/natural/issues/533>
+    if (locale === 'en') str = contractions.expand(str);
+
+    // whitelist exclusions
+    const whitelistedWords = [
+      this.config.replacements.url,
+      this.config.replacements.email,
+      this.config.replacements.number,
+      this.config.replacements.currency
+    ];
+
+    //
+    // Future research:
+    // - <https://github.com/NaturalNode/natural/issues/523>
+    // - <https://github.com/mplatt/fold-to-ascii>
+    // - <https://github.com/andrewrk/node-diacritics>)
+    // - <https://www.elastic.co/guide/en/elasticsearch/reference/current/analysis-word-delimiter-tokenfilter.html>
+    // - <https://www.elastic.co/guide/en/elasticsearch/reference/master/analysis-elision-tokenfilter.html>
+    //
+    const tokens = sw
+      .removeStopwords(
+        tokenizer.tokenize(str.toLowerCase()).map(token => {
+          // whitelist words from being stemmed (safeguard)
+          if (
+            whitelistedWords.includes(token) ||
+            token.startsWith(this.config.replacements.initialism) ||
+            token.startsWith(this.config.replacements.abbrevation)
+          )
+            return token;
+          // TODO: we should pass third arg wih charset of parsed html or text (?)
+          // <https://github.com/hthetiot/node-snowball#supported-encoding-third-argument>
+          return snowball.stemword(token, language);
+        }),
+        sw[locale]
+      )
+      .filter(t => !stopwords.includes(t));
+
+    return tokens;
   }
 
   // TODO: we may also want to tokenize other mail headers (e.g. from/to/cc)
@@ -478,7 +642,7 @@ class SpamScanner {
 
     if (!Array.isArray(mail.attachments)) return messages;
 
-    // TODO: if any <a> or normal links have an executable
+    // NOTE: we don't inspect <a> or normal links in the message html/text
 
     // if any attachments have an executable
     await Promise.all(
