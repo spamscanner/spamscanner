@@ -183,22 +183,33 @@ Accepts a `source` argument (String, Buffer, or file path) to an email message (
 
 This method parses the `source` email message using [mailparser's][mailparser] `simpleParser` function.  It then tokenizes and stems the message's subject, html, and text parts (with respect to the i18n determined language of the message, e.g. `en`, `es`, `jp`, `ru`, etc).
 
-Currently SpamScanner supports the following locales for tokenization:
+Currently SpamScanner supports the following locales for tokenization, stemming, and/or stopword removal:
 
-| Name       | Locale       |
-| ---------- | ------------ |
-| Dutch      | `nl`         |
-| English    | `en`         |
-| Farsi      | `fa`         |
-| French     | `fr`         |
-| Indonesian | `id` or `in` |
-| Italian    | `it`         |
-| Japanese   | `jp`         |
-| Norwegian  | `no`         |
-| Portugese  | `pt`         |
-| Russian    | `ru`         |
-| Spanish    | `es`         |
-| Swedish    | `sv`         |
+| Name       | Locale     |
+| ---------- | ---------- |
+| Arabic     | `ar`       |
+| Danish     | `da`       |
+| Dutch      | `nl`       |
+| English    | `en`       |
+| Finnish    | `fn`       |
+| Farsi      | `fa`       |
+| French     | `fr`       |
+| German     | `gr`       |
+| Hungarian  | `hr`       |
+| Indonesian | `in`       |
+| Italian    | `it`       |
+| Japanese   | `ja`       |
+| Norwegian  | `nb`, `nn` |
+| Polish     | `po`       |
+| Portuguese | `pt`       |
+| Spanish    | `es`       |
+| Swedish    | `sv`       |
+| Romanian   | `ro`       |
+| Russian    | `ru`       |
+| Tamil      | `ta`       |
+| Turkish    | `tr`       |
+| Vietnamese | `vi`       |
+| Chinese    | `zh`       |
 
 This method returns a Promise that resolves with a `{ tokens, mail }` Object.  You can also use this method with a second callback argument.
 
