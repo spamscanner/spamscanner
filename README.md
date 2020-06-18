@@ -1,5 +1,5 @@
 <h1 align="center">
-  <a href="https://spamscanner.com"><img src="https://d1i8ikybhfrv4r.cloudfront.net/spamscanner.png" alt="spamscanner" /></a>
+  <a href="https://spamscanner.net"><img src="https://d1i8ikybhfrv4r.cloudfront.net/spamscanner.png" alt="spamscanner" /></a>
 </h1>
 <div align="center">
   <a href="https://slack.crocodilejs.com"><img src="https://slack.crocodilejs.com/badge.svg" alt="chat" /></a>
@@ -464,7 +464,7 @@ Accepts a `locale` and returns it as a lowercase string with affixed localizatio
 [Business Source License 1.1](LICENSE) © [Niftylettuce, LLC.](https://niftylettuce.com/)
 
 
-## 
+##
 
 <a href="#"><img src="https://d1i8ikybhfrv4r.cloudfront.net/footer.png" alt="#" /></a>
 
