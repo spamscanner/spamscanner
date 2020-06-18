@@ -1,40 +1,17 @@
-// TODO: equal 50/50 ham vs. spam dataset
-// TODO: test classifier.json against dataset to determine percentage accuracy
-
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-const NaiveBayes = require('naivebayes');
-const cryptoRandomString = require('crypto-random-string');
+const NaiveBayes = require('@ladjs/naivebayes');
 const pMap = require('p-map');
 const { readDirDeep } = require('read-dir-deep');
 
 const SpamScanner = require('.');
+const VOCABULARY_LIMIT = require('./vocabulary-limit');
+const MBOX_PATTERNS = require('./mbox-patterns');
+const replacements = require('./replacements');
 
 const concurrency = os.cpus().length;
-
-const randomOptions = {
-  length: 10,
-  characters: 'abcdefghijklmnopqrstuvwxyz'
-};
-
-// simply delete the replacements.json to generate new replacements
-let replacements;
-try {
-  replacements = require('./replacements.json');
-} catch (err) {
-  console.error(err);
-  console.log('generating new replacements.json');
-  replacements = {
-    url: `url${cryptoRandomString(randomOptions)}`,
-    email: `email${cryptoRandomString(randomOptions)}`,
-    number: `number${cryptoRandomString(randomOptions)}`,
-    currency: `currency${cryptoRandomString(randomOptions)}`,
-    initialism: `initialism${cryptoRandomString(randomOptions)}`,
-    abbreviation: `abbreviation${cryptoRandomString(randomOptions)}`
-  };
-}
 
 // simply delete the classifier.json to retrain from scratch
 let json;
@@ -52,10 +29,10 @@ function tokenizer(tokens) {
 
 let classifier;
 if (json) {
-  classifier = NaiveBayes.fromJson(json);
+  classifier = NaiveBayes.fromJson(json, VOCABULARY_LIMIT);
   classifier.tokenizer = tokenizer;
 } else {
-  classifier = new NaiveBayes({ tokenizer });
+  classifier = new NaiveBayes({ tokenizer, vocabularyLimit: VOCABULARY_LIMIT });
 }
 
 if (
@@ -105,8 +82,8 @@ async function mapper(source) {
       '**/cmds',
       '**/cmd',
       '**/index',
-      '**/.DS_Store',
-      '**/*.mbox'
+      '**/.*', // ignore dotfiles
+      ...MBOX_PATTERNS
     ]
   });
   console.timeEnd('sources');
@@ -130,4 +107,7 @@ async function mapper(source) {
     JSON.stringify(replacements, null, 2)
   );
   console.timeEnd('writing replacements.json');
+
+  // eslint-disable-next-line unicorn/no-process-exit
+  process.exit(0);
 })();

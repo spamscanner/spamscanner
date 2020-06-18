@@ -8,6 +8,8 @@ const Mbox = require('node-mbox');
 const makeDir = require('make-dir');
 const pMap = require('p-map');
 
+const MBOX_PATTERNS = require('./mbox-patterns');
+
 const concurrency = os.cpus().length * 4;
 const writeFile = promisify(fs.writeFile);
 
@@ -53,14 +55,7 @@ function mapper(source) {
 (async () => {
   try {
     const sources = await readDirDeep(process.env.SCAN_DIR, {
-      patterns: [
-        '*.mbox',
-        '*.mail',
-        '**/*.mail',
-        '**/*.mbox',
-        '**/**/*.mail',
-        '**/**/*.mbox'
-      ]
+      patterns: MBOX_PATTERNS
     });
 
     console.log('sources.length', sources.length);

@@ -1,39 +1,17 @@
-// TODO: equal 50/50 ham vs. spam dataset
-// TODO: test classifier.json against dataset to determine percentage accuracy
-
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { Worker } = require('worker_threads');
 
-const NaiveBayes = require('naivebayes');
-const cryptoRandomString = require('crypto-random-string');
+const NaiveBayes = require('@ladjs/naivebayes');
 const pMap = require('p-map');
 const { readDirDeep } = require('read-dir-deep');
 
+const MBOX_PATTERNS = require('./mbox-patterns');
+const VOCABULARY_LIMIT = require('./vocabulary-limit');
+const replacements = require('./replacements');
+
 const concurrency = os.cpus().length;
-
-const randomOptions = {
-  length: 10,
-  characters: 'abcdefghijklmnopqrstuvwxyz'
-};
-
-// simply delete the replacements.json to generate new replacements
-let replacements;
-try {
-  replacements = require('./replacements.json');
-} catch (err) {
-  console.error(err);
-  console.log('generating new replacements.json');
-  replacements = {
-    url: `url${cryptoRandomString(randomOptions)}`,
-    email: `email${cryptoRandomString(randomOptions)}`,
-    number: `number${cryptoRandomString(randomOptions)}`,
-    currency: `currency${cryptoRandomString(randomOptions)}`,
-    initialism: `initialism${cryptoRandomString(randomOptions)}`,
-    abbreviation: `abbreviation${cryptoRandomString(randomOptions)}`
-  };
-}
 
 const classifierWorker = path.join(__dirname, 'classifier-worker.js');
 
@@ -53,10 +31,10 @@ function tokenizer(tokens) {
 
 let classifier;
 if (json) {
-  classifier = NaiveBayes.fromJson(json);
+  classifier = NaiveBayes.fromJson(json, VOCABULARY_LIMIT);
   classifier.tokenizer = tokenizer;
 } else {
-  classifier = new NaiveBayes({ tokenizer });
+  classifier = new NaiveBayes({ tokenizer, vocabularyLimit: VOCABULARY_LIMIT });
 }
 
 if (
@@ -103,8 +81,8 @@ async function mapper(source) {
       '**/cmds',
       '**/cmd',
       '**/index',
-      '**/.DS_Store',
-      '**/*.mbox'
+      '**/.*', // ignore dotfiles
+      ...MBOX_PATTERNS
     ]
   });
   console.timeEnd('sources');
@@ -128,4 +106,6 @@ async function mapper(source) {
     JSON.stringify(replacements, null, 2)
   );
   console.timeEnd('writing replacements.json');
+
+  process.exit(0);
 })();
