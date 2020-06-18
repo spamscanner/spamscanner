@@ -101,15 +101,16 @@ We have plans to add [NSFW image detection][nsfw] and opt-in [toxicity detection
 In a nutshell, here is how the Spam Scanner algorithm works:
 
 1. A message is passed to Spam Scanner, known as the "source".
+
 2. In parallel and asynchronously, the source is passed to functions that detect the following:
 
-* Classification
-* Phishing
-* Executables
-* Arbitrary
-* Viruses
+   * Classification
+   * Phishing
+   * Executables
+   * Arbitrary
+   * Viruses
 
-2. After all functions complete, if any returned a value indicating it is spam, then the source is considered to be spam.  A detailed result object is provided for inspection into the reason(s).
+3. After all functions complete, if any returned a value indicating it is spam, then the source is considered to be spam.  A detailed result object is provided for inspection into the reason(s).
 
 We have extensively documented the [API](#api) which provides insight into how each of these functions work.
 
