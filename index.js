@@ -54,7 +54,6 @@ const { parse } = require('node-html-parser');
 const { simpleParser } = require('mailparser');
 
 const { PorterStemmerFa, StemmerId, StemmerJa } = natural;
-const stemmerJa = new StemmerJa();
 
 const aggressiveTokenizer = new natural.AggressiveTokenizer();
 const orthographyTokenizer = new natural.OrthographyTokenizer({
@@ -607,22 +606,33 @@ class SpamScanner {
       }
     } else {
       debug('Not using PhishTank cached file');
-      const [res] = await Promise.all([
-        superagent
-          .get(
-            `https://data.phishtank.com/data/${this.config.phishTankAppKey}/online-valid.json`
-          )
-          .set('Accept', 'json')
-          .set('User-Agent', `phishtank/${this.config.phishTankUsername}`)
-          .send(),
-        makeDir(path.dirname(this.config.phishTankFilePath))
-      ]);
-      ({ body } = res);
-      if (Array.isArray(body))
-        await fs.promises.writeFile(
-          this.config.phishTankFilePath,
-          JSON.stringify(body)
-        );
+      try {
+        const [res] = await Promise.all([
+          superagent
+            .get(
+              `https://data.phishtank.com/data/${this.config.phishTankAppKey}/online-valid.json`
+            )
+            .set('Accept', 'json')
+            .set('User-Agent', `phishtank/${this.config.phishTankUsername}`)
+            .send(),
+          (async () => {
+            try {
+              await makeDir(path.dirname(this.config.phishTankFilePath));
+            } catch (err) {
+              this.config.logger.error(err);
+              if (err.code !== 'EEXIST') throw err;
+            }
+          })()
+        ]);
+        ({ body } = res);
+        if (Array.isArray(body))
+          await fs.promises.writeFile(
+            this.config.phishTankFilePath,
+            JSON.stringify(body)
+          );
+      } catch (err) {
+        this.config.logger.error(err);
+      }
     }
 
     if (!Array.isArray(body)) return;
@@ -825,7 +835,7 @@ class SpamScanner {
       case 'ja':
         tokenizer = tokenizerJa;
         stopwords = stopwordsJa;
-        stemword = stemmerJa.stem;
+        stemword = StemmerJa.prototype.stemKatakana;
         break;
       case 'nb':
       case 'nn':
@@ -1036,6 +1046,7 @@ class SpamScanner {
     return { tokens, mail };
   }
 
+  // eslint-disable-next-line complexity
   async getPhishingResults(mail) {
     const messages = [];
 
@@ -1068,35 +1079,41 @@ class SpamScanner {
       //
       const matches = mail.html.replace(NEWLINE_REGEX, ' ').match(ANCHOR_REGEX);
 
-      for (const match of matches) {
-        const root = parse(match);
-        const anchor = root.querySelector('a');
-        const textContent = striptags(anchor.innerHTML).trim();
-        const href = anchor.getAttribute('href');
-        // add the link if we haven't already
-        const normalized = this.getNormalizedUrl(href);
-        if (!links.includes(normalized)) links.push(normalized);
-        if (
-          isSANB(textContent) &&
-          validator.isURL(textContent) &&
-          isSANB(href) &&
-          validator.isURL(href)
-        ) {
-          const innerTextUrlHostname = this.getHostname(textContent);
-          const anchorUrlHostname = this.getHostname(href);
-          const innerTextUrlHostnameToASCII = punycode.toASCII(
-            innerTextUrlHostname
-          );
-          const anchorUrlHostnameToASCII = punycode.toASCII(anchorUrlHostname);
-          const str = `Anchor link with href of "${href}" and inner text value of "${textContent}"`;
-          if (innerTextUrlHostnameToASCII.startsWith('xn--'))
-            messages.push(
-              `${str} has possible IDN homograph attack from inner text hostname.`
+      if (Array.isArray(matches) && matches.length > 0) {
+        for (const match of matches) {
+          const root = parse(match);
+          const anchor = root.querySelector('a');
+          const textContent = striptags(anchor.innerHTML).trim();
+          const href = anchor.getAttribute('href');
+          // add the link if we haven't already
+          const normalized = this.getNormalizedUrl(href);
+          if (!links.includes(normalized)) links.push(normalized);
+          if (
+            isSANB(textContent) &&
+            validator.isURL(textContent) &&
+            isSANB(href) &&
+            validator.isURL(href)
+          ) {
+            const innerTextUrlHostname = this.getHostname(textContent);
+            const anchorUrlHostname = this.getHostname(href);
+            const innerTextUrlHostnameToASCII = punycode.toASCII(
+              innerTextUrlHostname
             );
-          if (anchorUrlHostnameToASCII.startsWith('xn--'))
-            messages.push(
-              `${str} has possible IDN homograph attack from anchor hostname.`
+            const anchorUrlHostnameToASCII = punycode.toASCII(
+              anchorUrlHostname
             );
+            const str = `Anchor link with href of "${href}" and inner text value of "${textContent}"`;
+            // eslint-disable-next-line max-depth
+            if (innerTextUrlHostnameToASCII.startsWith('xn--'))
+              messages.push(
+                `${str} has possible IDN homograph attack from inner text hostname.`
+              );
+            // eslint-disable-next-line max-depth
+            if (anchorUrlHostnameToASCII.startsWith('xn--'))
+              messages.push(
+                `${str} has possible IDN homograph attack from anchor hostname.`
+              );
+          }
         }
       }
     }

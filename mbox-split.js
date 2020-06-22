@@ -3,10 +3,11 @@ const os = require('os');
 const path = require('path');
 const { promisify } = require('util');
 
-const { readDirDeep } = require('read-dir-deep');
 const Mbox = require('node-mbox');
 const makeDir = require('make-dir');
 const pMap = require('p-map');
+const trim = require('trim-leading-whitespace');
+const { readDirDeep } = require('read-dir-deep');
 
 const MBOX_PATTERNS = require('./mbox-patterns');
 
@@ -18,8 +19,10 @@ if (typeof process.env.SCAN_DIR === 'undefined')
 
 function mapper(source) {
   return new Promise((resolve, reject) => {
+    console.log('source', source);
     const stream = fs.createReadStream(source);
-    const mbox = new Mbox(stream);
+    const input = stream.pipe(trim());
+    const mbox = new Mbox(input);
     const messages = [];
     mbox.on('message', message => messages.push(message));
     mbox.on('end', async () => {
@@ -30,22 +33,37 @@ function mapper(source) {
         try {
           await makeDir(mboxDir);
         } catch (err) {
+          console.log('source', source, 'err', err);
           if (err.code !== 'EEXIST') return reject(err);
         }
 
         await Promise.all(
-          messages.map((message, i) => {
-            return writeFile(
-              path.join(mboxDir, `${i}.txt`),
-              message.toString()
-            );
+          messages.map(async (message, i) => {
+            try {
+              await writeFile(
+                path.join(mboxDir, `${i}.txt`),
+                message.toString()
+              );
+            } catch (err) {
+              console.error('message', message, 'i', i, 'err', err);
+              try {
+                await writeFile(
+                  path.join(mboxDir, '..', `${i}.txt`),
+                  message.toString()
+                );
+              } catch (err) {
+                console.error('message', message, 'i', i, 'err', err);
+              }
+            }
           })
         );
         console.log(
           `wrote ${source} with ${messages.length} messages to ${mboxDir}`
         );
+
         resolve();
       } catch (err) {
+        console.log('source', source, 'err', err);
         reject(err);
       }
     });

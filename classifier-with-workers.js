@@ -7,6 +7,7 @@ const NaiveBayes = require('@ladjs/naivebayes');
 const pMap = require('p-map');
 const { readDirDeep } = require('read-dir-deep');
 
+const CLASSIFIER_IGNORES = require('./classifier-ignores');
 const MBOX_PATTERNS = require('./mbox-patterns');
 const VOCABULARY_LIMIT = require('./vocabulary-limit');
 const replacements = require('./replacements');
@@ -76,14 +77,7 @@ async function mapper(source) {
   const dir = path.resolve(process.env.SCAN_DIRECTORY);
 
   const sources = await readDirDeep(dir, {
-    ignore: [
-      '**/Summary.txt',
-      '**/cmds',
-      '**/cmd',
-      '**/index',
-      '**/.*', // ignore dotfiles
-      ...MBOX_PATTERNS
-    ]
+    ignore: [...CLASSIFIER_IGNORES, ...MBOX_PATTERNS]
   });
   console.timeEnd('sources');
 

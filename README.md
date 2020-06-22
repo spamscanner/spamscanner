@@ -464,7 +464,7 @@ Accepts a `locale` and returns it as a lowercase string with affixed localizatio
 [Business Source License 1.1](LICENSE) © [Niftylettuce, LLC.](https://niftylettuce.com/)
 
 
-##
+## 
 
 <a href="#"><img src="https://d1i8ikybhfrv4r.cloudfront.net/footer.png" alt="#" /></a>
 
