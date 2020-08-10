@@ -5,4 +5,3 @@ node_modules
 coverage
 .nyc_output
 data
-yarn.lock

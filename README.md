@@ -3,7 +3,7 @@
 </h1>
 <div align="center">
   <a href="https://join.slack.com/t/ladjs/shared_invite/zt-fqei6z11-Bq2trhwHQxVc5x~ifiZG0g"><img src="https://img.shields.io/badge/chat-join%20slack-brightgreen" alt="chat" /></a>
-  <a href="https://travis-ci.org/spamscanner/spamscanner"><img src="https://travis-ci.org/spamscanner/spamscanner.svg?branch=master" alt="build status" /></a>
+  <a href="https://travis-ci.com/spamscanner/spamscanner"><img src="https://travis-ci.com/spamscanner/spamscanner.svg?branch=master" alt="build status" /></a>
   <a href="https://codecov.io/github/spamscanner/spamscanner"><img src="https://img.shields.io/codecov/c/github/spamscanner/spamscanner/master.svg" alt="code coverage" /></a>
   <a href="https://github.com/sindresorhus/xo"><img src="https://img.shields.io/badge/code_style-XO-5ed9c7.svg" alt="code style" /></a>
   <a href="https://github.com/prettier/prettier"><img src="https://img.shields.io/badge/styled_with-prettier-ff69b4.svg" alt="styled with prettier" /></a>
