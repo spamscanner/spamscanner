@@ -5,8 +5,9 @@ node_js:
 install:
   - sudo apt-get update -qq
   - sudo apt-get install clamav-daemon clamav-freshclam clamav-unofficial-sigs -qq
-  - sudo freshclam --quiet
-  - sudo service clamav-daemon start
+  # on versions older than bionic it auto starts:
+  # - sudo freshclam --quiet
+  # - sudo service clamav-daemon start
   - yarn
 script: npm run test-coverage
 after_success: npm run coverage
