@@ -136,9 +136,10 @@ Note that you can simply use the Spam Scanner API for free at <https://spamscann
    ```sh
    sudo apt-get update
    sudo apt-get install build-essential clamav-daemon clamav-freshclam clamav-unofficial-sigs -qq
-   sudo freshclam -v
    sudo service clamav-daemon start
    ```
+
+   > You may need to run `sudo freshclam -v` if you receive an error when checking `sudo service clamav-daemon status`, but it is unlikely and depends on your distro.
 
 2. Configure ClamAV:
 

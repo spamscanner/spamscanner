@@ -312,7 +312,6 @@ class SpamScanner {
           socket: macosVersion.isMacOS
             ? '/tmp/clamd.socket'
             : '/var/run/clamav/clamd.ctl'
-          // : '/var/run/clamd.scan/clamd.sock'
         }
       },
       franc: {
