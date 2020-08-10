@@ -185,7 +185,7 @@ Note that you can simply use the Spam Scanner API for free at <https://spamscann
    brew install clamav
    ```
 
-2. Configure ClamAV (note the configuration path will be different depending on your OS):
+2. Configure ClamAV:
 
    ```sh
    sudo mv /usr/local/etc/clamav/freshclam.conf.sample /usr/local/etc/clamav/freshclam.conf
@@ -196,7 +196,6 @@ Note that you can simply use the Spam Scanner API for free at <https://spamscann
    ```
 
    ```diff
-   # Comment or remove the line below.
    -Example
    +#Example
    ```
