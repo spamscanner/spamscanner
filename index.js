@@ -419,7 +419,7 @@ class SpamScanner {
             ? attachment.filename
             : `#${i + 1}`;
           if (isInfected)
-            messages.push(`Attachment ${name} was infected with ${viruses}.`);
+            messages.push(`Attachment ${name} was infected with "${viruses}".`);
         } catch (err) {
           this.config.logger.error(err);
         }

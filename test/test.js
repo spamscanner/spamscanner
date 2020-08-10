@@ -151,8 +151,12 @@ test('EICAR test', async (t) => {
     attachments: [{ content }]
   });
   t.true(
-    results.includes('Attachment #1 was infected with Eicar-Test-Signature.') ||
-      results.includes('Attachment #1 was infected with Win.Test.EICAR_HDB-1.')
+    results.includes(
+      'Attachment #1 was infected with "Eicar-Test-Signature".'
+    ) ||
+      results.includes(
+        'Attachment #1 was infected with "Win.Test.EICAR_HDB-1".'
+      )
   );
 });
 
