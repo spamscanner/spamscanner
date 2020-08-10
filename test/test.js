@@ -150,10 +150,10 @@ test('EICAR test', async (t) => {
   const results = await scanner.getVirusResults({
     attachments: [{ content }]
   });
-  t.deepEqual(results, [
-    'Attachment #1 was infected with Eicar-Test-Signature.'
-    // 'Attachment #1 was infected with Win.Test.EICAR_HDB-1.'
-  ]);
+  t.true(
+    results.includes('Attachment #1 was infected with Eicar-Test-Signature.') ||
+      results.includes('Attachment #1 was infected with Win.Test.EICAR_HDB-1.')
+  );
 });
 
 test.todo('50/50 ham vs spam dataset test');
