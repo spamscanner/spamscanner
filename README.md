@@ -270,8 +270,8 @@ const source = fs.readFileSync(
 (async () => {
   try {
     await scanner.load();
-    const results = await scanner.scan(source);
-    console.log('results', results);
+    const scan = await scanner.scan(source);
+    console.log('scan', scan);
   } catch (err) {
     console.error(err);
   }
@@ -287,9 +287,9 @@ scanner
 // callback usage
 scanner.load(err => {
   if (err) return console.error(err);
-  scanner.scan(source, (err, results) => {
+  scanner.scan(source, (err, scan) => {
     if (err) return console.error(err);
-    console.log('results', results);
+    console.log('scan', scan);
   });
 });
 ```
@@ -319,7 +319,7 @@ This method returns a Promise that resolves with `scanner` (so it is chainable) 
 
 Accepts a required `source` (String, Buffer, or file path) argument which points to (or is) a complete and raw SMTP message (e.g. it includes headers and the full email).  Commonly this is known as an "eml" file type and contains the extension `.eml`, however you can pass a String or Buffer representation instead of a file path.
 
-This method returns a Promise that resolves with a `results` Object when scanning is completed.  You can also use this method with a second callback argument.
+This method returns a Promise that resolves with a `scan` Object when scanning is completed.  You can also use this method with a second callback argument.
 
 The `results` are returned as an Object with the following properties (descriptions of each property are listed below):
 
