@@ -282,7 +282,7 @@ const source = fs.readFileSync(
 scanner
   .load()
   .then(() => scan(source))
-  .then(results => console.log('results', results))
+  .then(scan => console.log('scan', scan))
   .catch(console.error);
 
 // callback usage
@@ -316,13 +316,13 @@ This method returns a Promise that resolves with `scanner` (so it is chainable) 
 
 ### `scanner.scan(source)`
 
-> **NOTE:** This is most useful method of this API as it returns the results of a scanned message.
+> **NOTE:** This is most useful method of this API as it returns the scanned results of a scanned message.
 
 Accepts a required `source` (String, Buffer, or file path) argument which points to (or is) a complete and raw SMTP message (e.g. it includes headers and the full email).  Commonly this is known as an "eml" file type and contains the extension `.eml`, however you can pass a String or Buffer representation instead of a file path.
 
 This method returns a Promise that resolves with a `scan` Object when scanning is completed.  You can also use this method with a second callback argument.
 
-The `results` are returned as an Object with the following properties (descriptions of each property are listed below):
+The scanned results are returned as an Object with the following properties (descriptions of each property are listed below):
 
 ```js
 {
