@@ -416,7 +416,7 @@ class SpamScanner {
             viruses
           } = await this.clamscan.scan_stream(stream);
           const name = isSANB(attachment.filename)
-            ? attachment.filename
+            ? `"${attachment.filename}"`
             : `#${i + 1}`;
           if (isInfected)
             messages.push(`Attachment ${name} was infected with "${viruses}".`);
