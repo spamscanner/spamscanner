@@ -2,11 +2,10 @@ language: node_js
 node_js:
   - '10'
   - '12'
-  - 'lts/*'
-  - 'node'
 install:
   - sudo apt-get update -qq
-  - sudo apt-get install clamav-daemon clamav-freshclam clamav-unofficial-sigs -qq
+  - sudo apt-get install clamav clamav-daemon
+  # sudo apt-get install clamav-daemon clamav-freshclam clamav-unofficial-sigs -qq
   - sudo freshclam --quiet
   - sudo service clamav-daemon start
 script:

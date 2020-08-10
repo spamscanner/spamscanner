@@ -24,7 +24,7 @@ function mapper(source) {
     const input = stream.pipe(trim());
     const mbox = new Mbox(input);
     const messages = [];
-    mbox.on('message', message => messages.push(message));
+    mbox.on('message', (message) => messages.push(message));
     mbox.on('end', async () => {
       try {
         const basename = path.basename(source, path.extname(source));
@@ -71,15 +71,11 @@ function mapper(source) {
 }
 
 (async () => {
-  try {
-    const sources = await readDirDeep(process.env.SCAN_DIR, {
-      patterns: MBOX_PATTERNS
-    });
+  const sources = await readDirDeep(process.env.SCAN_DIR, {
+    patterns: MBOX_PATTERNS
+  });
 
-    console.log('sources.length', sources.length);
+  console.log('sources.length', sources.length);
 
-    await pMap(sources, mapper, { concurrency });
-  } catch (err) {
-    throw err;
-  }
+  await pMap(sources, mapper, { concurrency });
 })();

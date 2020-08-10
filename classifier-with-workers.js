@@ -59,7 +59,7 @@ async function mapper(source) {
     const tokens = await new Promise((resolve, reject) => {
       worker.on('message', resolve);
       worker.on('error', reject);
-      worker.on('exit', code => {
+      worker.on('exit', (code) => {
         if (code !== 0)
           return reject(new Error(`Worker stopped with exit code ${code}`));
       });

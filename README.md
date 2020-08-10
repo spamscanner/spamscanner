@@ -2,7 +2,7 @@
   <a href="https://spamscanner.net"><img src="https://d1i8ikybhfrv4r.cloudfront.net/spamscanner.png" alt="spamscanner" /></a>
 </h1>
 <div align="center">
-  <a href="https://slack.crocodilejs.com"><img src="https://slack.crocodilejs.com/badge.svg" alt="chat" /></a>
+  <a href="https://join.slack.com/t/ladjs/shared_invite/zt-fqei6z11-Bq2trhwHQxVc5x~ifiZG0g"><img src="https://img.shields.io/badge/chat-join%20slack-brightgreen" alt="chat" /></a>
   <a href="https://travis-ci.org/spamscanner/spamscanner"><img src="https://travis-ci.org/spamscanner/spamscanner.svg?branch=master" alt="build status" /></a>
   <a href="https://codecov.io/github/spamscanner/spamscanner"><img src="https://img.shields.io/codecov/c/github/spamscanner/spamscanner/master.svg" alt="code coverage" /></a>
   <a href="https://github.com/sindresorhus/xo"><img src="https://img.shields.io/badge/code_style-XO-5ed9c7.svg" alt="code style" /></a>
@@ -49,6 +49,7 @@
   * [`scanner.getVirusResults(mail)`](#scannergetvirusresultsmail)
   * [`scanner.parseLocale(locale)`](#scannerparselocalelocale)
 * [Contributors](#contributors)
+* [References](#references)
 * [License](#license)
 
 
@@ -121,16 +122,25 @@ Note that you can simply use the Spam Scanner API for free at <https://spamscann
 
 | Dependency     | Description                                                                                                                                                                                                                                                                                                                    | References                                                                                                                                                                                                                                        |
 | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [Node.js][]    | You must install Node.js in order to use this project as it is Node.js based.  If you simply want to use the Spam Scanner API, visit the website at <https://spamscanner.net> for more information.                                                                                                                            |                                                                                                                                                                                                                                                   |
+| [Node.js][]    | You must install Node.js in order to use this project as it is Node.js based.  We recommend using [nvm][] and installing the latest with `nvm install --lts`.  If you simply want to use the Spam Scanner API, visit the website at <https://spamscanner.net> for more information.                                            |                                                                                                                                                                                                                                                   |
 | [Cloudflare][] | You must set `1.1.1.3` and `1.0.0.3` as your DNS servers as we use DNS to perform a lookup on links (an extra check in addition to PhishTank).                                                                                                                                                                                 | [Cloudflare announcement](https://blog.cloudflare.com/introducing-1-1-1-1-for-families/), [Cloudflare for Family](https://1.1.1.1/family/), [Cloudflare Developer Documentation](https://developers.cloudflare.com/1.1.1.1/1.1.1.1-for-families/) |
 | [PhishTank][]  | You must sign up as a developer on PhishTank and set your PhishTank username as `process.env.PHISHTANK_NAME` and your PhishTank app key as `process.env.PHISHTANK_APP_KEY` (or pass them as `phishTankUsername` and `phishTankAppKey` respectively; see [index.js](index.js) for more configuration, e.g. retrieval interval). | [PhishTank Developer Information](https://phishtank.com/developer_info.php)                                                                                                                                                                       |
 | [ClamAV][]     | You must install ClamAV on your system as we use it to scan for viruses.  See [ClamAV Configuration](#clamav-configuration) below.                                                                                                                                                                                             |                                                                                                                                                                                                                                                   |
 
 ### ClamAV Configuration
 
-1. Follow the instructions at <https://github.com/kylefarris/clamscan#to-use-local-binary-method-of-scanning> to install ClamAV on your operating system.
+#### Ubuntu
 
-2. Configure ClamAV (note the configuration path will be different depending on your OS):
+1. Install ClamAV:
+
+   ```sh
+   sudo apt-get update
+   sudo apt-get install clamav clamav-daemon build-essential
+   sudo freshclam -v
+   sudo service clamav-daemon restart
+   ```
+
+2. Configure ClamAV:
 
    ```sh
    sudo vim /etc/clamav/clamd.conf
@@ -158,7 +168,7 @@ Note that you can simply use the Spam Scanner API for free at <https://spamscann
    +#Example
    ```
 
-3. Ensure that ClamAV starts on boot (you will need to configure this differently depending on your OS):
+3. Ensure that ClamAV starts on boot:
 
    ```sh
    systemctl enable freshclamd
@@ -167,15 +177,35 @@ Note that you can simply use the Spam Scanner API for free at <https://spamscann
    systemctl start clamd
    ```
 
-4. Defer to these references if you have any issues:
+#### macOS
 
-* <https://www.digitalocean.com/community/tutorials/how-to-setup-exim-spamassassin-clamd-and-dovecot-on-an-arch-linux-vps>
-* <https://medium.com/@wingsuitist/set-up-clamav-for-osx-1-the-open-source-virus-scanner-82a927b60fa3>
-* <http://redgreenrepeat.com/2019/08/09/setting-up-clamav-on-macos/>
-* <https://paulrbts.github.io/blog/software/2017/08/18/clamav/>
-* <https://gist.github.com/zhurui1008/4fdc875e557014c3a34e>
+1. Install ClamAV:
 
-5. If you're on macOS and wish for `clamd` to start on boot:
+   ```sh
+   brew install clamav
+   ```
+
+2. Configure ClamAV (note the configuration path will be different depending on your OS):
+
+   ```sh
+   sudo mv /usr/local/etc/clamav/freshclam.conf.sample /usr/local/etc/clamav/freshclam.conf
+   ```
+
+   ```sh
+   sudo vim /usr/local/etc/clamav/freshclam.conf
+   ```
+
+   ```diff
+   # Comment or remove the line below.
+   -Example
+   +#Example
+   ```
+
+   ```sh
+   freshclam
+   ```
+
+3. Ensure that ClamAV starts on boot:
 
    ```sh
    sudo vim /Library/LaunchDaemons/org.clamav.clamd.plist
@@ -206,6 +236,8 @@ Note that you can simply use the Spam Scanner API for free at <https://spamscann
    sudo launchctl load /Library/LaunchDaemons/org.clamav.clamd.plist
    sudo launchctl start /Library/LaunchDaemons/org.clamav.clamd.plist
    ```
+
+4. You may want to periodically run `freshclam` to update the config, or configure a similar `plist` configuration for `launchctl`.
 
 
 ## Install
@@ -459,6 +491,15 @@ Accepts a `locale` and returns it as a lowercase string with affixed localizatio
 | **Shaun Warman** | <http://shaunwarman.com/>  |
 
 
+## References
+
+* <https://www.digitalocean.com/community/tutorials/how-to-setup-exim-spamassassin-clamd-and-dovecot-on-an-arch-linux-vps>
+* <https://medium.com/@wingsuitist/set-up-clamav-for-osx-1-the-open-source-virus-scanner-82a927b60fa3>
+* <http://redgreenrepeat.com/2019/08/09/setting-up-clamav-on-macos/>
+* <https://paulrbts.github.io/blog/software/2017/08/18/clamav/>
+* <https://gist.github.com/zhurui1008/4fdc875e557014c3a34e>
+
+
 ## License
 
 [Business Source License 1.1](LICENSE) © [Niftylettuce, LLC.](https://niftylettuce.com/)
@@ -511,3 +552,5 @@ Accepts a `locale` and returns it as a lowercase string with affixed localizatio
 [node.js]: https://nodejs.org
 
 [franc]: https://github.com/wooorm/franc
+
+[nvm]: https://github.com/nvm-sh/nvm

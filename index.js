@@ -105,7 +105,7 @@ const EXECUTABLES = require('./executables');
 
 const REPLACEMENT_WORDS = require('./replacement-words');
 
-const locales = i18nLocales.map(l => l.toLowerCase());
+const locales = new Set(i18nLocales.map((l) => l.toLowerCase()));
 
 const readFile = promisify(fs.readFile);
 
@@ -363,18 +363,18 @@ class SpamScanner {
     this.getHostname = this.getHostname.bind(this);
     this.getClassification = this.getClassification.bind(this);
 
-    if (!locales.includes(this.parseLocale(this.config.locale)))
+    if (!locales.has(this.parseLocale(this.config.locale)))
       throw new Error(
         `Locale of ${this.config.locale} was not valid according to locales list.`
       );
 
     if (!this.config.phishTankUsername)
-      throw new Error(
+      this.config.logger.warn(
         `PhishTank username is required to be passed as PHISHTANK_USERNAME environment variable or as option 'phishTankUsername'`
       );
 
     if (!this.config.phishTankAppKey)
-      throw new Error(
+      this.config.logger.warn(
         `PhishTank app key is required to be passed as PHISHTANK_APP_KEY environment variable or as option 'phishTankAppKey'`
       );
 
@@ -467,7 +467,7 @@ class SpamScanner {
     // (which would assume you are using 1.1.1.3 and 1.0.0.3)
     //
     try {
-      const res = await superagent
+      const response = await superagent
         .get(this.config.dnsEndpoint)
         .query({
           name,
@@ -476,7 +476,7 @@ class SpamScanner {
         .set('Accept', 'application/dns-json')
         .set('User-Agent', this.config.userAgent)
         .send();
-      const body = JSON.parse(res.body);
+      const body = JSON.parse(response.body);
       return (
         Array.isArray(body.Answer) &&
         body.Answer.length === 1 &&
@@ -513,10 +513,7 @@ class SpamScanner {
   // <https://github.com/sindresorhus/normalize-url/issues/111>
   //
   getNormalizedUrl(url) {
-    url = url
-      .trim()
-      .replace(/\.+$/, '')
-      .toLowerCase();
+    url = url.trim().replace(/\.+$/, '').toLowerCase();
     let normalized = url;
     try {
       normalized = normalizeUrl(url, normalizeUrlOptions);
@@ -536,7 +533,7 @@ class SpamScanner {
     }
 
     try {
-      const obj = new URL(
+      const object = new URL(
         `http://${punycode.toUnicode(hostname)}${normalized.slice(
           hostname.length
         )}`
@@ -546,7 +543,7 @@ class SpamScanner {
       // NOTE: we must strip reserved characters from the end of the string
       // (even Gmail does this practice)
       // <https://github.com/kevva/url-regex/issues/71>
-      const pathname = obj.pathname.replace(ENDING_RESERVED_REGEX, '');
+      const pathname = object.pathname.replace(ENDING_RESERVED_REGEX, '');
 
       //
       // NOTE: we strip querystring and hash here as we don't consider them
@@ -556,7 +553,7 @@ class SpamScanner {
       // (e.g. we will send them 429 retry or spam complaint status code
       // which will in turn alert them to the issue with whoever is spamming)
       //
-      return `${obj.hostname}${pathname === '/' ? '' : pathname}`;
+      return `${object.hostname}${pathname === '/' ? '' : pathname}`;
     } catch (err) {
       this.config.logger.error(err, { url, normalized });
       return normalized;
@@ -568,17 +565,22 @@ class SpamScanner {
   // <https://github.com/kevva/url-regex/issues/71>
   getUrls(text) {
     const urls = text.replace(NEWLINE_REGEX, ' ').match(URL_REGEX) || [];
-    const arr = [];
+    const array = [];
     for (const url of urls) {
       const normalized = this.getNormalizedUrl(url);
-      if (!arr.includes(normalized)) arr.push(normalized);
+      if (!array.includes(normalized)) array.push(normalized);
     }
 
-    return arr;
+    return array;
   }
 
   async getPhishTank() {
-    if (this._phishTankLoaded || !this.config.phishTankUsername) return;
+    if (
+      this._phishTankLoaded ||
+      !this.config.phishTankUsername ||
+      !this.config.phishTankAppKey
+    )
+      return;
     return this.loadPhishTank();
   }
 
@@ -607,7 +609,7 @@ class SpamScanner {
     } else {
       debug('Not using PhishTank cached file');
       try {
-        const [res] = await Promise.all([
+        const [response] = await Promise.all([
           superagent
             .get(
               `https://data.phishtank.com/data/${this.config.phishTankAppKey}/online-valid.json`
@@ -624,7 +626,7 @@ class SpamScanner {
             }
           })()
         ]);
-        ({ body } = res);
+        ({ body } = response);
         if (Array.isArray(body))
           await fs.promises.writeFile(
             this.config.phishTankFilePath,
@@ -641,13 +643,15 @@ class SpamScanner {
     this._phishTankUrls = [];
 
     // load the new array
-    for (const obj of body) {
-      if (typeof obj === 'object' && typeof obj.url === 'string')
-        this._phishTankUrls.push(this.getNormalizedUrl(obj.url));
+    for (const object of body) {
+      if (typeof object === 'object' && typeof object.url === 'string')
+        this._phishTankUrls.push(this.getNormalizedUrl(object.url));
     }
 
     this._phishTankLoaded = true;
   }
+
+  // TODO: https://github.com/geerlingguy/ansible-role-clamav
 
   async load(classifier) {
     classifier = classifier || this.config.classifier;
@@ -669,7 +673,7 @@ class SpamScanner {
       this.config.vocabularyLimit
     );
     // since we do tokenization ourselves
-    this.classifier.tokenizer = function(tokens) {
+    this.classifier.tokenizer = function (tokens) {
       return tokens;
     };
 
@@ -693,10 +697,7 @@ class SpamScanner {
 
   parseLocale(locale) {
     // convert `franc` locales here to their locale iso2 normalized name
-    return locale
-      .toLowerCase()
-      .split('-')[0]
-      .split('_')[0];
+    return locale.toLowerCase().split('-')[0].split('_')[0];
   }
 
   // <https://medium.com/analytics-vidhya/building-a-spam-filter-from-scratch-using-machine-learning-fc58b178ea56>
@@ -704,14 +705,14 @@ class SpamScanner {
   // <https://blog.logrocket.com/natural-language-processing-for-node-js/>
   // <https://github.com/NaturalNode/natural#stemmers>
   // eslint-disable-next-line complexity
-  async getTokens(str, locale, isHTML = false) {
+  async getTokens(string, locale, isHTML = false) {
     //
     // parse HTML for <html> tag with lang attr
     // otherwise if that wasn't found then look for this
     // <meta http-equiv="Content-Language" content="en-us">
     //
     if (!locale && isHTML) {
-      const root = parse(str);
+      const root = parse(string);
 
       const metas = root.querySelectorAll('meta');
 
@@ -719,7 +720,7 @@ class SpamScanner {
         if (
           meta.getAttribute('http-equiv') === 'Content-Language' &&
           isSANB(meta.getAttribute('content')) &&
-          locales.includes(this.parseLocale(meta.getAttribute('content')))
+          locales.has(this.parseLocale(meta.getAttribute('content')))
         ) {
           locale = this.parseLocale(meta.getAttribute('content'));
           break;
@@ -731,13 +732,13 @@ class SpamScanner {
         if (
           html &&
           isSANB(html.getAttribute('lang')) &&
-          locales.includes(this.parseLocale(html.getAttribute('lang')))
+          locales.has(this.parseLocale(html.getAttribute('lang')))
         )
           locale = this.parseLocale(html.getAttribute('lang'));
       }
     }
 
-    if (isHTML) str = sanitizeHtml(str, this.config.sanitizeHtml);
+    if (isHTML) string = sanitizeHtml(string, this.config.sanitizeHtml);
 
     const replacementRegexes = [];
     for (const key of Object.keys(this.config.replacements)) {
@@ -750,7 +751,7 @@ class SpamScanner {
       new RegExp(replacementRegexes.join('|'), 'g')
     );
 
-    str = striptags(str)
+    string = striptags(string)
       // replace newlines
       .replace(NEWLINE_REGEX, ' ')
       //
@@ -766,7 +767,7 @@ class SpamScanner {
     // <https://github.com/wooorm/franc/issues/86> (accurate with min length)
     // <https://github.com/FGRibreau/node-language-detect> (not too accurate)
     //
-    const detectedLanguage = franc(str, this.config.franc);
+    const detectedLanguage = franc(string, this.config.franc);
     if (
       detectedLanguage !== 'und' &&
       isSANB(ISO_CODE_MAPPING[detectedLanguage])
@@ -775,7 +776,7 @@ class SpamScanner {
 
     locale = this.parseLocale(isSANB(locale) ? locale : this.config.locale);
 
-    if (!locales.includes(locale)) {
+    if (!locales.has(locale)) {
       debug(`Locale ${locale} was not valid and will use default`);
       locale = this.parseLocale(this.config.locale);
     }
@@ -891,20 +892,21 @@ class SpamScanner {
       default:
     }
 
-    if (stemword === 'default') stemword = t => snowball.stemword(t, language);
+    if (stemword === 'default')
+      stemword = (t) => snowball.stemword(t, language);
 
-    str =
+    string =
       // handle emojis
       // - convert github emojis to unicode 13 emojis
       // - replace all unicode emojis
-      str
+      string
         .split(' ')
-        .map(_str =>
-          _str.startsWith(':') &&
-          _str.endsWith(':') &&
-          typeof toEmoji[_str.slice(1, _str.length - 1)] === 'string'
-            ? toEmoji[_str.slice(1, _str.length - 1)]
-            : _str
+        .map((_string) =>
+          _string.startsWith(':') &&
+          _string.endsWith(':') &&
+          typeof toEmoji[_string.slice(1, -1)] === 'string'
+            ? toEmoji[_string.slice(1, -1)]
+            : _string
         )
         .join(' ')
         .replace(EMOJI_REGEX, ` ${this.config.replacements.emoji} `)
@@ -928,14 +930,14 @@ class SpamScanner {
         // handle initialism(e.g. "AFK" -> "abbrev$crypto$afk")
         .replace(
           INITIALISM_REGEX,
-          s => ` ${this.config.replacements.initialism}${s} `
+          (s) => ` ${this.config.replacements.initialism}${s} `
         )
 
         // handle abbreviations (e.g. "u.s." -> "abbrev$crypto$us")
         // (note we have to replace the periods here)
         .replace(
           ABBREVIATION_REGEX,
-          s =>
+          (s) =>
             ` ${this.config.replacements.abbreviation}${s.split('.').join('')} `
         )
 
@@ -955,7 +957,7 @@ class SpamScanner {
 
     // expand contractions so "they're" -> [ they, are ] vs. [ they, re ]
     // <https://github.com/NaturalNode/natural/issues/533>
-    if (locale === 'en') str = contractions.expand(str);
+    if (locale === 'en') string = contractions.expand(string);
 
     // whitelist exclusions
     const whitelistedWords = Object.values(this.config.replacements);
@@ -970,7 +972,7 @@ class SpamScanner {
     //
     const tokens = sw
       .removeStopwords(
-        tokenizer.tokenize(str.toLowerCase()).map(token => {
+        tokenizer.tokenize(string.toLowerCase()).map((token) => {
           // whitelist words from being stemmed (safeguard)
           if (
             whitelistedWords.includes(token) ||
@@ -996,40 +998,40 @@ class SpamScanner {
         }),
         sw[locale]
       )
-      .filter(t => !stopwords.includes(t));
+      .filter((t) => !stopwords.includes(t));
 
     if (this.config.debug) return tokens;
 
     // we should sha256 all tokens with hasha if not in debug mode
     return Promise.all(
-      tokens.map(token => hasha.async(token, this.config.hasha))
+      tokens.map((token) => hasha.async(token, this.config.hasha))
     );
   }
 
-  async getTokensAndMailFromSource(str) {
-    let source = str;
-    if (isBuffer(str)) source = str.toString();
-    else if (typeof str === 'string' && isValidPath(str))
-      source = await readFile(str);
+  async getTokensAndMailFromSource(string) {
+    let source = string;
+    if (isBuffer(string)) source = string.toString();
+    else if (typeof string === 'string' && isValidPath(string))
+      source = await readFile(string);
 
     const tokens = [];
     const mail = await simpleParser(source, this.config.simpleParser);
 
     await Promise.all(
-      TOKEN_HEADERS.map(async header => {
+      TOKEN_HEADERS.map(async (header) => {
         try {
-          const str = isSANB(mail[header])
+          const string = isSANB(mail[header])
             ? mail[header]
             : typeof mail[header] === 'object' && isSANB(mail[header].text)
             ? mail[header].text
             : null;
 
-          if (!str) return;
+          if (!string) return;
 
           const contentLanguage = mail.headers.get('content-language');
           const isHTML = header === 'html';
           const tokensFound = await this.getTokens(
-            str,
+            string,
             contentLanguage,
             isHTML
           );
@@ -1102,16 +1104,16 @@ class SpamScanner {
             const anchorUrlHostnameToASCII = punycode.toASCII(
               anchorUrlHostname
             );
-            const str = `Anchor link with href of "${href}" and inner text value of "${textContent}"`;
+            const string = `Anchor link with href of "${href}" and inner text value of "${textContent}"`;
             // eslint-disable-next-line max-depth
             if (innerTextUrlHostnameToASCII.startsWith('xn--'))
               messages.push(
-                `${str} has possible IDN homograph attack from inner text hostname.`
+                `${string} has possible IDN homograph attack from inner text hostname.`
               );
             // eslint-disable-next-line max-depth
             if (anchorUrlHostnameToASCII.startsWith('xn--'))
               messages.push(
-                `${str} has possible IDN homograph attack from anchor hostname.`
+                `${string} has possible IDN homograph attack from anchor hostname.`
               );
           }
         }
@@ -1146,7 +1148,7 @@ class SpamScanner {
     // check against Cloudflare malware/phishing/adult DNS lookup
     // if it returns `0.0.0.0` it means it was flagged
     await Promise.all(
-      links.map(async link => {
+      links.map(async (link) => {
         try {
           const urlHostname = this.getHostname(link);
           const toASCII = punycode.toASCII(urlHostname);
@@ -1182,7 +1184,7 @@ class SpamScanner {
 
     // if any attachments have an executable
     await Promise.all(
-      mail.attachments.map(async attachment => {
+      mail.attachments.map(async (attachment) => {
         if (isBuffer(attachment.content)) {
           try {
             const fileType = await FileType.fromBuffer(attachment.content);
@@ -1225,13 +1227,13 @@ class SpamScanner {
     return messages;
   }
 
-  async scan(str) {
+  async scan(string) {
     if (!this.classifier)
       throw new Error(
         'Classifier not loaded, you must run `scanner.load()` before calling `scanner.scan()`.'
       );
 
-    const { tokens, mail } = await this.getTokensAndMailFromSource(str);
+    const { tokens, mail } = await this.getTokensAndMailFromSource(string);
 
     const [
       classification,
