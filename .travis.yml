@@ -9,6 +9,7 @@ install:
   - yarn
   - sleep 120
   - sudo service clamav-daemon start
-  - sudo service clamav-daemon status
+  - sleep 60
+  - sudo service clamav-daemon status -l
 script: npm run test-coverage
 after_success: npm run coverage

@@ -419,7 +419,7 @@ class SpamScanner {
             ? attachment.filename
             : `#${i + 1}`;
           if (isInfected)
-            messages.push(`Attachment ${name} was infected with ${viruses}`);
+            messages.push(`Attachment ${name} was infected with ${viruses}.`);
         } catch (err) {
           this.config.logger.error(err);
         }
@@ -446,7 +446,7 @@ class SpamScanner {
 
     if (gtube)
       messages.push(
-        'Message detected to contain the GTUBE test from <https://spamassassin.apache.org/gtube/>'
+        'Message detected to contain the GTUBE test from <https://spamassassin.apache.org/gtube/>.'
       );
 
     return messages;

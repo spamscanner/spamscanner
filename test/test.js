@@ -134,7 +134,7 @@ You should send this test mail from an account outside of your network.
     `.trim()
   });
   t.deepEqual(results, [
-    'Message detected to contain the GTUBE test from <https://spamassassin.apache.org/gtube/>'
+    'Message detected to contain the GTUBE test from <https://spamassassin.apache.org/gtube/>.'
   ]);
 });
 
@@ -151,8 +151,8 @@ test('EICAR test', async (t) => {
     attachments: [{ content }]
   });
   t.deepEqual(results, [
-    'Attachment #1 was infected with Eicar-Test-Signature'
-    // 'Attachment #1 was infected with Win.Test.EICAR_HDB-1'
+    'Attachment #1 was infected with Eicar-Test-Signature.'
+    // 'Attachment #1 was infected with Win.Test.EICAR_HDB-1.'
   ]);
 });
 
