@@ -956,7 +956,9 @@ class SpamScanner {
 
       if (Array.isArray(matches) && matches.length > 0) {
         for (const match of matches) {
-          const root = parse(match);
+          // the `toLowerCase()` is required due to this bug:
+          // <https://github.com/taoqf/node-html-parser/issues/60>
+          const root = parse(match.toLowerCase());
           const anchor = root.querySelector('a');
 
           // there is an edge (not sure where/how) possibly with regex
