@@ -382,30 +382,36 @@ class SpamScanner {
 
     if (!Array.isArray(mail.attachments)) return messages;
 
-    // if it was already loaded, clamscan won't reload itself
-    // it has logic built-in to return early with the already initialized instance
-    const clamscan = await this.clamscan.init(this.config.clamscan);
+    try {
+      // if it was already loaded, clamscan won't reload itself
+      // it has logic built-in to return early with the already initialized instance
+      const clamscan = await this.clamscan.init(this.config.clamscan);
 
-    await Promise.all(
-      mail.attachments.map(async (attachment, i) => {
-        try {
-          const stream = isStream(attachment.content)
-            ? attachment.content
-            : intoStream(attachment.content);
-          const {
-            is_infected: isInfected,
-            viruses
-          } = await clamscan.scan_stream(stream);
-          const name = isSANB(attachment.filename)
-            ? `"${attachment.filename}"`
-            : `#${i + 1}`;
-          if (isInfected)
-            messages.push(`Attachment ${name} was infected with "${viruses}".`);
-        } catch (err) {
-          this.config.logger.error(err);
-        }
-      })
-    );
+      await Promise.all(
+        mail.attachments.map(async (attachment, i) => {
+          try {
+            const stream = isStream(attachment.content)
+              ? attachment.content
+              : intoStream(attachment.content);
+            const {
+              is_infected: isInfected,
+              viruses
+            } = await clamscan.scan_stream(stream);
+            const name = isSANB(attachment.filename)
+              ? `"${attachment.filename}"`
+              : `#${i + 1}`;
+            if (isInfected)
+              messages.push(
+                `Attachment ${name} was infected with "${viruses}".`
+              );
+          } catch (err) {
+            this.config.logger.error(err);
+          }
+        })
+      );
+    } catch (err) {
+      this.config.logger.error(err);
+    }
 
     return messages;
   }
