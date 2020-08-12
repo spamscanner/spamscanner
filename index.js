@@ -600,8 +600,21 @@ class SpamScanner {
         }
       }
 
+      const _metas = root.querySelectorAll('META');
+
+      for (const meta of _metas) {
+        if (
+          meta.getAttribute('http-equiv') === 'Content-Language' &&
+          isSANB(meta.getAttribute('content')) &&
+          locales.has(this.parseLocale(meta.getAttribute('content')))
+        ) {
+          locale = this.parseLocale(meta.getAttribute('content'));
+          break;
+        }
+      }
+
       if (!locale) {
-        const html = root.querySelector('html');
+        const html = root.querySelector('html') || root.querySelector('HTML');
         if (
           html &&
           isSANB(html.getAttribute('lang')) &&
@@ -956,10 +969,9 @@ class SpamScanner {
 
       if (Array.isArray(matches) && matches.length > 0) {
         for (const match of matches) {
-          // the `toLowerCase()` is required due to this bug:
+          const root = parse(match);
           // <https://github.com/taoqf/node-html-parser/issues/60>
-          const root = parse(match.toLowerCase());
-          const anchor = root.querySelector('a');
+          const anchor = root.querySelector('a') || root.querySelector('A');
 
           // there is an edge (not sure where/how) possibly with regex
           // but the `anchor` will be `null` here sometimes so we
