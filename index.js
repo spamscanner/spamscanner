@@ -915,7 +915,6 @@ class SpamScanner {
     return { tokens, mail };
   }
 
-  // eslint-disable-next-line complexity
   async getPhishingResults(mail) {
     const messages = [];
 
@@ -1003,13 +1002,6 @@ class SpamScanner {
         messages.push(
           `Possible IDN homograph attack from link of "${link}" with punycode converted hostname of "${toASCII}".`
         );
-      if (
-        Array.isArray(this._phishTankUrls) &&
-        this._phishTankUrls.includes(link)
-      )
-        messages.push(
-          `Link of "${link}" was detected by PhishTank to be phishing-related.`
-        );
     }
 
     // check against Cloudflare malware/phishing/adult DNS lookup
@@ -1019,11 +1011,10 @@ class SpamScanner {
         try {
           const urlHostname = this.getHostname(link);
           const toASCII = punycode.toASCII(urlHostname);
+          const message = `Link hostname of "${toASCII}" was detected by Cloudflare to contain malware, phishing, and/or adult content.`;
+          if (messages.includes(message)) return;
           const isBlocked = await this.isCloudflareBlocked(toASCII);
-          if (isBlocked)
-            messages.push(
-              `Link of "${link}" was detected by Cloudflare to contain malware, phishing, and/or adult content.`
-            );
+          if (isBlocked && !messages.includes(message)) messages.push(message);
         } catch (err) {
           this.config.logger.error(err);
         }

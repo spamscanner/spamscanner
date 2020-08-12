@@ -62,7 +62,7 @@ test('should check against Cloudflare', async (t) => {
     text: link
   });
   t.deepEqual(results.messages, [
-    `Link of "${link}" was detected by Cloudflare to contain malware, phishing, and/or adult content.`,
+    `Link hostname of "${link}" was detected by Cloudflare to contain malware, phishing, and/or adult content.`,
     `Phishing whitelist requests can be filed at ${scanner.config.issues}.`
   ]);
 });
