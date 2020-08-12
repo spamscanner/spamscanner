@@ -38,7 +38,6 @@
 * [Usage](#usage)
 * [API](#api)
   * [`const scanner = new SpamScanner(options)`](#const-scanner--new-spamscanneroptions)
-  * [`scanner.load(path)`](#scannerloadpath)
   * [`scanner.scan(source)`](#scannerscansource)
   * [`scanner.getTokensAndMailFromSource(source)`](#scannergettokensandmailfromsourcesource)
   * [`scanner.getClassification(tokens)`](#scannergetclassificationtokens)
@@ -120,12 +119,11 @@ We have extensively documented the [API](#api) which provides insight into how e
 
 Note that you can simply use the Spam Scanner API for free at <https://spamscanner.net> instead of having to independently maintain and self-host your own instance.
 
-| Dependency     | Description                                                                                                                                                                                                                                                                                                                    | References                                                                                                                                                                                                                                        |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [Node.js][]    | You must install Node.js in order to use this project as it is Node.js based.  We recommend using [nvm][] and installing the latest with `nvm install --lts`.  If you simply want to use the Spam Scanner API, visit the website at <https://spamscanner.net> for more information.                                            |                                                                                                                                                                                                                                                   |
-| [Cloudflare][] | You must set `1.1.1.3` and `1.0.0.3` as your DNS servers as we use DNS to perform a lookup on links (an extra check in addition to PhishTank).                                                                                                                                                                                 | [Cloudflare announcement](https://blog.cloudflare.com/introducing-1-1-1-1-for-families/), [Cloudflare for Family](https://1.1.1.1/family/), [Cloudflare Developer Documentation](https://developers.cloudflare.com/1.1.1.1/1.1.1.1-for-families/) |
-| [PhishTank][]  | You must sign up as a developer on PhishTank and set your PhishTank username as `process.env.PHISHTANK_NAME` and your PhishTank app key as `process.env.PHISHTANK_APP_KEY` (or pass them as `phishTankUsername` and `phishTankAppKey` respectively; see [index.js](index.js) for more configuration, e.g. retrieval interval). | [PhishTank Developer Information](https://phishtank.com/developer_info.php)                                                                                                                                                                       |
-| [ClamAV][]     | You must install ClamAV on your system as we use it to scan for viruses.  See [ClamAV Configuration](#clamav-configuration) below.                                                                                                                                                                                             |                                                                                                                                                                                                                                                   |
+| Dependency     | Description                                                                                                                                                                                                                                                                                        |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [Node.js][]    | You must install Node.js in order to use this project as it is Node.js based.  We recommend using [nvm][] and installing the latest with `nvm install --lts`.  If you simply want to use the Spam Scanner API, visit the website at <https://spamscanner.net> for more information.                |
+| [Cloudflare][] | You can optionally set `1.1.1.3` and `1.0.0.3` as your DNS servers as we use DNS over HTTPS to perform a lookup on links, with a fallback to the DNS servers set on the system itself if the DNS over HTTPS request fails.  We use Cloudflare for Family for detecting phishing and malware links. |
+| [ClamAV][]     | You must install ClamAV on your system as we use it to scan for viruses.  See [ClamAV Configuration](#clamav-configuration) below.                                                                                                                                                                 |
 
 ### ClamAV Configuration
 
@@ -270,7 +268,6 @@ const source = fs.readFileSync(
 // async/await usage
 (async () => {
   try {
-    await scanner.load();
     const scan = await scanner.scan(source);
     console.log('scan', scan);
   } catch (err) {
@@ -280,18 +277,15 @@ const source = fs.readFileSync(
 
 // then/catch usage
 scanner
-  .load()
-  .then(() => scan(source))
+  .scan(source)
   .then(scan => console.log('scan', scan))
   .catch(console.error);
 
 // callback usage
-scanner.load(err => {
+if (err) return console.error(err);
+scanner.scan(source, (err, scan) => {
   if (err) return console.error(err);
-  scanner.scan(source, (err, scan) => {
-    if (err) return console.error(err);
-    console.log('scan', scan);
-  });
+  console.log('scan', scan);
 });
 ```
 
@@ -305,14 +299,6 @@ The `SpamScanner` class accepts an optional `options` Object of options to confi
 We have configured the scanner defaults to utilize a default classifier, and sensible options for ensuring scanning works properly.
 
 For a list of all options and their defaults, see the [index.js](index.js) file in the root of this repository.
-
-### `scanner.load(path)`
-
-Accepts an optional `path` (String) argument that is the file system path to the trained classifier data.  If you do not pass a `path` then it defaults to loading `./classifier.json` (the default out of the box classifier).
-
-Note that **you must load the classifier into the scanner** with `scanner.load()` **BEFORE** you call `scanner.scan()` – otherwise an exception will be thrown with human-friendly error message.
-
-This method returns a Promise that resolves with `scanner` (so it is chainable) when the classifier data is done loading.  You can also use this method with a second callback argument.
 
 ### `scanner.scan(source)`
 
@@ -417,9 +403,7 @@ This method also prevents the common [IDN homograph attacks][homograph-attack]. 
 
 A common example of this is a link of `рaypal.com` which when converted to ASCII is `xn--aypal-uye.com` – but when rendered it looks almost identical (if not identical) to `paypal.com`.
 
-This method also conditionally downloads every 1.5 hours (configurable) the [PhishTank](https://phishtank.com/) database in JSON format from <http://data.phishtank.com/data/online-valid.json>.
-
-In addition to checking against [PhishTank][], if you are using Cloudflare's DNS servers of `1.1.1.3` and `1.0.0.3` as mentioned in [Requirements](#requirements)) it also does a DNS lookup to resolve the hostname (using DNS over HTTPS with a fallback of [dns.resolve4](https://nodejs.org/api/dns.html#dns_dns_resolve4_hostname_options_callback)) – and if it returns `0.0.0.0` then it is considered to be phishing.
+If you are using Cloudflare's DNS servers of `1.1.1.3` and `1.0.0.3` as mentioned in [Requirements](#requirements)), then if there are any HTTPS over DNS request errors, it will fallback to use the DNS servers set on the system for lookups, which would in turn use Cloudflare for Family DNS. (using DNS over HTTPS with a fallback of [dns.resolve4](https://nodejs.org/api/dns.html#dns_dns_resolve4_hostname_options_callback)) – and if it returns `0.0.0.0` then it is considered to be phishing.
 
 ### `scanner.getExecutableResults(mail)`
 
@@ -542,8 +526,6 @@ Accepts a `locale` and returns it as a lowercase string with affixed localizatio
 [naivebayes]: https://github.com/ladjs/naivebayes
 
 [better-plan-for-spam]: http://www.paulgraham.com/better.html
-
-[phishtank]: https://phishtank.com/
 
 [cloudflare]: https://cloudflare.com/
 

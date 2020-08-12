@@ -11,10 +11,6 @@ function fixtures(name) {
 
 const scanner = new SpamScanner();
 
-test.before(async () => {
-  await scanner.load();
-});
-
 //
 // TODO: re-enable these three tests once classifier is fixed
 //
@@ -57,28 +53,6 @@ test('should detect executable files', async (t) => {
   const scan = await scanner.scan(fixtures('executable.eml'));
   t.true(scan.is_spam);
   t.true(scan.results.executables.length > 0);
-});
-
-test('should check against PhishTank', async (t) => {
-  t.true(scanner._phishTankLoaded);
-  t.true(Array.isArray(scanner._phishTankUrls));
-  t.true(scanner._phishTankUrls.length > 0);
-  const link = scanner._phishTankUrls[0];
-  const results = await scanner.getPhishingResults({
-    html: `<a href="${link}">test</a>`,
-    text: link
-  });
-  t.true(
-    results.messages.includes(
-      `Link of "${link}" was detected by PhishTank to be phishing-related.`
-    )
-  );
-  t.true(
-    results.messages.includes(
-      `Phishing whitelist requests can be filed at ${scanner.config.issues}.`
-    )
-  );
-  t.true(results.links.includes(scanner.getNormalizedUrl(link)));
 });
 
 test('should check against Cloudflare', async (t) => {

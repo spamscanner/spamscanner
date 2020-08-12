@@ -1,7 +1,5 @@
 const dns = require('dns');
 const fs = require('fs');
-const os = require('os');
-const path = require('path');
 const { promisify } = require('util');
 
 // eslint-disable-next-line node/no-deprecated-api
@@ -32,9 +30,7 @@ const isStream = require('is-stream');
 const isValidPath = require('is-valid-path');
 const macRegex = require('mac-regex');
 const macosVersion = require('macos-version');
-const makeDir = require('make-dir');
 const mime = require('mime-types');
-const ms = require('ms');
 const natural = require('natural');
 const normalizeUrl = require('normalize-url');
 const phoneRegex = require('phone-regex');
@@ -291,19 +287,6 @@ class SpamScanner {
         ],
         allowedAttributes: false
       },
-      phishTankFilePath: path.join(
-        os.homedir(),
-        '.cache',
-        'spamscanner',
-        'phishtank.json'
-      ),
-      phishTankUsername: isSANB(process.env.PHISHTANK_USERNAME)
-        ? process.env.PHISHTANK_USERNAME
-        : false,
-      phishTankAppKey: isSANB(process.env.PHISHTANK_APP_KEY)
-        ? process.env.PHISHTANK_APP_KEY
-        : false,
-      phishTankInterval: ms('1.5h'),
       issues: PKG.bugs.url,
       dnsEndpoint: 'https://family.cloudflare-dns.com/dns-query',
       userAgent: `${PKG.name}/${PKG.version}`,
@@ -336,9 +319,25 @@ class SpamScanner {
         throw new Error(`Replacement for "${replacement}" missing`);
     }
 
-    this.classifier = false;
-    this._phishTankLoaded = false;
-    this._phishTankUrls = [];
+    this.classifier =
+      typeof this.config.classifier === 'object'
+        ? this.config.classifier
+        : typeof this.config.classifier === 'string'
+        ? isValidPath(this.config.classifier)
+          ? require(this.config.classifier)
+          : JSON.parse(this.config.classifier)
+        : false;
+
+    this.classifier = NaiveBayes.fromJson(
+      this.classifier,
+      this.config.vocabularyLimit
+    );
+    // since we do tokenization ourselves
+    this.classifier.tokenizer = function (tokens) {
+      return tokens;
+    };
+
+    this.clamscan = new ClamScan();
 
     this.getTokensAndMailFromSource = universalify.fromPromise(
       this.getTokensAndMailFromSource.bind(this)
@@ -351,8 +350,6 @@ class SpamScanner {
     this.scan = universalify.fromPromise(this.scan.bind(this));
     this.getTokens = this.getTokens.bind(this);
     this.parseLocale = this.parseLocale.bind(this);
-    this.getPhishTank = this.getPhishTank.bind(this);
-    this.loadPhishTank = this.loadPhishTank.bind(this);
     this.getNormalizedUrl = this.getNormalizedUrl.bind(this);
     this.getUrls = this.getUrls.bind(this);
     this.isCloudflareBlocked = this.isCloudflareBlocked.bind(this);
@@ -366,26 +363,6 @@ class SpamScanner {
     if (!locales.has(this.parseLocale(this.config.locale)))
       throw new Error(
         `Locale of ${this.config.locale} was not valid according to locales list.`
-      );
-
-    if (!this.config.phishTankUsername)
-      this.config.logger.warn(
-        `PhishTank username is required to be passed as PHISHTANK_USERNAME environment variable or as option 'phishTankUsername'`
-      );
-
-    if (!this.config.phishTankAppKey)
-      this.config.logger.warn(
-        `PhishTank app key is required to be passed as PHISHTANK_APP_KEY environment variable or as option 'phishTankAppKey'`
-      );
-
-    // set interval for phishtank if it was set
-    if (
-      typeof this.config.phishTankInterval === 'number' &&
-      isSANB(this.config.phishTankFilePath)
-    )
-      this.phishTankInterval = setInterval(
-        this.loadPhishTank,
-        this.config.phishTankInterval
       );
   }
 
@@ -405,6 +382,10 @@ class SpamScanner {
 
     if (!Array.isArray(mail.attachments)) return messages;
 
+    // if it was already loaded, clamscan won't reload itself
+    // it has logic built-in to return early with the already initialized instance
+    const clamscan = await this.clamscan.init(this.config.clamscan);
+
     await Promise.all(
       mail.attachments.map(async (attachment, i) => {
         try {
@@ -414,7 +395,7 @@ class SpamScanner {
           const {
             is_infected: isInfected,
             viruses
-          } = await this.clamscan.scan_stream(stream);
+          } = await clamscan.scan_stream(stream);
           const name = isSANB(attachment.filename)
             ? `"${attachment.filename}"`
             : `#${i + 1}`;
@@ -574,127 +555,7 @@ class SpamScanner {
     return array;
   }
 
-  async getPhishTank() {
-    if (
-      this._phishTankLoaded ||
-      !this.config.phishTankUsername ||
-      !this.config.phishTankAppKey
-    )
-      return;
-    return this.loadPhishTank();
-  }
-
-  async loadPhishTank() {
-    let body;
-
-    // check if file exists and if it was modified within $interval inclusive
-    let stats;
-    try {
-      stats = await fs.promises.stat(this.config.phishTankFilePath);
-    } catch (err) {
-      if (err.code !== 'ENOENT') throw err;
-    }
-
-    if (
-      stats &&
-      stats.isFile() &&
-      stats.mtimeMs >= Date.now() - this.config.phishTankInterval
-    ) {
-      debug('Using PhishTank cached file');
-      try {
-        body = require(this.config.phishTankFilePath);
-      } catch (err) {
-        this.config.logger.error(err);
-      }
-    } else {
-      debug('Not using PhishTank cached file');
-      try {
-        const [response] = await Promise.all([
-          superagent
-            .get(
-              `https://data.phishtank.com/data/${this.config.phishTankAppKey}/online-valid.json`
-            )
-            .set('Accept', 'json')
-            .set('User-Agent', `phishtank/${this.config.phishTankUsername}`)
-            .send(),
-          (async () => {
-            try {
-              await makeDir(path.dirname(this.config.phishTankFilePath));
-            } catch (err) {
-              this.config.logger.error(err);
-              if (err.code !== 'EEXIST') throw err;
-            }
-          })()
-        ]);
-        ({ body } = response);
-        if (Array.isArray(body))
-          await fs.promises.writeFile(
-            this.config.phishTankFilePath,
-            JSON.stringify(body)
-          );
-      } catch (err) {
-        this.config.logger.error(err);
-      }
-    }
-
-    if (!Array.isArray(body)) return;
-
-    // reset the array
-    this._phishTankUrls = [];
-
-    // load the new array
-    for (const object of body) {
-      if (typeof object === 'object' && typeof object.url === 'string')
-        this._phishTankUrls.push(this.getNormalizedUrl(object.url));
-    }
-
-    this._phishTankLoaded = true;
-  }
-
   // TODO: https://github.com/geerlingguy/ansible-role-clamav
-
-  async load(classifier) {
-    classifier = classifier || this.config.classifier;
-
-    this.classifier =
-      typeof classifier === 'object'
-        ? classifier
-        : typeof classifier === 'string'
-        ? isValidPath(classifier)
-          ? require(classifier)
-          : JSON.parse(classifier)
-        : false;
-
-    if (typeof classifier !== 'object')
-      throw new Error('Classifier must be an Object');
-
-    this.classifier = NaiveBayes.fromJson(
-      this.classifier,
-      this.config.vocabularyLimit
-    );
-    // since we do tokenization ourselves
-    this.classifier.tokenizer = function (tokens) {
-      return tokens;
-    };
-
-    const [clamscan] = await Promise.all([
-      new ClamScan().init(this.config.clamscan),
-      (async () => {
-        // if the user provided PhishTank name and key
-        // then we should download the database if it hasn't already been
-        try {
-          await this.getPhishTank();
-        } catch (err) {
-          this.config.logger.error(err);
-        }
-      })()
-    ]);
-
-    this.clamscan = clamscan;
-
-    return this;
-  }
-
   parseLocale(locale) {
     // convert `franc` locales here to their locale iso2 normalized name
     return locale.toLowerCase().split('-')[0].split('_')[0];
@@ -1228,11 +1089,6 @@ class SpamScanner {
   }
 
   async scan(string) {
-    if (!this.classifier)
-      throw new Error(
-        'Classifier not loaded, you must run `scanner.load()` before calling `scanner.scan()`.'
-      );
-
     const { tokens, mail } = await this.getTokensAndMailFromSource(string);
 
     const [
