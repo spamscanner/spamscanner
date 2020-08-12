@@ -5,7 +5,8 @@
   "author": "Niftylettuce, LLC. <niftylettuce@gmail.com> (https://niftylettuce.com/)",
   "ava": {
     "timeout": "30s",
-    "verbose": true
+    "verbose": true,
+    "serial": true
   },
   "bugs": {
     "url": "https://github.com/spamscanner/spamscanner/issues",
