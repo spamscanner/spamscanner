@@ -119,6 +119,9 @@ const normalizeUrlOptions = {
 // <https://stackoverflow.com/a/9158444>
 const ANCHOR_REGEX = new RE2(/<a.*?>.*?<\/a>/gi);
 
+// <https://github.com/kevva/url-regex/pull/35#issuecomment-672754025>
+const BRACKET_REGEX = new RE2(/^[[\]()]*|[[\]()]*$/g);
+
 // <https://github.com/mathiasbynens/emoji-regex/issues/59#issuecomment-640418649>
 const EMOJI_REGEX = new RE2(emojiPatterns.Emoji_All, 'gu');
 const FLOATING_POINT_REGEX = new RE2(floatingPointRegex());
@@ -134,9 +137,7 @@ const NEWLINE_REGEX = new RE2(/\r\n|\n|\r/gm);
 // <https://stackoverflow.com/a/5917217>
 const NUMBER_REGEX = new RE2(/\d[\d,.]*/g);
 const ALPHA_REGEX = new RE2(/^[a-z]+$/i);
-const URL_REGEX = new RE2(
-  urlRegex({ exact: false, strict: false, ...normalizeUrlOptions })
-);
+const URL_REGEX = new RE2(urlRegex({ exact: false, strict: false }));
 const EMAIL_REGEX = new RE2(emailRegex({ exact: false }));
 // <https://superuser.com/a/1182181>
 const INITIALISM_REGEX = new RE2(/\b(?:[A-Z][a-z]*){2,}/g);
@@ -550,11 +551,16 @@ class SpamScanner {
   // <https://github.com/kevva/url-regex/issues/70
   // <https://github.com/sindresorhus/get-urls/blob/master/index.js
   // <https://github.com/kevva/url-regex/issues/71>
+  // <https://github.com/kevva/url-regex/pull/35>
+  //
   getUrls(text) {
     const urls = text.replace(NEWLINE_REGEX, ' ').match(URL_REGEX) || [];
     const array = [];
     for (const url of urls) {
-      const normalized = this.getNormalizedUrl(url);
+      //
+      // NOTE: we manually must strip starting and closing brackets and parens
+      // <https://github.com/kevva/url-regex/pull/35#issuecomment-672754025>
+      const normalized = this.getNormalizedUrl(url.replace(BRACKET_REGEX, ''));
       if (!array.includes(normalized)) array.push(normalized);
     }
 
@@ -915,6 +921,7 @@ class SpamScanner {
     return { tokens, mail };
   }
 
+  // eslint-disable-next-line complexity
   async getPhishingResults(mail) {
     const messages = [];
 
@@ -951,11 +958,28 @@ class SpamScanner {
         for (const match of matches) {
           const root = parse(match);
           const anchor = root.querySelector('a');
+
+          // there is an edge (not sure where/how) possibly with regex
+          // but the `anchor` will be `null` here sometimes so we
+          // should catch that and prevent an error from being thrown
+          if (!anchor) {
+            this.config.logger.error(
+              new Error(`Anchor not found for match: ${match}`)
+            );
+            continue;
+          }
+
           const textContent = striptags(anchor.innerHTML).trim();
           const href = anchor.getAttribute('href');
-          // add the link if we haven't already
-          const normalized = this.getNormalizedUrl(href);
-          if (!links.includes(normalized)) links.push(normalized);
+          const hasHref = isSANB(href) && validator.isURL(href);
+
+          if (hasHref) {
+            // add the link if we haven't already
+            const normalized = this.getNormalizedUrl(href);
+            // eslint-disable-next-line max-depth
+            if (!links.includes(normalized)) links.push(normalized);
+          }
+
           if (
             isSANB(textContent) &&
             validator.isURL(textContent) &&
