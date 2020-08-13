@@ -58,7 +58,7 @@ test('should detect executable files', async (t) => {
 test('should check against Cloudflare', async (t) => {
   const link = Buffer.from('eHZpZGVvcy5jb20=', 'base64').toString();
   const results = await scanner.getPhishingResults({
-    html: `<a href="${link}">test</a>`,
+    html: `<a href="${link}">test</a>${link}<A href="${link}/foo">${link}</A>`,
     text: link
   });
   t.deepEqual(results.messages, [

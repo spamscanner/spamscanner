@@ -560,7 +560,14 @@ class SpamScanner {
       //
       // NOTE: we manually must strip starting and closing brackets and parens
       // <https://github.com/kevva/url-regex/pull/35#issuecomment-672754025>
-      const normalized = this.getNormalizedUrl(url.replace(BRACKET_REGEX, ''));
+      let value = url.replace(BRACKET_REGEX, '');
+      // https://github.com/kevva/url-regex/pull/35#issuecomment-673137392
+      const quoteIndex = value.lastIndexOf('"');
+      const apostropheIndex = value.lastIndexOf("'");
+      const index = apostropheIndex > quoteIndex ? apostropheIndex : quoteIndex;
+      if (index !== -1) value = value.slice(Math.max(0, index + 1));
+      const normalized = this.getNormalizedUrl(value);
+
       if (!array.includes(normalized)) array.push(normalized);
     }
 
@@ -637,7 +644,8 @@ class SpamScanner {
       new RegExp(replacementRegexes.join('|'), 'g')
     );
 
-    string = striptags(string)
+    string = striptags(string, [], ' ')
+      .trim()
       // replace newlines
       .replace(NEWLINE_REGEX, ' ')
       //
@@ -722,7 +730,7 @@ class SpamScanner {
       case 'ja':
         tokenizer = tokenizerJa;
         stopwords = stopwordsJa;
-        stemword = StemmerJa.prototype.stemKatakana;
+        stemword = StemmerJa.stem;
         break;
       case 'nb':
       case 'nn':
@@ -950,7 +958,7 @@ class SpamScanner {
       // whereas elements they do not support get stripped out and then the returning
       // elements concatenate to form a URL which is malicious or phishing
       //
-      for (const link of this.getUrls(striptags(mail.html))) {
+      for (const link of this.getUrls(striptags(mail.html, [], ' ').trim())) {
         if (!links.includes(link)) links.push(link);
       }
 
@@ -983,7 +991,7 @@ class SpamScanner {
             continue;
           }
 
-          const textContent = striptags(anchor.innerHTML).trim();
+          const textContent = striptags(anchor.innerHTML, [], ' ').trim();
           const href = anchor.getAttribute('href');
           const hasHref = isSANB(href) && validator.isURL(href);
 
