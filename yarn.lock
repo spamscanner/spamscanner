@@ -5507,10 +5507,9 @@ node-preload@^0.2.1:
   dependencies:
     process-on-spawn "^1.0.0"
 
-node-snowball@^0.4.0:
+"node-snowball@https://github.com/niftylettuce/node-snowball":
   version "0.4.0"
-  resolved "https://registry.yarnpkg.com/node-snowball/-/node-snowball-0.4.0.tgz#959591d396bef904bcf3dff91178b4d53fcee8a5"
-  integrity sha512-QZ1M6GIWd23R9xGEhyy6OFLMrDL5R2kgXM6xcartaDseZRM2ByS8t6zg7b+7a81bbI/RvWQ7rMihjADrRVLX/A==
+  resolved "https://github.com/niftylettuce/node-snowball#02799565523a508cba077199e5c9cb0b6ca51a83"
   dependencies:
     nan "^2.14.0"
 

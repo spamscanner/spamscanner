@@ -55,6 +55,7 @@
     "natural": "^2.1.5",
     "newline-remove": "^1.0.2",
     "node-html-parser": "^1.2.20",
+    "node-snowball": "https://github.com/niftylettuce/node-snowball",
     "normalize-url": "^5.1.0",
     "parse-domain": "^3.0.2",
     "phone-regex": "^2.1.0",
@@ -82,7 +83,6 @@
     "lint-staged": "^10.2.11",
     "make-dir": "^3.1.0",
     "node-mbox": "^1.0.0",
-    "node-snowball": "^0.4.0",
     "numeral": "^2.0.6",
     "nyc": "^15.1.0",
     "p-map": "^4.0.0",
@@ -153,9 +153,6 @@
   ],
   "license": "Business Source License 1.1",
   "main": "index.js",
-  "peerDependencies": {
-    "node-snowball": "*"
-  },
   "prettier": {
     "singleQuote": true,
     "bracketSpacing": true,
