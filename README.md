@@ -243,7 +243,7 @@ Note that you can simply use the Spam Scanner API for free at <https://spamscann
 [npm][]:
 
 ```sh
-npm install spamscanner
+npm install spamscanner node-snowball
 ```
 
 
