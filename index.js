@@ -13,7 +13,7 @@ const bitcoinRegex = require('bitcoin-regex');
 const contractions = require('expand-contractions');
 const creditCardRegex = require('credit-card-regex');
 const debug = require('debug')('spamscanner');
-const emailRegex = require('email-regex');
+const emailRegexSafe = require('email-regex-safe');
 const emojiPatterns = require('emoji-patterns');
 const escapeStringRegexp = require('escape-string-regexp');
 const fileExtension = require('file-extension');
@@ -41,7 +41,7 @@ const superagent = require('superagent');
 const sw = require('stopword');
 const toEmoji = require('gemoji/name-to-emoji');
 const universalify = require('universalify');
-const urlRegex = require('url-regex');
+const urlRegexSafe = require('url-regex-safe');
 const validator = require('validator');
 const { Iconv } = require('iconv');
 const { codes } = require('currency-codes');
@@ -49,7 +49,7 @@ const { fromUrl, NO_HOSTNAME } = require('parse-domain');
 const { parse } = require('node-html-parser');
 const { simpleParser } = require('mailparser');
 
-const { PorterStemmerFa, StemmerId, StemmerJa } = natural;
+const { PorterStemmerFa, StemmerJa } = natural;
 
 const aggressiveTokenizer = new natural.AggressiveTokenizer();
 const orthographyTokenizer = new natural.OrthographyTokenizer({
@@ -119,9 +119,6 @@ const normalizeUrlOptions = {
 // <https://stackoverflow.com/a/9158444>
 const ANCHOR_REGEX = new RE2(/<a.*?>.*?<\/a>/gi);
 
-// <https://github.com/kevva/url-regex/pull/35#issuecomment-672754025>
-const BRACKET_REGEX = new RE2(/^[[\]()]*|[[\]()]*$/g);
-
 // <https://github.com/mathiasbynens/emoji-regex/issues/59#issuecomment-640418649>
 const EMOJI_REGEX = new RE2(emojiPatterns.Emoji_All, 'gu');
 const FLOATING_POINT_REGEX = new RE2(floatingPointRegex());
@@ -137,8 +134,17 @@ const NEWLINE_REGEX = new RE2(/\r\n|\n|\r/gm);
 // <https://stackoverflow.com/a/5917217>
 const NUMBER_REGEX = new RE2(/\d[\d,.]*/g);
 const ALPHA_REGEX = new RE2(/^[a-z]+$/i);
-const URL_REGEX = new RE2(urlRegex({ exact: false, strict: false }));
-const EMAIL_REGEX = new RE2(emailRegex({ exact: false }));
+
+// NOTE: we use my package url-safe-regex instead
+// of url-regex due to CVE advisory among other issues
+// https://github.com/niftylettuce/url-regex-safe
+const URL_REGEX = urlRegexSafe();
+
+// NOTE: we use my package email-safe-regex instead
+// of email-regex due to several issues
+// https://github.com/niftylettuce/email-regex-safe
+const EMAIL_REGEX = emailRegexSafe();
+
 // <https://superuser.com/a/1182181>
 const INITIALISM_REGEX = new RE2(/\b(?:[A-Z][a-z]*){2,}/g);
 // <https://stackoverflow.com/q/35076016>
@@ -557,16 +563,7 @@ class SpamScanner {
     const urls = text.replace(NEWLINE_REGEX, ' ').match(URL_REGEX) || [];
     const array = [];
     for (const url of urls) {
-      //
-      // NOTE: we manually must strip starting and closing brackets and parens
-      // <https://github.com/kevva/url-regex/pull/35#issuecomment-672754025>
-      let value = url.replace(BRACKET_REGEX, '');
-      // https://github.com/kevva/url-regex/pull/35#issuecomment-673137392
-      const quoteIndex = value.lastIndexOf('"');
-      const apostropheIndex = value.lastIndexOf("'");
-      const index = apostropheIndex > quoteIndex ? apostropheIndex : quoteIndex;
-      if (index !== -1) value = value.slice(Math.max(0, index + 1));
-      const normalized = this.getNormalizedUrl(value);
+      const normalized = this.getNormalizedUrl(url);
 
       if (!array.includes(normalized)) array.push(normalized);
     }
@@ -574,7 +571,6 @@ class SpamScanner {
     return array;
   }
 
-  // TODO: https://github.com/geerlingguy/ansible-role-clamav
   parseLocale(locale) {
     // convert `franc` locales here to their locale iso2 normalized name
     return locale.toLowerCase().split('-')[0].split('_')[0];
@@ -586,6 +582,12 @@ class SpamScanner {
   // <https://github.com/NaturalNode/natural#stemmers>
   // eslint-disable-next-line complexity
   async getTokens(string, locale, isHTML = false) {
+    // get the current email replacement regex
+    const EMAIL_REPLACEMENT_REGEX = new RE2(
+      this.config.replacements.email,
+      'g'
+    );
+
     //
     // parse HTML for <html> tag with lang attr
     // otherwise if that wasn't found then look for this
@@ -675,6 +677,7 @@ class SpamScanner {
       locale = this.parseLocale(this.config.locale);
     }
 
+    // TODO: add new languages <https://github.com/hthetiot/node-snowball/pull/21/commits/3871acf1f38b00960929545bc8ab5f591f50c024>
     // <https://github.com/hthetiot/node-snowball#supported-language-second-argument>
     // <https://github.com/NaturalNode/natural#tokenizers>
     let tokenizer = aggressiveTokenizer;
@@ -720,7 +723,6 @@ class SpamScanner {
         language = 'indonesian';
         tokenizer = aggressiveTokenizerId;
         stopwords = stopwordsId;
-        stemword = StemmerId.stem;
         break;
       case 'it':
         language = 'italian';
@@ -835,16 +837,26 @@ class SpamScanner {
             ` ${this.config.replacements.abbreviation}${s.split('.').join('')} `
         )
 
+        // NOTE: replacement of email addresses must come BEFORE urls
         // replace email addresses
-        .replace(EMAIL_REGEX, ` ${this.config.replacements.email} `)
+        .replace(EMAIL_REGEX, this.config.replacements.email)
 
         // replace urls
         .replace(URL_REGEX, ` ${this.config.replacements.url} `)
+
+        // now we ensure that URL's and EMAIL's are properly spaced out
+        // (e.g. in case ?email=some@email.com was in a URL)
+        .replace(EMAIL_REPLACEMENT_REGEX, ` ${this.config.replacements.email} `)
+
+        // TODO: replace file paths, file dirs, dotfiles, and dotdirs
 
         // replace numbers
         // https://github.com/regexhq/floating-point-regex
         .replace(FLOATING_POINT_REGEX, ` ${this.config.replacements.number} `)
         .replace(NUMBER_REGEX, ` ${this.config.replacements.number} `)
+
+        // TODO: may want to do more from this list (and others?)
+        // <https://www.npmjs.com/package/f2e-tools#regexp>
 
         // replace currency
         .replace(CURRENCY_REGEX, ` ${this.config.replacements.currency} `);
@@ -1092,7 +1104,16 @@ class SpamScanner {
         if (isBuffer(attachment.content)) {
           try {
             const fileType = await FileType.fromBuffer(attachment.content);
-            if (fileType && fileType.ext && EXECUTABLES.includes(fileType.ext))
+            // TODO: msi extensions are currently allowed since `undefined` is not yet returned
+            // <https://github.com/sindresorhus/file-type/issues/377>
+            if (
+              fileType &&
+              fileType.ext &&
+              fileType.ext !== 'msi' &&
+              fileType.mime &&
+              fileType.mime !== 'application/x-msi' &&
+              EXECUTABLES.includes(fileType.ext)
+            )
               messages.push(
                 `Attachment's "magic number" indicated it was a dangerous executable with a ".${fileType.ext}" extension.`
               );
