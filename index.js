@@ -374,6 +374,8 @@ class SpamScanner {
   }
 
   getHostname(link) {
+    // <https://github.com/peerigon/parse-domain/issues/114>
+    if (validator.isIP(link)) return url;
     // uses `new Url` (e.g. it adds http:// if it does not exist)
     const url = fromUrl(punycode.toUnicode(link));
     if (url === NO_HOSTNAME) throw new Error(`${link} was invalid`);
