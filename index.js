@@ -24,6 +24,7 @@ const hasha = require('hasha');
 const hexaColorRegex = require('hexa-color-regex');
 const i18nLocales = require('i18n-locales');
 const intoStream = require('into-stream');
+const ipRegex = require('ip-regex');
 const isBuffer = require('is-buffer');
 const isSANB = require('is-string-and-not-blank');
 const isStream = require('is-stream');
@@ -169,6 +170,9 @@ const GTUBE =
   'XJS*C4JDBQADN1.NSBN3*2IDNEN*GTUBE-STANDARD-ANTI-UBE-TEST-EMAIL*C.34X';
 
 const TOKEN_HEADERS = ['subject', 'from', 'to', 'cc', 'bcc', 'html', 'text'];
+
+// <https://github.com/sindresorhus/ip-regex>
+const IP_REGEX = new RE2(ipRegex());
 
 class SpamScanner {
   constructor(config = {}) {
@@ -377,8 +381,45 @@ class SpamScanner {
     // <https://github.com/peerigon/parse-domain/issues/114>
     if (validator.isIP(link)) return link;
     // uses `new Url` (e.g. it adds http:// if it does not exist)
-    const url = fromUrl(punycode.toUnicode(link));
-    if (url === NO_HOSTNAME) throw new Error(`${link} was invalid`);
+    let unicode = link;
+    try {
+      unicode = punycode.toUnicode(link);
+    } catch (err) {
+      /*
+      Overflow: input needs wider integers to process
+      RangeError: Overflow: input needs wider integers to process
+         at error (punycode.js:42:8)
+         at decode (punycode.js:241:5)
+         at punycode.js:389:6
+         at map (punycode.js:57:20)
+         at mapDomain (punycode.js:84:18)
+         at Object.toUnicode (punycode.js:387:9)
+         at SpamScanner.getHostname
+      */
+      this.config.logger.warn(err);
+    }
+
+    // NOTE: IPv6 is not currently working with parse-domain and I already filed an issue
+    // <https://github.com/peerigon/parse-domain/issues/114>
+    const url = fromUrl(unicode);
+    if (url === NO_HOSTNAME) {
+      // use ipv4 and ipv6 regex to get just the value
+      const matches = link.match(IP_REGEX);
+      if (matches.length > 0) {
+        if (matches.length > 1)
+          this.config.logger.fatal(
+            new Error(
+              `${link} had more than one match for IPv4/IPv6: ${matches.join(
+                ', '
+              )}`
+            )
+          );
+        return matches[0];
+      }
+
+      throw new Error(`${link} was invalid and did not have a hostname`);
+    }
+
     return url;
   }
 

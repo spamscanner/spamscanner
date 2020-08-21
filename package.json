@@ -44,6 +44,7 @@
     "i18n-locales": "^0.0.4",
     "iconv": "^3.0.0",
     "into-stream": "^6.0.0",
+    "ip-regex": "^4.1.0",
     "is-buffer": "^2.0.4",
     "is-stream": "^2.0.0",
     "is-string-and-not-blank": "^0.0.2",
