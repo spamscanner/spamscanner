@@ -174,6 +174,13 @@ const TOKEN_HEADERS = ['subject', 'from', 'to', 'cc', 'bcc', 'html', 'text'];
 // <https://github.com/sindresorhus/ip-regex>
 const IP_REGEX = new RE2(ipRegex());
 
+const isURLOptions = {
+  require_tld: false,
+  require_protocol: false,
+  require_host: false,
+  require_valid_protocol: false
+};
+
 class SpamScanner {
   constructor(config = {}) {
     this.config = {
@@ -404,10 +411,10 @@ class SpamScanner {
     const url = fromUrl(unicode);
     if (url === NO_HOSTNAME) {
       // use ipv4 and ipv6 regex to get just the value
-      const matches = link.match(IP_REGEX);
+      const matches = link.match(IP_REGEX) || [];
       if (matches.length > 0) {
         if (matches.length > 1)
-          this.config.logger.fatal(
+          this.config.logger.error(
             new Error(
               `${link} had more than one match for IPv4/IPv6: ${matches.join(
                 ', '
@@ -551,11 +558,15 @@ class SpamScanner {
   //
   getNormalizedUrl(url) {
     url = url.trim().replace(/\.+$/, '').toLowerCase();
+
+    // don't return a URL if it was invalid after being trimmed
+    if (!validator.isURL(url, isURLOptions)) return;
+
     let normalized = url;
     try {
       normalized = normalizeUrl(url, normalizeUrlOptions);
     } catch (err) {
-      debug(err);
+      this.config.logger.error(err);
       // <https://stackoverflow.com/questions/6680825/return-string-without-trailing-slash#comment11853012_6680877>
       normalized = url
         .replace('http://', '')
@@ -565,15 +576,23 @@ class SpamScanner {
 
     const hostname = fromUrl(normalized);
     if (hostname === NO_HOSTNAME) {
-      debug('No hostname', { url, normalized });
+      this.config.logger.error(
+        new Error(`No hostname (URL: ${url}, NORMALIZED: ${normalized}`)
+      );
       return normalized;
+    }
+
+    let unicode = hostname;
+
+    try {
+      unicode = punycode.toUnicode(hostname);
+    } catch (err) {
+      this.config.logger.warn(err);
     }
 
     try {
       const object = new URL(
-        `http://${punycode.toUnicode(hostname)}${normalized.slice(
-          hostname.length
-        )}`
+        `http://${unicode}${normalized.slice(hostname.length)}`
       );
 
       //
@@ -608,7 +627,7 @@ class SpamScanner {
     for (const url of urls) {
       const normalized = this.getNormalizedUrl(url);
 
-      if (!array.includes(normalized)) array.push(normalized);
+      if (normalized && !array.includes(normalized)) array.push(normalized);
     }
 
     return array;
@@ -1028,9 +1047,10 @@ class SpamScanner {
       // const root = parse(mail.html);
       // const anchors = root.querySelectorAll('a');
       //
-      const matches = mail.html.replace(NEWLINE_REGEX, ' ').match(ANCHOR_REGEX);
+      const matches =
+        mail.html.replace(NEWLINE_REGEX, ' ').match(ANCHOR_REGEX) || [];
 
-      if (Array.isArray(matches) && matches.length > 0) {
+      if (matches.length > 0) {
         for (const match of matches) {
           const root = parse(match);
           // <https://github.com/taoqf/node-html-parser/issues/60>
@@ -1048,20 +1068,21 @@ class SpamScanner {
 
           const textContent = striptags(anchor.innerHTML, [], ' ').trim();
           const href = anchor.getAttribute('href');
-          const hasHref = isSANB(href) && validator.isURL(href);
+          const hasHref = isSANB(href) && validator.isURL(href, isURLOptions);
 
           if (hasHref) {
             // add the link if we haven't already
             const normalized = this.getNormalizedUrl(href);
             // eslint-disable-next-line max-depth
-            if (!links.includes(normalized)) links.push(normalized);
+            if (normalized && !links.includes(normalized))
+              links.push(normalized);
           }
 
           if (
             isSANB(textContent) &&
-            validator.isURL(textContent) &&
+            validator.isURL(textContent, isURLOptions) &&
             isSANB(href) &&
-            validator.isURL(href)
+            validator.isURL(href, isURLOptions)
           ) {
             const innerTextUrlHostname = this.getHostname(textContent);
             const anchorUrlHostname = this.getHostname(href);
