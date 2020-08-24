@@ -403,7 +403,11 @@ This method also prevents the common [IDN homograph attacks][homograph-attack]. 
 
 A common example of this is a link of `рaypal.com` which when converted to ASCII is `xn--aypal-uye.com` – but when rendered it looks almost identical (if not identical) to `paypal.com`.
 
-If you are using Cloudflare's DNS servers of `1.1.1.3` and `1.0.0.3` as mentioned in [Requirements](#requirements)), then if there are any HTTPS over DNS request errors, it will fallback to use the DNS servers set on the system for lookups, which would in turn use Cloudflare for Family DNS. (using DNS over HTTPS with a fallback of [dns.resolve4](https://nodejs.org/api/dns.html#dns_dns_resolve4_hostname_options_callback)) – and if it returns `0.0.0.0` then it is considered to be phishing.
+This method checks against [Cloudflare for Families](https://developers.cloudflare.com/1.1.1.1/1.1.1.1-for-families) servers for both adult-related content, malware, and phishing.  This means we do two separate DNS over HTTPS requests to `1.1.1.2` for malware and `1.1.1.3` for adult-related content.  You can parse the messages results Array for messages that contain "adult-related content" if you need to parse whether or not you want to flag for adult-related content or not on your application.
+
+If you are using Cloudflare for Families DNS servers as mentioned in [Requirements](#requirements)), then if there are any HTTPS over DNS request errors, it will fallback to use the DNS servers set on the system for lookups, which would in turn use Cloudflare for Family DNS. (using DNS over HTTPS with a fallback of [dns.resolve4](https://nodejs.org/api/dns.html#dns_dns_resolve4_hostname_options_callback)) – and if it returns `0.0.0.0` then it is considered to be phishing.
+
+We actually helped Cloudflare in August 2020 to update their documentation to note that this result of `0.0.0.0` is returned for maliciously found content on FQDN and IP lookups.
 
 ### `scanner.getExecutableResults(mail)`
 

@@ -62,7 +62,7 @@ test('should check against Cloudflare', async (t) => {
     text: link
   });
   t.deepEqual(results.messages, [
-    `Link hostname of "${link}" was detected by Cloudflare to contain malware, phishing, and/or adult content.`,
+    `Link hostname of "${link}" was detected by Cloudflare's Family DNS to contain adult-related content, phishing, and/or malware.`,
     `Phishing whitelist requests can be filed at ${scanner.config.issues}.`
   ]);
 });
@@ -132,6 +132,15 @@ test('EICAR test', async (t) => {
         'Attachment #1 was infected with "Win.Test.EICAR_HDB-1".'
       )
   );
+});
+
+// <https://github.com/sindresorhus/file-type/issues/377>
+test('allows < Word 2004 doc', async (t) => {
+  const content = await fs.promises.readFile(fixtures('sample.doc'));
+  const results = await scanner.getExecutableResults({
+    attachments: [{ content }]
+  });
+  t.deepEqual(results, []);
 });
 
 test.todo('50/50 ham vs spam dataset test');

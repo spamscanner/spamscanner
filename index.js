@@ -49,6 +49,7 @@ const { codes } = require('currency-codes');
 const { fromUrl, NO_HOSTNAME } = require('parse-domain');
 const { parse } = require('node-html-parser');
 const { simpleParser } = require('mailparser');
+const { CompoundFile } = require('compound-binary-file-js');
 
 const { PorterStemmerFa, StemmerJa } = natural;
 
@@ -134,7 +135,6 @@ const HEXA_COLOR_REGEX = new RE2(hexaColorRegex());
 const NEWLINE_REGEX = new RE2(/\r\n|\n|\r/gm);
 // <https://stackoverflow.com/a/5917217>
 const NUMBER_REGEX = new RE2(/\d[\d,.]*/g);
-const ALPHA_REGEX = new RE2(/^[a-z]+$/i);
 
 // NOTE: we use my package url-safe-regex instead
 // of url-regex due to CVE advisory among other issues
@@ -157,7 +157,7 @@ for (const code of codes()) {
   if (
     typeof symbol === 'string' &&
     !currencySymbols.includes(symbol) &&
-    !ALPHA_REGEX.test(symbol)
+    !new RE2(/^[a-z]+$/i).test(symbol)
   )
     currencySymbols.push(escapeStringRegexp(symbol));
 }
@@ -180,6 +180,23 @@ const isURLOptions = {
   require_host: false,
   require_valid_protocol: false
 };
+
+// <https://github.com/sindresorhus/file-type/issues/377#issuecomment-678787986>
+async function parseCompoundFile(data, fileType) {
+  const cfb = CompoundFile.fromUint8Array(data);
+
+  for (const child of cfb.getRootStorage().children()) {
+    if (child.getDirectoryEntryName() === 'WordDocument') {
+      return {
+        ext: 'doc',
+        mime: 'application/msword'
+      };
+    }
+  }
+
+  // return original file type if none detected
+  return fileType;
+}
 
 class SpamScanner {
   constructor(config = {}) {
@@ -306,7 +323,6 @@ class SpamScanner {
         allowedAttributes: false
       },
       issues: PKG.bugs.url,
-      dnsEndpoint: 'https://family.cloudflare-dns.com/dns-query',
       userAgent: `${PKG.name}/${PKG.version}`,
       clamscan: {
         clamdscan: {
@@ -370,6 +386,7 @@ class SpamScanner {
     this.parseLocale = this.parseLocale.bind(this);
     this.getNormalizedUrl = this.getNormalizedUrl.bind(this);
     this.getUrls = this.getUrls.bind(this);
+    this.malwareLookup = this.malwareLookup.bind(this);
     this.isCloudflareBlocked = this.isCloudflareBlocked.bind(this);
     this.getArbitraryResults = this.getArbitraryResults.bind(this);
     this.getVirusResults = universalify.fromPromise(
@@ -385,8 +402,12 @@ class SpamScanner {
   }
 
   getHostname(link) {
+    // if it was not a valid URL then ignore it
+    if (!validator.isURL(link, isURLOptions)) return;
+
     // <https://github.com/peerigon/parse-domain/issues/114>
     if (validator.isIP(link)) return link;
+
     // uses `new Url` (e.g. it adds http:// if it does not exist)
     let unicode = link;
     try {
@@ -424,6 +445,13 @@ class SpamScanner {
         return matches[0];
       }
 
+      // if there were still no matches, then check if it was a phone number
+      if (new RE2(phoneRegex()).test(link)) return;
+
+      // if it was a file path, then ignore it
+      if (isValidPath(link)) return;
+
+      // this code should never be reached, but just in case we should know if something is weird
       throw new Error(`${link} was invalid and did not have a hostname`);
     }
 
@@ -496,23 +524,11 @@ class SpamScanner {
     return messages;
   }
 
-  //
-  // DNS over HTTPS with Cloudflare for Family
-  // <https://one.one.one.one/family/>
-  // <https://developers.cloudflare.com/1.1.1.1/1.1.1.1-for-families/setup-instructions/dns-over-https/>
-  // <https://developers.cloudflare.com/1.1.1.1/dns-over-https/json-format/>
-  //
-  // curl -H 'accept: application/dns-json' 'https://family.cloudflare-dns.com/dns-query?name=phishing.example.com&type=A'
-  // {"Status":0,"TC":false,"RD":true,"RA":true,"AD":false,"CD":false,"Question":[{"name":"phishing.example.com","type":1}],"Answer":[{"name":"phishing.example.com","type":1,"TTL":60,"data":"0.0.0.0"}]}
-  //
-  async isCloudflareBlocked(name) {
-    //
-    // NOTE: this uses DNS over HTTPS with a fallback system-level DNS lookup
-    // (which would assume you are using 1.1.1.3 and 1.0.0.3)
-    //
+  // pass this a DNS over HTTPS endpoint to lookup for 0.0.0.0 result
+  async malwareLookup(endpoint, name) {
     try {
       const response = await superagent
-        .get(this.config.dnsEndpoint)
+        .get(endpoint)
         .query({
           name,
           type: 'A'
@@ -552,6 +568,32 @@ class SpamScanner {
   }
 
   //
+  // DNS over HTTPS with Cloudflare for Family
+  // <https://one.one.one.one/family/>
+  // <https://developers.cloudflare.com/1.1.1.1/1.1.1.1-for-families/setup-instructions/dns-over-https/>
+  // <https://developers.cloudflare.com/1.1.1.1/dns-over-https/json-format/>
+  //
+  // curl -H 'accept: application/dns-json' 'https://family.cloudflare-dns.com/dns-query?name=phishing.example.com&type=A'
+  // {"Status":0,"TC":false,"RD":true,"RA":true,"AD":false,"CD":false,"Question":[{"name":"phishing.example.com","type":1}],"Answer":[{"name":"phishing.example.com","type":1,"TTL":60,"data":"0.0.0.0"}]}
+  //
+  async isCloudflareBlocked(name) {
+    //
+    // NOTE: this uses DNS over HTTPS with a fallback system-level DNS lookup
+    // (which would assume you are using either 1.1.1.2 + 1.0.0.2 OR 1.1.1.3 + 1.0.0.3)
+    // <https://developers.cloudflare.com/1.1.1.1/1.1.1.1-for-families>
+    //
+    // However we don't recommend this and therefore have our servers set to standard Cloudflare DNS
+    //
+    // TODO: we need to do two lookups in parallel, one against adult and one against malware
+    //       and also make sure the messages aren't duplicated when we concatenate final array of messages
+    const [isAdult, isMalware] = await Promise.all([
+      this.malwareLookup('https://family.cloudflare-dns.com/dns-query', name),
+      this.malwareLookup('https://security.cloudflare-dns.com/dns-query', name)
+    ]);
+    return { isAdult, isMalware };
+  }
+
+  //
   // due to this issue and the fact that PhishTank adds invalid URL's
   // we have to implement our own workaround to normalize a valid/invalid URL
   // <https://github.com/sindresorhus/normalize-url/issues/111>
@@ -579,6 +621,13 @@ class SpamScanner {
       this.config.logger.error(
         new Error(`No hostname (URL: ${url}, NORMALIZED: ${normalized}`)
       );
+
+      // if there were still no matches, then check if it was a phone number
+      if (new RE2(phoneRegex()).test(normalized)) return;
+
+      // if it was a file path, then ignore it
+      if (isValidPath(normalized)) return;
+
       return normalized;
     }
 
@@ -1067,10 +1116,12 @@ class SpamScanner {
           }
 
           const textContent = striptags(anchor.innerHTML, [], ' ').trim();
-          const href = anchor.getAttribute('href');
+          let href = anchor.getAttribute('href');
           const hasHref = isSANB(href) && validator.isURL(href, isURLOptions);
 
           if (hasHref) {
+            // trim whitespace if it exists
+            href = href.trim();
             // add the link if we haven't already
             const normalized = this.getNormalizedUrl(href);
             // eslint-disable-next-line max-depth
@@ -1078,31 +1129,51 @@ class SpamScanner {
               links.push(normalized);
           }
 
+          // the text content could contain multiple URL's
+          // so we need to parse them each out
           if (
             isSANB(textContent) &&
-            validator.isURL(textContent, isURLOptions) &&
             isSANB(href) &&
             validator.isURL(href, isURLOptions)
           ) {
-            const innerTextUrlHostname = this.getHostname(textContent);
-            const anchorUrlHostname = this.getHostname(href);
-            const innerTextUrlHostnameToASCII = punycode.toASCII(
-              innerTextUrlHostname
-            );
-            const anchorUrlHostnameToASCII = punycode.toASCII(
-              anchorUrlHostname
-            );
             const string = `Anchor link with href of "${href}" and inner text value of "${textContent}"`;
+
+            // this link should have already been included but just in case
             // eslint-disable-next-line max-depth
-            if (innerTextUrlHostnameToASCII.startsWith('xn--'))
-              messages.push(
-                `${string} has possible IDN homograph attack from inner text hostname.`
-              );
+            if (!links.includes(href)) links.push(href);
+
+            const anchorUrlHostname = this.getHostname(href);
             // eslint-disable-next-line max-depth
-            if (anchorUrlHostnameToASCII.startsWith('xn--'))
-              messages.push(
-                `${string} has possible IDN homograph attack from anchor hostname.`
+            if (anchorUrlHostname) {
+              const anchorUrlHostnameToASCII = punycode.toASCII(
+                anchorUrlHostname
               );
+              // eslint-disable-next-line max-depth
+              if (anchorUrlHostnameToASCII.startsWith('xn--'))
+                messages.push(
+                  `${string} has possible IDN homograph attack from anchor hostname.`
+                );
+            }
+
+            // eslint-disable-next-line max-depth
+            for (const link of this.getUrls(textContent)) {
+              // this link should have already been included but just in case
+              // eslint-disable-next-line max-depth
+              if (!links.includes(link)) links.push(link);
+
+              const innerTextUrlHostname = this.getHostname(link);
+              // eslint-disable-next-line max-depth
+              if (innerTextUrlHostname) {
+                const innerTextUrlHostnameToASCII = punycode.toASCII(
+                  innerTextUrlHostname
+                );
+                // eslint-disable-next-line max-depth
+                if (innerTextUrlHostnameToASCII.startsWith('xn--'))
+                  messages.push(
+                    `${string} has possible IDN homograph attack from inner text hostname.`
+                  );
+              }
+            }
           }
         }
       }
@@ -1119,11 +1190,13 @@ class SpamScanner {
 
     for (const link of links) {
       const urlHostname = this.getHostname(link);
-      const toASCII = punycode.toASCII(urlHostname);
-      if (toASCII.startsWith('xn--'))
-        messages.push(
-          `Possible IDN homograph attack from link of "${link}" with punycode converted hostname of "${toASCII}".`
-        );
+      if (urlHostname) {
+        const toASCII = punycode.toASCII(urlHostname);
+        if (toASCII.startsWith('xn--'))
+          messages.push(
+            `Possible IDN homograph attack from link of "${link}" with punycode converted hostname of "${toASCII}".`
+          );
+      }
     }
 
     // check against Cloudflare malware/phishing/adult DNS lookup
@@ -1132,11 +1205,27 @@ class SpamScanner {
       links.map(async (link) => {
         try {
           const urlHostname = this.getHostname(link);
-          const toASCII = punycode.toASCII(urlHostname);
-          const message = `Link hostname of "${toASCII}" was detected by Cloudflare to contain malware, phishing, and/or adult content.`;
-          if (messages.includes(message)) return;
-          const isBlocked = await this.isCloudflareBlocked(toASCII);
-          if (isBlocked && !messages.includes(message)) messages.push(message);
+          if (urlHostname) {
+            const toASCII = punycode.toASCII(urlHostname);
+            const adultMessage = `Link hostname of "${toASCII}" was detected by Cloudflare's Family DNS to contain adult-related content, phishing, and/or malware.`;
+            const malwareMessage = `Link hostname of ${toASCII}" was detected by Cloudflare's Security DNS to contain phishing and/or malware.`;
+
+            // if it already included both messages then return early
+            if (
+              messages.includes(adultMessage) &&
+              messages.includes(malwareMessage)
+            )
+              return;
+
+            const { isAdult, isMalware } = await this.isCloudflareBlocked(
+              toASCII
+            );
+
+            if (isAdult && !messages.includes(adultMessage))
+              messages.push(adultMessage);
+            if (isMalware && !messages.includes(malwareMessage))
+              messages.push(malwareMessage);
+          }
         } catch (err) {
           this.config.logger.error(err);
         }
@@ -1167,17 +1256,23 @@ class SpamScanner {
       mail.attachments.map(async (attachment) => {
         if (isBuffer(attachment.content)) {
           try {
-            const fileType = await FileType.fromBuffer(attachment.content);
-            // TODO: msi extensions are currently allowed since `undefined` is not yet returned
+            // msi extensions are currently allowed since `undefined` is not yet returned
             // <https://github.com/sindresorhus/file-type/issues/377>
-            if (
-              fileType &&
-              fileType.ext &&
-              fileType.ext !== 'msi' &&
-              fileType.mime &&
-              fileType.mime !== 'application/x-msi' &&
-              EXECUTABLES.includes(fileType.ext)
-            )
+            let fileType = await FileType.fromBuffer(attachment.content);
+
+            // detected [MS-CFB]: Compound File Binary File Format
+            if (!fileType || (fileType && fileType.ext === 'msi')) {
+              try {
+                fileType = await parseCompoundFile(
+                  attachment.content,
+                  fileType
+                );
+              } catch (err) {
+                this.config.logger.error(err);
+              }
+            }
+
+            if (fileType && fileType.ext && EXECUTABLES.includes(fileType.ext))
               messages.push(
                 `Attachment's "magic number" indicated it was a dangerous executable with a ".${fileType.ext}" extension.`
               );
