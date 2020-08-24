@@ -49,7 +49,7 @@ const { codes } = require('currency-codes');
 const { fromUrl, NO_HOSTNAME } = require('parse-domain');
 const { parse } = require('node-html-parser');
 const { simpleParser } = require('mailparser');
-const { CompoundFile } = require('compound-binary-file-js');
+const { CompoundFile } = require('@spamscanner/compound-binary-file-js');
 
 const { PorterStemmerFa, StemmerJa } = natural;
 
