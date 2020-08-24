@@ -141,6 +141,8 @@ test('allows < Word 2004 doc', async (t) => {
     attachments: [{ content }]
   });
   t.deepEqual(results, []);
+  const fileType = await scanner.parseCompoundFile(content);
+  t.deepEqual(fileType, { ext: 'doc', mime: 'application/msword' });
 });
 
 test.todo('50/50 ham vs spam dataset test');

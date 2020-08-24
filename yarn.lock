@@ -389,10 +389,10 @@
   resolved "https://registry.yarnpkg.com/@sindresorhus/is/-/is-0.14.0.tgz#9fb3a3cf3132328151f353de4632e01e52102bea"
   integrity sha512-9NET910DNaIPngYnLLPeg+Ogzqsi9uM4mSboU5y6p8S5DzMTVEsJZrawi+BoDNUVBa2DhJqQYUFvMDfgU062LQ==
 
-"@spamscanner/compound-binary-file-js@^1.0.10":
-  version "1.0.10"
-  resolved "https://registry.yarnpkg.com/@spamscanner/compound-binary-file-js/-/compound-binary-file-js-1.0.10.tgz#60dd54398304ff8567296ec455ac09967434a047"
-  integrity sha512-6x5fnRXHYrYIQMiCOp96M47BIwPTc4puHmlkHMTmRT7JaH0z/eXFVzmGbMosScWV0grmrgOeu60FsJg2aZaQmQ==
+"@spamscanner/compound-binary-file-js@^1.0.12":
+  version "1.0.12"
+  resolved "https://registry.yarnpkg.com/@spamscanner/compound-binary-file-js/-/compound-binary-file-js-1.0.12.tgz#b5dffb00e9da8db771c202072f8c0db3de966c4e"
+  integrity sha512-b7rht6k2ohiiRNqh5Z9ur9QVBCB3uys//MNuYjplP6xL2hjeMHwFuvS1IcbBjHh1B7NWjHd9f/+gqVZ9nN9QJA==
   dependencies:
     "@types/long" "^4.0.1"
     long "^4.0.0"

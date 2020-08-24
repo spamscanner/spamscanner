@@ -23,7 +23,7 @@
   ],
   "dependencies": {
     "@ladjs/naivebayes": "^0.1.0",
-    "@spamscanner/compound-binary-file-js": "^1.0.10",
+    "@spamscanner/compound-binary-file-js": "^1.0.12",
     "bitcoin-regex": "^2.0.0",
     "clamscan": "^1.3.3",
     "credit-card-regex": "^3.0.0",

@@ -44,12 +44,12 @@ const toEmoji = require('gemoji/name-to-emoji');
 const universalify = require('universalify');
 const urlRegexSafe = require('url-regex-safe');
 const validator = require('validator');
+const { CompoundFile } = require('@spamscanner/compound-binary-file-js');
 const { Iconv } = require('iconv');
 const { codes } = require('currency-codes');
 const { fromUrl, NO_HOSTNAME } = require('parse-domain');
 const { parse } = require('node-html-parser');
 const { simpleParser } = require('mailparser');
-const { CompoundFile } = require('@spamscanner/compound-binary-file-js');
 
 const { PorterStemmerFa, StemmerJa } = natural;
 
@@ -180,23 +180,6 @@ const isURLOptions = {
   require_host: false,
   require_valid_protocol: false
 };
-
-// <https://github.com/sindresorhus/file-type/issues/377#issuecomment-678787986>
-async function parseCompoundFile(data, fileType) {
-  const cfb = CompoundFile.fromUint8Array(data);
-
-  for (const child of cfb.getRootStorage().children()) {
-    if (child.getDirectoryEntryName() === 'WordDocument') {
-      return {
-        ext: 'doc',
-        mime: 'application/msword'
-      };
-    }
-  }
-
-  // return original file type if none detected
-  return fileType;
-}
 
 class SpamScanner {
   constructor(config = {}) {
@@ -399,6 +382,23 @@ class SpamScanner {
       throw new Error(
         `Locale of ${this.config.locale} was not valid according to locales list.`
       );
+  }
+
+  // <https://github.com/sindresorhus/file-type/issues/377#issuecomment-678787986>
+  async parseCompoundFile(data, fileType) {
+    const cfb = CompoundFile.fromUint8Array(data);
+
+    for (const child of cfb.getRootStorage().children()) {
+      if (child.getDirectoryEntryName() === 'WordDocument') {
+        return {
+          ext: 'doc',
+          mime: 'application/msword'
+        };
+      }
+    }
+
+    // return original file type if none detected
+    return fileType;
   }
 
   getHostname(link) {
@@ -1263,12 +1263,13 @@ class SpamScanner {
             // detected [MS-CFB]: Compound File Binary File Format
             if (!fileType || (fileType && fileType.ext === 'msi')) {
               try {
-                fileType = await parseCompoundFile(
+                fileType = await this.parseCompoundFile(
                   attachment.content,
                   fileType
                 );
               } catch (err) {
-                this.config.logger.error(err);
+                // <https://github.com/ifedoroff/compound-file-js/pull/2#issuecomment-678995331>
+                debug(err);
               }
             }
 
