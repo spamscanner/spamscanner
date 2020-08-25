@@ -145,6 +145,22 @@ test('allows < Word 2004 doc', async (t) => {
   t.deepEqual(fileType, { ext: 'doc', mime: 'application/msword' });
 });
 
+// <https://github.com/peerigon/parse-domain/issues/116>
+test('strips zero-width characters', (t) => {
+  t.is(
+    scanner.getHostname(
+      'https://‌www.foobar.com.br‌/12345/index.php?m=foo@bar.com'
+    ),
+    'www.foobar.com.br'
+  );
+  t.is(
+    scanner.getNormalizedUrl(
+      'https://‌www.foobar.com.br‌/12345/index.php?m=foo@bar.com'
+    ),
+    'www.foobar.com.br/12345/index.php'
+  );
+});
+
 test.todo('50/50 ham vs spam dataset test');
 test.todo('test classifier.json against dataset to determine % accuracy');
 test.todo('should detect nsfw using nsfw.js');

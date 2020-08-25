@@ -174,6 +174,10 @@ const TOKEN_HEADERS = ['subject', 'from', 'to', 'cc', 'bcc', 'html', 'text'];
 // <https://github.com/sindresorhus/ip-regex>
 const IP_REGEX = new RE2(ipRegex());
 
+// strip zero-width characters
+// <https://github.com/peerigon/parse-domain/issues/116>
+const ZERO_WIDTH_REGEX = new RE2(/[\u{200B}-\u{200D}]/gu);
+
 const isURLOptions = {
   require_tld: false,
   require_protocol: false,
@@ -402,6 +406,12 @@ class SpamScanner {
   }
 
   getHostname(link) {
+    link = link.trim().replace(/\.+$/, '').toLowerCase();
+
+    // strip zero-width characters
+    // <https://github.com/peerigon/parse-domain/issues/116>
+    link = link.replace(ZERO_WIDTH_REGEX, '');
+
     // if it was not a valid URL then ignore it
     if (!validator.isURL(link, isURLOptions)) return;
 
@@ -451,8 +461,12 @@ class SpamScanner {
       // if it was a file path, then ignore it
       if (isValidPath(link)) return;
 
+      // it was most likely invalid as it was just "foo" or it started with a slash like "/newsletter/unsubscribe"
       // this code should never be reached, but just in case we should know if something is weird
-      throw new Error(`${link} was invalid and did not have a hostname`);
+      this.config.logger.warn(
+        new Error(`${link} was invalid and did not have a hostname`)
+      );
+      return;
     }
 
     return url;
@@ -600,6 +614,10 @@ class SpamScanner {
   //
   getNormalizedUrl(url) {
     url = url.trim().replace(/\.+$/, '').toLowerCase();
+
+    // strip zero-width characters
+    // <https://github.com/peerigon/parse-domain/issues/116>
+    url = url.replace(ZERO_WIDTH_REGEX, '');
 
     // don't return a URL if it was invalid after being trimmed
     if (!validator.isURL(url, isURLOptions)) return;
@@ -1120,13 +1138,11 @@ class SpamScanner {
           const hasHref = isSANB(href) && validator.isURL(href, isURLOptions);
 
           if (hasHref) {
-            // trim whitespace if it exists
-            href = href.trim();
-            // add the link if we haven't already
-            const normalized = this.getNormalizedUrl(href);
+            // parse out the first url
+            // (this is needed because some have "Web:%20http://google.com" for example in href tags)
+            [href] = this.getUrls(href);
             // eslint-disable-next-line max-depth
-            if (normalized && !links.includes(normalized))
-              links.push(normalized);
+            if (href && !links.includes(href)) links.push(href);
           }
 
           // the text content could contain multiple URL's
@@ -1137,10 +1153,6 @@ class SpamScanner {
             validator.isURL(href, isURLOptions)
           ) {
             const string = `Anchor link with href of "${href}" and inner text value of "${textContent}"`;
-
-            // this link should have already been included but just in case
-            // eslint-disable-next-line max-depth
-            if (!links.includes(href)) links.push(href);
 
             const anchorUrlHostname = this.getHostname(href);
             // eslint-disable-next-line max-depth
