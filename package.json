@@ -53,6 +53,7 @@
     "macos-version": "^5.2.0",
     "mailparser": "^2.8.1",
     "mime-types": "^2.1.27",
+    "ms": "^2.1.2",
     "natural": "^2.1.5",
     "newline-remove": "^1.0.2",
     "node-html-parser": "^1.2.20",

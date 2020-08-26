@@ -32,6 +32,7 @@ const isValidPath = require('is-valid-path');
 const macRegex = require('mac-regex');
 const macosVersion = require('macos-version');
 const mime = require('mime-types');
+const ms = require('ms');
 const natural = require('natural');
 const normalizeUrl = require('normalize-url');
 const phoneRegex = require('phone-regex');
@@ -310,8 +311,10 @@ class SpamScanner {
       },
       issues: PKG.bugs.url,
       userAgent: `${PKG.name}/${PKG.version}`,
+      timeout: ms('5s'),
       clamscan: {
         clamdscan: {
+          timeout: ms('10s'),
           socket: macosVersion.isMacOS
             ? '/tmp/clamd.socket'
             : '/var/run/clamav/clamd.ctl'
@@ -529,6 +532,7 @@ class SpamScanner {
           name,
           type: 'A'
         })
+        .timeout(this.config.timeout)
         .set('Accept', 'application/dns-json')
         .set('User-Agent', this.config.userAgent)
         .send();
