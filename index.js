@@ -675,7 +675,34 @@ class SpamScanner {
   // <https://github.com/kevva/url-regex/pull/35>
   //
   getUrls(text) {
-    const urls = text.replace(NEWLINE_REGEX, ' ').match(URL_REGEX) || [];
+    // before we filter for URL's, we need to replace email addresses
+    // with hostnames, otherwise there will be incorrect matches
+    // due to the inaccuracy (which is unpreventable) from url-regex-safe
+    // when parsing email addresses, e.g. foo.it.beep.mx.bar@gmail.com
+    // would normally get parsed to [ foo.it, beep.mx, gmail.com ]
+    // but it should only get parsed to gmail.com since that's the hostname
+    // <https://github.com/kevva/url-regex/pull/67>
+    const urls =
+      text
+        .replace(NEWLINE_REGEX, ' ')
+        .replace(EMAIL_REGEX, (match) => this.getHostname(match))
+        .replace(URL_REGEX, (match, ...args) => {
+          const offset = args[12];
+          const string = args[13];
+          const nextChar = string.slice(
+            offset + match.length,
+            offset + match.length + 1
+          );
+          // NOTE: that matches such as foo.iS will still match as foo.is
+          // so we may want to have case-sensitivity option for url-regex
+          // in the future, or do that case-sensitivity matching on the tld here
+          // (Gmail for example only matches FOO.COM or foo.com)
+          // (but note it breaks foo.itýbeep.com into foo.it and ýbeep.com)
+          // (note Gmail matches "test.it123.com.foobar_123.com" incorrectly)
+          if (new RE2(/^\w$/).test(nextChar)) return '';
+          return match;
+        })
+        .match(URL_REGEX) || [];
     const array = [];
     for (const url of urls) {
       const normalized = this.getNormalizedUrl(url);

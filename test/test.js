@@ -159,6 +159,22 @@ test('strips zero-width characters', (t) => {
   );
 });
 
+test('getUrls filters out emails to be hostname only', (t) => {
+  t.deepEqual(
+    scanner.getUrls(
+      'test.it123.com.foobar123.com robot.itýbeep.com baz.iT foo.it123 foo.itbeep.beep.mx.bar@gmail.com foo.mxýbeep@gmail.com  foo.isfoo@beep.com foo.isnic'
+    ),
+    [
+      'test.it123.com.foobar123.com',
+      'robot.xn--itbeep-cza.com',
+      'baz.it',
+      'gmail.com',
+      'foo.xn--mxgmail-w2a.com',
+      'beep.com'
+    ]
+  );
+});
+
 test.todo('50/50 ham vs spam dataset test');
 test.todo('test classifier.json against dataset to determine % accuracy');
 test.todo('should detect nsfw using nsfw.js');
