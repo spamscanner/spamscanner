@@ -1,5 +1,8 @@
 const fs = require('fs');
 const path = require('path');
+const { performance } = require('perf_hooks');
+
+const memProfile = require('memoizee/profile');
 
 const test = require('ava');
 
@@ -173,6 +176,37 @@ test('getUrls filters out emails to be hostname only', (t) => {
       'beep.com'
     ]
   );
+});
+
+test('caches cloudflare block results', async (t) => {
+  const link = Buffer.from('cG9ybi5jb20=', 'base64').toString();
+  let now = performance.now();
+  let diff = 0;
+  const result1 = await scanner.memoizedIsCloudflareBlocked(link);
+  diff = performance.now() - now;
+  t.true(diff > 1);
+  now = performance.now();
+  const result2 = await scanner.memoizedIsCloudflareBlocked(link);
+  diff = performance.now() - now;
+  t.true(diff < 1);
+  now = performance.now();
+  const result3 = await scanner.memoizedIsCloudflareBlocked(link);
+  diff = performance.now() - now;
+  t.true(diff < 1);
+  t.deepEqual(result1, {
+    isAdult: true,
+    isMalware: false
+  });
+  t.deepEqual(result1, result2);
+  t.deepEqual(result2, result3);
+  t.true(
+    memProfile.statistics[Object.keys(memProfile.statistics)[0]].cached >= 2
+  );
+  const good = await scanner.memoizedIsCloudflareBlocked('google.com');
+  t.deepEqual(good, {
+    isAdult: false,
+    isMalware: false
+  });
 });
 
 test.todo('50/50 ham vs spam dataset test');

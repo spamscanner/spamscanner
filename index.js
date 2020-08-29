@@ -31,6 +31,7 @@ const isStream = require('is-stream');
 const isValidPath = require('is-valid-path');
 const macRegex = require('mac-regex');
 const macosVersion = require('macos-version');
+const memoize = require('memoizee');
 const mime = require('mime-types');
 const ms = require('ms');
 const natural = require('natural');
@@ -330,6 +331,12 @@ class SpamScanner {
         algorithm: 'sha256'
       },
       vocabularyLimit: VOCABULARY_LIMIT,
+      // <https://github.com/medikoo/memoizee#expire-cache-after-given-period-of-time>
+      memoize: {
+        ...config.memoize,
+        // override always
+        promise: true
+      },
       ...config
     };
 
@@ -383,6 +390,12 @@ class SpamScanner {
     );
     this.getHostname = this.getHostname.bind(this);
     this.getClassification = this.getClassification.bind(this);
+
+    // memoized methods
+    this.memoizedIsCloudflareBlocked = memoize(
+      this.isCloudflareBlocked,
+      this.config.memoize
+    );
 
     if (!locales.has(this.parseLocale(this.config.locale)))
       throw new Error(
@@ -590,6 +603,7 @@ class SpamScanner {
       this.malwareLookup('https://family.cloudflare-dns.com/dns-query', name),
       this.malwareLookup('https://security.cloudflare-dns.com/dns-query', name)
     ]);
+
     return { isAdult, isMalware };
   }
 
@@ -1242,9 +1256,10 @@ class SpamScanner {
             )
               return;
 
-            const { isAdult, isMalware } = await this.isCloudflareBlocked(
-              toASCII
-            );
+            const {
+              isAdult,
+              isMalware
+            } = await this.memoizedIsCloudflareBlocked(toASCII);
 
             if (isAdult && !messages.includes(adultMessage))
               messages.push(adultMessage);
