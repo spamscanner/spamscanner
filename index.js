@@ -337,6 +337,9 @@ class SpamScanner {
         // override always
         promise: true
       },
+      // @ladjs/redis client instance
+      client: false,
+      cachePrefix: 'spamscanner',
       ...config
     };
 
@@ -391,11 +394,39 @@ class SpamScanner {
     this.getHostname = this.getHostname.bind(this);
     this.getClassification = this.getClassification.bind(this);
 
-    // memoized methods
-    this.memoizedIsCloudflareBlocked = memoize(
-      this.isCloudflareBlocked,
-      this.config.memoize
-    );
+    // memoized methods (either uses Redis or in-memory cache)
+    if (this.config.client)
+      this.memoizedIsCloudflareBlocked = async function (name) {
+        const key = `${this.config.cachePrefix}:${name}`;
+        try {
+          const value = await this.config.client.get(key);
+          if (value) {
+            let array = value.split(':');
+            if (array.length !== 2)
+              throw new Error('Length was not exactly two');
+
+            array = array.map((value_) => value_ === 'true');
+            return { isAdult: array[0], isMalware: array[1] };
+          }
+        } catch (err) {
+          this.config.logger.error(err);
+        }
+
+        const { isAdult, isMalware } = await this.isCloudflareBlocked(name);
+
+        // cache in the background
+        this.config.client
+          .set(key, `${isAdult}:${isMalware}`)
+          // eslint-disable-next-line promise/prefer-await-to-then
+          .then(this.config.logger.info)
+          .catch(this.config.logger.error);
+        return { isAdult, isMalware };
+      };
+    else
+      this.memoizedIsCloudflareBlocked = memoize(
+        this.isCloudflareBlocked,
+        this.config.memoize
+      );
 
     if (!locales.has(this.parseLocale(this.config.locale)))
       throw new Error(

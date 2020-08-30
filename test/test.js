@@ -2,8 +2,9 @@ const fs = require('fs');
 const path = require('path');
 const { performance } = require('perf_hooks');
 
+const Redis = require('@ladjs/redis');
+const delay = require('delay');
 const memProfile = require('memoizee/profile');
-
 const test = require('ava');
 
 const SpamScanner = require('..');
@@ -207,6 +208,22 @@ test('caches cloudflare block results', async (t) => {
     isAdult: false,
     isMalware: false
   });
+});
+
+test('caches with redis', async (t) => {
+  const client = new Redis();
+  const scanner = new SpamScanner({ client });
+  const key = `${scanner.config.cachePrefix}:example.com`;
+  // purge cache key
+  await client.del(key);
+  const result1 = await scanner.memoizedIsCloudflareBlocked('example.com');
+  t.deepEqual(result1, { isAdult: false, isMalware: false });
+  // caches it the background so wait 0.5s
+  await delay(500);
+  const value = await client.get(key);
+  t.is(value, 'false:false');
+  const result2 = await scanner.memoizedIsCloudflareBlocked('example.com');
+  t.deepEqual(result1, result2);
 });
 
 test.todo('50/50 ham vs spam dataset test');

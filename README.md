@@ -47,6 +47,7 @@
   * [`scanner.getArbitraryResults(mail)`](#scannergetarbitraryresultsmail)
   * [`scanner.getVirusResults(mail)`](#scannergetvirusresultsmail)
   * [`scanner.parseLocale(locale)`](#scannerparselocalelocale)
+* [Caching](#caching)
 * [Contributors](#contributors)
 * [References](#references)
 * [License](#license)
@@ -469,6 +470,35 @@ ClamAV is used internally with this method, in order to scan the attachments (in
 ### `scanner.parseLocale(locale)`
 
 Accepts a `locale` and returns it as a lowercase string with affixed localizations removed (e.g. `en-US` becomes `en` and `en_US` becomes `en` as well).
+
+
+## Caching
+
+By default a `memoize` config option is passed with an infinite limit for adult-content and malware lookups.
+
+You can configure either the `memoize` or `client` options, with `memoize` being an Object of options to pass to [memoizee](https://github.com/medikoo/memoizee), and `client` being an instance of Redis, such as one created with [@ladjs/redis](https://github.com/ladjs/redis).
+
+Refer to the tests for examples of both implementations.  If you go with the approach of `memoize`, then you should set a `size` option such as:
+
+```js
+const scanner = new SpamScanner({
+  // ...
+  memoize: {
+    // since memoizee doesn't support supplying mb or gb of cache size
+    // we can calculate how much the maximum could potentially be
+    // the max length of a domain name is 253 characters (bytes)
+    // and if we want to store up to 1 GB in memory, that's
+    // `Math.floor(bytes('1GB') / 253)` = 4244038 (domains)
+    // note that this is per thread, so if you have 4 core server
+    // you will have 4 threads, and therefore need 4 GB of free memory
+    size: Math.floor(bytes('1GB') / 253)
+  }
+});
+
+// ...
+```
+
+Note that in [Forward Email][forward-email] we use the `client` approach as we have multiple threads across multiple servers running, and in-memory caching would not be efficient.
 
 
 ## Contributors
