@@ -101,6 +101,18 @@
   "engines": {
     "node": ">=12.11.0"
   },
+  "files": [
+    "package.json",
+    "index.js",
+    "vocabulary-limit.js",
+    "iso-code-mapping.json",
+    "executables.json",
+    "replacement-words.json",
+    "replacements.json",
+    "replacements.js",
+    "get-classifier.js",
+    "classifier.json"
+  ],
   "homepage": "https://github.com/spamscanner/spamscanner",
   "husky": {
     "hooks": {
