@@ -549,15 +549,9 @@ class SpamScanner {
 
     let gtube = false;
 
-    if (isSANB(mail.html)) {
-      // gtube
-      if (mail.html.includes(GTUBE)) gtube = true;
-    }
+    if (isSANB(mail.html) && mail.html.includes(GTUBE)) gtube = true;
 
-    if (isSANB(mail.text)) {
-      // gtube
-      if (!gtube && mail.text.includes(GTUBE)) gtube = true;
-    }
+    if (isSANB(mail.text) && !gtube && mail.text.includes(GTUBE)) gtube = true;
 
     if (gtube)
       messages.push(
@@ -730,24 +724,27 @@ class SpamScanner {
     const urls =
       text
         .replace(NEWLINE_REGEX, ' ')
-        .replace(EMAIL_REGEX, (match) => this.getHostname(match))
-        .replace(URL_REGEX, (match, ...args) => {
-          const offset = args[12];
-          const string = args[13];
+        .replace(
+          EMAIL_REGEX,
+          (match) =>
+            ` ${this.getHostname(match.slice(match.lastIndexOf('@') + 1))} `
+        )
+        .replace(URL_REGEX, (match, offset, string) => {
           const nextChar = string.slice(
             offset + match.length,
             offset + match.length + 1
           );
-          // NOTE: that matches such as foo.iS will still match as foo.is
-          // so we may want to have case-sensitivity option for url-regex
-          // in the future, or do that case-sensitivity matching on the tld here
-          // (Gmail for example only matches FOO.COM or foo.com)
-          // (but note it breaks foo.itýbeep.com into foo.it and ýbeep.com)
-          // (note Gmail matches "test.it123.com.foobar_123.com" incorrectly)
-          if (new RE2(/^\w$/).test(nextChar)) return '';
-          return match;
+          if (new RE2(/^\w$/).test(nextChar)) return ' ';
+
+          // only return a match if the case was the same when converted
+          // (this matches Gmail's behavior in parsing/rendering URL's)
+          if (match.toLowerCase() !== match && match.toUpperCase() !== match)
+            return ' ';
+
+          return ` ${match} `;
         })
         .match(URL_REGEX) || [];
+
     const array = [];
     for (const url of urls) {
       const normalized = this.getNormalizedUrl(url);

@@ -400,13 +400,13 @@ Accepts a `mailparser.simpleParser` parsed mail Object.
 
 This method returns a Promise that resolves with an Array of messages (if any) that indicates that links parsed from the message were detected to be phishing attempts.  You can also use this method with a second callback argument.
 
-This method also prevents the common [IDN homograph attacks][homograph-attack].  If _any_ link is detected to start with the string `xn--` (e.g. after conversion from `punycode.toASCII`) then it is detected as phishing.
+This method also prevents the common [IDN homograph attacks][homograph-attack].  If *any* link is detected to start with the string `xn--` (e.g. after conversion from `punycode.toASCII`) then it is detected as phishing.
 
 A common example of this is a link of `рaypal.com` which when converted to ASCII is `xn--aypal-uye.com` – but when rendered it looks almost identical (if not identical) to `paypal.com`.
 
 This method checks against [Cloudflare for Families](https://developers.cloudflare.com/1.1.1.1/1.1.1.1-for-families) servers for both adult-related content, malware, and phishing.  This means we do two separate DNS over HTTPS requests to `1.1.1.2` for malware and `1.1.1.3` for adult-related content.  You can parse the messages results Array for messages that contain "adult-related content" if you need to parse whether or not you want to flag for adult-related content or not on your application.
 
-If you are using Cloudflare for Families DNS servers as mentioned in [Requirements](#requirements)), then if there are any HTTPS over DNS request errors, it will fallback to use the DNS servers set on the system for lookups, which would in turn use Cloudflare for Family DNS. (using DNS over HTTPS with a fallback of [dns.resolve4](https://nodejs.org/api/dns.html#dns_dns_resolve4_hostname_options_callback)) – and if it returns `0.0.0.0` then it is considered to be phishing.
+If you are using Cloudflare for Families DNS servers as mentioned in [Requirements](#requirements)), then if there are any HTTPS over DNS request errors, it will fallback to use the DNS servers set on the system for lookups, which would in turn use Cloudflare for Family DNS. (using DNS over HTTPS with a fallback of [dns.resolve4](https://nodejs.org/api/dns.html#dns_dns_resolve4\_hostname_options_callback)) – and if it returns `0.0.0.0` then it is considered to be phishing.
 
 We actually helped Cloudflare in August 2020 to update their documentation to note that this result of `0.0.0.0` is returned for maliciously found content on FQDN and IP lookups.
 
@@ -523,7 +523,7 @@ Note that in [Forward Email][forward-email] we use the `client` approach as we h
 [Business Source License 1.1](LICENSE) © [Niftylettuce, LLC.](https://niftylettuce.com/)
 
 
-## 
+##
 
 <a href="#"><img src="https://d1i8ikybhfrv4r.cloudfront.net/footer.png" alt="#" /></a>
 
@@ -531,7 +531,7 @@ Note that in [Forward Email][forward-email] we use the `client` approach as we h
 
 [i18n-locales]: https://github.com/ladjs/i18n-locales
 
-[magic-number]: https://en.wikipedia.org/wiki/Magic_number_(programming)#Magic_numbers_in_files
+[magic-number]: https://en.wikipedia.org/wiki/Magic_number_\(programming\)#Magic_numbers_in_files
 
 [homograph-attack]: https://en.wikipedia.org/wiki/IDN_homograph_attack
 

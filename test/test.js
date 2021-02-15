@@ -4,8 +4,10 @@ const { performance } = require('perf_hooks');
 
 const Redis = require('@ladjs/redis');
 const delay = require('delay');
+const isCI = require('is-ci');
 const memProfile = require('memoizee/profile');
 const test = require('ava');
+const { lookpath } = require('lookpath');
 
 const SpamScanner = require('..');
 
@@ -124,6 +126,19 @@ You should send this test mail from an account outside of your network.
 // <https://www.eicar.org/?page_id=3950>
 //
 test('EICAR test', async (t) => {
+  const clamd = await lookpath('clamd');
+  if (!clamd) {
+    if (isCI) {
+      t.fail(
+        'clamd executable not available, please ensure clamscan is installed'
+      );
+      return;
+    }
+
+    t.pass('clamd executable not available, skipping clamscan test locally');
+    return;
+  }
+
   const content = await fs.promises.readFile(fixtures('eicar.com.txt'));
   const results = await scanner.getVirusResults({
     attachments: [{ content }]
@@ -164,19 +179,31 @@ test('strips zero-width characters', (t) => {
 });
 
 test('getUrls filters out emails to be hostname only', (t) => {
-  t.deepEqual(
-    scanner.getUrls(
-      'test.it123.com.foobar123.com robot.itýbeep.com baz.iT foo.it123 foo.itbeep.beep.mx.bar@gmail.com foo.mxýbeep@gmail.com  foo.isfoo@beep.com foo.isnic'
-    ),
-    [
-      'test.it123.com.foobar123.com',
-      'robot.xn--itbeep-cza.com',
-      'baz.it',
-      'gmail.com',
-      'foo.xn--mxgmail-w2a.com',
-      'beep.com'
-    ]
-  );
+  const urls = scanner.getUrls(`
+    test.it123.com.foobar123.com
+        robot.itýbeep.com
+      baz.iT
+      bop.it
+      CAPS.CO
+    foo.it123
+     foo.itbeep.beep.mx.bar@gmail.com
+      http://duckduckgo.com
+    foo.mxýbeep@gmail.com
+    foo.itýbeep.com
+     foo.isfoo@beep.com foo.isnic'
+  `);
+  t.log(urls);
+  t.deepEqual(urls, [
+    'test.it123.com.foobar123.com',
+    'robot.xn--itbeep-cza.com',
+    'bop.it',
+    'caps.co',
+    'gmail.com',
+    'duckduckgo.com',
+    'foo.mx',
+    'foo.xn--itbeep-cza.com',
+    'beep.com'
+  ]);
 });
 
 test('caches cloudflare block results', async (t) => {
