@@ -312,7 +312,7 @@ class SpamScanner {
         ],
         allowedAttributes: false
       },
-      issues: PKG.bugs.url,
+      issues: 'https://report.teams.cloudflare.com',
       userAgent: `${PKG.name}/${PKG.version}`,
       timeout: ms('5s'),
       clamscan: {
@@ -342,6 +342,7 @@ class SpamScanner {
       // @ladjs/redis client instance
       client: false,
       cachePrefix: 'spamscanner',
+      ttlMs: ms('1h'),
       ...config
     };
 
@@ -418,7 +419,7 @@ class SpamScanner {
 
         // cache in the background
         this.config.client
-          .set(key, `${isAdult}:${isMalware}`)
+          .set(key, `${isAdult}:${isMalware}`, 'PX', this.config.ttlMs)
           // eslint-disable-next-line promise/prefer-await-to-then
           .then(this.config.logger.info)
           .catch(this.config.logger.error);
