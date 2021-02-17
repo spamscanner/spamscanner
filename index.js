@@ -1323,7 +1323,10 @@ class SpamScanner {
 
     if (messages.length > 0)
       messages.push(
-        `Phishing whitelist requests can be filed at ${this.config.issues}.`
+        // have to wrap with <> or leave with a trailing space before period
+        // otherwise Gmail will parse the period as part of the URL
+        // when the user clicks the "Learn more" link in a bounce message
+        `Phishing whitelist requests can be filed at <${this.config.issues}>.`
       );
 
     return { messages, links };
