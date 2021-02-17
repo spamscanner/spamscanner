@@ -253,6 +253,44 @@ test('caches with redis', async (t) => {
   t.deepEqual(result1, result2);
 });
 
+for (const locale of [
+  'ar',
+  'da',
+  'nl',
+  'en',
+  'fi',
+  'fa',
+  'fr',
+  'de',
+  'hu',
+  'in',
+  'it',
+  'ja',
+  'nb',
+  'nn',
+  'po',
+  'pt',
+  'es',
+  'sv',
+  'ro',
+  'ru',
+  'ta',
+  'tr',
+  'vi',
+  'zh'
+]) {
+  test(`getTokens works with locale "${locale}"`, async (t) => {
+    const scanner = new SpamScanner();
+    const tokens = await scanner.getTokens(
+      'hello world greetings today is a new day and tomorrow is another day', // = 13
+      //                           ^  ^          ^           ^   ^               = 4
+      locale
+    );
+    t.is(tokens.length, 8);
+    t.pass();
+  });
+}
+
 test.todo('50/50 ham vs spam dataset test');
 test.todo('test classifier.json against dataset to determine % accuracy');
 test.todo('should detect nsfw using nsfw.js');

@@ -52,6 +52,8 @@ const { fromUrl, NO_HOSTNAME } = require('parse-domain');
 const { parse } = require('node-html-parser');
 const { simpleParser } = require('mailparser');
 
+// TODO: StemmerJa has an issue right now
+// <https://github.com/NaturalNode/natural/issues/584>
 const { PorterStemmerFa, StemmerJa } = natural;
 
 const aggressiveTokenizer = new natural.AggressiveTokenizer();
@@ -76,9 +78,8 @@ const stopwordsEs = require('natural/lib/natural/util/stopwords_es').words;
 const stopwordsFa = require('natural/lib/natural/util/stopwords_fa').words;
 const stopwordsFr = require('natural/lib/natural/util/stopwords_fr').words;
 const stopwordsId = require('natural/lib/natural/util/stopwords_id').words;
+const stopwordsJa = require('natural/lib/natural/util/stopwords_ja').words;
 const stopwordsIt = require('natural/lib/natural/util/stopwords_it').words;
-// <https://github.com/NaturalNode/natural/issues/543>
-const stopwordsJa = require('natural/lib/natural/util/stopwords_ja');
 const stopwordsNl = require('natural/lib/natural/util/stopwords_nl').words;
 const stopwordsNo = require('natural/lib/natural/util/stopwords_no').words;
 const stopwordsPl = require('natural/lib/natural/util/stopwords_pl').words;
@@ -916,7 +917,7 @@ class SpamScanner {
       case 'ja':
         tokenizer = tokenizerJa;
         stopwords = stopwordsJa;
-        stemword = StemmerJa.stem;
+        stemword = StemmerJa;
         break;
       case 'nb':
       case 'nn':
@@ -1060,35 +1061,53 @@ class SpamScanner {
     // - <https://www.elastic.co/guide/en/elasticsearch/reference/current/analysis-word-delimiter-tokenfilter.html>
     // - <https://www.elastic.co/guide/en/elasticsearch/reference/master/analysis-elision-tokenfilter.html>
     //
-    const tokens = sw
-      .removeStopwords(
-        tokenizer.tokenize(string.toLowerCase()).map((token) => {
-          // whitelist words from being stemmed (safeguard)
-          if (
-            whitelistedWords.includes(token) ||
-            token.startsWith(this.config.replacements.initialism) ||
-            token.startsWith(this.config.replacements.abbrevation)
-          )
-            return token;
+    const tokens = [];
+    for (const token of tokenizer.tokenize(string.toLowerCase())) {
+      // whitelist words from being stemmed (safeguard)
+      if (
+        whitelistedWords.includes(token) ||
+        token.startsWith(this.config.replacements.initialism) ||
+        token.startsWith(this.config.replacements.abbrevation)
+      ) {
+        tokens.push(token);
+        continue;
+      }
 
-          if (!stemword) {
-            this.config.logger.warn('No stemword function', {
-              token,
-              language
-            });
-            return token;
-          }
-
-          try {
-            return stemword(token);
-          } catch (err) {
-            this.config.logger.error(err, { token, language });
-            return token;
-          }
-        }),
-        sw[locale]
+      if (
+        stopwords.includes(token) ||
+        (sw[locale] && sw[locale].includes(token)) ||
+        (locale !== 'en' &&
+          (stopwordsEn.includes(token) || sw.en.includes(token)))
       )
-      .filter((t) => !stopwords.includes(t));
+        continue;
+
+      // locale specific stopwords to ignore
+      let localeStem;
+      if (typeof stemword === 'function') {
+        localeStem = stemword(token);
+        if (
+          localeStem &&
+          (stopwords.includes(localeStem) ||
+            (sw[locale] && sw[locale].includes(localeStem)))
+        )
+          continue;
+      }
+
+      // always check against English stemwords
+      let englishStem;
+      if (locale !== 'en') {
+        englishStem = snowball.stemword(token, 'english');
+        if (
+          englishStem &&
+          (stopwordsEn.includes(englishStem) || sw.en.includes(englishStem))
+        )
+          continue;
+      }
+
+      tokens.push(
+        localeStem && localeStem !== token ? localeStem : englishStem || token
+      );
+    }
 
     if (this.config.debug) return tokens;
 

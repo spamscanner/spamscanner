@@ -4999,10 +4999,10 @@ mac-regex@^1.0.0:
   resolved "https://registry.yarnpkg.com/mac-regex/-/mac-regex-1.0.0.tgz#9d8e0811a6172e0b8ddf5a8976540329ced26987"
   integrity sha1-nY4IEaYXLguN31qJdlQDKc7SaYc=
 
-macos-version@^5.2.0:
-  version "5.2.0"
-  resolved "https://registry.yarnpkg.com/macos-version/-/macos-version-5.2.0.tgz#ae3a25155877902bbc5f5ae6b2d57b1ddce2e79e"
-  integrity sha512-egt1bqVE1evUjCup2QN2F0g42AuVcumdM31xNbABz+uXquYPzWP4OrqDm+HpCfM+6t4JzWrzABQW+MZM+FW+Jg==
+macos-version@^5.2.1:
+  version "5.2.1"
+  resolved "https://registry.yarnpkg.com/macos-version/-/macos-version-5.2.1.tgz#056c943aac8edb81d7cafef6445b7ca1d7a2e56e"
+  integrity sha512-OHJU8nTNxHYL1FQhD+nZawWgXKXAqDGr4kluLtaqKO4au3cR41y1mKuVShOU5U4rOYiuPanljq6oFGmV2B9DFA==
   dependencies:
     semver "^5.6.0"
 
@@ -5535,10 +5535,9 @@ natural-compare@^1.4.0:
   resolved "https://registry.yarnpkg.com/natural-compare/-/natural-compare-1.4.0.tgz#4abebfeed7541f2c27acfb29bdbbd15c8d5ba4f7"
   integrity sha1-Sr6/7tdUHywnrPspvbvRXI1bpPc=
 
-natural@^3.0.1:
-  version "3.0.1"
-  resolved "https://registry.yarnpkg.com/natural/-/natural-3.0.1.tgz#add73f75bfdfba410bd65a203281e24d6b5d5241"
-  integrity sha512-83tb+HtZzl0ORdcQFs6W+HMAKJxoiycy8h+PjnRtOkcQOaHq6u/FCDhf8QVJIocZcFQHVFQT/JAlvJ4KNOk1jQ==
+natural@niftylettuce/natural:
+  version "3.0.2"
+  resolved "https://codeload.github.com/niftylettuce/natural/tar.gz/1bddad066eb1dedc85658f076cdce5267dc05669"
   dependencies:
     afinn-165 "^1.0.2"
     apparatus "^0.0.10"
