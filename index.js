@@ -171,7 +171,8 @@ const CURRENCY_REGEX = new RE2(new RegExp(currencySymbols.join('|'), 'g'));
 const GTUBE =
   'XJS*C4JDBQADN1.NSBN3*2IDNEN*GTUBE-STANDARD-ANTI-UBE-TEST-EMAIL*C.34X';
 
-const TOKEN_HEADERS = ['subject', 'from', 'to', 'cc', 'bcc', 'html', 'text'];
+const MAIL_PHISHING_PROPS = ['subject', 'from', 'to', 'cc', 'bcc', 'text'];
+const TOKEN_HEADERS = [...MAIL_PHISHING_PROPS, 'html'];
 
 // <https://github.com/sindresorhus/ip-regex>
 const IP_REGEX = new RE2(ipRegex());
@@ -1267,10 +1268,11 @@ class SpamScanner {
 
     // <https://docs.apwg.org/ecrimeresearch/2018/5359941.pdf>
     // <https://www.wandera.com/punycode-attacks/>
-    // parse the mail.html and mail.text for links (e.g. w/o <a>)
-    if (isSANB(mail.text)) {
-      for (const link of this.getUrls(mail.text)) {
-        if (!links.includes(link)) links.push(link);
+    for (const prop of MAIL_PHISHING_PROPS) {
+      if (isSANB(mail[prop])) {
+        for (const link of this.getUrls(mail[prop])) {
+          if (!links.includes(link)) links.push(link);
+        }
       }
     }
 
