@@ -52,8 +52,6 @@ const { fromUrl, NO_HOSTNAME } = require('parse-domain');
 const { parse } = require('node-html-parser');
 const { simpleParser } = require('mailparser');
 
-// TODO: StemmerJa has an issue right now
-// <https://github.com/NaturalNode/natural/issues/584>
 const { PorterStemmerFa, StemmerJa } = natural;
 
 const aggressiveTokenizer = new natural.AggressiveTokenizer();
@@ -919,7 +917,7 @@ class SpamScanner {
       case 'ja':
         tokenizer = tokenizerJa;
         stopwords = stopwordsJa;
-        stemword = StemmerJa;
+        stemword = StemmerJa.stem;
         break;
       case 'nb':
       case 'nn':
