@@ -52,8 +52,6 @@ const { fromUrl, NO_HOSTNAME } = require('parse-domain');
 const { parse } = require('node-html-parser');
 const { simpleParser } = require('mailparser');
 
-const { PorterStemmerFa, StemmerJa } = natural;
-
 const aggressiveTokenizer = new natural.AggressiveTokenizer();
 const orthographyTokenizer = new natural.OrthographyTokenizer({
   language: 'fi'
@@ -891,7 +889,7 @@ class SpamScanner {
         language = 'farsi';
         tokenizer = aggressiveTokenizerFa;
         stopwords = stopwordsFa;
-        stemword = PorterStemmerFa.stem;
+        stemword = natural.PorterStemmerFa.stem.bind(natural.PorterStemmerFa);
         break;
       case 'fr':
         language = 'french';
@@ -917,7 +915,7 @@ class SpamScanner {
       case 'ja':
         tokenizer = tokenizerJa;
         stopwords = stopwordsJa;
-        stemword = StemmerJa.stem;
+        stemword = natural.StemmerJa.stem.bind(natural.StemmerJa);
         break;
       case 'nb':
       case 'nn':
