@@ -188,6 +188,7 @@ class SpamScanner {
   constructor(config = {}) {
     this.config = {
       debug: process.env.NODE_ENV === 'test',
+      checkIDNHomographAttack: false,
       // note that if you attempt to train an existing `scanner.classifier`
       // then you will need to re-use these, so we suggest you store them
       replacements: config.replacements || require('./replacements'),
@@ -1224,18 +1225,20 @@ class SpamScanner {
             validator.isURL(href, isURLOptions)
           ) {
             const string = `Anchor link with href of "${href}" and inner text value of "${textContent}"`;
-
-            const anchorUrlHostname = this.getHostname(href);
             // eslint-disable-next-line max-depth
-            if (anchorUrlHostname) {
-              const anchorUrlHostnameToASCII = punycode.toASCII(
-                anchorUrlHostname
-              );
+            if (this.config.checkIDNHomographAttack) {
+              const anchorUrlHostname = this.getHostname(href);
               // eslint-disable-next-line max-depth
-              if (anchorUrlHostnameToASCII.startsWith('xn--'))
-                messages.push(
-                  `${string} has possible IDN homograph attack from anchor hostname.`
+              if (anchorUrlHostname) {
+                const anchorUrlHostnameToASCII = punycode.toASCII(
+                  anchorUrlHostname
                 );
+                // eslint-disable-next-line max-depth
+                if (anchorUrlHostnameToASCII.startsWith('xn--'))
+                  messages.push(
+                    `${string} has possible IDN homograph attack from anchor hostname.`
+                  );
+              }
             }
 
             // eslint-disable-next-line max-depth
@@ -1244,17 +1247,20 @@ class SpamScanner {
               // eslint-disable-next-line max-depth
               if (!links.includes(link)) links.push(link);
 
-              const innerTextUrlHostname = this.getHostname(link);
               // eslint-disable-next-line max-depth
-              if (innerTextUrlHostname) {
-                const innerTextUrlHostnameToASCII = punycode.toASCII(
-                  innerTextUrlHostname
-                );
+              if (this.config.checkIDNHomographAttack) {
+                const innerTextUrlHostname = this.getHostname(link);
                 // eslint-disable-next-line max-depth
-                if (innerTextUrlHostnameToASCII.startsWith('xn--'))
-                  messages.push(
-                    `${string} has possible IDN homograph attack from inner text hostname.`
+                if (innerTextUrlHostname) {
+                  const innerTextUrlHostnameToASCII = punycode.toASCII(
+                    innerTextUrlHostname
                   );
+                  // eslint-disable-next-line max-depth
+                  if (innerTextUrlHostnameToASCII.startsWith('xn--'))
+                    messages.push(
+                      `${string} has possible IDN homograph attack from inner text hostname.`
+                    );
+                }
               }
             }
           }

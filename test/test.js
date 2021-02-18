@@ -290,6 +290,7 @@ for (const locale of [
   });
 }
 
+test.todo('IDN homograph attack test');
 test.todo('50/50 ham vs spam dataset test');
 test.todo('test classifier.json against dataset to determine % accuracy');
 test.todo('should detect nsfw using nsfw.js');
