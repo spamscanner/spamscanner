@@ -308,7 +308,6 @@ class SpamScanner {
         ],
         allowedAttributes: false
       },
-      issues: 'https://report.teams.cloudflare.com',
       userAgent: `${PKG.name}/${PKG.version}`,
       timeout: ms('5s'),
       clamscan: {
@@ -1318,14 +1317,6 @@ class SpamScanner {
       })
     );
 
-    if (messages.length > 0)
-      messages.push(
-        // have to wrap with <> or leave with a trailing space before period
-        // otherwise Gmail will parse the period as part of the URL
-        // when the user clicks the "Learn more" link in a bounce message
-        `Phishing whitelist requests can be filed at <${this.config.issues}>.`
-      );
-
     return { messages, links };
   }
 
@@ -1377,11 +1368,6 @@ class SpamScanner {
         }
       })
     );
-
-    if (messages.length > 0)
-      messages.push(
-        `Executable file whitelist requests can be filed at ${this.config.issues}.  You may want to re-send your attachment in a compressed archive format (e.g. a ZIP file).`
-      );
 
     return messages;
   }
