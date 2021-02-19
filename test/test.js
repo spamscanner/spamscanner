@@ -50,6 +50,8 @@ test('should detect not phishing with different org domains (temporary)', async 
 });
 
 test('should detect idn masquerading', async (t) => {
+  const client = new Redis();
+  const scanner = new SpamScanner({ client, checkIDNHomographAttack: true });
   const scan = await scanner.scan(fixtures('idn.eml'));
   t.true(scan.is_spam);
   t.true(scan.results.phishing.length > 0);

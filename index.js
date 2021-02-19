@@ -1278,14 +1278,16 @@ class SpamScanner {
       }
     }
 
-    for (const link of links) {
-      const urlHostname = this.getHostname(link);
-      if (urlHostname) {
-        const toASCII = punycode.toASCII(urlHostname);
-        if (toASCII.startsWith('xn--'))
-          messages.push(
-            `Possible IDN homograph attack from link of "${link}" with punycode converted hostname of "${toASCII}".`
-          );
+    if (this.config.checkIDNHomographAttack) {
+      for (const link of links) {
+        const urlHostname = this.getHostname(link);
+        if (urlHostname) {
+          const toASCII = punycode.toASCII(urlHostname);
+          if (toASCII.startsWith('xn--'))
+            messages.push(
+              `Possible IDN homograph attack from link of "${link}" with punycode converted hostname of "${toASCII}".`
+            );
+        }
       }
     }
 
