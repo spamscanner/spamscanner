@@ -6,11 +6,11 @@ const NaiveBayes = require('@ladjs/naivebayes');
 const pMap = require('p-map');
 const { readDirDeep } = require('read-dir-deep');
 
-const CLASSIFIER_IGNORES = require('./classifier-ignores');
-const MBOX_PATTERNS = require('./mbox-patterns');
+const CLASSIFIER_IGNORES = require('./classifier-ignores.js');
+const MBOX_PATTERNS = require('./mbox-patterns.js');
 const SpamScanner = require('.');
-const VOCABULARY_LIMIT = require('./vocabulary-limit');
-const replacements = require('./replacements');
+const VOCABULARY_LIMIT = require('./vocabulary-limit.js');
+const replacements = require('./replacements.js');
 
 const concurrency = os.cpus().length;
 

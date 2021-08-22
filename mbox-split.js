@@ -9,7 +9,7 @@ const pMap = require('p-map');
 const trim = require('trim-leading-whitespace');
 const { readDirDeep } = require('read-dir-deep');
 
-const MBOX_PATTERNS = require('./mbox-patterns');
+const MBOX_PATTERNS = require('./mbox-patterns.js');
 
 const concurrency = os.cpus().length * 4;
 const writeFile = promisify(fs.writeFile);

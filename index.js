@@ -92,14 +92,14 @@ const ENDING_RESERVED_REGEX = new RE2(
 
 const PKG = require('./package.json');
 
-const VOCABULARY_LIMIT = require('./vocabulary-limit');
+const VOCABULARY_LIMIT = require('./vocabulary-limit.js');
 
-const ISO_CODE_MAPPING = require('./iso-code-mapping');
+const ISO_CODE_MAPPING = require('./iso-code-mapping.json');
 
 // <https://kb.smarshmail.com/Article/23567>
-const EXECUTABLES = require('./executables');
+const EXECUTABLES = require('./executables.json');
 
-const REPLACEMENT_WORDS = require('./replacement-words');
+const REPLACEMENT_WORDS = require('./replacement-words.json');
 
 const locales = new Set(i18nLocales.map((l) => l.toLowerCase()));
 
@@ -191,7 +191,7 @@ class SpamScanner {
       checkIDNHomographAttack: false,
       // note that if you attempt to train an existing `scanner.classifier`
       // then you will need to re-use these, so we suggest you store them
-      replacements: config.replacements || require('./replacements'),
+      replacements: config.replacements || require('./replacements.js'),
       // <https://nodemailer.com/extras/mailparser/>
       // NOTE: `iconv` package's Iconv cannot be used in worker threads
       // AND it can not also be shared in worker threads either (e.g. cloned)
@@ -203,7 +203,7 @@ class SpamScanner {
       // `wget --mirror --passive-ftp ftp://ftp.ietf.org/ietf-mail-archive`
       // `wget --mirror --passive-ftp ftp://ftp.ietf.org/concluded-wg-ietf-mail-archive`
       // (spam dataset is private at the moment)
-      classifier: config.classifier || require('./get-classifier'),
+      classifier: config.classifier || require('./get-classifier.js'),
       // default locale validated against i18n-locales
       locale: 'en',
       // we recommend to use axe/cabin, see https://cabinjs.com
@@ -310,7 +310,7 @@ class SpamScanner {
         allowedAttributes: false
       },
       userAgent: `${PKG.name}/${PKG.version}`,
-      timeout: ms('5s'),
+      timeout: ms('10s'),
       clamscan: {
         clamdscan: {
           timeout: ms('10s'),
@@ -418,6 +418,7 @@ class SpamScanner {
           .set(key, `${isAdult}:${isMalware}`, 'PX', this.config.ttlMs)
           // eslint-disable-next-line promise/prefer-await-to-then
           .then(this.config.logger.info)
+          // eslint-disable-next-line promise/prefer-await-to-then
           .catch(this.config.logger.error);
         return { isAdult, isMalware };
       };
@@ -520,10 +521,8 @@ class SpamScanner {
             const stream = isStream(attachment.content)
               ? attachment.content
               : intoStream(attachment.content);
-            const {
-              is_infected: isInfected,
-              viruses
-            } = await clamscan.scan_stream(stream);
+            const { is_infected: isInfected, viruses } =
+              await clamscan.scan_stream(stream);
             const name = isSANB(attachment.filename)
               ? `"${attachment.filename}"`
               : `#${i + 1}`;
@@ -597,9 +596,8 @@ class SpamScanner {
           records[0] === '0.0.0.0'
         );
       } catch (err) {
-        this.config.logger.error(err);
-        // return true if there is an error with DNS lookups
-        return true;
+        this.config.logger.warn(err);
+        return false;
       }
     }
   }
@@ -1230,9 +1228,8 @@ class SpamScanner {
               const anchorUrlHostname = this.getHostname(href);
               // eslint-disable-next-line max-depth
               if (anchorUrlHostname) {
-                const anchorUrlHostnameToASCII = punycode.toASCII(
-                  anchorUrlHostname
-                );
+                const anchorUrlHostnameToASCII =
+                  punycode.toASCII(anchorUrlHostname);
                 // eslint-disable-next-line max-depth
                 if (anchorUrlHostnameToASCII.startsWith('xn--'))
                   messages.push(
@@ -1252,9 +1249,8 @@ class SpamScanner {
                 const innerTextUrlHostname = this.getHostname(link);
                 // eslint-disable-next-line max-depth
                 if (innerTextUrlHostname) {
-                  const innerTextUrlHostnameToASCII = punycode.toASCII(
-                    innerTextUrlHostname
-                  );
+                  const innerTextUrlHostnameToASCII =
+                    punycode.toASCII(innerTextUrlHostname);
                   // eslint-disable-next-line max-depth
                   if (innerTextUrlHostnameToASCII.startsWith('xn--'))
                     messages.push(
@@ -1309,10 +1305,8 @@ class SpamScanner {
             )
               return;
 
-            const {
-              isAdult,
-              isMalware
-            } = await this.memoizedIsCloudflareBlocked(toASCII);
+            const { isAdult, isMalware } =
+              await this.memoizedIsCloudflareBlocked(toASCII);
 
             if (isAdult && !messages.includes(adultMessage))
               messages.push(adultMessage);

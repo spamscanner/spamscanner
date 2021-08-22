@@ -43,6 +43,33 @@ test('should detect ham', async (t) => {
 });
 */
 
+test('should parse eop-nam02.prod.protection.outlook.com properly', async (t) => {
+  const results = await Promise.all([
+    scanner.isCloudflareBlocked('eop-nam02.prod.protection.outlook.com'),
+    scanner.isCloudflareBlocked('prod.protection.outlook.com'),
+    scanner.isCloudflareBlocked('protection.outlook.com'),
+    scanner.isCloudflareBlocked('outlook.com')
+  ]);
+  t.deepEqual(results, [
+    {
+      isAdult: false,
+      isMalware: false
+    },
+    {
+      isAdult: false,
+      isMalware: false
+    },
+    {
+      isAdult: false,
+      isMalware: false
+    },
+    {
+      isAdult: false,
+      isMalware: false
+    }
+  ]);
+});
+
 test('should detect not phishing with different org domains (temporary)', async (t) => {
   const scan = await scanner.scan(fixtures('phishing.eml'));
   t.false(scan.is_spam);
