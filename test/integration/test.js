@@ -9,10 +9,10 @@ const memProfile = require('memoizee/profile');
 const test = require('ava');
 const { lookpath } = require('lookpath');
 
-const SpamScanner = require('..');
+const SpamScanner = require('../..');
 
 function fixtures(name) {
-  return path.join(__dirname, 'fixtures', name);
+  return path.join(__dirname, '../fixtures', name);
 }
 
 const scanner = new SpamScanner();

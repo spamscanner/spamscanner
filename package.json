@@ -3,11 +3,6 @@
   "description": "Spam Scanner - The Best Anti-Spam Scanning Service and Anti-Spam API",
   "version": "4.0.0",
   "author": "Niftylettuce, LLC. <niftylettuce@gmail.com> (https://niftylettuce.com/)",
-  "ava": {
-    "timeout": "30s",
-    "verbose": true,
-    "serial": true
-  },
   "bugs": {
     "url": "https://github.com/spamscanner/spamscanner/issues",
     "email": "niftylettuce@gmail.com"
@@ -188,6 +183,7 @@
   },
   "scripts": {
     "ava": "cross-env NODE_ENV=test ava",
+    "ava:perf": "cross-env NODE_ENV=test ava --config ava-perf.config.cjs",
     "coverage": "nyc report --reporter=text-lcov > coverage.lcov && codecov",
     "lint": "xo && remark . -qfo",
     "nyc": "cross-env NODE_ENV=test nyc ava",
@@ -200,6 +196,10 @@
     "extends": [
       "xo-lass"
     ],
+    "rules": {
+      "unicorn/prevent-abbreviations": "off",
+      "import/extensions": "off"
+    },
     "ignores": [
       "data",
       "classifier.json",
