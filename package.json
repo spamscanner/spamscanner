@@ -73,6 +73,7 @@
     "@commitlint/config-conventional": "^13.1.0",
     "@ladjs/redis": "^1.0.7",
     "ava": "^3.15.0",
+    "chance": "^1.1.8",
     "codecov": "^3.8.3",
     "cross-env": "^7.0.3",
     "delay": "^5.0.0",
