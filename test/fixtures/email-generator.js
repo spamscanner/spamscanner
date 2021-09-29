@@ -1,6 +1,34 @@
-const chance = require('chance').Chance();
+const Chance = require('chance');
 
-function generateEmail() {
+function setupChance(config) {
+  const chance = new Chance();
+
+  chance.mixin({
+    urls: () => {
+      const ret = [];
+
+      for (let i = 0; i < chance.integer(config.urls); i++) {
+        ret.push(chance.url());
+      }
+
+      return ret;
+    }
+  });
+
+  return chance;
+}
+
+function generateEmail(config) {
+  config = {
+    urls: {
+      max: 1,
+      min: 1
+    },
+    ...config
+  };
+
+  const chance = setupChance(config);
+
   const ret = [];
   const domain = chance.domain();
   const fromEmail = chance.email({ domain });
@@ -13,7 +41,7 @@ function generateEmail() {
     `Subject: ${chance.sentence({ words: 3 })}`,
     `Messeage-Id: <${chance.string({
       length: 8,
-      alpah: true,
+      alpha: true,
       numeric: true
     })}@${domain}>`,
     `Date: ${chance.date().toUTCString()}`,
@@ -25,7 +53,7 @@ function generateEmail() {
     `Content-Type: text/plain`,
     ``,
     chance.paragraph(),
-    chance.url(),
+    ...chance.urls(),
     chance.email(),
     chance.phone(),
     chance.paragraph(),
