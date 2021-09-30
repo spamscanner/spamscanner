@@ -89,6 +89,7 @@
     "numeral": "^2.0.6",
     "nyc": "^15.1.0",
     "p-map": "4",
+    "p-queue": "6.6.2",
     "read-dir-deep": "^7.0.1",
     "remark-cli": "^10.0.0",
     "remark-preset-github": "^4.0.1",
