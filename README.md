@@ -188,11 +188,48 @@ Note that you can simply use the Spam Scanner API for free at <https://spamscann
 2. Configure ClamAV:
 
    ```sh
-   sudo mv /usr/local/etc/clamav/freshclam.conf.sample /usr/local/etc/clamav/freshclam.conf
+   # if you are on Intel macOS
+   sudo mv /usr/local/etc/clamav/clamd.conf.sample /usr/local/etc/clamav/clamd.conf
+
+   # if you are on M1 macOS (or newer brew which installs to `/opt/homebrew`)
+   sudo mv /opt/homebrew/etc/clamav/clamd.conf.sample /opt/homebrew/etc/clamav/clamd.conf
    ```
 
    ```sh
+   # if you are on Intel macOS
+   sudo vim /usr/local/etc/clamav/clamd.conf
+
+   # if you are on M1 macOS (or newer brew which installs to `/opt/homebrew`)
+   sudo vim /opt/homebrew/etc/clamav/clamd.conf
+   ```
+
+   ```diff
+   -Example
+   +#Example
+
+   -#StreamMaxLength 10M
+   +StreamMaxLength 50M
+
+   +# this file path may be different on your OS (that's OK)
+
+   \-#LocalSocket /tmp/clamd.socket
+   \+LocalSocket /tmp/clamd.socket
+   ```
+
+   ```sh
+   # if you are on Intel macOS
+   sudo mv /usr/local/etc/clamav/freshclam.conf.sample /usr/local/etc/clamav/freshclam.conf
+
+   # if you are on M1 macOS (or newer brew which installs to `/opt/homebrew`)
+   sudo mv /opt/homebrew/etc/clamav/freshclam.conf.sample /opt/homebrew/etc/clamav/freshclam.conf
+   ```
+
+   ```sh
+   # if you are on Intel macOS
    sudo vim /usr/local/etc/clamav/freshclam.conf
+
+   # if you are on M1 macOS (or newer brew which installs to `/opt/homebrew`)
+   sudo vim /opt/homebrew/etc/clamav/freshclam.conf
    ```
 
    ```diff
@@ -209,6 +246,8 @@ Note that you can simply use the Spam Scanner API for free at <https://spamscann
    ```sh
    sudo vim /Library/LaunchDaemons/org.clamav.clamd.plist
    ```
+
+   > If you are on Intel macOS:
 
    ```plist
    <?xml version="1.0" encoding="UTF-8"?>
@@ -231,12 +270,37 @@ Note that you can simply use the Spam Scanner API for free at <https://spamscann
    </plist>
    ```
 
+   > If you are on M1 macOS (or newer brew which installs to `/opt/homebrew`)
+
+   ```plist
+   <?xml version="1.0" encoding="UTF-8"?>
+   <!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+   <plist version="1.0">
+   <dict>
+     <key>Label</key>
+     <string>org.clamav.clamd</string>
+     <key>KeepAlive</key>
+     <true/>
+     <key>Program</key>
+     <string>/opt/homebrew/sbin/clamd</string>
+     <key>ProgramArguments</key>
+     <array>
+       <string>clamd</string>
+     </array>
+     <key>RunAtLoad</key>
+     <true/>
+   </dict>
+   </plist>
+   ```
+
+4. Enable it and start it on boot:
+
    ```sh
    sudo launchctl load /Library/LaunchDaemons/org.clamav.clamd.plist
    sudo launchctl start /Library/LaunchDaemons/org.clamav.clamd.plist
    ```
 
-4. You may want to periodically run `freshclam` to update the config, or configure a similar `plist` configuration for `launchctl`.
+5. You may want to periodically run `freshclam` to update the config, or configure a similar `plist` configuration for `launchctl`.
 
 
 ## Install
