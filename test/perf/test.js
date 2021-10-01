@@ -11,6 +11,9 @@ const SpamScanner = require('../..');
 
 const scanner = new SpamScanner();
 
+// LOAD per second
+const LOAD = 30;
+
 test('scan() should take less than 100 ms', async (t) => {
   t.plan(1);
 
@@ -36,18 +39,15 @@ test('scan() should take less than 100 ms', async (t) => {
     performance.measure(measureLabel, startMark, endMark);
   };
 
+  // 30 per second
   const queue = new PQueue({
-    intervalCap: 3,
+    intervalCap: LOAD / 10,
     interval: 100
   });
 
-  const startTime = Date.now();
-
   queue.on('next', () => {
-    const currTime = Date.now();
-
-    if (currTime - startTime >= 5000) {
-      queue.clear();
+    // run for 5 seconds
+    if (n === LOAD * 5) {
       return;
     }
 
@@ -55,6 +55,7 @@ test('scan() should take less than 100 ms', async (t) => {
     n++;
   });
 
+  // pre-load queue
   for (let i = 0; i < 30; i++) {
     queue.add(fn);
     n++;
@@ -79,6 +80,9 @@ test('scan() should take less than 100 ms', async (t) => {
     min: stats.min,
     25: stats.percentile(25),
     50: stats.percentile(50),
-    75: stats.percentile(75)
+    75: stats.percentile(75),
+    count: measures.length
   });
+
+  t.true(stats.mean <= 100);
 });
