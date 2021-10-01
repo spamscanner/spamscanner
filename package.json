@@ -206,6 +206,14 @@
       "data",
       "classifier.json",
       "bag-of-words.json"
+    ],
+    "overrides": [
+      {
+        "files": "test/perf/**/*",
+        "rules": {
+          "ava/no-ignored-test-files": "off"
+        }
+      }
     ]
   }
 }
