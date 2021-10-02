@@ -101,6 +101,8 @@ const EXECUTABLES = require('./executables.json');
 
 const REPLACEMENT_WORDS = require('./replacement-words.json');
 
+const { env } = require('./helpers');
+
 const locales = new Set(i18nLocales.map((l) => l.toLowerCase()));
 
 const readFile = promisify(fs.readFile);
@@ -187,7 +189,7 @@ const isURLOptions = {
 class SpamScanner {
   constructor(config = {}) {
     this.config = {
-      debug: process.env.NODE_ENV === 'test',
+      debug: env.NODE_ENV === 'test',
       checkIDNHomographAttack: false,
       // note that if you attempt to train an existing `scanner.classifier`
       // then you will need to re-use these, so we suggest you store them
@@ -313,6 +315,7 @@ class SpamScanner {
       timeout: ms('10s'),
       clamscan: {
         clamdscan: {
+          path: env.CLAMSCAN_CLAMDSCAN_PATH || '/usr/bin/clamdscan',
           timeout: ms('10s'),
           socket: macosVersion.isMacOS
             ? '/tmp/clamd.socket'

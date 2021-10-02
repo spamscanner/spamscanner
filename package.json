@@ -17,6 +17,7 @@
     "Shaun Warman <shaunwarman1@gmail.com> (http://shaunwarman.com/)"
   ],
   "dependencies": {
+    "@ladjs/env": "^3.0.0",
     "@ladjs/naivebayes": "^0.1.0",
     "bitcoin-regex": "^2.0.0",
     "clamscan": "^1.4.2",
