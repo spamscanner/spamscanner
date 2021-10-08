@@ -310,6 +310,7 @@ for (const locale of [
   test(`getTokens works with locale "${locale}"`, async (t) => {
     const scanner = new SpamScanner();
     const tokens = await scanner.getTokens(
+      scanner.config,
       'hello world greetings today is a new day and tomorrow is another day', // = 13
       //                           ^  ^          ^           ^   ^               = 4
       locale

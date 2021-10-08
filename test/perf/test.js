@@ -116,6 +116,7 @@ test('scan() should take less than 100 ms on average', async (t) => {
 });
 
 test(`scan() should have no more than a 50 ms delay within 2 SD of mean`, async (t) => {
+  const n = 0;
   const h = monitorEventLoopDelay();
   const fn = async () => {
     const email = generateEmail({ urls: { max: 10, min: 5 } });
@@ -149,5 +150,7 @@ test(`scan() should have no more than a 50 ms delay within 2 SD of mean`, async 
     75: h.percentile(75) / 1000000
   };
 
-  t.true(results.overallDelayTime.max <= 50);
+  t.true(
+    results.overallDelayTime.mean + 2 * results.overallDelayTime.mean <= 50
+  );
 });

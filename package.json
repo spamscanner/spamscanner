@@ -67,7 +67,8 @@
     "trim-leading-whitespace": "^0.1.1",
     "universalify": "^2.0.0",
     "url-regex-safe": "^2.0.2",
-    "validator": "^13.6.0"
+    "validator": "^13.6.0",
+    "workerpool": "^6.1.5"
   },
   "devDependencies": {
     "@commitlint/cli": "^13.1.0",

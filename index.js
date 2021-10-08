@@ -1,6 +1,5 @@
 const dns = require('dns');
-const fs = require('fs');
-const { promisify } = require('util');
+const os = require('os');
 
 // eslint-disable-next-line node/no-deprecated-api
 const punycode = require('punycode');
@@ -22,7 +21,6 @@ const franc = require('franc');
 const getSymbolFromCurrency = require('currency-symbol-map');
 const hasha = require('hasha');
 const hexaColorRegex = require('hexa-color-regex');
-const i18nLocales = require('i18n-locales');
 const intoStream = require('into-stream');
 const ipRegex = require('ip-regex');
 const isBuffer = require('is-buffer');
@@ -46,11 +44,9 @@ const toEmoji = require('gemoji/name-to-emoji');
 const universalify = require('universalify');
 const urlRegexSafe = require('url-regex-safe');
 const validator = require('validator');
-const { Iconv } = require('iconv');
 const { codes } = require('currency-codes');
 const { fromUrl, NO_HOSTNAME } = require('parse-domain');
 const { parse } = require('node-html-parser');
-const { simpleParser } = require('mailparser');
 
 const aggressiveTokenizer = new natural.AggressiveTokenizer();
 const orthographyTokenizer = new natural.OrthographyTokenizer({
@@ -101,11 +97,8 @@ const EXECUTABLES = require('./executables.json');
 
 const REPLACEMENT_WORDS = require('./replacement-words.json');
 
-const { env } = require('./helpers');
-
-const locales = new Set(i18nLocales.map((l) => l.toLowerCase()));
-
-const readFile = promisify(fs.readFile);
+const { env, locales } = require('./helpers');
+const WorkerPool = require('./worker-pool');
 
 const normalizeUrlOptions = {
   stripProtocol: true,
@@ -170,7 +163,6 @@ const GTUBE =
   'XJS*C4JDBQADN1.NSBN3*2IDNEN*GTUBE-STANDARD-ANTI-UBE-TEST-EMAIL*C.34X';
 
 const MAIL_PHISHING_PROPS = ['subject', 'from', 'to', 'cc', 'bcc', 'text'];
-const TOKEN_HEADERS = [...MAIL_PHISHING_PROPS, 'html'];
 
 // <https://github.com/sindresorhus/ip-regex>
 const IP_REGEX = new RE2(ipRegex());
@@ -199,7 +191,7 @@ class SpamScanner {
       // AND it can not also be shared in worker threads either (e.g. cloned)
       // <https://github.com/bnoordhuis/node-iconv/issues/211>
       // BUT we MUST use it because otherwise emails won't get parsed
-      simpleParser: { Iconv },
+      simpleParser: { Iconv: true },
       // <https://github.com/NaturalNode/natural#bayesian-and-logistic-regression>
       // (ham) + a few other datasets
       // `wget --mirror --passive-ftp ftp://ftp.ietf.org/ietf-mail-archive`
@@ -315,6 +307,7 @@ class SpamScanner {
       timeout: ms('10s'),
       clamscan: {
         clamdscan: {
+          localFallback: true,
           path: env.CLAMSCAN_CLAMDSCAN_PATH || '/usr/bin/clamdscan',
           timeout: ms('10s'),
           socket: macosVersion.isMacOS
@@ -374,9 +367,6 @@ class SpamScanner {
 
     this.clamscan = new ClamScan();
 
-    this.getTokensAndMailFromSource = universalify.fromPromise(
-      this.getTokensAndMailFromSource.bind(this)
-    );
     this.getPhishingResults = this.getPhishingResults.bind(this);
     // this.getNSFWResuls = universalify.fromPromise(this.getNSFWResults.bind(this));
     this.getExecutableResults = universalify.fromPromise(
@@ -435,6 +425,16 @@ class SpamScanner {
       throw new Error(
         `Locale of ${this.config.locale} was not valid according to locales list.`
       );
+
+    this.workerPool = new WorkerPool(os.cpus().length, {
+      replacements: this.config.replacements,
+      sanitizeHtml: this.config.sanitizeHtml,
+      franc: this.config.franc,
+      locale: this.config.locale,
+      debug: this.config.debug,
+      hasha: this.config.hasha,
+      simpleParser: this.config.simpleParser
+    });
   }
 
   getHostname(link) {
@@ -1116,46 +1116,6 @@ class SpamScanner {
     );
   }
 
-  async getTokensAndMailFromSource(string) {
-    let source = string;
-    if (isBuffer(string)) source = string.toString();
-    else if (typeof string === 'string' && isValidPath(string))
-      source = await readFile(string);
-
-    const tokens = [];
-    const mail = await simpleParser(source, this.config.simpleParser);
-
-    await Promise.all(
-      TOKEN_HEADERS.map(async (header) => {
-        try {
-          const string = isSANB(mail[header])
-            ? mail[header]
-            : typeof mail[header] === 'object' && isSANB(mail[header].text)
-            ? mail[header].text
-            : null;
-
-          if (!string) return;
-
-          const contentLanguage = mail.headers.get('content-language');
-          const isHTML = header === 'html';
-          const tokensFound = await this.getTokens(
-            string,
-            contentLanguage,
-            isHTML
-          );
-
-          for (const token of tokensFound) {
-            tokens.push(token);
-          }
-        } catch (err) {
-          this.config.logger.error(err);
-        }
-      })
-    );
-
-    return { tokens, mail };
-  }
-
   // eslint-disable-next-line complexity
   async getPhishingResults(mail) {
     const messages = [];
@@ -1378,7 +1338,7 @@ class SpamScanner {
   }
 
   async scan(string) {
-    const { tokens, mail } = await this.getTokensAndMailFromSource(string);
+    const { tokens, mail } = await this.workerPool.runTask({ string });
 
     const [
       classification,
