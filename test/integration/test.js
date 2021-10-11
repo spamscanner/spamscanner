@@ -10,7 +10,7 @@ const test = require('ava');
 const { lookpath } = require('lookpath');
 
 const SpamScanner = require('../..');
-const { getTokens } = require('../../workers/get-tokens-and-mail');
+const { getTokens } = require('../../workers/get-tokens-and-mail-from-source');
 
 function fixtures(name) {
   return path.join(__dirname, '../fixtures', name);
