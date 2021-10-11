@@ -77,6 +77,33 @@ test.beforeEach(async (t) => {
   console.log('warmup completed');
 });
 
+test.beforeEach(async (t) => {
+  t.context.scanner = new SpamScanner();
+
+  // warmup
+  const fn = async () => {
+    const email = generateEmail({ urls: { max: 10, min: 5 } });
+
+    await t.context.scanner.scan(email);
+  };
+
+  const queue = new PQueue({
+    intervalCap: WARMUP_LOAD / 10,
+    interval: 100,
+    autoStart: false
+  });
+
+  // pre-load queue
+  // for 5 seconds
+  for (let i = 0; i < LOAD * 5; i++) {
+    queue.add(fn);
+  }
+
+  console.log('warmup started');
+  await queue.start().onIdle();
+  console.log('warmup completed');
+});
+
 test('scan() should take less than 100 ms on average', async (t) => {
   t.plan(1);
 
