@@ -10,10 +10,9 @@ const generateEmail = require('../fixtures/email-generator');
 
 const SpamScanner = require('../..');
 
-const scanner = new SpamScanner();
-
 // LOAD per second
 const LOAD = 30;
+const WARMUP_LOAD = 10;
 
 // store resulting statistics
 // to be printed/saved at end
@@ -28,6 +27,33 @@ test.after(() => {
   console.table(results.overallDelayTime);
 });
 
+test.beforeEach(async (t) => {
+  t.context.scanner = new SpamScanner();
+
+  // warmup
+  const fn = async () => {
+    const email = generateEmail({ urls: { max: 10, min: 5 } });
+
+    await t.context.scanner.scan(email);
+  };
+
+  const queue = new PQueue({
+    intervalCap: WARMUP_LOAD / 10,
+    interval: 100,
+    autoStart: false
+  });
+
+  // pre-load queue
+  // for 5 seconds
+  for (let i = 0; i < LOAD * 5; i++) {
+    queue.add(fn);
+  }
+
+  console.log('warmup started');
+  await queue.start().onIdle();
+  console.log('warmup completed');
+});
+
 test('scan() should take less than 100 ms on average', async (t) => {
   t.plan(1);
 
@@ -38,43 +64,35 @@ test('scan() should take less than 100 ms on average', async (t) => {
   });
   obs.observe({ entryTypes: ['measure'] });
 
+  const queue = new PQueue({
+    intervalCap: LOAD / 10,
+    interval: 100,
+    autoStart: false
+  });
+
   let n = 0;
   const fn = async () => {
     const email = generateEmail({ urls: { max: 10, min: 5 } });
     const startMark = `scan-${n}-start`;
     const endMark = `scan-${n}-end`;
     const measureLabel = `scan-${n}`;
+    n++;
 
     performance.mark(startMark);
 
-    await scanner.scan(email);
+    await t.context.scanner.scan(email);
 
     performance.mark(endMark);
     performance.measure(measureLabel, startMark, endMark);
   };
 
-  const queue = new PQueue({
-    intervalCap: LOAD / 10,
-    interval: 100
-  });
-
-  queue.on('next', () => {
-    // run for 5 seconds
-    if (n === LOAD * 5) {
-      return;
-    }
-
-    queue.add(fn);
-    n++;
-  });
-
   // pre-load queue
-  for (let i = 0; i < LOAD; i++) {
+  // run for 5 seconds
+  for (let i = 0; i < LOAD * 5; i++) {
     queue.add(fn);
-    n++;
   }
 
-  await queue.onIdle();
+  await queue.start().onIdle();
 
   obs.disconnect();
   performance.clearMarks();
@@ -101,39 +119,29 @@ test('scan() should take less than 100 ms on average', async (t) => {
   t.true(stats.mean <= 100);
 });
 
-test(`scan() should have no more than a 50 ms delay`, async (t) => {
-  let n = 0;
+test(`scan() should have no more than a 50 ms delay within 2 SD of mean`, async (t) => {
   const h = monitorEventLoopDelay();
   const fn = async () => {
     const email = generateEmail({ urls: { max: 10, min: 5 } });
 
     h.enable();
-    await scanner.scan(email);
+    await t.context.scanner.scan(email);
     h.disable();
   };
 
   const queue = new PQueue({
     intervalCap: LOAD / 10,
-    interval: 100
-  });
-
-  queue.on('next', () => {
-    // run for 5 seconds
-    if (n === LOAD * 5) {
-      return;
-    }
-
-    queue.add(fn);
-    n++;
+    interval: 100,
+    autoStart: false
   });
 
   // pre-load queue
-  for (let i = 0; i < LOAD; i++) {
+  // for 5 seconds
+  for (let i = 0; i < LOAD * 5; i++) {
     queue.add(fn);
-    n++;
   }
 
-  await queue.onIdle();
+  await queue.start().onIdle();
 
   results.overallDelayTime = {
     mean: h.mean / 1000000,
