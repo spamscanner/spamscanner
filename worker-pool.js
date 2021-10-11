@@ -30,6 +30,9 @@ class WorkerPool extends EventEmitter {
     delete config.logger;
     this.config = config;
 
+    // remove REDIS client since we can't send it to worker
+    this.config.client = false;
+
     for (let i = 0; i < numThreads; i++) {
       this.addNewWorker();
     }

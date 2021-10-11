@@ -10,6 +10,7 @@ const test = require('ava');
 const { lookpath } = require('lookpath');
 
 const SpamScanner = require('../..');
+const { getTokens } = require('../../workers/get-tokens-and-mail');
 
 function fixtures(name) {
   return path.join(__dirname, '../fixtures', name);
@@ -309,11 +310,12 @@ for (const locale of [
 ]) {
   test(`getTokens works with locale "${locale}"`, async (t) => {
     const scanner = new SpamScanner();
-    const tokens = await scanner.getTokens(
-      scanner.config,
+    const tokens = await getTokens(
       'hello world greetings today is a new day and tomorrow is another day', // = 13
       //                           ^  ^          ^           ^   ^               = 4
-      locale
+      locale,
+      null,
+      scanner.config
     );
     t.is(tokens.length, 8);
     t.pass();

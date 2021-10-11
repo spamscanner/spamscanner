@@ -1,5 +1,5 @@
 const fs = require('fs');
-const { parentPort, workerData } = require('worker_threads');
+const { parentPort, workerData, isMainThread } = require('worker_threads');
 const { promisify } = require('util');
 
 const RE2 = require('re2');
@@ -114,7 +114,10 @@ for (const code of codes()) {
 
 const CURRENCY_REGEX = new RE2(new RegExp(currencySymbols.join('|'), 'g'));
 
-const { config } = workerData;
+let config;
+if (!isMainThread) {
+  config = workerData.config;
+}
 
 function parseLocale(locale) {
   // convert `franc` locales here to their locale iso2 normalized name
@@ -126,7 +129,12 @@ function parseLocale(locale) {
 // <https://blog.logrocket.com/natural-language-processing-for-node-js/>
 // <https://github.com/NaturalNode/natural#stemmers>
 // eslint-disable-next-line complexity
-async function getTokens(string, locale, isHTML = false) {
+async function getTokens(string, locale, isHTML = false, c = null) {
+  // c is to be able to pass config in tests
+  if (c && isMainThread) {
+    config = c;
+  }
+
   // get the current email replacement regex
   const EMAIL_REPLACEMENT_REGEX = new RE2(config.replacements.email, 'g');
 
@@ -500,11 +508,15 @@ async function getTokensAndMailFromSource(string) {
   return { tokens, mail };
 }
 
-parentPort.on('message', async (task) => {
-  const res = await getTokensAndMailFromSource(task.string);
-  parentPort.postMessage({ type: 'done', data: res });
-});
+if (!isMainThread) {
+  parentPort.on('message', async (task) => {
+    const res = await getTokensAndMailFromSource(task.string);
+    parentPort.postMessage({ type: 'done', data: res });
+  });
+}
 
 module.exports = {
-  getTokens
+  parseLocale,
+  getTokens,
+  getTokensAndMailFromSource
 };
