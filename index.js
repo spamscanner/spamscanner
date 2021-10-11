@@ -6,7 +6,6 @@ const punycode = require('punycode');
 
 const ClamScan = require('clamscan');
 const FileType = require('file-type');
-const NaiveBayes = require('@ladjs/naivebayes');
 const RE2 = require('re2');
 const emailRegexSafe = require('email-regex-safe');
 const escapeStringRegexp = require('escape-string-regexp');
@@ -271,24 +270,6 @@ class SpamScanner {
         throw new Error(`Replacement for "${replacement}" missing`);
     }
 
-    this.classifier =
-      typeof this.config.classifier === 'object'
-        ? this.config.classifier
-        : typeof this.config.classifier === 'string'
-        ? isValidPath(this.config.classifier)
-          ? require(this.config.classifier)
-          : JSON.parse(this.config.classifier)
-        : false;
-
-    this.classifier = NaiveBayes.fromJson(
-      this.classifier,
-      this.config.vocabularyLimit
-    );
-    // since we do tokenization ourselves
-    this.classifier.tokenizer = function (tokens) {
-      return tokens;
-    };
-
     this.clamscan = new ClamScan();
 
     this.getPhishingResults = this.getPhishingResults.bind(this);
@@ -307,7 +288,6 @@ class SpamScanner {
       this.getVirusResults.bind(this)
     );
     this.getHostname = this.getHostname.bind(this);
-    this.getClassification = this.getClassification.bind(this);
 
     // memoized methods (either uses Redis or in-memory cache)
     if (this.config.client)
@@ -419,10 +399,6 @@ class SpamScanner {
     }
 
     return url;
-  }
-
-  getClassification(tokens) {
-    return Promise.resolve(this.classifier.categorize(tokens, true));
   }
 
   async getVirusResults(mail) {
@@ -917,7 +893,7 @@ class SpamScanner {
         arbitrary,
         viruses
       ] = await Promise.all([
-        this.getClassification(tokens),
+        this.workerPool.runTask('getClassification', { tokens }),
         this.getPhishingResults(mail),
         // Promise.resolve(this.getNSFWResults(mail)),
         this.getExecutableResults(mail),

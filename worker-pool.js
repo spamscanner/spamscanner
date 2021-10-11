@@ -22,7 +22,8 @@ class WorkerPool extends EventEmitter {
   constructor(numThreads, config) {
     super();
     this.freeWorkers = {
-      getTokensAndMailFromSource: []
+      getTokensAndMailFromSource: [],
+      getClassification: []
     };
     this.numThreads = numThreads;
     this.tasks = [];
