@@ -21,9 +21,12 @@ class WorkerPoolTaskInfo extends AsyncResource {
 class WorkerPool extends EventEmitter {
   constructor(numThreads, config) {
     super();
-    this.freeWorkers = [];
+    this.freeWorkers = {
+      getTokensAndMailFromSource: []
+    };
     this.numThreads = numThreads;
     this.tasks = [];
+    this.activeWorkers = [];
     this.workers = [];
 
     this.logger = config.logger;
@@ -33,23 +36,29 @@ class WorkerPool extends EventEmitter {
     // remove REDIS client since we can't send it to worker
     this.config.client = false;
 
-    for (let i = 0; i < numThreads; i++) {
-      this.addNewWorker();
+    for (const task of Object.keys(this.freeWorkers)) {
+      for (let i = 0; i < numThreads; i++) {
+        this.addNewWorker(task);
+      }
     }
 
     // Any time the kWorkerFreedEvent is emitted, dispatch
     // the next task pending in the queue, if any.
     this.on(kWorkerFreedEvent, () => {
       if (this.tasks.length > 0) {
-        const { task, callback } = this.tasks.shift();
-        this.runTask(task, callback);
+        const { task, data, callback } = this.tasks.shift();
+        this.runTask(task, data, callback);
       }
     });
   }
 
-  addNewWorker() {
+  addNewWorker(task) {
     const worker = new Worker(
-      path.resolve(__dirname, 'workers', 'get-tokens-and-mail.js'),
+      path.resolve(
+        __dirname,
+        'workers',
+        `${task.replace(/[A-Z]/g, (m) => '-' + m.toLowerCase())}.js`
+      ),
       { workerData: { config: this.config } }
     );
 
@@ -63,8 +72,9 @@ class WorkerPool extends EventEmitter {
         // remove the `TaskInfo` associated with the Worker, and mark it as free
         // again.
         worker[kTaskInfo].done(null, data);
+        this.activeWorkers.splice(this.activeWorkers.indexOf(worker), 1);
         worker[kTaskInfo] = null;
-        this.freeWorkers.push(worker);
+        this.freeWorkers[task].push(worker);
         this.emit(kWorkerFreedEvent);
       }
     });
@@ -77,15 +87,16 @@ class WorkerPool extends EventEmitter {
       // Remove the worker from the list and start a new Worker to replace the
       // current one.
       this.workers.splice(this.workers.indexOf(worker), 1);
-      this.addNewWorker();
+      this.activeWorkers.splice(this.activeWorkers.indexOf(worker), 1);
+      this.addNewWorker(task);
     });
 
     this.workers.push(worker);
-    this.freeWorkers.push(worker);
+    this.freeWorkers[task].push(worker);
     this.emit(kWorkerFreedEvent);
   }
 
-  async runTask(task, cb) {
+  async runTask(task, data, cb) {
     return new Promise((resolve, reject) => {
       const callback = cb
         ? cb
@@ -94,15 +105,15 @@ class WorkerPool extends EventEmitter {
             else resolve(data);
           };
 
-      if (this.freeWorkers.length === 0) {
+      if (this.activeWorkers.length >= this.numThreads) {
         // No free threads, wait until a worker thread becomes free.
-        this.tasks.push({ task, callback });
-        return;
+        this.tasks.push({ task, data, callback });
+      } else {
+        const worker = this.freeWorkers[task].pop();
+        worker[kTaskInfo] = new WorkerPoolTaskInfo(callback);
+        this.activeWorkers.push(worker);
+        worker.postMessage(data);
       }
-
-      const worker = this.freeWorkers.pop();
-      worker[kTaskInfo] = new WorkerPoolTaskInfo(callback);
-      worker.postMessage(task);
     });
   }
 

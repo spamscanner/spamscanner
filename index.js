@@ -904,7 +904,10 @@ class SpamScanner {
 
   async scan(string) {
     try {
-      const { tokens, mail } = await this.workerPool.runTask({ string });
+      const { tokens, mail } = await this.workerPool.runTask(
+        'getTokensAndMailFromSource',
+        { string }
+      );
 
       const [
         classification,
