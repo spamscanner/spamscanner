@@ -20,11 +20,7 @@ const results = {};
 
 test.after(() => {
   // print results
-  console.log('Overall Execution Times(ms):');
-  console.table(results.overallExecutionTime);
-
-  console.log('Overall Delay Times(ms):');
-  console.table(results.overallDelayTime);
+  console.table(results);
 });
 
 test.beforeEach(async (t) => {
