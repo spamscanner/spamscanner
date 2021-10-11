@@ -497,12 +497,12 @@ async function getTokensAndMailFromSource(string) {
     })
   );
 
-  return Promise.resolve({ tokens, mail });
+  return { tokens, mail };
 }
 
 parentPort.on('message', async (task) => {
   const res = await getTokensAndMailFromSource(task.string);
-  parentPort.postMessage(res);
+  parentPort.postMessage({ type: 'done', data: res });
 });
 
 module.exports = {

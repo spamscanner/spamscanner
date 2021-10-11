@@ -26,8 +26,12 @@ class WorkerPool extends EventEmitter {
     this.tasks = [];
     this.workers = [];
 
+    this.logger = config.logger;
+    delete config.logger;
+    this.config = config;
+
     for (let i = 0; i < numThreads; i++) {
-      this.addNewWorker(config);
+      this.addNewWorker();
     }
 
     // Any time the kWorkerFreedEvent is emitted, dispatch
@@ -40,20 +44,26 @@ class WorkerPool extends EventEmitter {
     });
   }
 
-  addNewWorker(config) {
+  addNewWorker() {
     const worker = new Worker(
       path.resolve(__dirname, 'workers', 'get-tokens-and-mail.js'),
-      { workerData: { config } }
+      { workerData: { config: this.config } }
     );
 
     worker.on('message', (result) => {
-      // In case of success: Call the callback that was passed to `runTask`,
-      // remove the `TaskInfo` associated with the Worker, and mark it as free
-      // again.
-      worker[kTaskInfo].done(null, result);
-      worker[kTaskInfo] = null;
-      this.freeWorkers.push(worker);
-      this.emit(kWorkerFreedEvent);
+      const { type, data } = result;
+
+      if (type === 'log') {
+        this.logger.log(data);
+      } else if (type === 'done') {
+        // In case of success: Call the callback that was passed to `runTask`,
+        // remove the `TaskInfo` associated with the Worker, and mark it as free
+        // again.
+        worker[kTaskInfo].done(null, data);
+        worker[kTaskInfo] = null;
+        this.freeWorkers.push(worker);
+        this.emit(kWorkerFreedEvent);
+      }
     });
 
     worker.on('error', (err) => {
@@ -72,12 +82,14 @@ class WorkerPool extends EventEmitter {
     this.emit(kWorkerFreedEvent);
   }
 
-  async runTask(task) {
+  async runTask(task, cb) {
     return new Promise((resolve, reject) => {
-      const callback = (err, data) => {
-        if (err) reject(err);
-        else resolve(data);
-      };
+      const callback = cb
+        ? cb
+        : (err, data) => {
+            if (err) reject(err);
+            else resolve(data);
+          };
 
       if (this.freeWorkers.length === 0) {
         // No free threads, wait until a worker thread becomes free.

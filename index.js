@@ -338,6 +338,8 @@ class SpamScanner {
       ...config
     };
 
+    this.count = 0;
+
     // ensure all replacements are there
     if (typeof this.config.replacements !== 'object')
       throw new Error('Replacements missing');
@@ -427,6 +429,7 @@ class SpamScanner {
       );
 
     this.workerPool = new WorkerPool(os.cpus().length, {
+      logger: this.config.logger,
       replacements: this.config.replacements,
       sanitizeHtml: this.config.sanitizeHtml,
       franc: this.config.franc,
@@ -1337,62 +1340,70 @@ class SpamScanner {
     return messages;
   }
 
+  stop() {
+    this.workerPool.close();
+  }
+
   async scan(string) {
-    const { tokens, mail } = await this.workerPool.runTask({ string });
+    try {
+      const { tokens, mail } = await this.workerPool.runTask({ string });
 
-    const [
-      classification,
-      phishing,
-      // nsfw,
-      executables,
-      arbitrary,
-      viruses
-    ] = await Promise.all([
-      this.getClassification(tokens),
-      this.getPhishingResults(mail),
-      // Promise.resolve(this.getNSFWResults(mail)),
-      this.getExecutableResults(mail),
-      this.getArbitraryResults(mail),
-      this.getVirusResults(mail)
-    ]);
-
-    const messages = [];
-
-    if (classification && classification.category === 'spam')
-      messages.push('Spam detected from Naive Bayesian classifier.');
-
-    for (const message of phishing.messages) {
-      messages.push(message);
-    }
-
-    // for (const message of nsfw) {
-    //   messages.push(message);
-    // }
-
-    for (const message of executables) {
-      messages.push(message);
-    }
-
-    for (const message of arbitrary) {
-      messages.push(message);
-    }
-
-    return {
-      is_spam: messages.length > 0,
-      message:
-        messages.length === 0 ? 'Not detected as spam.' : messages.join(' '),
-      results: {
-        // classifier prediction
+      const [
         classification,
-        phishing: phishing.messages,
+        phishing,
         // nsfw,
         executables,
         arbitrary,
         viruses
-      },
-      links: phishing.links,
-      ...(this.config.debug ? { tokens, mail } : {})
-    };
+      ] = await Promise.all([
+        this.getClassification(tokens),
+        this.getPhishingResults(mail),
+        // Promise.resolve(this.getNSFWResults(mail)),
+        this.getExecutableResults(mail),
+        this.getArbitraryResults(mail),
+        this.getVirusResults(mail)
+      ]);
+
+      const messages = [];
+
+      if (classification && classification.category === 'spam')
+        messages.push('Spam detected from Naive Bayesian classifier.');
+
+      for (const message of phishing.messages) {
+        messages.push(message);
+      }
+
+      // for (const message of nsfw) {
+      //   messages.push(message);
+      // }
+
+      for (const message of executables) {
+        messages.push(message);
+      }
+
+      for (const message of arbitrary) {
+        messages.push(message);
+      }
+
+      return {
+        is_spam: messages.length > 0,
+        message:
+          messages.length === 0 ? 'Not detected as spam.' : messages.join(' '),
+        results: {
+          // classifier prediction
+          classification,
+          phishing: phishing.messages,
+          // nsfw,
+          executables,
+          arbitrary,
+          viruses
+        },
+        links: phishing.links,
+        ...(this.config.debug ? { tokens, mail } : {})
+      };
+    } catch (err) {
+      this.config.logger.error(err);
+    }
   }
 }
 
