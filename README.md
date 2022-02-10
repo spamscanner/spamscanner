@@ -423,7 +423,7 @@ Currently Spam Scanner supports the following locales for tokenization, stemming
 | Finnish    | `fn`       |
 | Farsi      | `fa`       |
 | French     | `fr`       |
-| German     | `gr`       |
+| German     | `de`       |
 | Hungarian  | `hr`       |
 | Indonesian | `in`       |
 | Italian    | `it`       |
