@@ -4397,10 +4397,10 @@ lines-and-columns@^1.1.6:
   resolved "https://registry.yarnpkg.com/lines-and-columns/-/lines-and-columns-1.1.6.tgz#1c00c743b433cd0a4e80758f7b64a57440d9ff00"
   integrity sha1-HADHQ7QzzQpOgHWPe2SldEDZ/wA=
 
-linkify-it@3.0.2:
-  version "3.0.2"
-  resolved "https://registry.yarnpkg.com/linkify-it/-/linkify-it-3.0.2.tgz#f55eeb8bc1d3ae754049e124ab3bb56d97797fb8"
-  integrity sha512-gDBO4aHNZS6coiZCKVhSNh43F9ioIL4JwRjLZPkoLIY4yZFwg264Y5lu2x6rb1Js42Gh6Yqm2f6L2AJcnkzinQ==
+linkify-it@3.0.3:
+  version "3.0.3"
+  resolved "https://registry.yarnpkg.com/linkify-it/-/linkify-it-3.0.3.tgz#a98baf44ce45a550efb4d49c769d07524cc2fa2e"
+  integrity sha512-ynTsyrFSdE5oZ/O9GEf00kPngmOfVwazR5GKDq6EYfhlpFug3J2zybX56a2PRRpc9P+FuSoGNAwjlbDs9jJBPQ==
   dependencies:
     uc.micro "^1.0.1"
 
@@ -4605,25 +4605,25 @@ macos-version@5:
   dependencies:
     semver "^5.6.0"
 
-mailparser@^3.3.0:
-  version "3.3.0"
-  resolved "https://registry.yarnpkg.com/mailparser/-/mailparser-3.3.0.tgz#1f688f769760dbe46eb1ba8ffbf05eae04cb14ac"
-  integrity sha512-cSvqT3y735gN3IFLcda/H/grJ+7HItKw8OOshzlhAHAic5R0c33GB1ZizREWmLJONjFMrKUitFeopZd9rsRfvg==
+mailparser@^3.4.0:
+  version "3.4.0"
+  resolved "https://registry.yarnpkg.com/mailparser/-/mailparser-3.4.0.tgz#249869bc5a41af9e0eabbf005197789442fbac9e"
+  integrity sha512-u2pfpLg+xr7m2FKDl+ohQhy2gMok1QZ+S9E5umS9ez5DSJWttrqSmBGswyj9F68pZMVTwbhLpBt7Kd04q/W4Vw==
   dependencies:
     encoding-japanese "1.0.30"
     he "1.2.0"
     html-to-text "8.0.0"
     iconv-lite "0.6.3"
     libmime "5.0.0"
-    linkify-it "3.0.2"
-    mailsplit "5.0.1"
-    nodemailer "6.6.3"
-    tlds "1.221.1"
+    linkify-it "3.0.3"
+    mailsplit "5.3.1"
+    nodemailer "6.7.0"
+    tlds "1.224.0"
 
-mailsplit@5.0.1:
-  version "5.0.1"
-  resolved "https://registry.yarnpkg.com/mailsplit/-/mailsplit-5.0.1.tgz#070bd883bddc0c6c7f5c6ea4a54847729d95dc6f"
-  integrity sha512-CcGy1sv8j9jdjKiNIuMZYIKhq4s47nUj9Q98BZfptabH/whmiQX7EvrHx36O4DcyPEsnG152GVNyvqPi9FNIew==
+mailsplit@5.3.1:
+  version "5.3.1"
+  resolved "https://registry.yarnpkg.com/mailsplit/-/mailsplit-5.3.1.tgz#dd6d5c20a7b8a767fe9c9649dfcb26ee04f84c36"
+  integrity sha512-o6R6HCzqWYmI2/IYlB+v2IMPgYqC2EynmagZQICAhR7zAq0CO6fPcsO6CrYmVuYT+SSwvLAEZR5WniohBELcAA==
   dependencies:
     libbase64 "1.2.1"
     libmime "5.0.0"
@@ -5510,10 +5510,10 @@ node-snowball@^0.6.0:
   dependencies:
     nan "^2.14.0"
 
-nodemailer@6.6.3:
-  version "6.6.3"
-  resolved "https://registry.yarnpkg.com/nodemailer/-/nodemailer-6.6.3.tgz#31fb53dd4d8ae16fc088a65cb9ffa8d928a69b48"
-  integrity sha512-faZFufgTMrphYoDjvyVpbpJcYzwyFnbAMmQtj1lVBYAUSm3SOy2fIdd9+Mr4UxPosBa0JRw9bJoIwQn+nswiew==
+nodemailer@6.7.0:
+  version "6.7.0"
+  resolved "https://registry.yarnpkg.com/nodemailer/-/nodemailer-6.7.0.tgz#86614722c4e0c33d1b5b02aecb90d6d629932b0d"
+  integrity sha512-AtiTVUFHLiiDnMQ43zi0YgkzHOEWUkhDgPlBXrsDzJiJvB29Alo4OKxHQ0ugF3gRqRQIneCLtZU3yiUo7pItZw==
 
 nopt@^5.0.0:
   version "5.0.0"
@@ -8026,7 +8026,12 @@ timers-ext@^0.1.7:
     es5-ext "~0.10.46"
     next-tick "1"
 
-tlds@1.221.1, tlds@^1.217.0:
+tlds@1.224.0:
+  version "1.224.0"
+  resolved "https://registry.yarnpkg.com/tlds/-/tlds-1.224.0.tgz#dc9a5b0bda0708af0302114f6e24458770c5af01"
+  integrity sha512-Jgdc8SEijbDFUsmCn6Wk/f7E6jBLFZOG3U1xK0amGSfEH55Xx97ItUS/d2NngsuApjn11UeWCWj8Um3VRhseZQ==
+
+tlds@^1.217.0:
   version "1.221.1"
   resolved "https://registry.yarnpkg.com/tlds/-/tlds-1.221.1.tgz#6cf6bff5eaf30c5618c5801c3f425a6dc61ca0ad"
   integrity sha512-N1Afn/SLeOQRpxMwHBuNFJ3GvGrdtY4XPXKPFcx8he0U9Jg9ZkvTKE1k3jQDtCmlFn44UxjVtouF6PT4rEGd3Q==
