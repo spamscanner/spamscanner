@@ -12,31 +12,35 @@ const SpamScanner = require('../');
 const generateEmail = require('./fixtures/email-generator');
 
 // LOAD per second
-const LOAD = 30;
+const LOAD = 25;
 const WARMUP_LOAD = 10;
 
 // store resulting statistics
 // to be printed/saved at end
 const results = {};
 
-test.after(() => {
-  // print results
-  console.log('Overall Execution Times(ms):');
-  console.table(results.overallExecutionTime);
+test.after((t) => {
+  //
+  // TODO: add cli-table3 or something so we have console.table
+  //
 
-  console.log('Overall Delay Times(ms):');
-  console.table(results.overallDelayTime);
+  // print results
+  t.log('Overall Execution Times(ms):');
+  t.log(JSON.stringify(results.overallExecutionTime, null, 2));
+
+  t.log('Overall Delay Times(ms):');
+  t.log(JSON.stringify(results.overallDelayTime, null, 2));
 });
 
 test.beforeEach(async (t) => {
-  t.context.scanner = new SpamScanner();
+  t.context.scanner = new SpamScanner({ clamscan: false });
 
   // warmup
-  const fn = async () => {
+  async function fn() {
     const email = generateEmail({ urls: { max: 10, min: 5 } });
 
     await t.context.scanner.scan(email);
-  };
+  }
 
   const queue = new PQueue({
     intervalCap: WARMUP_LOAD / 10,
@@ -46,18 +50,14 @@ test.beforeEach(async (t) => {
 
   // pre-load queue
   // for 5 seconds
-  for (let i = 0; i < LOAD * 5; i++) {
-    queue.add(fn);
-  }
+  queue.addAll(Array.from({ length: LOAD * 5 }).fill(fn));
 
-  console.log('warmup started');
+  t.log('warmup started');
   await queue.start().onIdle();
-  console.log('warmup completed');
+  t.log('warmup completed');
 });
 
-test('scan() should take less than 100 ms on average', async (t) => {
-  t.plan(1);
-
+test('scan() should take less than 10 ms on average', async (t) => {
   const measures = [];
 
   const obs = new PerformanceObserver((list) => {
@@ -71,8 +71,25 @@ test('scan() should take less than 100 ms on average', async (t) => {
     autoStart: false
   });
 
+  queue.on('add', () => {
+    t.log(
+      `added to queue, size is ${queue.size} with ${queue.pending} pending`
+    );
+  });
+
+  queue.on('next', () => {
+    t.log(
+      `task completed, size is ${queue.size} with ${queue.pending} pending`
+    );
+  });
+
+  queue.on('completed', (result) => {
+    t.log('completed', result);
+  });
+
   let n = 0;
-  const fn = async () => {
+
+  async function fn() {
     const email = generateEmail({ urls: { max: 10, min: 5 } });
     const startMark = `scan-${n}-start`;
     const endMark = `scan-${n}-end`;
@@ -85,13 +102,11 @@ test('scan() should take less than 100 ms on average', async (t) => {
 
     performance.mark(endMark);
     performance.measure(measureLabel, startMark, endMark);
-  };
+  }
 
   // pre-load queue
   // run for 5 seconds
-  for (let i = 0; i < LOAD * 5; i++) {
-    queue.add(fn);
-  }
+  queue.addAll(Array.from({ length: LOAD * 5 }).fill(fn));
 
   await queue.start().onIdle();
 
@@ -117,18 +132,23 @@ test('scan() should take less than 100 ms on average', async (t) => {
     count: measures.length
   };
 
-  t.true(stats.mean <= 100);
+  t.true(measures.length > 0);
+  t.true(stats.mean <= 10);
 });
 
-test(`scan() should have no more than a 50 ms delay within 2 SD of mean`, async (t) => {
-  const h = monitorEventLoopDelay();
-  const fn = async () => {
+//
+// there's too much work happening on the CPU if this event loop delay is high
+// (so we need to improve the code to run faster, or use setImmediate)
+//
+test(`scan() should have no more than a 200 ms mean delay within 2 SD of mean`, async (t) => {
+  const h = monitorEventLoopDelay({ resolution: 3 });
+  async function fn() {
     const email = generateEmail({ urls: { max: 10, min: 5 } });
 
     h.enable();
     await t.context.scanner.scan(email);
     h.disable();
-  };
+  }
 
   const queue = new PQueue({
     intervalCap: LOAD / 10,
@@ -136,11 +156,25 @@ test(`scan() should have no more than a 50 ms delay within 2 SD of mean`, async 
     autoStart: false
   });
 
+  queue.on('add', () => {
+    t.log(
+      `added to queue, size is ${queue.size} with ${queue.pending} pending`
+    );
+  });
+
+  queue.on('next', () => {
+    t.log(
+      `task completed, size is ${queue.size} with ${queue.pending} pending`
+    );
+  });
+
+  queue.on('completed', (result) => {
+    t.log('completed', result);
+  });
+
   // pre-load queue
   // for 5 seconds
-  for (let i = 0; i < LOAD * 5; i++) {
-    queue.add(fn);
-  }
+  queue.addAll(Array.from({ length: LOAD * 5 }).fill(fn));
 
   await queue.start().onIdle();
 
@@ -151,8 +185,14 @@ test(`scan() should have no more than a 50 ms delay within 2 SD of mean`, async 
     min: h.min / 1000000,
     25: h.percentile(25) / 1000000,
     50: h.percentile(50) / 1000000,
-    75: h.percentile(75) / 1000000
+    75: h.percentile(75) / 1000000,
+    count: h.count
   };
 
-  t.true(results.overallDelayTime.max <= 50);
+  t.log(h);
+  t.log(results.overallDelayTime);
+  t.true(h.count > 0);
+  t.true(
+    results.overallDelayTime.mean + 2 * results.overallDelayTime.stddev <= 200
+  );
 });

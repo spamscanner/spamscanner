@@ -566,7 +566,7 @@ Note that in [Forward Email][forward-email] we use the `client` approach as we h
 
 ## Debugging
 
-Spam Scanner has built-in debug output via `util.debuglog('spamscanner')`.
+Spam Scanner has built-in debug output via `util.debuglog('spamscanner')`.  You can also pass `debug: true` to your instance to get more verbose output.
 
 This means you can run your app with `NODE_DEBUG=spamscanner node app.js` to get useful debug output to your console.
 

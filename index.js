@@ -496,7 +496,7 @@ class SpamScanner {
       return tokens;
     };
 
-    this.clamscan = new ClamScan();
+    this.clamscan = this.config.clamscan === false ? false : new ClamScan();
 
     this.getTokensAndMailFromSource = universalify.fromPromise(
       this.getTokensAndMailFromSource.bind(this)
@@ -654,7 +654,13 @@ class SpamScanner {
   async getVirusResults(mail) {
     const messages = [];
 
-    if (!Array.isArray(mail.attachments)) return messages;
+    if (!this.clamscan) {
+      debug('clamscan disabled');
+      return messages;
+    }
+
+    if (!Array.isArray(mail.attachments) || mail.attachments.length === 0)
+      return messages;
 
     try {
       // if it was already loaded, clamscan won't reload itself

@@ -1,5 +1,8 @@
+const { debuglog } = require('util');
+
 const cryptoRandomString = require('crypto-random-string');
-const debug = require('debug')('spamscanner');
+
+const debug = debuglog('spamscanner');
 
 const REPLACEMENT_WORDS = require('./replacement-words.json');
 

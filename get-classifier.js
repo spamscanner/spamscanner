@@ -1,5 +1,8 @@
+const { debuglog } = require('util');
+
 const NaiveBayes = require('@ladjs/naivebayes');
-const debug = require('debug')('spamscanner');
+
+const debug = debuglog('spamscanner');
 
 let classifier = new NaiveBayes().toJsonObject();
 
