@@ -140,7 +140,7 @@ test('scan() should take less than 10 ms on average', async (t) => {
 // there's too much work happening on the CPU if this event loop delay is high
 // (so we need to improve the code to run faster, or use setImmediate)
 //
-test(`scan() should have no more than a 200 ms mean delay within 2 SD of mean`, async (t) => {
+test(`scan() should have no more than a 250 ms mean delay within 2 SD of mean`, async (t) => {
   const h = monitorEventLoopDelay({ resolution: 3 });
   async function fn() {
     const email = generateEmail({ urls: { max: 10, min: 5 } });
@@ -192,7 +192,8 @@ test(`scan() should have no more than a 200 ms mean delay within 2 SD of mean`, 
   t.log(h);
   t.log(results.overallDelayTime);
   t.true(h.count > 0);
-  t.true(
-    results.overallDelayTime.mean + 2 * results.overallDelayTime.stddev <= 200
-  );
+  const result =
+    results.overallDelayTime.mean + 2 * results.overallDelayTime.stddev;
+  t.log('result', result);
+  t.true(result <= 250);
 });
