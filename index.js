@@ -989,12 +989,9 @@ class SpamScanner {
         // (we can assume that users would understand a different language sent to them is spam)
         // (so we can assume that language is spoofed to bypass English, the most widely spoken)
         //
-        if (
-          lang[0] &&
-          ISO_CODE_MAPPING[lang[0]] &&
-          lang[1] &&
-          lang[1] >= this.config.detectedLocaleOverrideProbability
-        ) {
+        if (lang[0] && ISO_CODE_MAPPING[lang[0]] && lang[1]) {
+          // we don't want to check anything lower than our threshold
+          if (lang[1] < this.config.detectedLocaleOverrideProbability) break;
           if (probability >= lang[1]) {
             // exit early since we found a match that matched the passed locale
             // eslint-disable-next-line max-depth
