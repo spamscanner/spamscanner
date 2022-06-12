@@ -1,3 +1,4 @@
+const process = require('process');
 const { workerData, parentPort } = require('worker_threads');
 
 const SpamScanner = require('.');

@@ -2,9 +2,7 @@
   <a href="https://spamscanner.net"><img src="https://d1i8ikybhfrv4r.cloudfront.net/spamscanner.png" alt="spamscanner" /></a>
 </h1>
 <div align="center">
-  <a href="https://join.slack.com/t/ladjs/shared_invite/zt-fqei6z11-Bq2trhwHQxVc5x~ifiZG0g"><img src="https://img.shields.io/badge/chat-join%20slack-brightgreen" alt="chat" /></a>
-  <a href="https://travis-ci.com/spamscanner/spamscanner"><img src="https://travis-ci.com/spamscanner/spamscanner.svg?branch=master" alt="build status" /></a>
-  <a href="https://codecov.io/github/spamscanner/spamscanner"><img src="https://img.shields.io/codecov/c/github/spamscanner/spamscanner/master.svg" alt="code coverage" /></a>
+  <a href="https://github.com/spamscanner/spamscanner/actions/workflows/ci.yml"><img src="https://github.com/spamscanner/spamscanner/actions/workflows/ci.yml/badge.svg" alt="build status" /></a>
   <a href="https://github.com/sindresorhus/xo"><img src="https://img.shields.io/badge/code_style-XO-5ed9c7.svg" alt="code style" /></a>
   <a href="https://github.com/prettier/prettier"><img src="https://img.shields.io/badge/styled_with-prettier-ff69b4.svg" alt="styled with prettier" /></a>
   <a href="https://lass.js.org"><img src="https://img.shields.io/badge/made_with-lass-95CC28.svg" alt="made with lass" /></a>
@@ -48,6 +46,7 @@
   * [`scanner.getVirusResults(mail)`](#scannergetvirusresultsmail)
   * [`scanner.parseLocale(locale)`](#scannerparselocalelocale)
 * [Caching](#caching)
+* [Debugging](#debugging)
 * [Contributors](#contributors)
 * [References](#references)
 * [License](#license)
@@ -470,7 +469,7 @@ A common example of this is a link of `рaypal.com` which when converted to ASCI
 
 This method checks against [Cloudflare for Families](https://developers.cloudflare.com/1.1.1.1/1.1.1.1-for-families) servers for both adult-related content, malware, and phishing.  This means we do two separate DNS over HTTPS requests to `1.1.1.2` for malware and `1.1.1.3` for adult-related content.  You can parse the messages results Array for messages that contain "adult-related content" if you need to parse whether or not you want to flag for adult-related content or not on your application.
 
-If you are using Cloudflare for Families DNS servers as mentioned in [Requirements](#requirements)), then if there are any HTTPS over DNS request errors, it will fallback to use the DNS servers set on the system for lookups, which would in turn use Cloudflare for Family DNS. (using DNS over HTTPS with a fallback of [dns.resolve4](https://nodejs.org/api/dns.html#dns_dns_resolve4\_hostname_options_callback)) – and if it returns `0.0.0.0` then it is considered to be phishing.
+If you are using Cloudflare for Families DNS servers as mentioned in [Requirements](#requirements)), then if there are any HTTPS over DNS request errors, it will fallback to use the DNS servers set on the system for lookups, which would in turn use Cloudflare for Family DNS. (using DNS over HTTPS with a fallback of [dns.resolve4](https://nodejs.org/api/dns.html#dns_dns_resolve4_hostname_options_callback)) – and if it returns `0.0.0.0` then it is considered to be phishing.
 
 We actually helped Cloudflare in August 2020 to update their documentation to note that this result of `0.0.0.0` is returned for maliciously found content on FQDN and IP lookups.
 
@@ -563,6 +562,13 @@ const scanner = new SpamScanner({
 ```
 
 Note that in [Forward Email][forward-email] we use the `client` approach as we have multiple threads across multiple servers running, and in-memory caching would not be efficient.
+
+
+## Debugging
+
+Spam Scanner has built-in debug output via `util.debuglog('spamscanner')`.
+
+This means you can run your app with `NODE_DEBUG=spamscanner node app.js` to get useful debug output to your console.
 
 
 ## Contributors

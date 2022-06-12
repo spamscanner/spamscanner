@@ -1,3 +1,4 @@
+const process = require('process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -8,9 +9,9 @@ const { readDirDeep } = require('read-dir-deep');
 
 const CLASSIFIER_IGNORES = require('./classifier-ignores.js');
 const MBOX_PATTERNS = require('./mbox-patterns.js');
-const SpamScanner = require('.');
 const VOCABULARY_LIMIT = require('./vocabulary-limit.js');
 const replacements = require('./replacements.js');
+const SpamScanner = require('.');
 
 const concurrency = os.cpus().length;
 

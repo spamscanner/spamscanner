@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { performance } = require('perf_hooks');
+const { Buffer } = require('buffer');
 
 const Redis = require('@ladjs/redis');
 const delay = require('delay');
@@ -97,7 +98,7 @@ test('should check against Cloudflare', async (t) => {
     text: link
   });
   t.deepEqual(results.messages, [
-    `Link hostname of "${link}" was detected by Cloudflare's Family DNS to contain adult-related content, phishing, and/or malware.`
+    `Link hostname of ${link} was detected by Cloudflare's Family DNS to contain adult-related content, phishing, and/or malware.`
   ]);
 });
 
@@ -142,7 +143,7 @@ You should send this test mail from an account outside of your network.
     `.trim()
   });
   t.deepEqual(results, [
-    'Message detected to contain the GTUBE test from <https://spamassassin.apache.org/gtube/>.'
+    'Message detected to contain the GTUBE test from https://spamassassin.apache.org/gtube/.'
   ]);
 });
 
@@ -171,13 +172,10 @@ test('EICAR test', async (t) => {
   const results = await scanner.getVirusResults({
     attachments: [{ content }]
   });
+  t.log(results);
   t.true(
-    results.includes(
-      'Attachment #1 was infected with "Eicar-Test-Signature".'
-    ) ||
-      results.includes(
-        'Attachment #1 was infected with "Win.Test.EICAR_HDB-1".'
-      )
+    results.includes('Attachment #1 was infected with Eicar-Test-Signature.') ||
+      results.includes('Attachment #1 was infected with Win.Test.EICAR_HDB-1.')
   );
 });
 
@@ -310,11 +308,14 @@ for (const locale of [
   test(`getTokens works with locale "${locale}"`, async (t) => {
     const scanner = new SpamScanner();
     const tokens = await scanner.getTokens(
-      'hello world greetings today is a new day and tomorrow is another day', // = 13
+      "hello they're world greetings today is a new day and tomorrow is another day", // = 13
       //                           ^  ^          ^           ^   ^               = 4
       locale
     );
-    t.is(tokens.length, 8);
+    // "hello" is a stopword in "in"
+    // <https://github.com/NaturalNode/natural/issues/651>
+    if (locale === 'in') t.is(tokens.length, 7);
+    else t.is(tokens.length, 8);
     t.pass();
   });
 }

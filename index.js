@@ -1,8 +1,9 @@
+const process = require('process');
 const dns = require('dns');
 const fs = require('fs');
-const { promisify } = require('util');
+const { debuglog } = require('util');
 
-// eslint-disable-next-line node/no-deprecated-api
+// eslint-disable-next-line n/no-deprecated-api
 const punycode = require('punycode');
 
 const ClamScan = require('clamscan');
@@ -12,7 +13,6 @@ const RE2 = require('re2');
 const bitcoinRegex = require('bitcoin-regex');
 const contractions = require('expand-contractions');
 const creditCardRegex = require('credit-card-regex');
-const debug = require('debug')('spamscanner');
 const emailRegexSafe = require('email-regex-safe');
 const emojiPatterns = require('emoji-patterns');
 const escapeStringRegexp = require('escape-string-regexp');
@@ -46,11 +46,14 @@ const toEmoji = require('gemoji/name-to-emoji');
 const universalify = require('universalify');
 const urlRegexSafe = require('url-regex-safe');
 const validator = require('validator');
+const which = require('which');
 const { Iconv } = require('iconv');
 const { codes } = require('currency-codes');
 const { fromUrl, NO_HOSTNAME } = require('parse-domain');
 const { parse } = require('node-html-parser');
 const { simpleParser } = require('mailparser');
+
+const debug = debuglog('spamscanner');
 
 const aggressiveTokenizer = new natural.AggressiveTokenizer();
 const orthographyTokenizer = new natural.OrthographyTokenizer({
@@ -69,20 +72,115 @@ const aggressiveTokenizerSv = new natural.AggressiveTokenizerSv();
 const aggressiveTokenizerRu = new natural.AggressiveTokenizerRu();
 const aggressiveTokenizerVi = new natural.AggressiveTokenizerVi();
 
-const stopwordsEn = require('natural/lib/natural/util/stopwords').words;
-const stopwordsEs = require('natural/lib/natural/util/stopwords_es').words;
-const stopwordsFa = require('natural/lib/natural/util/stopwords_fa').words;
-const stopwordsFr = require('natural/lib/natural/util/stopwords_fr').words;
-const stopwordsId = require('natural/lib/natural/util/stopwords_id').words;
-const stopwordsJa = require('natural/lib/natural/util/stopwords_ja').words;
-const stopwordsIt = require('natural/lib/natural/util/stopwords_it').words;
-const stopwordsNl = require('natural/lib/natural/util/stopwords_nl').words;
-const stopwordsNo = require('natural/lib/natural/util/stopwords_no').words;
-const stopwordsPl = require('natural/lib/natural/util/stopwords_pl').words;
-const stopwordsPt = require('natural/lib/natural/util/stopwords_pt').words;
-const stopwordsRu = require('natural/lib/natural/util/stopwords_ru').words;
-const stopwordsSv = require('natural/lib/natural/util/stopwords_sv').words;
-const stopwordsZh = require('natural/lib/natural/util/stopwords_zh').words;
+const stopwordsEn = new Set([
+  ...require('natural/lib/natural/util/stopwords').words,
+  ...sw.eng
+]);
+const stopwordsEs = new Set([
+  ...require('natural/lib/natural/util/stopwords_es').words,
+  ...sw.spa
+]);
+const stopwordsFa = new Set([
+  ...require('natural/lib/natural/util/stopwords_fa').words,
+  ...sw.fas
+]);
+const stopwordsFr = new Set([
+  ...require('natural/lib/natural/util/stopwords_fr').words,
+  ...sw.fra
+]);
+const stopwordsId = new Set([
+  ...require('natural/lib/natural/util/stopwords_id').words,
+  ...sw.ind
+]);
+const stopwordsJa = new Set([
+  ...require('natural/lib/natural/util/stopwords_ja').words,
+  ...sw.jpn
+]);
+const stopwordsIt = new Set([
+  ...require('natural/lib/natural/util/stopwords_it').words,
+  ...sw.ita
+]);
+const stopwordsNl = new Set([
+  ...require('natural/lib/natural/util/stopwords_nl').words,
+  ...sw.nld
+]);
+const stopwordsNo = new Set([
+  ...require('natural/lib/natural/util/stopwords_no').words,
+  ...sw.nob
+]);
+const stopwordsPl = new Set([
+  ...require('natural/lib/natural/util/stopwords_pl').words,
+  ...sw.pol
+]);
+const stopwordsPt = new Set([
+  ...require('natural/lib/natural/util/stopwords_pt').words,
+  ...sw.por,
+  ...sw.porBr
+]);
+const stopwordsRu = new Set([
+  ...require('natural/lib/natural/util/stopwords_ru').words,
+  ...sw.rus
+]);
+const stopwordsSv = new Set([
+  ...require('natural/lib/natural/util/stopwords_sv').words,
+  ...sw.swe
+]);
+const stopwordsZh = new Set([
+  ...require('natural/lib/natural/util/stopwords_zh').words,
+  ...sw.zho
+]);
+
+const stopwordsRon = new Set(sw.ron);
+const stopwordsTur = new Set(sw.tur);
+const stopwordsVie = new Set(sw.vie);
+const stopwordsDeu = new Set(sw.deu);
+const stopwordsHun = new Set(sw.hun);
+const stopwordsAra = new Set(sw.ara);
+const stopwordsDan = new Set(sw.dan);
+const stopwordsFin = new Set(sw.fin);
+
+// TODO: add stopword pairing for these langs:
+// afr
+// ben
+// bre
+// bul
+// cat
+// ces
+// ell
+// epo
+// est
+// eus
+// fra
+// gle
+// glg
+// guj
+// hau
+// heb
+// hin
+// hrv
+// hye
+// kor
+// kur
+// lat
+// lav
+// lgg
+// lggNd
+// lit
+// mar
+// msa
+// mya
+// panGu
+// slk
+// slv
+// som
+// sot
+// swa
+// tgl
+// tha
+// ukr
+// urd
+// yor
+// zul
 
 // <https://stackoverflow.com/a/41353282>
 // <https://www.ietf.org/rfc/rfc3986.txt>
@@ -94,16 +192,15 @@ const PKG = require('./package.json');
 
 const VOCABULARY_LIMIT = require('./vocabulary-limit.js');
 
+// TODO: convert this into a Map
 const ISO_CODE_MAPPING = require('./iso-code-mapping.json');
 
 // <https://kb.smarshmail.com/Article/23567>
-const EXECUTABLES = require('./executables.json');
+const EXECUTABLES = new Set(require('./executables.json'));
 
 const REPLACEMENT_WORDS = require('./replacement-words.json');
 
 const locales = new Set(i18nLocales.map((l) => l.toLowerCase()));
-
-const readFile = promisify(fs.readFile);
 
 const normalizeUrlOptions = {
   stripProtocol: true,
@@ -154,7 +251,8 @@ for (const code of codes()) {
   const symbol = getSymbolFromCurrency(code);
   if (
     typeof symbol === 'string' &&
-    !currencySymbols.includes(symbol) &&
+    // eslint-disable-next-line unicorn/prefer-includes
+    currencySymbols.indexOf(symbol) === -1 &&
     !new RE2(/^[a-z]+$/i).test(symbol)
   )
     currencySymbols.push(escapeStringRegexp(symbol));
@@ -187,7 +285,9 @@ const isURLOptions = {
 class SpamScanner {
   constructor(config = {}) {
     this.config = {
-      debug: process.env.NODE_ENV === 'test',
+      debug:
+        process.env.NODE_ENV === 'test' ||
+        process.env.NODE_ENV === 'development',
       checkIDNHomographAttack: false,
       // note that if you attempt to train an existing `scanner.classifier`
       // then you will need to re-use these, so we suggest you store them
@@ -312,8 +412,15 @@ class SpamScanner {
       userAgent: `${PKG.name}/${PKG.version}`,
       timeout: ms('10s'),
       clamscan: {
+        debugMode:
+          process.env.NODE_ENV === 'test' ||
+          process.env.NODE_ENV === 'development',
+        clamscan: {
+          path: which.sync('clamscan', { nothrow: true })
+        },
         clamdscan: {
           timeout: ms('10s'),
+          path: which.sync('clamdscan', { nothrow: true }),
           socket: macosVersion.isMacOS
             ? '/tmp/clamd.socket'
             : '/var/run/clamav/clamd.ctl'
@@ -416,9 +523,7 @@ class SpamScanner {
         // cache in the background
         this.config.client
           .set(key, `${isAdult}:${isMalware}`, 'PX', this.config.ttlMs)
-          // eslint-disable-next-line promise/prefer-await-to-then
           .then(this.config.logger.info)
-          // eslint-disable-next-line promise/prefer-await-to-then
           .catch(this.config.logger.error);
         return { isAdult, isMalware };
       };
@@ -432,6 +537,27 @@ class SpamScanner {
       throw new Error(
         `Locale of ${this.config.locale} was not valid according to locales list.`
       );
+
+    //
+    // set up regex helpers
+    //
+    this.EMAIL_REPLACEMENT_REGEX = new RE2(this.config.replacements.email, 'g');
+    const replacementRegexes = [];
+    for (const key of Object.keys(this.config.replacements)) {
+      replacementRegexes.push(
+        escapeStringRegexp(this.config.replacements[key])
+      );
+    }
+
+    this.REPLACEMENTS_REGEX = new RE2(
+      new RegExp(replacementRegexes.join('|'), 'g')
+    );
+
+    //
+    // set up helper Map and Sets for fast lookup
+    // (Set.has is 2x faster than includes, and 50% faster than indexOf)
+    //
+    this.WHITELISTED_WORDS = new Set(Object.values(this.config.replacements));
   }
 
   getHostname(link) {
@@ -521,15 +647,12 @@ class SpamScanner {
             const stream = isStream(attachment.content)
               ? attachment.content
               : intoStream(attachment.content);
-            const { is_infected: isInfected, viruses } =
-              await clamscan.scan_stream(stream);
+            const { isInfected, viruses } = await clamscan.scanStream(stream);
             const name = isSANB(attachment.filename)
               ? `"${attachment.filename}"`
               : `#${i + 1}`;
             if (isInfected)
-              messages.push(
-                `Attachment ${name} was infected with "${viruses}".`
-              );
+              messages.push(`Attachment ${name} was infected with ${viruses}.`);
           } catch (err) {
             this.config.logger.error(err);
           }
@@ -547,13 +670,16 @@ class SpamScanner {
 
     let gtube = false;
 
-    if (isSANB(mail.html) && mail.html.includes(GTUBE)) gtube = true;
+    // eslint-disable-next-line unicorn/prefer-includes
+    if (isSANB(mail.html) && mail.html.indexOf(GTUBE) !== -1) gtube = true;
 
-    if (isSANB(mail.text) && !gtube && mail.text.includes(GTUBE)) gtube = true;
+    // eslint-disable-next-line unicorn/prefer-includes
+    if (isSANB(mail.text) && !gtube && mail.text.indexOf(GTUBE) !== -1)
+      gtube = true;
 
     if (gtube)
       messages.push(
-        'Message detected to contain the GTUBE test from <https://spamassassin.apache.org/gtube/>.'
+        'Message detected to contain the GTUBE test from https://spamassassin.apache.org/gtube/.'
       );
 
     return messages;
@@ -619,8 +745,6 @@ class SpamScanner {
     //
     // However we don't recommend this and therefore have our servers set to standard Cloudflare DNS
     //
-    // TODO: we need to do two lookups in parallel, one against adult and one against malware
-    //       and also make sure the messages aren't duplicated when we concatenate final array of messages
     const [isAdult, isMalware] = await Promise.all([
       this.malwareLookup('https://family.cloudflare-dns.com/dns-query', name),
       this.malwareLookup('https://security.cloudflare-dns.com/dns-query', name)
@@ -742,14 +866,14 @@ class SpamScanner {
         })
         .match(URL_REGEX) || [];
 
-    const array = [];
+    const array = new Set();
     for (const url of urls) {
       const normalized = this.getNormalizedUrl(url);
 
-      if (normalized && !array.includes(normalized)) array.push(normalized);
+      if (normalized) array.add(normalized);
     }
 
-    return array;
+    return [...array];
   }
 
   parseLocale(locale) {
@@ -763,12 +887,6 @@ class SpamScanner {
   // <https://github.com/NaturalNode/natural#stemmers>
   // eslint-disable-next-line complexity
   async getTokens(string, locale, isHTML = false) {
-    // get the current email replacement regex
-    const EMAIL_REPLACEMENT_REGEX = new RE2(
-      this.config.replacements.email,
-      'g'
-    );
-
     //
     // parse HTML for <html> tag with lang attr
     // otherwise if that wasn't found then look for this
@@ -816,17 +934,6 @@ class SpamScanner {
 
     if (isHTML) string = sanitizeHtml(string, this.config.sanitizeHtml);
 
-    const replacementRegexes = [];
-    for (const key of Object.keys(this.config.replacements)) {
-      replacementRegexes.push(
-        escapeStringRegexp(this.config.replacements[key])
-      );
-    }
-
-    const REPLACEMENTS_REGEX = new RE2(
-      new RegExp(replacementRegexes.join('|'), 'g')
-    );
-
     string = striptags(string, [], ' ')
       .trim()
       // replace newlines
@@ -835,7 +942,7 @@ class SpamScanner {
       // attackers may try to inject our replacements into the message
       // therefore we should strip all of them before doing any replacements
       //
-      .replace(REPLACEMENTS_REGEX, ' ');
+      .replace(this.REPLACEMENTS_REGEX, ' ');
 
     //
     // we should instead use language detection to determine
@@ -853,7 +960,8 @@ class SpamScanner {
 
     locale = this.parseLocale(isSANB(locale) ? locale : this.config.locale);
 
-    if (!locales.has(locale)) {
+    // NOTE: "in" and "po" are valid locales but not from i18n
+    if (!locales.has(locale) && locale !== 'in' && locale !== 'po') {
       debug(`Locale ${locale} was not valid and will use default`);
       locale = this.parseLocale(this.config.locale);
     }
@@ -865,103 +973,145 @@ class SpamScanner {
     let stopwords = stopwordsEn;
     let language = 'english';
     let stemword = 'default';
+
     switch (locale) {
       case 'ar':
+        // arb
+        // ISO 639-3 = ara
+        stopwords = stopwordsAra;
         language = 'arabic';
         break;
       case 'da':
+        // dan
         language = 'danish';
+        stopwords = stopwordsDan;
         break;
       case 'nl':
+        // nld
         stopwords = stopwordsNl;
         language = 'dutch';
         break;
       case 'en':
+        // eng
         language = 'english';
         break;
       case 'fi':
+        // fin
         language = 'finnish';
         tokenizer = orthographyTokenizer;
+        stopwords = stopwordsFin;
         break;
       case 'fa':
+        // fas (Persian/Farsi)
         language = 'farsi';
         tokenizer = aggressiveTokenizerFa;
         stopwords = stopwordsFa;
         stemword = natural.PorterStemmerFa.stem.bind(natural.PorterStemmerFa);
         break;
       case 'fr':
+        // fra
         language = 'french';
         tokenizer = aggressiveTokenizerFr;
         stopwords = stopwordsFr;
         break;
       case 'de':
+        // deu
         language = 'german';
+        stopwords = stopwordsDeu;
         break;
       case 'hu':
+        // hun
         language = 'hungarian';
+        stopwords = stopwordsHun;
         break;
       case 'in':
+        // ind
         language = 'indonesian';
         tokenizer = aggressiveTokenizerId;
         stopwords = stopwordsId;
         break;
       case 'it':
+        // ita
         language = 'italian';
         tokenizer = aggressiveTokenizerIt;
         stopwords = stopwordsIt;
         break;
       case 'ja':
+        // jpn
         tokenizer = tokenizerJa;
         stopwords = stopwordsJa;
         stemword = natural.StemmerJa.stem.bind(natural.StemmerJa);
         break;
       case 'nb':
+        // nob
+        language = 'norwegian';
+        tokenizer = aggressiveTokenizerNo;
+        stopwords = stopwordsNo;
+        break;
       case 'nn':
+        // nno
+        // ISO 639-3 = nob
         language = 'norwegian';
         tokenizer = aggressiveTokenizerNo;
         stopwords = stopwordsNo;
         break;
       case 'po':
+        // pol
         language = 'polish';
         tokenizer = aggressiveTokenizerPl;
         stopwords = stopwordsPl;
         stemword = false;
         break;
       case 'pt':
+        // por
         language = 'portuguese';
         tokenizer = aggressiveTokenizerPt;
         stopwords = stopwordsPt;
         break;
       case 'es':
+        // spa
         language = 'spanish';
         tokenizer = aggressiveTokenizerEs;
         stopwords = stopwordsEs;
         break;
       case 'sv':
+        // swe
         language = 'swedish';
         tokenizer = aggressiveTokenizerSv;
         stopwords = stopwordsSv;
         break;
       case 'ro':
+        // ron
         language = 'romanian';
+        stopwords = stopwordsRon;
         break;
       case 'ru':
+        // rus
         language = 'russian';
         tokenizer = aggressiveTokenizerRu;
         stopwords = stopwordsRu;
         break;
       case 'ta':
+        // tam
+        // NOTE: no stopwords available
         language = 'tamil';
         break;
       case 'tr':
+        // tur
         language = 'turkish';
+        stopwords = stopwordsTur;
         break;
       case 'vi':
+        // vie
         language = 'vietnamese';
         tokenizer = aggressiveTokenizerVi;
+        stopwords = stopwordsVie;
         stemword = false;
         break;
       case 'zh':
+        // cmn
+        // TODO: use this instead https://github.com/yishn/chinese-tokenizer
+        // ISO 639-3 = zho (Chinese, Macrolanguage)
         language = 'chinese';
         stopwords = stopwordsZh;
         stemword = false;
@@ -979,7 +1129,7 @@ class SpamScanner {
       string
         .split(' ')
         .map((_string) =>
-          _string.startsWith(':') &&
+          _string.indexOf(':') === 0 &&
           _string.endsWith(':') &&
           typeof toEmoji[_string.slice(1, -1)] === 'string'
             ? toEmoji[_string.slice(1, -1)]
@@ -1027,7 +1177,10 @@ class SpamScanner {
 
         // now we ensure that URL's and EMAIL's are properly spaced out
         // (e.g. in case ?email=some@email.com was in a URL)
-        .replace(EMAIL_REPLACEMENT_REGEX, ` ${this.config.replacements.email} `)
+        .replace(
+          this.EMAIL_REPLACEMENT_REGEX,
+          ` ${this.config.replacements.email} `
+        )
 
         // TODO: replace file paths, file dirs, dotfiles, and dotdirs
 
@@ -1042,12 +1195,14 @@ class SpamScanner {
         // replace currency
         .replace(CURRENCY_REGEX, ` ${this.config.replacements.currency} `);
 
+    //
     // expand contractions so "they're" -> [ they, are ] vs. [ they, re ]
     // <https://github.com/NaturalNode/natural/issues/533>
-    if (locale === 'en') string = contractions.expand(string);
-
-    // whitelist exclusions
-    const whitelistedWords = Object.values(this.config.replacements);
+    //
+    // NOTE: we're doing this for all languages now, not just en
+    // if (locale === 'en')
+    //
+    string = contractions.expand(string);
 
     //
     // Future research:
@@ -1061,49 +1216,40 @@ class SpamScanner {
     for (const token of tokenizer.tokenize(string.toLowerCase())) {
       // whitelist words from being stemmed (safeguard)
       if (
-        whitelistedWords.includes(token) ||
-        token.startsWith(this.config.replacements.initialism) ||
-        token.startsWith(this.config.replacements.abbrevation)
+        this.WHITELISTED_WORDS.has(token) ||
+        token.indexOf(this.config.replacements.initialism) === 0 ||
+        token.indexOf(this.config.replacements.abbrevation) === 0
       ) {
         tokens.push(token);
         continue;
       }
 
-      if (
-        stopwords.includes(token) ||
-        (sw[locale] && sw[locale].includes(token)) ||
-        (locale !== 'en' &&
-          (stopwordsEn.includes(token) || sw.en.includes(token)))
-      )
+      if (stopwords.has(token) || (locale !== 'en' && stopwordsEn.has(token))) {
         continue;
+      }
 
       // locale specific stopwords to ignore
       let localeStem;
       if (typeof stemword === 'function') {
         localeStem = stemword(token);
-        if (
-          localeStem &&
-          (stopwords.includes(localeStem) ||
-            (sw[locale] && sw[locale].includes(localeStem)))
-        )
+        if (localeStem && stopwords.has(localeStem)) {
           continue;
+        }
       }
 
       // always check against English stemwords
       let englishStem;
       if (locale !== 'en') {
         englishStem = snowball.stemword(token, 'english');
-        if (
-          englishStem &&
-          (stopwordsEn.includes(englishStem) || sw.en.includes(englishStem))
-        )
-          continue;
+        if (englishStem && stopwordsEn.has(englishStem)) continue;
       }
 
       tokens.push(
         localeStem && localeStem !== token ? localeStem : englishStem || token
       );
     }
+
+    debug('locale', locale, 'tokens', tokens);
 
     if (this.config.debug) return tokens;
 
@@ -1117,7 +1263,7 @@ class SpamScanner {
     let source = string;
     if (isBuffer(string)) source = string.toString();
     else if (typeof string === 'string' && isValidPath(string))
-      source = await readFile(string);
+      source = await fs.promises.readFile(string);
 
     const tokens = [];
     const mail = await simpleParser(source, this.config.simpleParser);
@@ -1155,12 +1301,11 @@ class SpamScanner {
 
   // eslint-disable-next-line complexity
   async getPhishingResults(mail) {
-    const messages = [];
-
+    const messages = new Set();
     //
     // NOTE: all links pushed are lowercased
     //
-    const links = [];
+    const links = new Set();
 
     // parse <a> tags with different org domain in text vs the link
     if (isSANB(mail.html)) {
@@ -1170,7 +1315,7 @@ class SpamScanner {
       // elements concatenate to form a URL which is malicious or phishing
       //
       for (const link of this.getUrls(striptags(mail.html, [], ' ').trim())) {
-        if (!links.includes(link)) links.push(link);
+        links.add(link);
       }
 
       //
@@ -1212,7 +1357,7 @@ class SpamScanner {
             // (this is needed because some have "Web:%20http://google.com" for example in href tags)
             [href] = this.getUrls(href);
             // eslint-disable-next-line max-depth
-            if (href && !links.includes(href)) links.push(href);
+            if (href) links.add(href);
           }
 
           // the text content could contain multiple URL's
@@ -1222,7 +1367,7 @@ class SpamScanner {
             isSANB(href) &&
             validator.isURL(href, isURLOptions)
           ) {
-            const string = `Anchor link with href of "${href}" and inner text value of "${textContent}"`;
+            const string = `Anchor link with href of ${href} and inner text value of "${textContent}"`;
             // eslint-disable-next-line max-depth
             if (this.config.checkIDNHomographAttack) {
               const anchorUrlHostname = this.getHostname(href);
@@ -1231,8 +1376,8 @@ class SpamScanner {
                 const anchorUrlHostnameToASCII =
                   punycode.toASCII(anchorUrlHostname);
                 // eslint-disable-next-line max-depth
-                if (anchorUrlHostnameToASCII.startsWith('xn--'))
-                  messages.push(
+                if (anchorUrlHostnameToASCII.indexOf('xn--') === 0)
+                  messages.add(
                     `${string} has possible IDN homograph attack from anchor hostname.`
                   );
               }
@@ -1241,8 +1386,8 @@ class SpamScanner {
             // eslint-disable-next-line max-depth
             for (const link of this.getUrls(textContent)) {
               // this link should have already been included but just in case
-              // eslint-disable-next-line max-depth
-              if (!links.includes(link)) links.push(link);
+
+              links.add(link);
 
               // eslint-disable-next-line max-depth
               if (this.config.checkIDNHomographAttack) {
@@ -1252,8 +1397,8 @@ class SpamScanner {
                   const innerTextUrlHostnameToASCII =
                     punycode.toASCII(innerTextUrlHostname);
                   // eslint-disable-next-line max-depth
-                  if (innerTextUrlHostnameToASCII.startsWith('xn--'))
-                    messages.push(
+                  if (innerTextUrlHostnameToASCII.indexOf('xn--') === 0)
+                    messages.add(
                       `${string} has possible IDN homograph attack from inner text hostname.`
                     );
                 }
@@ -1269,7 +1414,7 @@ class SpamScanner {
     for (const prop of MAIL_PHISHING_PROPS) {
       if (isSANB(mail[prop])) {
         for (const link of this.getUrls(mail[prop])) {
-          if (!links.includes(link)) links.push(link);
+          links.add(link);
         }
       }
     }
@@ -1279,9 +1424,9 @@ class SpamScanner {
         const urlHostname = this.getHostname(link);
         if (urlHostname) {
           const toASCII = punycode.toASCII(urlHostname);
-          if (toASCII.startsWith('xn--'))
-            messages.push(
-              `Possible IDN homograph attack from link of "${link}" with punycode converted hostname of "${toASCII}".`
+          if (toASCII.indexOf('xn--') === 0)
+            messages.add(
+              `Possible IDN homograph attack from link of ${link} with punycode converted hostname of ${toASCII}.`
             );
         }
       }
@@ -1290,28 +1435,25 @@ class SpamScanner {
     // check against Cloudflare malware/phishing/adult DNS lookup
     // if it returns `0.0.0.0` it means it was flagged
     await Promise.all(
-      links.map(async (link) => {
+      [...links].map(async (link) => {
         try {
           const urlHostname = this.getHostname(link);
           if (urlHostname) {
             const toASCII = punycode.toASCII(urlHostname);
-            const adultMessage = `Link hostname of "${toASCII}" was detected by Cloudflare's Family DNS to contain adult-related content, phishing, and/or malware.`;
-            const malwareMessage = `Link hostname of ${toASCII}" was detected by Cloudflare's Security DNS to contain phishing and/or malware.`;
+            const adultMessage = `Link hostname of ${toASCII} was detected by Cloudflare's Family DNS to contain adult-related content, phishing, and/or malware.`;
+            const malwareMessage = `Link hostname of ${toASCII} was detected by Cloudflare's Security DNS to contain phishing and/or malware.`;
 
             // if it already included both messages then return early
-            if (
-              messages.includes(adultMessage) &&
-              messages.includes(malwareMessage)
-            )
+            if (messages.has(adultMessage) && messages.has(malwareMessage))
               return;
 
             const { isAdult, isMalware } =
               await this.memoizedIsCloudflareBlocked(toASCII);
 
-            if (isAdult && !messages.includes(adultMessage))
-              messages.push(adultMessage);
-            if (isMalware && !messages.includes(malwareMessage))
-              messages.push(malwareMessage);
+            if (isAdult && !messages.has(adultMessage))
+              messages.add(adultMessage);
+            if (isMalware && !messages.has(malwareMessage))
+              messages.add(malwareMessage);
           }
         } catch (err) {
           this.config.logger.error(err);
@@ -1319,7 +1461,7 @@ class SpamScanner {
       })
     );
 
-    return { messages, links };
+    return { messages: [...messages], links: [...links] };
   }
 
   // getNSFWResults() {
@@ -1340,7 +1482,7 @@ class SpamScanner {
           try {
             const fileType = await FileType.fromBuffer(attachment.content);
 
-            if (fileType && fileType.ext && EXECUTABLES.includes(fileType.ext))
+            if (fileType && fileType.ext && EXECUTABLES.has(fileType.ext))
               messages.push(
                 `Attachment's "magic number" indicated it was a dangerous executable with a ".${fileType.ext}" extension.`
               );
@@ -1355,7 +1497,7 @@ class SpamScanner {
             punycode.toUnicode(attachment.filename.split('?')[0])
           );
           const ext = fileExtension(filename);
-          if (ext && EXECUTABLES.includes(ext))
+          if (ext && EXECUTABLES.has(ext))
             messages.push(
               `Attachment's file name indicated it was a dangerous executable with a ".${ext}" extension.`
             );
@@ -1363,7 +1505,7 @@ class SpamScanner {
 
         if (isSANB(attachment.contentType)) {
           const ext = mime.extension(attachment.contentType);
-          if (isSANB(ext) && EXECUTABLES.includes(ext))
+          if (isSANB(ext) && EXECUTABLES.has(ext))
             messages.push(
               `Attachment's Content-Type was a dangerous executable with a ".${ext}" extension.`
             );
