@@ -28,14 +28,14 @@ jobs:
         with:
           redis-version: ${{ matrix.redis-version }}
       - name: Install ClamAV
-        run:
-          - sudo apt-get update -qq
-          - sudo apt-get install clamav-daemon clamav-freshclam clamav-unofficial-sigs -qq
-          - sudo service clamav-freshclam restart
-          - sleep 30
-          - sudo service clamav-daemon start
-          - sleep 30
-          - sudo service clamav-daemon status -l
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install clamav-daemon clamav-freshclam clamav-unofficial-sigs -qq &&
+          sudo service clamav-freshclam restart &&
+          sleep 30 &&
+          sudo service clamav-daemon start &&
+          sleep 30 &&
+          sudo service clamav-daemon status -l
       - name: Install dependencies
         run: npm install
       - name: Run tests
