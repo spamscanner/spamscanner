@@ -13,13 +13,29 @@ jobs:
           - 14
           - 16
           - 18
-    name: Node ${{ matrix.node_version }} on ${{ matrix.os }}
+        redis-version:
+          - 5
+          - 6
+    name: Node ${{ matrix.node_version }} on ${{ matrix.os }} with Redis {{ matrix.redis-version }}
     steps:
       - uses: actions/checkout@v3
       - name: Setup node
         uses: actions/setup-node@v3
         with:
           node-version: ${{ matrix.node_version }}
+      - name: Start Redis
+        uses: supercharge/redis-github-action@1.4.0
+        with:
+          redis-version: ${{ matrix.redis-version }}
+      - name: Install ClamAV
+        run:
+          - sudo apt-get update -qq
+          - sudo apt-get install clamav-daemon clamav-freshclam clamav-unofficial-sigs -qq
+          - sudo service clamav-freshclam restart
+          - sleep 30
+          - sudo service clamav-daemon start
+          - sleep 30
+          - sudo service clamav-daemon status -l
       - name: Install dependencies
         run: npm install
       - name: Run tests
