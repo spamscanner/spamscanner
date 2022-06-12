@@ -54,7 +54,7 @@
 
 ## Foreword
 
-Spam Scanner is a tool and service built by [@niftylettuce][niftylettuce] after hitting countless roadblocks with existing spam-detection solutions.  In other words, it's our current [plan][plan-for-spam] for [spam][better-plan-for-spam].
+Spam Scanner is a tool and service created after hitting countless roadblocks with existing spam-detection solutions.  In other words, it's our current [plan][plan-for-spam] for [spam][better-plan-for-spam].
 
 Our goal is to build and utilize a scalable, performant, simple, easy to maintain, and powerful API for use in our service at [Forward Email][forward-email] to limit spam and provide other measures to prevent attacks on our users.
 
@@ -605,8 +605,6 @@ This means you can run your app with `NODE_DEBUG=spamscanner node app.js` to get
 [magic-number]: https://en.wikipedia.org/wiki/Magic_number_\(programming\)#Magic_numbers_in_files
 
 [homograph-attack]: https://en.wikipedia.org/wiki/IDN_homograph_attack
-
-[niftylettuce]: https://github.com/niftylettuce
 
 [forward-email]: https://forwardemail.net
 
