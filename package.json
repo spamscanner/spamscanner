@@ -13,6 +13,7 @@
   ],
   "dependencies": {
     "@ladjs/naivebayes": "^0.1.0",
+    "array-join-conjunction": "^1.0.0",
     "bitcoin-regex": "^2.0.0",
     "chinese-tokenizer": "^2.4.0",
     "clamscan": "^2.1.2",
@@ -67,7 +68,6 @@
   "devDependencies": {
     "@commitlint/cli": "^17.0.2",
     "@commitlint/config-conventional": "^17.0.2",
-    "@ladjs/redis": "^1.0.7",
     "ava": "^4.3.0",
     "cross-env": "^7.0.3",
     "delay": "^5.0.0",
@@ -75,6 +75,8 @@
     "eslint-config-xo-lass": "^2.0.1",
     "fixpack": "^4.0.0",
     "husky": "^8.0.1",
+    "ioredis": "^5.0.6",
+    "ioredis-mock": "^8.2.2",
     "is-ci": "^3.0.1",
     "lint-staged": "^13.0.1",
     "lookpath": "^1.2.2",

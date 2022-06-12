@@ -11,6 +11,7 @@ const ClamScan = require('clamscan');
 const FileType = require('file-type');
 const NaiveBayes = require('@ladjs/naivebayes');
 const RE2 = require('re2');
+const arrayJoinConjunction = require('array-join-conjunction');
 const bitcoinRegex = require('bitcoin-regex');
 const contractions = require('expand-contractions');
 const creditCardRegex = require('credit-card-regex');
@@ -461,6 +462,10 @@ class SpamScanner {
         minLength: 5,
         only: ISO_CODE_MAPPING_KEYS
       },
+      // if franc detects multiple languages that have >= % threshold
+      // then if the locale detected was one of them, what is the probability
+      // it must have in order to override all the other matches
+      detectedLocaleOverrideProbability: 0.9,
       ...config
     };
 
@@ -667,7 +672,11 @@ class SpamScanner {
               ? `"${attachment.filename}"`
               : `#${i + 1}`;
             if (isInfected)
-              messages.push(`Attachment ${name} was infected with ${viruses}.`);
+              messages.push(
+                `Attachment ${name} was infected with ${arrayJoinConjunction(
+                  viruses
+                )}.`
+              );
           } catch (err) {
             this.config.logger.error(err);
           }
@@ -966,13 +975,44 @@ class SpamScanner {
     // <https://github.com/wooorm/franc/issues/86> (accurate with min length)
     // <https://github.com/FGRibreau/node-language-detect> (not too accurate)
     //
-    const detectedLanguage = franc(string, this.config.franc);
+    const detectedLanguages = franc.all(string, this.config.franc);
+    if (Array.isArray(detectedLanguages) && detectedLanguages.length > 0) {
+      let detected = this.config.locale;
+      let probability = 0;
+      for (const lang of detectedLanguages) {
+        // if it was undetermined then break out and revert to default (English)
+        if (lang[0] && lang[0] === 'und') break;
 
-    if (
-      detectedLanguage !== 'und' &&
-      isSANB(ISO_CODE_MAPPING[detectedLanguage])
-    )
-      locale = ISO_CODE_MAPPING[detectedLanguage];
+        //
+        // otherwise only use detected languages that have >= 90% accuracy
+        // and if no matches were found, the revert to use English as it's most likely spam
+        // (we can assume that users would understand a different language sent to them is spam)
+        // (so we can assume that language is spoofed to bypass English, the most widely spoken)
+        //
+        if (
+          lang[0] &&
+          ISO_CODE_MAPPING[lang[0]] &&
+          lang[1] &&
+          lang[1] >= this.config.detectedLocaleOverrideProbability
+        ) {
+          if (probability >= lang[1]) {
+            // exit early since we found a match that matched the passed locale
+            // eslint-disable-next-line max-depth
+            if (locale && locale === ISO_CODE_MAPPING[lang[0]]) {
+              detected = locale;
+              probability = lang[1];
+              break;
+            }
+          } else {
+            detected = ISO_CODE_MAPPING[lang[0]];
+            probability = lang[1];
+          }
+        }
+      }
+
+      // override the locale based off detected
+      locale = detected;
+    }
 
     locale = this.parseLocale(isSANB(locale) ? locale : this.config.locale);
 
@@ -1220,7 +1260,6 @@ class SpamScanner {
     // <https://github.com/NaturalNode/natural/issues/533>
     //
     // NOTE: we're doing this for all languages now, not just en
-    // if (locale === 'en')
     //
     string = contractions.expand(string);
 

@@ -3,7 +3,7 @@ const path = require('path');
 const { performance } = require('perf_hooks');
 const { Buffer } = require('buffer');
 
-const Redis = require('@ladjs/redis');
+const Redis = require('ioredis-mock');
 const delay = require('delay');
 const isCI = require('is-ci');
 const memProfile = require('memoizee/profile');
@@ -318,6 +318,13 @@ for (const locale of [
     t.pass();
   });
 }
+
+test('detects >= 90% certainty and uses passed locale', async (t) => {
+  const scanner = new SpamScanner();
+  const tokens = await scanner.getTokens('Ciao amigo', 'pt');
+  t.deepEqual(tokens, ['cia', 'amig']);
+  t.is(tokens.length, 2);
+});
 
 test('language spoofed as Japanese but actually Chinese', async (t) => {
   const scanner = new SpamScanner();
