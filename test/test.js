@@ -314,11 +314,43 @@ for (const locale of [
     );
     // "hello" is a stopword in "in"
     // <https://github.com/NaturalNode/natural/issues/651>
-    if (locale === 'in') t.is(tokens.length, 7);
-    else t.is(tokens.length, 8);
+    t.is(tokens.length, 8);
     t.pass();
   });
 }
+
+test('language spoofed as Japanese but actually Chinese', async (t) => {
+  const scanner = new SpamScanner();
+  const tokens = await scanner.getTokens('我是中國人。', 'jp');
+  t.is(tokens.length, 2);
+});
+
+test('language detected as Chinese', async (t) => {
+  const scanner = new SpamScanner();
+  const tokens = await scanner.getTokens('我是中國人。');
+  t.is(tokens.length, 2);
+});
+
+test('spoofs language but is detected as Chinese', async (t) => {
+  const scanner = new SpamScanner();
+  const tokens = await scanner.getTokens(
+    "hello they're world greetings today is a new day and tomorrow is another day",
+    'zh'
+  );
+  t.is(tokens.length, 8);
+});
+
+test('spoofs language but is detected as English', async (t) => {
+  const scanner = new SpamScanner();
+  const tokens = await scanner.getTokens('我是中國人。', 'en');
+  t.is(tokens.length, 2);
+});
+
+test('stopword removal works with Chinese', async (t) => {
+  const scanner = new SpamScanner();
+  const tokens = await scanner.getTokens('我是中國人。', 'zh');
+  t.is(tokens.length, 2);
+});
 
 test.todo('IDN homograph attack test');
 test.todo('50/50 ham vs spam dataset test');

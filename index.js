@@ -1,6 +1,7 @@
-const process = require('process');
 const dns = require('dns');
 const fs = require('fs');
+const path = require('path');
+const process = require('process');
 const { debuglog } = require('util');
 
 // eslint-disable-next-line n/no-deprecated-api
@@ -54,6 +55,19 @@ const { parse } = require('node-html-parser');
 const { simpleParser } = require('mailparser');
 
 const debug = debuglog('spamscanner');
+
+//
+// NOTE: we periodically need to update this
+//
+// Source from: CC-CEDICT
+// Licensed under Creative Commons Attribution-ShareAlike 4.0 International License
+// <https://www.mdbg.net/chinese/dictionary?page=cc-cedict>
+//
+// <https://github.com/yishn/chinese-tokenizer>
+//
+const chineseTokenizer = require('chinese-tokenizer').loadFile(
+  path.join(__dirname, 'cedict_1_0_ts_utf-8_mdbg.txt')
+);
 
 const aggressiveTokenizer = new natural.AggressiveTokenizer();
 const orthographyTokenizer = new natural.OrthographyTokenizer({
@@ -194,6 +208,8 @@ const VOCABULARY_LIMIT = require('./vocabulary-limit.js');
 
 // TODO: convert this into a Map
 const ISO_CODE_MAPPING = require('./iso-code-mapping.json');
+
+const ISO_CODE_MAPPING_KEYS = Object.keys(ISO_CODE_MAPPING);
 
 // <https://kb.smarshmail.com/Article/23567>
 const EXECUTABLES = new Set(require('./executables.json'));
@@ -425,12 +441,6 @@ class SpamScanner {
             ? '/tmp/clamd.socket'
             : '/var/run/clamav/clamd.ctl'
         }
-      },
-      franc: {
-        minLength: 100,
-        // we can only support languages available
-        // in stopwords and natural's tokenizer methods
-        only: Object.keys(ISO_CODE_MAPPING)
       },
       hasha: {
         algorithm: 'sha256'
@@ -951,7 +961,21 @@ class SpamScanner {
     // <https://github.com/wooorm/franc/issues/86> (accurate with min length)
     // <https://github.com/FGRibreau/node-language-detect> (not too accurate)
     //
-    const detectedLanguage = franc(string, this.config.franc);
+    const detectedLanguage = franc(string, {
+      // NOTE: if locale was passed and was valid
+      //       then we need to compare it against english
+      //       and if it was english detected (and not und)
+      //       then switch the detected locale to english
+      minLength: 5,
+      // we can only support languages available
+      // in stopwords and natural's tokenizer methods
+      // and if it was detected to be english, compare against all languages
+      // otherwise if not, then compare only against english
+      // (namely we need to check against JP/ZH, but perhaps _all_ in future)
+      // (the edge case is that someone could spoof a language and it go undetected and tokenization bugs occur)
+      only: ISO_CODE_MAPPING_KEYS
+    });
+
     if (
       detectedLanguage !== 'und' &&
       isSANB(ISO_CODE_MAPPING[detectedLanguage])
@@ -1110,8 +1134,12 @@ class SpamScanner {
         break;
       case 'zh':
         // cmn
-        // TODO: use this instead https://github.com/yishn/chinese-tokenizer
         // ISO 639-3 = zho (Chinese, Macrolanguage)
+        // https://github.com/yishn/chinese-tokenizer
+        tokenizer = {
+          tokenize: (str) =>
+            chineseTokenizer(str).map((results) => results.text)
+        };
         language = 'chinese';
         stopwords = stopwordsZh;
         stemword = false;
@@ -1214,6 +1242,9 @@ class SpamScanner {
     //
     const tokens = [];
     for (const token of tokenizer.tokenize(string.toLowerCase())) {
+      // zh tokenizr yields empty strings
+      if (token === '' || token === ' ') continue;
+
       // whitelist words from being stemmed (safeguard)
       if (
         this.WHITELISTED_WORDS.has(token) ||

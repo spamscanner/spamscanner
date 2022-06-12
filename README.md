@@ -581,6 +581,7 @@ This means you can run your app with `NODE_DEBUG=spamscanner node app.js` to get
 
 ## References
 
+* [CC-CEDICT](https://cc-cedict.org/) is licensed under Creative Commons Attribution-ShareAlike 4.0 International License.
 * <https://www.digitalocean.com/community/tutorials/how-to-setup-exim-spamassassin-clamd-and-dovecot-on-an-arch-linux-vps>
 * <https://medium.com/@wingsuitist/set-up-clamav-for-osx-1-the-open-source-virus-scanner-82a927b60fa3>
 * <http://redgreenrepeat.com/2019/08/09/setting-up-clamav-on-macos/>

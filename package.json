@@ -14,6 +14,7 @@
   "dependencies": {
     "@ladjs/naivebayes": "^0.1.0",
     "bitcoin-regex": "^2.0.0",
+    "chinese-tokenizer": "^2.4.0",
     "clamscan": "^2.1.2",
     "credit-card-regex": "^3.0.0",
     "crypto-random-string": "3",
@@ -91,6 +92,7 @@
     "node": ">=14"
   },
   "files": [
+    "cedict_1_0_ts_utf-8_mdbg.txt",
     "package.json",
     "index.js",
     "vocabulary-limit.js",
