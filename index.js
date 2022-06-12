@@ -456,6 +456,21 @@ class SpamScanner {
       client: false,
       cachePrefix: 'spamscanner',
       ttlMs: ms('1h'),
+      // franc
+      franc: {
+        // NOTE: if locale was passed and was valid
+        //       then we need to compare it against english
+        //       and if it was english detected (and not und)
+        //       then switch the detected locale to english
+        minLength: 5,
+        // we can only support languages available
+        // in stopwords and natural's tokenizer methods
+        // and if it was detected to be english, compare against all languages
+        // otherwise if not, then compare only against english
+        // (namely we need to check against JP/ZH, but perhaps _all_ in future)
+        // (the edge case is that someone could spoof a language and it go undetected and tokenization bugs occur)
+        only: ISO_CODE_MAPPING_KEYS
+      },
       ...config
     };
 
@@ -961,20 +976,7 @@ class SpamScanner {
     // <https://github.com/wooorm/franc/issues/86> (accurate with min length)
     // <https://github.com/FGRibreau/node-language-detect> (not too accurate)
     //
-    const detectedLanguage = franc(string, {
-      // NOTE: if locale was passed and was valid
-      //       then we need to compare it against english
-      //       and if it was english detected (and not und)
-      //       then switch the detected locale to english
-      minLength: 5,
-      // we can only support languages available
-      // in stopwords and natural's tokenizer methods
-      // and if it was detected to be english, compare against all languages
-      // otherwise if not, then compare only against english
-      // (namely we need to check against JP/ZH, but perhaps _all_ in future)
-      // (the edge case is that someone could spoof a language and it go undetected and tokenization bugs occur)
-      only: ISO_CODE_MAPPING_KEYS
-    });
+    const detectedLanguage = franc(string, this.config.franc);
 
     if (
       detectedLanguage !== 'und' &&

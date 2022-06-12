@@ -493,7 +493,7 @@ Returns an Array of SHA-256 hashed tokenized and stemmed words, with respect to 
 
 Note that this is "smart" in the sense it will parse the "Content-Language" header of the message, the `content` attribute of the HTML message's `<meta http-equiv="Content-Language" content="en-us">`, or the `lang` attribute of `<html lang="en">`.
 
-After parsing the language of the message, it will then use the package [franc][] to attempt to determine the language of the message (as long as the message has at least 150 characters, which is configurable).
+After parsing the language of the message, it will then use the package [franc][] to attempt to determine the language of the message (as long as the message has at least 5 characters, which is configurable).
 
 **Most importantly** the following types of tokens are replaced with cryptographically generated random hashes:
 
