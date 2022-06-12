@@ -16,7 +16,7 @@ jobs:
         redis-version:
           - 5
           - 6
-    name: Node ${{ matrix.node_version }} on ${{ matrix.os }} with Redis {{ matrix.redis-version }}
+    name: Node ${{ matrix.node_version }} on ${{ matrix.os }} with Redis ${{ matrix.redis-version }}
     steps:
       - uses: actions/checkout@v3
       - name: Setup node
