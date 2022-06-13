@@ -90,6 +90,7 @@
     "read-dir-deep": "^7.0.1",
     "remark-cli": "^10.0.1",
     "remark-preset-github": "^4.0.4",
+    "semver": "^7.3.7",
     "xo": "^0.50.0"
   },
   "engines": {

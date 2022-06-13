@@ -1,3 +1,4 @@
+const process = require('process');
 const {
   monitorEventLoopDelay,
   performance,
@@ -6,6 +7,7 @@ const {
 } = require('perf_hooks');
 
 const test = require('ava');
+const semver = require('semver');
 const { default: PQueue } = require('p-queue');
 
 const SpamScanner = require('../');
@@ -186,12 +188,17 @@ test(`scan() should have no more than a 250 ms mean delay within 2 SD of mean`, 
     25: h.percentile(25) / 1000000,
     50: h.percentile(50) / 1000000,
     75: h.percentile(75) / 1000000,
+    // histogram.count was added in Node v16.14
+    // <https://nodejs.org/docs/latest-v16.x/api/perf_hooks.html#histogramcount>
     count: h.count
   };
 
-  t.log(h);
   t.log(results.overallDelayTime);
-  t.true(h.count > 0);
+
+  // histogram.count was added in Node v16.14
+  // <https://nodejs.org/docs/latest-v16.x/api/perf_hooks.html#histogramcount>
+  if (semver.gte(process.version, '16.14.0')) t.true(h.count > 0);
+
   const result =
     results.overallDelayTime.mean + 2 * results.overallDelayTime.stddev;
   t.log('result', result);
