@@ -13,11 +13,11 @@ const NaiveBayes = require('@ladjs/naivebayes');
 const RE2 = require('re2');
 const arrayJoinConjunction = require('array-join-conjunction');
 const bitcoinRegex = require('bitcoin-regex');
-const contractions = require('expand-contractions');
 const creditCardRegex = require('credit-card-regex');
 const emailRegexSafe = require('email-regex-safe');
 const emojiPatterns = require('emoji-patterns');
 const escapeStringRegexp = require('escape-string-regexp');
+const expandContractions = require('@stdlib/nlp-expand-contractions');
 const fileExtension = require('file-extension');
 const floatingPointRegex = require('floating-point-regex');
 const franc = require('franc');
@@ -1264,7 +1264,7 @@ class SpamScanner {
     //
     // NOTE: we're doing this for all languages now, not just en
     //
-    string = contractions.expand(string);
+    string = expandContractions(string);
 
     //
     // Future research:
