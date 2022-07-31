@@ -51,7 +51,7 @@
     "node-html-parser": "4",
     "node-snowball": "^0.6.0",
     "normalize-url": "5",
-    "parse-domain": "5",
+    "parse-domain": "6.0.0",
     "phone-regex": "^2.1.0",
     "punycode": "^2.1.1",
     "re2": "^1.17.6",
