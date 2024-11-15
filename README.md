@@ -346,7 +346,6 @@ scanner
   .catch(console.error);
 
 // callback usage
-if (err) return console.error(err);
 scanner.scan(source, (err, scan) => {
   if (err) return console.error(err);
   console.log('scan', scan);
