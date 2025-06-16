@@ -1,13 +1,11 @@
-const process = require('process');
-const fs = require('fs');
-const os = require('os');
-const path = require('path');
-const { Worker } = require('worker_threads');
-
+const process = require('node:process');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const { Worker } = require('node:worker_threads');
 const NaiveBayes = require('@ladjs/naivebayes');
 const pMap = require('p-map');
 const { readDirDeep } = require('read-dir-deep');
-
 const CLASSIFIER_IGNORES = require('./classifier-ignores.js');
 const MBOX_PATTERNS = require('./mbox-patterns.js');
 const VOCABULARY_LIMIT = require('./vocabulary-limit.js');
@@ -102,5 +100,6 @@ async function mapper(source) {
   );
   console.timeEnd('writing replacements.json');
 
+  // eslint-disable-next-line unicorn/no-process-exit
   process.exit(0);
 })();

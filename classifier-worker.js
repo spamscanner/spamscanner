@@ -1,6 +1,5 @@
-const process = require('process');
-const { workerData, parentPort } = require('worker_threads');
-
+const process = require('node:process');
+const { workerData, parentPort } = require('node:worker_threads');
 const SpamScanner = require('.');
 
 (async () => {

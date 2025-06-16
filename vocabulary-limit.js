@@ -1,7 +1,7 @@
-const process = require('process');
+const process = require('node:process');
 
 module.exports =
-  typeof process.env.VOCABULARY_LIMIT !== 'undefined' &&
+  process.env.VOCABULARY_LIMIT !== undefined &&
   Number.isFinite(Number.parseInt(process.env.VOCABULARY_LIMIT, 10))
     ? Number.parseInt(process.env.VOCABULARY_LIMIT, 10)
-    : 20_000;
+    : 20000;

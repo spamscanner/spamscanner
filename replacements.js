@@ -1,5 +1,4 @@
-const { debuglog } = require('util');
-
+const { debuglog } = require('node:util');
 const cryptoRandomString = require('crypto-random-string');
 
 const debug = debuglog('spamscanner');

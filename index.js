@@ -1,21 +1,23 @@
-const dns = require('dns');
-const fs = require('fs');
-const path = require('path');
-const process = require('process');
-const { debuglog } = require('util');
+const dns = require('node:dns');
+const fs = require('node:fs');
+const path = require('node:path');
+const process = require('node:process');
+const { debuglog } = require('node:util');
 
-// eslint-disable-next-line n/no-deprecated-api
-const punycode = require('punycode');
+// TODO: use lande instead of franc
 
+const punycode = require('punycode/');
+
+const autoBind = require('auto-bind');
+const AFHConvert = require('ascii-fullwidth-halfwidth-convert');
 const ClamScan = require('clamscan');
-const FileType = require('file-type');
 const NaiveBayes = require('@ladjs/naivebayes');
 const RE2 = require('re2');
 const arrayJoinConjunction = require('array-join-conjunction');
 const bitcoinRegex = require('bitcoin-regex');
 const creditCardRegex = require('credit-card-regex');
 const emailRegexSafe = require('email-regex-safe');
-const emojiPatterns = require('emoji-patterns');
+// const emojiPatterns = require('emoji-patterns');
 const escapeStringRegexp = require('escape-string-regexp');
 const expandContractions = require('@stdlib/nlp-expand-contractions');
 const fileExtension = require('file-extension');
@@ -39,15 +41,16 @@ const ms = require('ms');
 const natural = require('natural');
 const normalizeUrl = require('normalize-url');
 const phoneRegex = require('phone-regex');
+const pWaitFor = require('p-wait-for');
+// const regexParser = require('regex-parser');
 const sanitizeHtml = require('sanitize-html');
 const snowball = require('node-snowball');
 const striptags = require('striptags');
 const superagent = require('superagent');
 const sw = require('stopword');
 const toEmoji = require('gemoji/name-to-emoji');
-const universalify = require('universalify');
 const urlRegexSafe = require('url-regex-safe');
-const validator = require('validator');
+const validator = require('@forwardemail/validator');
 const which = require('which');
 const { Iconv } = require('iconv');
 const { codes } = require('currency-codes');
@@ -55,7 +58,45 @@ const { fromUrl, NO_HOSTNAME } = require('parse-domain');
 const { parse } = require('node-html-parser');
 const { simpleParser } = require('mailparser');
 
+// dynamically import file-type
+let fileTypeFromBuffer;
+
+import('file-type').then((obj) => {
+  fileTypeFromBuffer = obj.fileTypeFromBuffer;
+});
+
 const debug = debuglog('spamscanner');
+
+// all tokenizers combined
+const GENERIC_TOKENIZER =
+  /[^a-zá-úÁ-Úà-úÀ-Úñü\dа-яёæøåàáảãạăắằẳẵặâấầẩẫậéèẻẽẹêếềểễệíìỉĩịóòỏõọôốồổỗộơớờởỡợúùủũụưứừửữựýỳỷỹỵđäöëïîûœçążśźęćńł-]+/i;
+
+const converter = new AFHConvert();
+
+// <https://github.com/liyt96/is-japanese>
+const japaneseRange = [
+  [0x3041, 0x3096], // Hiragana
+  [0x30a0, 0x30ff], // Katakana
+  [0xff00, 0xffef], // Full-width roman characters and half-width katakana
+  [0x4e00, 0x9faf], // Common and uncommon kanji
+  [0xff01, 0xff5e], // Alphanumeric and Punctuation (Full Width)
+  [0x3000, 0x303f], // Japanese Symbols and Punctuation
+  [0x0020, 0x005c], // Basic Punctuation
+  [0x2000, 0x206f], // General Punctuation
+  [0x0030, 0x0039] // Number 0-9
+];
+
+const jpReStr = japaneseRange
+  .map((range) => {
+    if (!Array.isArray(range)) {
+      return `\\u{${range.toString(16)}}`;
+    }
+
+    return `[\\u{${range[0].toString(16)}}-\\u{${range[1].toString(16)}}]`;
+  })
+  .join('|');
+
+const JAPANESE_REGEX = new RE2(new RegExp(jpReStr, 'u'));
 
 //
 // NOTE: we periodically need to update this
@@ -204,7 +245,6 @@ const ENDING_RESERVED_REGEX = new RE2(
 );
 
 const PKG = require('./package.json');
-
 const VOCABULARY_LIMIT = require('./vocabulary-limit.js');
 
 // TODO: convert this into a Map
@@ -231,16 +271,38 @@ const normalizeUrlOptions = {
 // <https://github.com/uhop/node-re2#backreferences>
 // <https://stackoverflow.com/a/26764609>
 // <https://stackoverflow.com/a/9158444>
-const ANCHOR_REGEX = new RE2(/<a.*?>.*?<\/a>/gi);
+const ANCHOR_REGEX = new RE2(/<a.*?>.*?<\/a>/i);
 
-// <https://github.com/mathiasbynens/emoji-regex/issues/59#issuecomment-640418649>
-const EMOJI_REGEX = new RE2(emojiPatterns.Emoji_All, 'gu');
+// <https://stackoverflow.com/a/60626382>
+// NOTE: we preserve Japanese characters and symbols
+const EMOJI_REGEX = new RE2(
+  /(\u00A9|\u00AE|[\u2000-\u3300]|\uD83C[\uD000-\uDFFF]|\uD83D[\uD000-\uDFFF]|\uD83E[\uD000-\uDFFF])/
+);
 const FLOATING_POINT_REGEX = new RE2(floatingPointRegex());
 const CC_REGEX = new RE2(creditCardRegex());
 const PHONE_REGEX = new RE2(phoneRegex());
 const BITCOIN_REGEX = new RE2(bitcoinRegex());
 const MAC_REGEX = new RE2(macRegex());
 const HEXA_COLOR_REGEX = new RE2(hexaColorRegex());
+
+// TODO: fix g flag  <https://medium.com/@nikjohn/regex-test-returns-alternating-results-bd9a1ae42cdd>
+console.log(FLOATING_POINT_REGEX);
+console.log(CC_REGEX);
+console.log(PHONE_REGEX);
+console.log(BITCOIN_REGEX);
+console.log(MAC_REGEX);
+console.log(HEXA_COLOR_REGEX);
+
+console.log(PHONE_REGEX.match('123-444-5555 baz beep'));
+console.log(PHONE_REGEX.match('123-444-5555 baz beep'));
+console.log(PHONE_REGEX.match('123-444-5555 baz beep'));
+console.log(PHONE_REGEX.match('beep baz 123-444-5555'));
+console.log(PHONE_REGEX.match('beep baz 123-444-5555'));
+console.log(PHONE_REGEX.match('123-444-5555 baz beep'));
+console.log(PHONE_REGEX.match('123-444-5555 baz beep'));
+console.log(PHONE_REGEX.match('beep baz 123-444-5555'));
+console.log(PHONE_REGEX.match('beep baz 123-444-5555'));
+console.log(PHONE_REGEX.match('123-444-5555 baz beep'));
 
 // <https://github.com/NaturalNode/natural/issues/523#issuecomment-623287047>
 // <https://github.com/yoshuawuyts/newline-remove>
@@ -291,6 +353,14 @@ const IP_REGEX = new RE2(ipRegex());
 // strip zero-width characters
 // <https://github.com/peerigon/parse-domain/issues/116>
 const ZERO_WIDTH_REGEX = new RE2(/[\u{200B}-\u{200D}]/gu);
+
+// punctuation characters
+// (need stripped from tokenization)
+// <https://github.com/regexhq/punctuation-regex>
+// NOTE: we prepended a normal "-" hyphen since it was missing
+const PUNCTUATION_REGEX = new RE2(
+  /[-‒–—―|$&~=\\/⁄@+*!?({[\]})<>‹›«».;:^‘’“”'",،、`·•†‡°″¡¿※#№÷×%‰−‱¶′‴§_‖¦]/g
+);
 
 const isURLOptions = {
   require_tld: false,
@@ -498,28 +568,6 @@ class SpamScanner {
 
     this.clamscan = this.config.clamscan === false ? false : new ClamScan();
 
-    this.getTokensAndMailFromSource = universalify.fromPromise(
-      this.getTokensAndMailFromSource.bind(this)
-    );
-    this.getPhishingResults = this.getPhishingResults.bind(this);
-    // this.getNSFWResuls = universalify.fromPromise(this.getNSFWResults.bind(this));
-    this.getExecutableResults = universalify.fromPromise(
-      this.getExecutableResults.bind(this)
-    );
-    this.scan = universalify.fromPromise(this.scan.bind(this));
-    this.getTokens = this.getTokens.bind(this);
-    this.parseLocale = this.parseLocale.bind(this);
-    this.getNormalizedUrl = this.getNormalizedUrl.bind(this);
-    this.getUrls = this.getUrls.bind(this);
-    this.malwareLookup = this.malwareLookup.bind(this);
-    this.isCloudflareBlocked = this.isCloudflareBlocked.bind(this);
-    this.getArbitraryResults = this.getArbitraryResults.bind(this);
-    this.getVirusResults = universalify.fromPromise(
-      this.getVirusResults.bind(this)
-    );
-    this.getHostname = this.getHostname.bind(this);
-    this.getClassification = this.getClassification.bind(this);
-
     // memoized methods (either uses Redis or in-memory cache)
     if (this.config.client)
       this.memoizedIsCloudflareBlocked = async function (name) {
@@ -578,6 +626,8 @@ class SpamScanner {
     // (Set.has is 2x faster than includes, and 50% faster than indexOf)
     //
     this.WHITELISTED_WORDS = new Set(Object.values(this.config.replacements));
+
+    autoBind(this);
   }
 
   getHostname(link) {
@@ -700,11 +750,17 @@ class SpamScanner {
 
     let gtube = false;
 
-    // eslint-disable-next-line unicorn/prefer-includes
-    if (isSANB(mail.html) && mail.html.indexOf(GTUBE) !== -1) gtube = true;
+    if (
+      isSANB(mail.html) &&
+      mail.html.replace(NEWLINE_REGEX, ' ').includes(GTUBE)
+    )
+      gtube = true;
 
-    // eslint-disable-next-line unicorn/prefer-includes
-    if (isSANB(mail.text) && !gtube && mail.text.indexOf(GTUBE) !== -1)
+    if (
+      isSANB(mail.text) &&
+      !gtube &&
+      mail.text.replace(NEWLINE_REGEX, ' ').includes(GTUBE)
+    )
       gtube = true;
 
     if (gtube)
@@ -810,6 +866,7 @@ class SpamScanner {
         .replace(/\/+$/, '');
     }
 
+    // TODO: this is super slow to parse all the url's on a huge 15MB+ email
     const hostname = fromUrl(normalized);
     if (hostname === NO_HOSTNAME) {
       this.config.logger.error(
@@ -1034,229 +1091,319 @@ class SpamScanner {
     let stemword = 'default';
 
     switch (locale) {
-      case 'ar':
+      case 'ar': {
         // arb
         // ISO 639-3 = ara
         stopwords = stopwordsAra;
         language = 'arabic';
         break;
-      case 'da':
+      }
+
+      case 'da': {
         // dan
         language = 'danish';
         stopwords = stopwordsDan;
         break;
-      case 'nl':
+      }
+
+      case 'nl': {
         // nld
         stopwords = stopwordsNl;
         language = 'dutch';
         break;
-      case 'en':
+      }
+
+      case 'en': {
         // eng
         language = 'english';
         break;
-      case 'fi':
+      }
+
+      case 'fi': {
         // fin
         language = 'finnish';
         tokenizer = orthographyTokenizer;
         stopwords = stopwordsFin;
         break;
-      case 'fa':
+      }
+
+      case 'fa': {
         // fas (Persian/Farsi)
         language = 'farsi';
         tokenizer = aggressiveTokenizerFa;
         stopwords = stopwordsFa;
         stemword = natural.PorterStemmerFa.stem.bind(natural.PorterStemmerFa);
         break;
-      case 'fr':
+      }
+
+      case 'fr': {
         // fra
         language = 'french';
         tokenizer = aggressiveTokenizerFr;
         stopwords = stopwordsFr;
         break;
-      case 'de':
+      }
+
+      case 'de': {
         // deu
         language = 'german';
         stopwords = stopwordsDeu;
+        // TODO: may want to use porterstemmerde
+        // <https://github.com/NaturalNode/natural/blob/master/lib/natural/stemmers/porter_stemmer_de.js>
         break;
-      case 'hu':
+      }
+
+      case 'hu': {
         // hun
         language = 'hungarian';
         stopwords = stopwordsHun;
         break;
-      case 'in':
+      }
+
+      case 'in': {
         // ind
         language = 'indonesian';
         tokenizer = aggressiveTokenizerId;
         stopwords = stopwordsId;
         break;
-      case 'it':
+      }
+
+      case 'it': {
         // ita
         language = 'italian';
         tokenizer = aggressiveTokenizerIt;
         stopwords = stopwordsIt;
         break;
-      case 'ja':
+      }
+
+      case 'ja': {
         // jpn
         tokenizer = tokenizerJa;
         stopwords = stopwordsJa;
         stemword = natural.StemmerJa.stem.bind(natural.StemmerJa);
         break;
-      case 'nb':
+      }
+
+      case 'nb': {
         // nob
         language = 'norwegian';
         tokenizer = aggressiveTokenizerNo;
         stopwords = stopwordsNo;
         break;
-      case 'nn':
+      }
+
+      case 'nn': {
         // nno
         // ISO 639-3 = nob
         language = 'norwegian';
         tokenizer = aggressiveTokenizerNo;
         stopwords = stopwordsNo;
         break;
-      case 'po':
+      }
+
+      case 'po': {
         // pol
         language = 'polish';
         tokenizer = aggressiveTokenizerPl;
         stopwords = stopwordsPl;
         stemword = false;
         break;
-      case 'pt':
+      }
+
+      case 'pt': {
         // por
         language = 'portuguese';
         tokenizer = aggressiveTokenizerPt;
         stopwords = stopwordsPt;
         break;
-      case 'es':
+      }
+
+      case 'es': {
         // spa
         language = 'spanish';
         tokenizer = aggressiveTokenizerEs;
         stopwords = stopwordsEs;
         break;
-      case 'sv':
+      }
+
+      case 'sv': {
         // swe
         language = 'swedish';
         tokenizer = aggressiveTokenizerSv;
         stopwords = stopwordsSv;
         break;
-      case 'ro':
+      }
+
+      case 'ro': {
         // ron
         language = 'romanian';
         stopwords = stopwordsRon;
         break;
-      case 'ru':
+      }
+
+      case 'ru': {
         // rus
         language = 'russian';
         tokenizer = aggressiveTokenizerRu;
         stopwords = stopwordsRu;
         break;
-      case 'ta':
+      }
+
+      case 'ta': {
         // tam
         // NOTE: no stopwords available
         language = 'tamil';
         break;
-      case 'tr':
+      }
+
+      case 'tr': {
         // tur
         language = 'turkish';
         stopwords = stopwordsTur;
         break;
-      case 'vi':
+      }
+
+      case 'vi': {
         // vie
         language = 'vietnamese';
         tokenizer = aggressiveTokenizerVi;
         stopwords = stopwordsVie;
         stemword = false;
         break;
-      case 'zh':
+      }
+
+      case 'zh': {
         // cmn
         // ISO 639-3 = zho (Chinese, Macrolanguage)
         // https://github.com/yishn/chinese-tokenizer
+        // NOTE: the chinese tokenizer is breaking apart words where it shouldn't
         tokenizer = {
-          tokenize: (str) =>
-            chineseTokenizer(str).map((results) => results.text)
+          tokenize(message) {
+            // we need to separate by spaces here
+            message +=
+              'foobar 行政管理pickles 行政管 理test行 numberyylwggnxav 東京Japan numberyylwggnxav bnumberyylwggnxavbnumberyylwggnxav';
+            const arr = message.split(/\s+/);
+            const tokens = [];
+            // TODO: need to run japanese
+            // TODO: need to run orthography
+            for (const str of arr) {
+              // TODO: we probably need to re-use this tokenizer across everything
+              //       but for the "English" part, default to whatever language was passed
+              //       NOTE: someone could mix Arabic and English and Mandarin and attempt to bypass
+              if (JAPANESE_REGEX.test(str)) {
+                const values = chineseTokenizer(str);
+                for (const result of values) {
+                  console.log('str', str, 'pushing', result.text);
+                  // TODO: need to run english tokenizer here
+                  //       on anything that isn't 100% is-japanese
+                  for (const a of result.text.split(GENERIC_TOKENIZER)) {
+                    tokens.push(a);
+                  }
+                }
+              } else {
+                console.log('pushing str', str);
+                // TODO: need to run english tokenizer here
+                for (const a of str.split(GENERIC_TOKENIZER)) {
+                  tokens.push(a);
+                }
+              }
+            }
+
+            return tokens;
+          }
         };
         language = 'chinese';
         stopwords = stopwordsZh;
         stemword = false;
         break;
+      }
+
       default:
     }
 
     if (stemword === 'default')
       stemword = (t) => snowball.stemword(t, language);
 
-    string =
+    console.log('original string', string);
+
+    //
+    // TODO: replace any existing replacements in the string
+    //       with newly rev hash versioned of the replacement replacements
+    //       (prevent spoofing)
+    //
+    string = string
       // handle emojis
       // - convert github emojis to unicode 13 emojis
       // - replace all unicode emojis
-      string
-        .split(' ')
-        .map((_string) =>
-          _string.indexOf(':') === 0 &&
-          _string.endsWith(':') &&
-          typeof toEmoji[_string.slice(1, -1)] === 'string'
-            ? toEmoji[_string.slice(1, -1)]
-            : _string
-        )
-        .join(' ')
-        .replace(EMOJI_REGEX, ` ${this.config.replacements.emoji} `)
+      .split(/\s+/)
+      .map((_string) =>
+        _string.indexOf(':') === 0 &&
+        _string.endsWith(':') &&
+        typeof toEmoji[_string.slice(1, -1)] === 'string'
+          ? toEmoji[_string.slice(1, -1)]
+          : _string
+      )
+      .join(' ')
+      .replace(EMOJI_REGEX, ` ${this.config.replacements.emoji} `)
 
-        // https://github.com/regexhq/mac-regex
-        .replace(MAC_REGEX, ` ${this.config.replacements.mac} `)
+      // https://github.com/regexhq/mac-regex
+      .replace(MAC_REGEX, ` ${this.config.replacements.mac} `)
 
-        // https://github.com/kevva/credit-card-regex
-        .replace(CC_REGEX, ` ${this.config.replacements.cc} `)
+      // https://github.com/kevva/credit-card-regex
+      .replace(CC_REGEX, ` ${this.config.replacements.cc} `)
 
-        // https://github.com/kevva/bitcoin-regex
-        .replace(BITCOIN_REGEX, ` ${this.config.replacements.bitcoin} `)
+      // https://github.com/kevva/bitcoin-regex
+      .replace(BITCOIN_REGEX, ` ${this.config.replacements.bitcoin} `)
 
-        // https://github.com/regexhq/phone-regex
-        .replace(PHONE_REGEX, ` ${this.config.replacements.phone} `)
+      // https://github.com/regexhq/phone-regex
+      .replace(PHONE_REGEX, ` ${this.config.replacements.phone} `)
 
-        // handle hex colors
-        // https://github.com/regexhq/hexa-color-regex
-        .replace(HEXA_COLOR_REGEX, ` ${this.config.replacements.hexa} `)
+      // handle hex colors
+      // https://github.com/regexhq/hexa-color-regex
+      .replace(HEXA_COLOR_REGEX, ` ${this.config.replacements.hexa} `)
 
-        // handle initialism(e.g. "AFK" -> "abbrev$crypto$afk")
-        .replace(
-          INITIALISM_REGEX,
-          (s) => ` ${this.config.replacements.initialism}${s} `
-        )
+      // NOTE: replacement of email addresses must come BEFORE urls
+      // replace email addresses
+      .replace(EMAIL_REGEX, this.config.replacements.email)
 
-        // handle abbreviations (e.g. "u.s." -> "abbrev$crypto$us")
-        // (note we have to replace the periods here)
-        .replace(
-          ABBREVIATION_REGEX,
-          (s) =>
-            ` ${this.config.replacements.abbreviation}${s.split('.').join('')} `
-        )
+      // replace urls
+      .replace(URL_REGEX, ` ${this.config.replacements.url} `)
 
-        // NOTE: replacement of email addresses must come BEFORE urls
-        // replace email addresses
-        .replace(EMAIL_REGEX, this.config.replacements.email)
+      // now we ensure that URL's and EMAIL's are properly spaced out
+      // (e.g. in case ?email=some@email.com was in a URL)
+      .replace(
+        this.EMAIL_REPLACEMENT_REGEX,
+        ` ${this.config.replacements.email} `
+      )
 
-        // replace urls
-        .replace(URL_REGEX, ` ${this.config.replacements.url} `)
+      // TODO: replace file paths, file dirs, dotfiles, and dotdirs
 
-        // now we ensure that URL's and EMAIL's are properly spaced out
-        // (e.g. in case ?email=some@email.com was in a URL)
-        .replace(
-          this.EMAIL_REPLACEMENT_REGEX,
-          ` ${this.config.replacements.email} `
-        )
+      // TODO: replace dates (mm/dd/yy, mm-dd-yy, yy-mm-dd, etc)
 
-        // TODO: replace file paths, file dirs, dotfiles, and dotdirs
+      // replace numbers
+      // https://github.com/regexhq/floating-point-regex
+      .replace(FLOATING_POINT_REGEX, ` ${this.config.replacements.number} `)
+      .replace(NUMBER_REGEX, ` ${this.config.replacements.number} `)
 
-        // replace numbers
-        // https://github.com/regexhq/floating-point-regex
-        .replace(FLOATING_POINT_REGEX, ` ${this.config.replacements.number} `)
-        .replace(NUMBER_REGEX, ` ${this.config.replacements.number} `)
+      // TODO: may want to do more from this list (and others?)
+      // <https://www.npmjs.com/package/f2e-tools#regexp>
 
-        // TODO: may want to do more from this list (and others?)
-        // <https://www.npmjs.com/package/f2e-tools#regexp>
+      // replace currency
+      .replace(CURRENCY_REGEX, ` ${this.config.replacements.currency} `)
 
-        // replace currency
-        .replace(CURRENCY_REGEX, ` ${this.config.replacements.currency} `);
+      // handle initialism(e.g. "AFK" -> "abbrev$crypto$afk")
+      .replace(
+        INITIALISM_REGEX,
+        (s) => ` ${this.config.replacements.initialism}${s} `
+      )
+
+      // handle abbreviations (e.g. "u.s." -> "abbrev$crypto$us")
+      // (note we have to replace the periods here)
+      .replace(
+        ABBREVIATION_REGEX,
+        (s) =>
+          ` ${this.config.replacements.abbreviation}${s.split('.').join('')} `
+      );
 
     //
     // expand contractions so "they're" -> [ they, are ] vs. [ they, re ]
@@ -1265,6 +1412,8 @@ class SpamScanner {
     // NOTE: we're doing this for all languages now, not just en
     //
     string = expandContractions(string);
+
+    console.log('string', string);
 
     //
     // Future research:
@@ -1275,9 +1424,31 @@ class SpamScanner {
     // - <https://www.elastic.co/guide/en/elasticsearch/reference/master/analysis-elision-tokenfilter.html>
     //
     const tokens = [];
-    for (const token of tokenizer.tokenize(string.toLowerCase())) {
-      // zh tokenizr yields empty strings
-      if (token === '' || token === ' ') continue;
+    for (const _token of tokenizer.tokenize(string.toLowerCase())) {
+      // convert full-width characters to half-width (normalize)
+      const token = converter
+        .toHalfWidth(_token)
+        // strip punctuation characters
+        .replace(PUNCTUATION_REGEX, '')
+        // strip zero-width characters
+        .replace(ZERO_WIDTH_REGEX, '')
+        .trim();
+
+      //
+      // TODO: note if someone passes a message with mixed English/Chinese
+      //       then the English tokenizer will actually filter out Chinese words
+      //       (which means someone could spam nasty messages in Chinese inside an English detected email)
+      //
+
+      // TODO: replace Japanese Symbols and Punctuation
+      // <https://gist.github.com/ryanmcgrath/982242>
+      // <https://regex101.com/r/0LkDH8/1/codegen?language=javascript>
+      // .replace(/[\u3000-\u303F]|[\uFF00-\uFFEF]/gu, '');
+
+      console.log(`token was "${_token}" but is now "${token}"`);
+
+      // Chinese tokenizer (and others) may yield empty strings
+      if (token === '') continue;
 
       // whitelist words from being stemmed (safeguard)
       if (
@@ -1505,8 +1676,8 @@ class SpamScanner {
           const urlHostname = this.getHostname(link);
           if (urlHostname) {
             const toASCII = punycode.toASCII(urlHostname);
-            const adultMessage = `Link hostname of ${toASCII} was detected by Cloudflare's Family DNS to contain adult-related content, phishing, and/or malware.`;
-            const malwareMessage = `Link hostname of ${toASCII} was detected by Cloudflare's Security DNS to contain phishing and/or malware.`;
+            const adultMessage = `Link hostname of ${toASCII} was detected by Cloudflare's Family DNS to contain adult-related content, phishing, and/or malware (https://radar.cloudflare.com/domains/feedback/${toASCII}).`;
+            const malwareMessage = `Link hostname of ${toASCII} was detected by Cloudflare's Security DNS to contain phishing and/or malware (https://radar.cloudflare.com/domains/feedback/${toASCII}).`;
 
             // if it already included both messages then return early
             if (messages.has(adultMessage) && messages.has(malwareMessage))
@@ -1529,9 +1700,17 @@ class SpamScanner {
     return { messages: [...messages], links: [...links] };
   }
 
-  // getNSFWResults() {
-  //   return false;
-  // }
+  // TODO: check against urlhaus and malware bazaar (on FE side using mongo or redis)
+  // TODO: use sharp to get uint8array (?)
+  // TODO: finish this
+  async getNSFWResults() {
+    return [];
+  }
+
+  // TODO: finish this
+  getNSFWResults() {
+    return [];
+  }
 
   async getExecutableResults(mail) {
     const messages = [];
@@ -1545,8 +1724,12 @@ class SpamScanner {
       mail.attachments.map(async (attachment) => {
         if (isBuffer(attachment.content)) {
           try {
-            const fileType = await FileType.fromBuffer(attachment.content);
-
+            if (!fileTypeFromBuffer)
+              await pWaitFor(() => Boolean(fileTypeFromBuffer));
+            const fileType = await fileTypeFromBuffer(attachment.content);
+            // TODO: detect and prohibit macros
+            // <https://jhalon.github.io/re-malicious-macros/>
+            // <https://github.com/enkomio/MacroInspector>
             if (fileType && fileType.ext && EXECUTABLES.has(fileType.ext))
               messages.push(
                 `Attachment's "magic number" indicated it was a dangerous executable with a ".${fileType.ext}" extension.`
@@ -1561,6 +1744,60 @@ class SpamScanner {
           const filename = punycode.toASCII(
             punycode.toUnicode(attachment.filename.split('?')[0])
           );
+          // fileExtension returns lowercase by default
+          const ext = fileExtension(filename);
+          if (ext && EXECUTABLES.has(ext))
+            messages.push(
+              `Attachment's file name indicated it was a dangerous executable with a ".${ext}" extension.`
+            );
+        }
+
+        if (isSANB(attachment.contentType)) {
+          const ext = mime.extension(attachment.contentType);
+          if (isSANB(ext) && EXECUTABLES.has(ext))
+            messages.push(
+              `Attachment's Content-Type was a dangerous executable with a ".${ext}" extension.`
+            );
+        }
+      })
+    );
+
+    return messages;
+  }
+
+  async getExecutableResults(mail) {
+    const messages = [];
+
+    if (!Array.isArray(mail.attachments)) return messages;
+
+    // NOTE: we don't inspect <a> or normal links in the message html/text
+
+    // if any attachments have an executable
+    await Promise.all(
+      mail.attachments.map(async (attachment) => {
+        if (isBuffer(attachment.content)) {
+          try {
+            if (!fileTypeFromBuffer)
+              await pWaitFor(() => Boolean(fileTypeFromBuffer));
+            const fileType = await fileTypeFromBuffer(attachment.content);
+            // TODO: detect and prohibit macros
+            // <https://jhalon.github.io/re-malicious-macros/>
+            // <https://github.com/enkomio/MacroInspector>
+            if (fileType && fileType.ext && EXECUTABLES.has(fileType.ext))
+              messages.push(
+                `Attachment's "magic number" indicated it was a dangerous executable with a ".${fileType.ext}" extension.`
+              );
+          } catch (err) {
+            this.config.logger.error(err);
+          }
+        }
+
+        if (isSANB(attachment.filename)) {
+          // run punycode on file name as well since file names can be spoofed
+          const filename = punycode.toASCII(
+            punycode.toUnicode(attachment.filename.split('?')[0])
+          );
+          // fileExtension returns lowercase by default
           const ext = fileExtension(filename);
           if (ext && EXECUTABLES.has(ext))
             messages.push(
@@ -1584,20 +1821,25 @@ class SpamScanner {
   async scan(string) {
     const { tokens, mail } = await this.getTokensAndMailFromSource(string);
 
+    // TODO: <https://developers.cloudflare.com/cloudflare-one/policies/filtering/dns-policies/test-dns-filtering/>
+    // TODO: <https://developers.cloudflare.com/cloudflare-one/policies/filtering/domain-categories/>
+
     const [
       classification,
       phishing,
-      // nsfw,
       executables,
       arbitrary,
-      viruses
+      viruses,
+      nsfw,
+      toxicity
     ] = await Promise.all([
       this.getClassification(tokens),
       this.getPhishingResults(mail),
-      // Promise.resolve(this.getNSFWResults(mail)),
       this.getExecutableResults(mail),
       this.getArbitraryResults(mail),
-      this.getVirusResults(mail)
+      this.getVirusResults(mail),
+      this.getNSFWResults(mail),
+      this.getToxicityResults(mail)
     ]);
 
     const messages = [];
@@ -1609,15 +1851,23 @@ class SpamScanner {
       messages.push(message);
     }
 
-    // for (const message of nsfw) {
-    //   messages.push(message);
-    // }
+    for (const message of nsfw) {
+      messages.push(message);
+    }
+
+    for (const message of toxicity) {
+      messages.push(message);
+    }
 
     for (const message of executables) {
       messages.push(message);
     }
 
     for (const message of arbitrary) {
+      messages.push(message);
+    }
+
+    for (const message of viruses) {
       messages.push(message);
     }
 
@@ -1629,9 +1879,10 @@ class SpamScanner {
         // classifier prediction
         classification,
         phishing: phishing.messages,
-        // nsfw,
         executables,
         arbitrary,
+        nsfw,
+        toxicity,
         viruses
       },
       links: phishing.links,

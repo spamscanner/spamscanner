@@ -1,5 +1,4 @@
-const { debuglog } = require('util');
-
+const { debuglog } = require('node:util');
 const NaiveBayes = require('@ladjs/naivebayes');
 
 const debug = debuglog('spamscanner');

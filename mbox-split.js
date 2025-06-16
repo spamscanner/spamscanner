@@ -1,21 +1,19 @@
-const process = require('process');
-const fs = require('fs');
-const os = require('os');
-const path = require('path');
-const { promisify } = require('util');
-
+const process = require('node:process');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const { promisify } = require('node:util');
 const Mbox = require('node-mbox');
 const makeDir = require('make-dir');
 const pMap = require('p-map');
 const trim = require('trim-leading-whitespace');
 const { readDirDeep } = require('read-dir-deep');
-
 const MBOX_PATTERNS = require('./mbox-patterns.js');
 
 const concurrency = os.cpus().length * 4;
 const writeFile = promisify(fs.writeFile);
 
-if (typeof process.env.SCAN_DIR === 'undefined')
+if (process.env.SCAN_DIR === undefined)
   throw new Error('SCAN_DIR environment variable required');
 
 function mapper(source) {

@@ -62,7 +62,7 @@ Initially we tried using [SpamAssassin][], and later evaluated [rspamd][] – bu
 
 To us, we value privacy and the security of our data and users – specifically we have a "Zero-Tolerance Policy" on storing logs or metadata of any kind, whatsoever (see our [Privacy Policy][privacy-policy] for more on that).  None of these solutions honored this privacy policy (without removing essential spam-detection functionality), so we had to create our own tool – thus "Spam Scanner" was born.
 
-The solution we created provides several [Features](#features) and is completely configurable to your liking.  You can learn more about the actual [Algorithm](#algorithm) below.  Contributors are welcome.
+The solution we created provides several [Features](#features) and is completely configurable to your liking.  You can learn more about the actual [functionality](#functionality) below.  Contributors are welcome.
 
 
 ## Features
@@ -77,7 +77,7 @@ It was trained with an extremely large dataset of spam, ham, and abuse reporting
 
 ### Spam Content Detection
 
-Provides an out of the box trained Naive Bayesian classifier (uses [naivebayes][] and [natural][] under the hood), which is sourced from hundreds of thousands of spam and ham emails.  This classifier relies upon tokenized and stemmed words (with respect to the language of the email as well) into two categories ("spam" and "ham").
+Provides an out of the box trained [Naive Bayesian classifier](#naive-bayes-classifier) (uses [naivebayes][] and [natural][] under the hood), which is sourced from hundreds of thousands of spam and ham emails.  This classifier relies upon tokenized and stemmed words (with respect to the language of the email as well) into two categories ("spam" and "ham").
 
 ### Phishing Content Detection
 
@@ -93,22 +93,27 @@ Using ClamAV, it scans email attachments (including embedded CID images) for tro
 
 ### NSFW Image Detection
 
-We have plans to add [NSFW image detection][nsfw] and opt-in [toxicity detection][toxicity] as well.
+Indecent and provocative content is detected using [NSFW image detection][nsfw] models.
 
+### Language Toxicity Detection
 
-## Algorithm
+Profane content is detected using [toxicity][toxicity] models.
 
-In a nutshell, here is how the Spam Scanner algorithm works:
+## Functionality
+
+Here is how Spam Scanner functions:
 
 1. A message is passed to Spam Scanner, known as the "source".
 
 2. In parallel and asynchronously, the source is passed to functions that detect the following:
 
-   * Classification
-   * Phishing
-   * Executables
-   * Arbitrary
-   * Viruses
+   * [Classification](#spam-content-detection)
+   * [Phishing](#phishing-content-detection)
+   * [Executables](#executable-link-and-attachment-detection)
+   * Arbitrary [GTUBE](https://spamassassin.apache.org/gtube/)
+   * [Viruses](#virus-detection)
+   * [NSFW](#nsfw-image-detection)
+   * [Toxicity](#language-toxicity-detection)
 
 3. After all functions complete, if any returned a value indicating it is spam, then the source is considered to be spam.  A detailed result object is provided for inspection into the reason(s).
 
@@ -133,11 +138,14 @@ Note that you can simply use the Spam Scanner API for free at <https://spamscann
 
    ```sh
    sudo apt-get update
-   sudo apt-get install build-essential clamav-daemon clamav-freshclam clamav-unofficial-sigs -qq
+   sudo apt-get install build-essential clamav-daemon clamav-freshclam -qq
    sudo service clamav-daemon start
    ```
 
    > You may need to run `sudo freshclam -v` if you receive an error when checking `sudo service clamav-daemon status`, but it is unlikely and depends on your distro.
+
+   <!-- https://blog.frehi.be/2021/01/25/using-fangfrisch-to-improve-malware-e-mail-detection-with-clamav/ -->
+   <!-- https://github.com/rseichter/fangfrisch -->
 
 2. Configure ClamAV:
 
@@ -344,13 +352,6 @@ scanner
   .scan(source)
   .then(scan => console.log('scan', scan))
   .catch(console.error);
-
-// callback usage
-if (err) return console.error(err);
-scanner.scan(source, (err, scan) => {
-  if (err) return console.error(err);
-  console.log('scan', scan);
-});
 ```
 
 
@@ -370,7 +371,7 @@ For a list of all options and their defaults, see the [index.js](index.js) file 
 
 Accepts a required `source` (String, Buffer, or file path) argument which points to (or is) a complete and raw SMTP message (e.g. it includes headers and the full email).  Commonly this is known as an "eml" file type and contains the extension `.eml`, however you can pass a String or Buffer representation instead of a file path.
 
-This method returns a Promise that resolves with a `scan` Object when scanning is completed.  You can also use this method with a second callback argument.
+This method returns a Promise that resolves with a `scan` Object when scanning is completed.
 
 The scanned results are returned as an Object with the following properties (descriptions of each property are listed below):
 
@@ -382,7 +383,10 @@ The scanned results are returned as an Object with the following properties (des
     classification: Object,
     phishing: Array,
     executables: Array,
-    arbitrary: Array
+    arbitrary: Array,
+    nsfw: Array,
+    toxicity: Array,
+    viruses: Array
   },
   links: Array,
   tokens: Array,
@@ -392,13 +396,15 @@ The scanned results are returned as an Object with the following properties (des
 
 | Property                 | Type    | Description                                                                                                                                                                                                                                                                                        |
 | ------------------------ | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `is_spam`                | Boolean | A value of `true` is returned if `category` property of the `results.classification` Object was determined to be `"spam"`, `results.phishing` was not empty, or `results.executables` was not empty – otherwise its value is `false`                                                               |
+| `is_spam`                | Boolean | A value of `true` is returned if `category` property of the `results.classification` Object was determined to be `"spam"` or if any phishing, executables, arbitrary, viruses, NSFW, or profane content were detected (see below `results`)
 | `message`                | String  | A human-friendly message indicating why the `source` was classified as spam or ham (e.g. all messages/reasons from `results.classification`, `results.phishing`, and `results.executables` are joined together)                                                                                    |
 | `results`                | Object  | An Object of properties that provide detailed information about the scan (very useful for debugging)                                                                                                                                                                                               |
 | `results.classification` | Object  | An Object with `category` (String) and `probability` (Number) values returned based off the categorization of the `source` from the Naive Bayes classifier                                                                                                                                         |
 | `results.phishing`       | Array   | An Array of Strings indicating phishing attempts detected on the `source`                                                                                                                                                                                                                          |
 | `results.executables`    | Array   | An Array of Strings indicating executable attacks detected on the `source`                                                                                                                                                                                                                         |
 | `results.arbitrary`      | Array   | An Array of Strings indicating arbitrary spam-detection mechanisms detected on the `source`                                                                                                                                                                                                        |
+| `results.nsfw`      | Array   | An Array of Strings indicating NSFW content detected on the `source`
+| `results.toxicity`      | Array   | An Array of Strings indicating profane content detected on the `source`
 | `links`                  | Array   | An Array of Strings that include all of the parsed and normalized links detected on the `source`.  This is extremely useful for URL reputation management.                                                                                                                                         |
 | `tokens`                 | Array   | **Debug only:** An Array of tokenized and stemmed words (parsed from the `source`, with respect to determined locale) used internally (for classification against the classifier) and exposed for debugging.  This property is only returned when `debug` option in the instance is set to `true`. |
 | `mail`                   | Object  | **Debug only:** A parsed `mailparser.simpleParser` object used internally and exposed for debugging.  This property is only returned when `debug` option in the instance is set to `true`.                                                                                                         |
@@ -439,7 +445,7 @@ Currently Spam Scanner supports the following locales for tokenization, stemming
 | Vietnamese | `vi`       |
 | Chinese    | `zh`       |
 
-This method returns a Promise that resolves with a `{ tokens, mail }` Object.  You can also use this method with a second callback argument.
+This method returns a Promise that resolves with a `{ tokens, mail }` Object.
 
 Note that `tokens` is an Array of parsed tokenized and stemmed words, and `mail` is the `simpleParser` parsed mail Object.
 
@@ -461,7 +467,7 @@ We have plans to further refine the classifier to strip all gibberish by testing
 
 Accepts a `mailparser.simpleParser` parsed mail Object.
 
-This method returns a Promise that resolves with an Array of messages (if any) that indicates that links parsed from the message were detected to be phishing attempts.  You can also use this method with a second callback argument.
+This method returns a Promise that resolves with an Array of messages (if any) that indicates that links parsed from the message were detected to be phishing attempts.
 
 This method also prevents the common [IDN homograph attacks][homograph-attack].  If *any* link is detected to start with the string `xn--` (e.g. after conversion from `punycode.toASCII`) then it is detected as phishing.
 
@@ -479,7 +485,7 @@ Accepts a `mailparser.simpleParser` parsed mail Object.
 
 Note that this method detects (with respect to [executables.json](executables.json) using "Content-Type" header detection, file extension detection, and [magic number][magic-number] detection.
 
-This method returns a Promise that resolves with an Array of messages (if any) that indicate that links and/or attachments parsed from the message were dangerous (e.g. contained executable files or links to executable files).  You can also use this method with a second callback argument.
+This method returns a Promise that resolves with an Array of messages (if any) that indicate that links and/or attachments parsed from the message were dangerous (e.g. contained executable files or links to executable files).
 
 This method also takes into consideration that the file extension and name could have a [homograph attack][homograph-attack] by using `punycode.toASCII` on the file name.
 
@@ -520,15 +526,23 @@ Accepts a `mailparser.simpleParser` parsed mail Object.
 
 This method will test the message against arbitrary spam-detection reasons, such as [GTUBE](https://spamassassin.apache.org/gtube/).
 
-Returns an Array of messages (if any) that indicate that parts of the message were detected to be spam-related for arbitrary reasons. You can also use this method with a second callback argument.
+Returns an Array of messages (if any) that indicate that parts of the message were detected to be spam-related for arbitrary reasons.
 
 ### `scanner.getVirusResults(mail)`
 
 Accepts a `mailparser.simpleParser` parsed mail Object.
 
-This method returns a Promise that resolves with an Array of messages (if any) that indicate that attachments parsed from the message were dangerous (e.g. contained trojans, viruses, malware, and/or other malicious threats). You can also use this method with a second callback argument.
+This method returns a Promise that resolves with an Array of messages (if any) that indicate that attachments parsed from the message were dangerous (e.g. contained trojans, viruses, malware, and/or other malicious threats).
 
 ClamAV is used internally with this method, in order to scan the attachments (in parallel).
+
+### `scanner.getNSFWResults(mail)`
+
+TODO
+
+### `scanner.getToxicityResults(mail)`
+
+TODO
 
 ### `scanner.parseLocale(locale)`
 
@@ -569,14 +583,6 @@ Note that in [Forward Email][forward-email] we use the `client` approach as we h
 Spam Scanner has built-in debug output via `util.debuglog('spamscanner')`.  You can also pass `debug: true` to your instance to get more verbose output.
 
 This means you can run your app with `NODE_DEBUG=spamscanner node app.js` to get useful debug output to your console.
-
-
-## Contributors
-
-| Name             | Website                    |
-| ---------------- | -------------------------- |
-| **Nick Baugh**   | <http://niftylettuce.com/> |
-| **Shaun Warman** | <http://shaunwarman.com/>  |
 
 
 ## References

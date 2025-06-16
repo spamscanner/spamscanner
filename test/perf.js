@@ -1,15 +1,13 @@
-const process = require('process');
+const process = require('node:process');
 const {
   monitorEventLoopDelay,
   performance,
   PerformanceObserver,
   createHistogram
-} = require('perf_hooks');
-
+} = require('node:perf_hooks');
 const test = require('ava');
 const semver = require('semver');
 const { default: PQueue } = require('p-queue');
-
 const SpamScanner = require('../');
 const generateEmail = require('./fixtures/email-generator');
 
