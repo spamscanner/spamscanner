@@ -1,12 +1,12 @@
 module.exports = [
-  '**/Summary.txt',
-  '**/cmds',
-  '**/cmd',
-  '**/index',
-  '**/.*', // ignore dotfiles
-  '**/*.',
-  '**/current', // mbox we can't parse
-  '**/current.old', // mbox we can't parse
-  '**/*.z', // binary file not for parsing
-  '**/.current.map' // binary file not for parsing
+	'**/Summary.txt',
+	'**/cmds',
+	'**/cmd',
+	'**/index',
+	'**/.*', // ignore dotfiles
+	'**/*.',
+	'**/current', // Mbox we can't parse
+	'**/current.old', // Mbox we can't parse
+	'**/*.z', // Binary file not for parsing
+	'**/.current.map', // Binary file not for parsing
 ];

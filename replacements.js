@@ -1,26 +1,24 @@
-const { debuglog } = require('node:util');
-const cryptoRandomString = require('crypto-random-string');
+import {debuglog} from 'node:util';
+import {readFileSync} from 'node:fs';
+import cryptoRandomString from 'crypto-random-string';
+import REPLACEMENT_WORDS from './replacement-words.json' with { type: 'json' };
 
 const debug = debuglog('spamscanner');
 
-const REPLACEMENT_WORDS = require('./replacement-words.json');
-
 const randomOptions = {
-  length: 10,
-  characters: 'abcdefghijklmnopqrstuvwxyz'
+	length: 10,
+	characters: 'abcdefghijklmnopqrstuvwxyz',
 };
 
-// simply delete the replacements.json to generate new replacements
+// Simply delete the replacements.json to generate new replacements
 let replacements = {};
 try {
-  replacements = require('./replacements.json');
-} catch (err) {
-  debug(err);
-  for (const replacement of REPLACEMENT_WORDS) {
-    replacements[replacement] = `${replacement}${cryptoRandomString(
-      randomOptions
-    )}`;
-  }
+	replacements = JSON.parse(readFileSync('./replacements.json', 'utf8'));
+} catch (error) {
+	debug(error);
+	for (const replacement of REPLACEMENT_WORDS) {
+		replacements[replacement] = `${replacement}${cryptoRandomString(randomOptions)}`;
+	}
 }
 
-module.exports = replacements;
+export default replacements;

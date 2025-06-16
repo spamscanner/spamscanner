@@ -1,0 +1,1734 @@
+import dns from 'node:dns';
+import fs from 'node:fs';
+import path from 'node:path';
+import process from 'node:process';
+import { debuglog } from 'node:util';
+import { fileURLToPath } from 'node:url';
+
+// Modern imports replacing deprecated packages
+import punycode from 'punycode/punycode.js';
+import autoBind from 'auto-bind';
+import AFHConvert from 'ascii-fullwidth-halfwidth-convert';
+import ClamScan from 'clamscan';
+import NaiveBayes from '@ladjs/naivebayes';
+import RE2 from 're2';
+import arrayJoinConjunction from 'array-join-conjunction';
+import bitcoinRegex from 'bitcoin-regex';
+import creditCardRegex from 'credit-card-regex';
+import emailRegexSafe from 'email-regex-safe';
+import escapeStringRegexp from 'escape-string-regexp';
+import expandContractions from '@stdlib/nlp-expand-contractions';
+import fileExtension from 'file-extension';
+import floatingPointRegex from 'floating-point-regex';
+import lande from 'lande'; // Replaced franc with lande as per TODO
+import getSymbolFromCurrency from 'currency-symbol-map';
+import { hash as hasha } from 'hasha';
+import hexaColorRegex from 'hexa-color-regex';
+import i18nLocales from 'i18n-locales' with { type: 'json' };
+import intoStream from 'into-stream';
+import ipRegex from 'ip-regex';
+import isBuffer from 'is-buffer';
+import isSANB from 'is-string-and-not-blank';
+import { isStream } from 'is-stream';
+import isValidPath from 'is-valid-path';
+import macRegex from 'mac-regex';
+import { macOSVersion as macosVersion } from 'macos-version';
+import memoize from 'memoizee';
+import mime from 'mime-types';
+import ms from 'ms';
+import natural from 'natural';
+import normalizeUrl from 'normalize-url';
+import phoneRegex from 'phone-regex';
+import pWaitFor from 'p-wait-for';
+import sanitizeHtml from 'sanitize-html';
+import snowball from 'node-snowball';
+import striptags from 'striptags';
+import superagent from 'superagent';
+import sw from 'stopword';
+import sharp from 'sharp'; // Added for image processing
+import Table from 'cli-table3';
+
+// Import JSON files and other modules
+
+import { nameToEmoji as toEmoji } from 'gemoji';
+import urlRegexSafe from 'url-regex-safe';
+import validator from '@forwardemail/validator';
+import which from 'which';
+import { Iconv } from 'iconv';
+import { codes } from 'currency-codes';
+import { fromUrl, NO_HOSTNAME } from 'parse-domain';
+import { parse } from 'node-html-parser';
+import { simpleParser } from 'mailparser';
+import { fileTypeFromBuffer } from 'file-type'; // Added for better test output
+import REPLACEMENT_WORDS from '../replacement-words.json' with { type: 'json' };
+import executablesData from '../executables.json' with { type: 'json' };
+import ISO_CODE_MAPPING from '../iso-code-mapping.json' with { type: 'json' };
+import VOCABULARY_LIMIT from '../vocabulary-limit.js';
+import PKG from '../package.json' with { type: 'json' };
+
+// ES module compatibility
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const EXECUTABLES = new Set(executablesData);
+
+// Dynamic imports for modules that need to be loaded conditionally
+const getReplacements = async () => {
+  const { default: replacements } = await import('../replacements.js');
+  return replacements;
+};
+
+const getClassifier = async () => {
+  const { default: classifier } = await import('../get-classifier.js');
+  return classifier;
+};
+
+const debug = debuglog('spamscanner');
+
+// All tokenizers combined - improved regex pattern
+const GENERIC_TOKENIZER =
+  /[^a-zá-úÁ-Úà-úÀ-Úñü\dа-яёæøåàáảãạăắằẳẵặâấầẩẫậéèẻẽẹêếềểễệíìỉĩịóòỏõọôốồổỗộơớờởỡợúùủũụưứừửữựýỳỷỹỵđäöëïîûœçążśźęćńł-]+/i;
+
+const converter = new AFHConvert();
+
+// Japanese character range detection - modernized
+const japaneseRange = [
+  [0x30_41, 0x30_96], // Hiragana
+  [0x30_a0, 0x30_ff], // Katakana
+  [0xff_00, 0xff_ef], // Full-width roman characters and half-width katakana
+  [0x4e_00, 0x9f_af], // Common and uncommon kanji
+  [0xff_01, 0xff_5e], // Alphanumeric and Punctuation (Full Width)
+  [0x30_00, 0x30_3f], // Japanese Symbols and Punctuation
+  [0x00_20, 0x00_5c], // Basic Punctuation
+  [0x20_00, 0x20_6f], // General Punctuation
+  [0x00_30, 0x00_39] // Number 0-9
+];
+
+const jpReString = japaneseRange
+  .map(range => {
+    if (!Array.isArray(range)) {
+      return `\\u{${range.toString(16)}}`;
+    }
+
+    return `[\\u{${range[0].toString(16)}}-\\u{${range[1].toString(16)}}]`;
+  })
+  .join('|');
+
+const JAPANESE_REGEX = new RE2(new RegExp(jpReString, 'u'));
+
+// Language support mapping - converted to Map for better performance
+const LANGUAGE_SUPPORT = new Map([
+  ['ar', { stopwords: true, stemmer: false }],
+  ['bg', { stopwords: true, stemmer: false }],
+  ['bn', { stopwords: true, stemmer: false }],
+  ['br', { stopwords: true, stemmer: false }],
+  ['ca', { stopwords: true, stemmer: false }],
+  ['cs', { stopwords: true, stemmer: false }],
+  ['da', { stopwords: true, stemmer: true }],
+  ['de', { stopwords: true, stemmer: true }],
+  ['el', { stopwords: true, stemmer: false }],
+  ['en', { stopwords: true, stemmer: true }],
+  ['eo', { stopwords: true, stemmer: false }],
+  ['es', { stopwords: true, stemmer: true }],
+  ['et', { stopwords: true, stemmer: false }],
+  ['eu', { stopwords: true, stemmer: false }],
+  ['fa', { stopwords: true, stemmer: false }],
+  ['fi', { stopwords: true, stemmer: true }],
+  ['fr', { stopwords: true, stemmer: true }],
+  ['ga', { stopwords: true, stemmer: false }],
+  ['gl', { stopwords: true, stemmer: false }],
+  ['gu', { stopwords: true, stemmer: false }],
+  ['he', { stopwords: true, stemmer: false }],
+  ['hi', { stopwords: true, stemmer: false }],
+  ['hr', { stopwords: true, stemmer: false }],
+  ['hu', { stopwords: true, stemmer: true }],
+  ['hy', { stopwords: true, stemmer: false }],
+  ['id', { stopwords: true, stemmer: false }],
+  ['it', { stopwords: true, stemmer: true }],
+  ['ja', { stopwords: true, stemmer: false }],
+  ['ko', { stopwords: true, stemmer: false }],
+  ['ku', { stopwords: true, stemmer: false }],
+  ['la', { stopwords: true, stemmer: false }],
+  ['lv', { stopwords: true, stemmer: false }],
+  ['mr', { stopwords: true, stemmer: false }],
+  ['nl', { stopwords: true, stemmer: true }],
+  ['no', { stopwords: true, stemmer: true }],
+  ['pl', { stopwords: true, stemmer: false }],
+  ['pt', { stopwords: true, stemmer: true }],
+  ['ro', { stopwords: true, stemmer: true }],
+  ['ru', { stopwords: true, stemmer: true }],
+  ['sk', { stopwords: true, stemmer: false }],
+  ['sl', { stopwords: true, stemmer: false }],
+  ['so', { stopwords: true, stemmer: false }],
+  ['st', { stopwords: true, stemmer: false }],
+  ['sv', { stopwords: true, stemmer: true }],
+  ['sw', { stopwords: true, stemmer: false }],
+  ['th', { stopwords: true, stemmer: false }],
+  ['tr', { stopwords: true, stemmer: true }],
+  ['uk', { stopwords: true, stemmer: false }],
+  ['ur', { stopwords: true, stemmer: false }],
+  ['vi', { stopwords: true, stemmer: false }],
+  ['yo', { stopwords: true, stemmer: false }],
+  ['zh', { stopwords: true, stemmer: false }],
+  ['zu', { stopwords: true, stemmer: false }]
+]);
+
+// Chinese tokenizer setup with proper path resolution
+const chineseTokenizer = { tokenize: text => text.split(/\s+/) };
+
+// Modern tokenizer instances - organized by language
+const tokenizers = {
+  generic: new natural.AggressiveTokenizer(),
+  orthography: new natural.OrthographyTokenizer({ language: 'fi' }),
+  fa: new natural.AggressiveTokenizerFa(),
+  fr: new natural.AggressiveTokenizerFr(),
+  id: new natural.AggressiveTokenizerId(),
+  it: new natural.AggressiveTokenizerIt(),
+  ja: new natural.TokenizerJa(),
+  no: new natural.AggressiveTokenizerNo(),
+  pl: new natural.AggressiveTokenizerPl(),
+  pt: new natural.AggressiveTokenizerPt(),
+  es: new natural.AggressiveTokenizerEs(),
+  sv: new natural.AggressiveTokenizerSv(),
+  ru: new natural.AggressiveTokenizerRu(),
+  vi: new natural.AggressiveTokenizerVi()
+};
+
+// Stopwords organized b// Enhanced stopwords with fallback for missing languages
+const stopwordsMap = new Map([
+  ['ar', new Set([...(natural.stopwords || []), ...sw.ara])],
+  ['bg', new Set([...(natural.stopwords || []), ...sw.bul])],
+  ['ca', new Set([...(natural.stopwords || []), ...sw.cat])],
+  ['cs', new Set([...(natural.stopwords || []), ...sw.ces])],
+  ['da', new Set([...(natural.stopwords || []), ...sw.dan])],
+  ['de', new Set([...(natural.stopwords || []), ...sw.deu])],
+  ['el', new Set([...(natural.stopwords || []), ...sw.ell])],
+  ['en', new Set([...(natural.stopwords || []), ...sw.eng])],
+  ['es', new Set([...(natural.stopwords || []), ...sw.spa])],
+  ['fa', new Set([...(natural.stopwords || []), ...sw.fas])],
+  ['fr', new Set([...(natural.stopwords || []), ...sw.fra])],
+  ['it', new Set([...(natural.stopwords || []), ...sw.ita])],
+  ['ja', new Set([...(natural.stopwords || []), ...sw.jpn])],
+  ['nl', new Set([...(natural.stopwords || []), ...sw.nld])],
+  ['no', new Set([...(natural.stopwords || []), ...(sw.nob || [])])],
+  ['pl', new Set([...(natural.stopwords || []), ...sw.pol])],
+  ['pt', new Set([...(natural.stopwords || []), ...sw.por, ...sw.porBr])],
+  ['ru', new Set([...(natural.stopwords || []), ...sw.rus])],
+  ['sv', new Set([...(natural.stopwords || []), ...sw.swe])],
+  ['zh', new Set([...(natural.stopwords || []), ...sw.zho])],
+  // Additional languages as requested in TODOs
+  ['ro', new Set(sw.ron)],
+  ['tr', new Set(sw.tur)],
+  ['vi', new Set(sw.vie)],
+  ['hu', new Set(sw.hun)],
+  ['fi', new Set(sw.fin)],
+  // Additional stopword languages
+  ['af', new Set(sw.afr || [])],
+  ['bn', new Set(sw.ben || [])],
+  ['eo', new Set(sw.epo || [])],
+  ['et', new Set(sw.est || [])],
+  ['eu', new Set(sw.eus || [])],
+  ['ga', new Set(sw.gle || [])],
+  ['gl', new Set(sw.glg || [])],
+  ['gu', new Set(sw.guj || [])],
+  ['he', new Set(sw.heb || [])],
+  ['hi', new Set(sw.hin || [])],
+  ['hr', new Set(sw.hrv || [])],
+  ['hy', new Set(sw.hye || [])],
+  ['ko', new Set(sw.kor || [])],
+  ['ku', new Set(sw.kur || [])],
+  ['la', new Set(sw.lat || [])],
+  ['lv', new Set(sw.lav || [])],
+  ['mr', new Set(sw.mar || [])],
+  ['sk', new Set(sw.slk || [])],
+  ['sl', new Set(sw.slv || [])],
+  ['so', new Set(sw.som || [])],
+  ['st', new Set(sw.sot || [])],
+  ['sw', new Set(sw.swa || [])],
+  ['th', new Set(sw.tha || [])],
+  ['uk', new Set(sw.ukr || [])],
+  ['ur', new Set(sw.urd || [])],
+  ['yo', new Set(sw.yor || [])],
+  ['zu', new Set(sw.zul || [])]
+]);
+
+// URL ending reserved characters regex
+const ENDING_RESERVED_REGEX = new RE2(`[${escapeStringRegexp(":/?#[]@!$&'()*+,;=")}]+$`);
+
+// ISO code mapping keys for language detection
+const ISO_CODE_MAPPING_KEYS = Object.keys(ISO_CODE_MAPPING);
+
+// Locale set for validation
+const locales = new Set(i18nLocales.map(l => l.toLowerCase()));
+
+// URL normalization options
+const normalizeUrlOptions = {
+  stripProtocol: true,
+  stripWWW: false,
+  removeQueryParameters: [],
+  removeTrailingSlash: true,
+  sortQueryParameters: false
+};
+
+// Regex patterns - fixed global flag issues as per TODO
+const ANCHOR_REGEX = new RE2(/<a.*?>.*?<\/a>/i);
+
+// Emoji regex preserving Japanese characters and symbols
+const EMOJI_REGEX = new RE2(
+  /(\u00A9|\u00AE|[\u2000-\u3300]|\uD83C[\uD000-\uDFFF]|\uD83D[\uD000-\uDFFF]|\uD83E[\uD000-\uDFFF])/
+);
+
+// Pattern detection regexes - fixed to avoid global flag issues
+const FLOATING_POINT_REGEX = new RE2(floatingPointRegex());
+const CC_REGEX = new RE2(creditCardRegex());
+const PHONE_REGEX = new RE2(phoneRegex());
+const BITCOIN_REGEX = new RE2(bitcoinRegex());
+const MAC_REGEX = new RE2(macRegex());
+const HEXA_COLOR_REGEX = new RE2(hexaColorRegex());
+
+// Date pattern regex for TODO implementation
+const DATE_PATTERNS = new Map([
+  ['mmddyy', new RE2(/\b(?:\d{1,2}[/\-]){2}\d{2,4}\b/g)],
+  ['ddmmyy', new RE2(/\b(?:\d{1,2}[/\-]){2}\d{2,4}\b/g)],
+  ['yymmdd', new RE2(/\b\d{2,4}(?:[/\-]\d{1,2}){2}\b/g)],
+  ['iso', new RE2(/\b\d{4}-\d{2}-\d{2}\b/g)]
+]);
+
+// File path patterns for TODO implementation
+const FILE_PATH_PATTERNS = new Map([
+  ['unix', new RE2(/(?:^|\s)(?:\/[^/\s]+)+\/?(?:\s|$)/g)],
+  ['windows', new RE2(/(?:^|\s)[A-Za-z]:\\(?:[^\\/\s]+\\)*[^\\/\s]*(?:\s|$)/g)],
+  ['dotfiles', new RE2(/(?:^|\s)\.[\w-]+(?:\s|$)/g)],
+  ['dotdirs', new RE2(/(?:^|\s)\.{1,2}\/[^/\s]*(?:\s|$)/g)]
+]);
+
+// Japanese symbols and punctuation patterns for TODO implementation
+const JAPANESE_SYMBOLS_REGEX = new RE2(/[\u3000-\u303F\uFF00-\uFFEF]/g);
+
+// Mixed language detection patterns
+const MIXED_LANGUAGE_PATTERNS = new Map([
+  ['english_chinese', new RE2(/[a-zA-Z]+.*[\u4E00-\u9FFF]+|[\u4E00-\u9FFF]+.*[a-zA-Z]+/g)],
+  [
+    'english_japanese',
+    new RE2(
+      /[a-zA-Z]+.*[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF]+|[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF]+.*[a-zA-Z]+/g
+    )
+  ]
+]);
+
+// Additional regex patterns
+const NEWLINE_REGEX = new RE2(/\r\n|\n|\r/gm);
+const NUMBER_REGEX = new RE2(/\d[\d,.]*/g);
+
+// Safe URL and email regex patterns
+const URL_REGEX = urlRegexSafe();
+const EMAIL_REGEX = emailRegexSafe();
+
+// Text pattern regexes
+const INITIALISM_REGEX = new RE2(/\b(?:[A-Z][a-z]*){2,}/g);
+const ABBREVIATION_REGEX = new RE2(/\b(?:[a-zA-Z]\.){2,}/g);
+
+// Currency symbols regex
+const currencySymbols = [];
+for (const code of codes()) {
+  const symbol = getSymbolFromCurrency(code);
+  if (
+    typeof symbol === 'string' &&
+    !currencySymbols.includes(symbol) &&
+    !new RE2(/^[a-z]+$/i).test(symbol)
+  ) {
+    currencySymbols.push(escapeStringRegexp(symbol));
+  }
+}
+
+const CURRENCY_REGEX = new RE2(new RegExp(currencySymbols.join('|'), 'g'));
+
+// GTUBE test string for spam detection
+const GTUBE = 'XJS*C4JDBQADN1.NSBN3*2IDNEN*GTUBE-STANDARD-ANTI-UBE-TEST-EMAIL*C.34X';
+
+// Mail properties for phishing detection
+const MAIL_PHISHING_PROPS = ['subject', 'from', 'to', 'cc', 'bcc', 'text'];
+const TOKEN_HEADERS = [...MAIL_PHISHING_PROPS, 'html'];
+
+// IP address regex
+const IP_REGEX = new RE2(ipRegex());
+
+// Zero-width character regex
+const ZERO_WIDTH_REGEX = new RE2(/[\u{200B}-\u{200D}]/gu);
+
+// Punctuation regex for tokenization
+const PUNCTUATION_REGEX = new RE2(
+  /[-‒–—―|$&~=\\/⁄@+*!?({[\]})<>‹›«».;:^'",،、`·•†‡°″¡¿※#№÷×%‰−‱¶′‴§_‖¦]/g
+);
+
+// URL validation options
+const isURLOptions = {
+  require_tld: false,
+  require_protocol: false,
+  require_host: false,
+  require_valid_protocol: false
+};
+
+// Macro detection patterns for TODO implementation
+const MACRO_PATTERNS = new Map([
+  ['vba', new RE2(/(?:sub|function|dim|set|if|then|else|end|for|next|do|loop|while|wend)\s+/gi)],
+  ['powershell', new RE2(/(?:invoke-|get-|set-|new-|remove-|start-|stop-)\w+/gi)],
+  ['javascript', new RE2(/(?:function|var|let|const|if|else|for|while|do|switch|case)\s*[({]/gi)],
+  ['batch', new RE2(/@echo\s+off|%\w+%|goto\s+\w+|call\s+\w+/gi)]
+]);
+
+// Malware URL checking patterns (placeholder for future implementation)
+const MALWARE_URL_PATTERNS = new Map([
+  ['suspicious_tld', new RE2(/\.(?:tk|ml|ga|cf|top|click|download|zip|exe)$/gi)],
+  ['url_shortener', new RE2(/bit\.ly|tinyurl|t\.co|goo\.gl|ow\.ly|short\.link/gi)],
+  ['suspicious_params', new RE2(/[?&](?:download|exec|run|install|update)=/gi)]
+]);
+
+class SpamScanner {
+  constructor(config = {}) {
+    this.config = {
+      debug: process.env.NODE_ENV === 'test' || process.env.NODE_ENV === 'development',
+      checkIDNHomographAttack: false,
+      // Async loading of replacements and classifier
+      replacements:
+        config.replacements ||
+        (async () => {
+          const { default: getReplacements } = await import('../replacements.js');
+          return getReplacements;
+        })(),
+      // Mailparser configuration with Iconv support
+      simpleParser: { Iconv },
+      // Classifier configuration
+      classifier:
+        config.classifier ||
+        (async () => {
+          const { default: getClassifier } = await import('../get-classifier.js');
+          return getClassifier;
+        })(),
+      // Default locale
+      locale: 'en',
+      // Logger configuration
+      logger: console,
+      // HTML sanitization options
+
+      sanitizeHtml: {
+        allowedTags: [
+          'address',
+          'article',
+          'aside',
+          'footer',
+          'header',
+          'h1',
+          'h2',
+          'h3',
+          'h4',
+          'h5',
+          'h6',
+          'hgroup',
+          'nav',
+          'section',
+          'blockquote',
+          'dd',
+          'div',
+          'dl',
+          'dt',
+          'figcaption',
+          'figure',
+          'hr',
+          'li',
+          'main',
+          'ol',
+          'p',
+          'pre',
+          'ul',
+          'a',
+          'abbr',
+          'b',
+          'bdi',
+          'bdo',
+          'br',
+          'cite',
+          'code',
+          'data',
+          'dfn',
+          'em',
+          'i',
+          'kbd',
+          'mark',
+          'q',
+          'rp',
+          'rt',
+          'rtc',
+          'ruby',
+          's',
+          'samp',
+          'span',
+          'strong',
+          'sub',
+          'sup',
+          'time',
+          'u',
+          'var',
+          'wbr',
+          'del',
+          'ins',
+          'caption',
+          'col',
+          'colgroup',
+          'table',
+          'tbody',
+          'td',
+          'tfoot',
+          'th',
+          'thead',
+          'tr',
+          'details',
+          'dialog',
+          'menu',
+          'summary',
+          'center',
+          'marquee',
+          'strike'
+        ],
+        allowedAttributes: false
+      },
+      userAgent: `${PKG.name}/${PKG.version}`,
+      timeout: ms('10s'),
+      // Enhanced configuration options
+      enableMacroDetection: true,
+      enableMalwareUrlChecking: true,
+      enableImageProcessing: true,
+      enableAdvancedLanguageDetection: true,
+      enableFilePathDetection: true,
+      enableDatePatternDetection: true,
+      enableMixedLanguageDetection: true,
+      // Performance optimization options
+      enableTokenizerReuse: true,
+      maxEmailSize: 15 * 1024 * 1024, // 15MB limit
+      urlParsingTimeout: ms('5s'), // Timeout for URL parsing
+      // Security options
+      enableCloudflareFiltering: false, // TODO: implement Cloudflare integration
+      enableUrlHausChecking: false, // TODO: implement URLhaus checking
+      enableMalwareBazaarChecking: false // TODO: implement Malware Bazaar checking
+    };
+
+    // Merge user config with defaults
+    this.config = { ...this.config, ...config };
+
+    // Validate locale
+    if (!locales.has(this.config.locale.toLowerCase())) {
+      throw new Error(`Invalid locale: ${this.config.locale}`);
+    }
+
+    // Initialize tokenizer cache for reuse (TODO implementation)
+    this.tokenizerCache = new Map();
+
+    // Initialize performance metrics
+    this.metrics = {
+      urlParsingTime: 0,
+      tokenizationTime: 0,
+      classificationTime: 0,
+      totalProcessingTime: 0
+    };
+
+    // Auto-bind methods
+    autoBind(this);
+  }
+
+  // Initialize clamscan configuration
+  async initializeClamscan() {
+    if (this.config.clamscan === false) {
+      this.clamscan = false;
+      return;
+    }
+
+    const clamscanConfig = {
+      debugMode: this.config.debug,
+      clamscan: {
+        path: which.sync('clamscan', { nothrow: true })
+      },
+      clamdscan: {
+        timeout: ms('10s'),
+        path: which.sync('clamdscan', { nothrow: true }),
+        socket: macosVersion.isMacOS ? '/tmp/clamd.socket' : '/var/run/clamav/clamd.ctl'
+      }
+    };
+
+    this.clamscan = new ClamScan(clamscanConfig);
+  }
+
+  async initializeClassifier() {
+    let classifier = await this.config.classifier;
+
+    // Handle different classifier input types
+    if (typeof classifier === 'function') {
+      classifier = await classifier();
+    }
+
+    if (typeof classifier === 'string') {
+      classifier = isValidPath(classifier)
+        ? JSON.parse(fs.readFileSync(classifier, 'utf8'))
+        : JSON.parse(classifier);
+    }
+
+    // Ensure classifier has required structure
+    if (!classifier || typeof classifier !== 'object') {
+      // Create a new classifier if none exists
+      this.classifier = new NaiveBayes();
+      return;
+    }
+
+    // Check if classifier has required properties
+    if (!classifier.categories || !classifier.docCount || !classifier.totalDocuments) {
+      // Create a new classifier if the existing one is invalid
+      this.classifier = new NaiveBayes();
+      return;
+    }
+
+    try {
+      this.classifier = NaiveBayes.fromJson(classifier, VOCABULARY_LIMIT);
+    } catch (error) {
+      // Fallback to new classifier if fromJson fails
+      this.classifier = new NaiveBayes();
+    }
+
+    // Custom tokenizer - we handle tokenization ourselves
+    this.classifier.tokenizer = function (tokens) {
+      // Handle both string and array inputs
+      if (typeof tokens === 'string') {
+        return tokens.split(/\s+/).filter(token => token.length > 0);
+      }
+      return Array.isArray(tokens) ? tokens : [];
+    };
+  }
+
+  // Initialize replacements
+  async initializeReplacements() {
+    let { replacements } = this.config;
+
+    if (typeof replacements === 'function') {
+      replacements = await replacements();
+    }
+
+    // If no replacements provided, create empty object
+    if (!replacements || typeof replacements !== 'object') {
+      replacements = {};
+    }
+
+    // Generate missing replacements
+    for (const replacement of REPLACEMENT_WORDS) {
+      if (!isSANB(replacements[replacement])) {
+        replacements[replacement] = `${replacement}_${Math.random().toString(36).substring(7)}`;
+      }
+    }
+
+    this.replacements = replacements;
+  }
+
+  // Initialize memoized methods
+  initializeMemoization() {
+    const memoizeOptions = {
+      ...this.config.memoize,
+      promise: true
+    };
+
+    if (this.config.client) {
+      // Redis-based caching
+      this.memoizedIsCloudflareBlocked = async name => {
+        const key = `${this.config.cachePrefix}:cloudflare:${name}`;
+        try {
+          const value = await this.config.client.get(key);
+          if (value) {
+            const array = value.split(':').map(v => v === 'true');
+            if (array.length === 2) {
+              return { isAdult: array[0], isMalware: array[1] };
+            }
+          }
+        } catch (error) {
+          this.config.logger.error(error);
+        }
+
+        const result = await this.isCloudflareBlocked(name);
+
+        // Cache in background
+        this.config.client
+          .set(key, `${result.isAdult}:${result.isMalware}`, 'PX', this.config.ttlMs)
+          .catch(this.config.logger.error);
+
+        return result;
+      };
+    } else {
+      // In-memory caching
+      this.memoizedIsCloudflareBlocked = memoize(
+        this.isCloudflareBlocked.bind(this),
+        memoizeOptions
+      );
+    }
+  }
+
+  // Initialize regex helpers
+  initializeRegexHelpers() {
+    this.EMAIL_REPLACEMENT_REGEX = new RE2(this.replacements.email, 'g');
+
+    const replacementRegexes = [];
+    for (const key of Object.keys(this.replacements)) {
+      replacementRegexes.push(escapeStringRegexp(this.replacements[key]));
+    }
+
+    this.REPLACEMENTS_REGEX = new RE2(new RegExp(replacementRegexes.join('|'), 'g'));
+
+    // Set up helper Map and Sets for fast lookup
+    this.WHITELISTED_WORDS = new Set(Object.values(this.replacements));
+  }
+
+  // Parse and validate locale
+  parseLocale(locale) {
+    return locale.toLowerCase().split('-')[0];
+  }
+
+  // Enhanced hostname extraction with better error handling
+  getHostname(link) {
+    if (!link || typeof link !== 'string') {
+      return;
+    }
+
+    link = link.trim().replace(/\.+$/, '').toLowerCase();
+
+    // Strip zero-width characters
+    link = link.replace(ZERO_WIDTH_REGEX, '');
+
+    // Validate URL
+    if (!validator.isURL(link, isURLOptions)) {
+      return;
+    }
+
+    // Handle IP addresses
+    if (validator.isIP(link)) {
+      return link;
+    }
+
+    // Convert punycode to unicode with error handling
+    let unicode = link;
+    try {
+      unicode = punycode.toUnicode(link);
+    } catch (error) {
+      this.config.logger.warn(`Punycode conversion failed for ${link}:`, error);
+    }
+
+    // Parse domain
+    const url = fromUrl(unicode);
+    if (url === NO_HOSTNAME) {
+      // Try to extract IP address
+      const matches = link.match(IP_REGEX) || [];
+      if (matches.length > 0) {
+        if (matches.length > 1) {
+          this.config.logger.error(
+            new Error(`${link} had multiple IPv4/IPv6 matches: ${matches.join(', ')}`)
+          );
+        }
+
+        return matches[0];
+      }
+
+      // Check if it's a phone number
+      if (PHONE_REGEX.test(link)) {
+        return;
+      }
+
+      // Check if it's a file path
+      if (isValidPath(link)) {
+        return;
+      }
+
+      // Log warning for invalid hostnames
+      this.config.logger.warn(new Error(`${link} was invalid and did not have a hostname`));
+      return;
+    }
+
+    return url;
+  }
+
+  // Enhanced classification with performance metrics
+  getClassification(tokens) {
+    const startTime = Date.now();
+
+    try {
+      const result = this.classifier.categorize(tokens);
+      this.metrics.classificationTime += Date.now() - startTime;
+      return result;
+    } catch (error) {
+      this.config.logger.error('Classification error:', error);
+      throw error;
+    }
+  }
+
+  // Enhanced virus scanning with better error handling
+  async getVirusResults(mail) {
+    const messages = [];
+
+    if (!this.clamscan) {
+      debug('clamscan disabled');
+      return messages;
+    }
+
+    if (!Array.isArray(mail.attachments) || mail.attachments.length === 0) {
+      return messages;
+    }
+
+    try {
+      // Initialize clamscan if not already done
+      const clamscan = await this.clamscan.init();
+
+      await Promise.all(
+        mail.attachments.map(async (attachment, i) => {
+          try {
+            const stream = isStream(attachment.content)
+              ? attachment.content
+              : intoStream(attachment.content);
+
+            const { isInfected, viruses } = await clamscan.scanStream(stream);
+            const name = isSANB(attachment.filename) ? `"${attachment.filename}"` : `#${i + 1}`;
+
+            if (isInfected) {
+              messages.push(
+                `Attachment ${name} was infected with ${arrayJoinConjunction(viruses)}.`
+              );
+            }
+
+            // TODO: Detect and prohibit macros
+            if (this.config.enableMacroDetection) {
+              const macroDetection = await this.detectMacros(attachment);
+              if (macroDetection.hasMacros) {
+                messages.push(
+                  `Attachment ${name} contains potentially dangerous macros: ${macroDetection.types.join(', ')}.`
+                );
+              }
+            }
+          } catch (error) {
+            this.config.logger.error(`Error scanning attachment ${i + 1}:`, error);
+          }
+        })
+      );
+    } catch (error) {
+      this.config.logger.error('Error initializing virus scanner:', error);
+    }
+
+    return messages;
+  }
+
+  // Enhanced arbitrary results detection
+  getArbitraryResults(mail) {
+    const messages = [];
+
+    // GTUBE test detection
+    let gtube = false;
+
+    if (isSANB(mail.html) && mail.html.replace(NEWLINE_REGEX, ' ').includes(GTUBE)) {
+      gtube = true;
+    }
+
+    if (isSANB(mail.text) && !gtube && mail.text.replace(NEWLINE_REGEX, ' ').includes(GTUBE)) {
+      gtube = true;
+    }
+
+    if (gtube) {
+      messages.push(
+        'Message detected to contain the GTUBE test from https://spamassassin.apache.org/gtube/.'
+      );
+    }
+
+    return messages;
+  }
+
+  // Enhanced malware lookup with timeout and fallback
+  async malwareLookup(endpoint, name) {
+    try {
+      const response = await superagent
+        .get(endpoint)
+        .query({ name, type: 'A' })
+        .timeout(this.config.timeout)
+        .set('Accept', 'application/dns-json')
+        .set('User-Agent', this.config.userAgent);
+
+      const body = typeof response.body === 'string' ? JSON.parse(response.body) : response.body;
+
+      return (
+        Array.isArray(body.Answer) && body.Answer.length === 1 && body.Answer[0].data === '0.0.0.0'
+      );
+    } catch (error) {
+      this.config.logger.error(`Malware lookup failed for ${name}:`, error);
+
+      try {
+        // Fallback to DNS lookup
+        const addresses = await dns.promises.resolve4(name);
+        return addresses.includes('0.0.0.0');
+      } catch (dnsError) {
+        this.config.logger.error(`DNS fallback failed for ${name}:`, dnsError);
+        return false;
+      }
+    }
+  }
+
+  // TODO: Implement macro detection
+  async detectMacros(attachment) {
+    const result = {
+      hasMacros: false,
+      types: []
+    };
+
+    if (!attachment.content) {
+      return result;
+    }
+
+    try {
+      // Convert content to string for analysis
+      let content = '';
+      if (Buffer.isBuffer(attachment.content)) {
+        content = attachment.content.toString('utf8');
+      } else if (typeof attachment.content === 'string') {
+        content = attachment.content;
+      } else {
+        return result;
+      }
+
+      // Check for various macro types
+      for (const [type, pattern] of MACRO_PATTERNS) {
+        if (pattern.test(content)) {
+          result.hasMacros = true;
+          result.types.push(type);
+        }
+      }
+    } catch (error) {
+      this.config.logger.error('Error detecting macros:', error);
+    }
+
+    return result;
+  }
+
+  // TODO: Implement file path detection and replacement
+  detectAndReplaceFilePaths(text) {
+    if (!this.config.enableFilePathDetection) {
+      return text;
+    }
+
+    let result = text;
+
+    for (const [type, pattern] of FILE_PATH_PATTERNS) {
+      result = result.replace(pattern, ` ${this.replacements.filepath || '[FILEPATH]'} `);
+    }
+
+    return result;
+  }
+
+  // TODO: Implement date pattern detection and replacement
+  detectAndReplaceDates(text) {
+    if (!this.config.enableDatePatternDetection) {
+      return text;
+    }
+
+    let result = text;
+
+    for (const [type, pattern] of DATE_PATTERNS) {
+      result = result.replace(pattern, ` ${this.replacements.date || '[DATE]'} `);
+    }
+
+    return result;
+  }
+
+  // TODO: Implement Japanese symbols and punctuation replacement
+  replaceJapaneseSymbols(text) {
+    return text.replace(JAPANESE_SYMBOLS_REGEX, ' ');
+  }
+
+  // TODO: Implement mixed language detection
+  detectMixedLanguage(text) {
+    if (!this.config.enableMixedLanguageDetection) {
+      return null;
+    }
+
+    for (const [type, pattern] of MIXED_LANGUAGE_PATTERNS) {
+      if (pattern.test(text)) {
+        return type;
+      }
+    }
+
+    return null;
+  }
+
+  // TODO: Enhanced URL parsing with performance optimization
+  async parseUrlsOptimized(text) {
+    if (!text || typeof text !== 'string') {
+      return [];
+    }
+
+    const startTime = Date.now();
+
+    try {
+      // For large emails, implement timeout to prevent performance issues
+      if (text.length > this.config.maxEmailSize) {
+        this.config.logger.warn(
+          `Email size ${text.length} exceeds limit ${this.config.maxEmailSize}`
+        );
+        return [];
+      }
+
+      const urls = [];
+      const matches = text.match(URL_REGEX) || [];
+
+      // Implement timeout for URL parsing
+      const parsePromise = Promise.all(
+        matches.map(async url => {
+          const hostname = this.getHostname(url);
+          if (hostname) {
+            urls.push({ url, hostname });
+          }
+        })
+      );
+
+      await Promise.race([
+        parsePromise,
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('URL parsing timeout')), this.config.urlParsingTimeout)
+        )
+      ]);
+
+      this.metrics.urlParsingTime += Date.now() - startTime;
+      return urls;
+    } catch (error) {
+      this.config.logger.error('URL parsing error:', error);
+      this.metrics.urlParsingTime += Date.now() - startTime;
+      return [];
+    }
+  }
+
+  // TODO: Implement URLhaus and Malware Bazaar checking
+  async checkMalwareUrls(urls) {
+    if (!this.config.enableMalwareUrlChecking || !Array.isArray(urls)) {
+      return [];
+    }
+
+    const malwareResults = [];
+
+    for (const { url, hostname } of urls) {
+      try {
+        // Check against suspicious patterns
+        for (const [type, pattern] of MALWARE_URL_PATTERNS) {
+          if (pattern.test(url)) {
+            malwareResults.push({
+              url,
+              hostname,
+              type,
+              reason: `Suspicious ${type} pattern detected`
+            });
+          }
+        }
+
+        // TODO: Implement URLhaus API checking
+        if (this.config.enableUrlHausChecking) {
+          // Placeholder for URLhaus integration
+        }
+
+        // TODO: Implement Malware Bazaar API checking
+        if (this.config.enableMalwareBazaarChecking) {
+          // Placeholder for Malware Bazaar integration
+        }
+      } catch (error) {
+        this.config.logger.error(`Error checking malware for ${url}:`, error);
+      }
+    }
+
+    return malwareResults;
+  }
+
+  // TODO: Implement Cloudflare DNS filtering
+  async checkCloudflareFiltering(hostname) {
+    if (!this.config.enableCloudflareFiltering) {
+      return { isBlocked: false };
+    }
+
+    try {
+      // TODO: Implement Cloudflare for Teams DNS filtering
+      // https://developers.cloudflare.com/cloudflare-one/policies/filtering/dns-policies/test-dns-filtering/
+      // https://developers.cloudflare.com/cloudflare-one/policies/filtering/domain-categories/
+
+      // Placeholder implementation
+      return { isBlocked: false, categories: [] };
+    } catch (error) {
+      this.config.logger.error(`Cloudflare filtering check failed for ${hostname}:`, error);
+      return { isBlocked: false };
+    }
+  }
+
+  // Enhanced Cloudflare blocking check with better error handling
+  async isCloudflareBlocked(name) {
+    try {
+      const [isAdult, isMalware] = await Promise.all([
+        this.malwareLookup('https://family.cloudflare-dns.com/dns-query', name),
+        this.malwareLookup('https://security.cloudflare-dns.com/dns-query', name)
+      ]);
+
+      return { isAdult, isMalware };
+    } catch (error) {
+      this.config.logger.error(`Cloudflare blocking check failed for ${name}:`, error);
+      return { isAdult: false, isMalware: false };
+    }
+  }
+
+  // Enhanced URL normalization with performance improvements
+  getNormalizedUrl(url) {
+    if (!url || typeof url !== 'string') {
+      return;
+    }
+
+    url = url.trim().replace(/\.+$/, '').toLowerCase();
+
+    // Strip zero-width characters
+    url = url.replace(ZERO_WIDTH_REGEX, '');
+
+    // Validate URL
+    if (!validator.isURL(url, isURLOptions)) {
+      return;
+    }
+
+    let normalized = url;
+    try {
+      normalized = normalizeUrl(url, normalizeUrlOptions);
+    } catch (error) {
+      this.config.logger.error(`URL normalization failed for ${url}:`, error);
+      // Fallback normalization
+      normalized = url.replace(/^https?:\/\//, '').replace(/\/+$/, '');
+    }
+
+    // Performance optimization for large emails
+    const hostname = fromUrl(normalized);
+    if (hostname === NO_HOSTNAME) {
+      this.config.logger.error(
+        new Error(`No hostname found (URL: ${url}, NORMALIZED: ${normalized})`)
+      );
+
+      // Check if it's a phone number
+      if (PHONE_REGEX.test(normalized)) {
+        return;
+      }
+
+      // Check if it's a file path
+      if (isValidPath(normalized)) {
+        return;
+      }
+
+      return normalized;
+    }
+
+    let unicode = hostname;
+    try {
+      unicode = punycode.toUnicode(hostname);
+    } catch (error) {
+      this.config.logger.warn(`Punycode conversion failed for ${hostname}:`, error);
+    }
+
+    try {
+      const urlObject = new URL(`http://${unicode}${normalized.slice(hostname.length)}`);
+
+      // Strip reserved characters from the end
+      let pathname = urlObject.pathname.replace(ENDING_RESERVED_REGEX, '');
+      if (pathname === '') {
+        pathname = '/';
+      }
+
+      return `${unicode}${pathname}${urlObject.search}${urlObject.hash}`;
+    } catch (error) {
+      this.config.logger.error(`URL object creation failed for ${unicode}:`, error);
+      return normalized;
+    }
+  }
+
+  // Enhanced URL extraction with better performance
+  getUrls(text) {
+    if (!text || typeof text !== 'string') {
+      return [];
+    }
+
+    try {
+      // Replace email addresses with hostnames to prevent incorrect URL parsing
+      const processedText = text
+        .replace(NEWLINE_REGEX, ' ')
+        .replace(EMAIL_REGEX, match => {
+          const hostname = this.getHostname(match.slice(match.lastIndexOf('@') + 1));
+          return hostname ? ` ${hostname} ` : ' ';
+        })
+        .replace(URL_REGEX, (match, offset, string) => {
+          const nextChar = string.slice(offset + match.length, offset + match.length + 1);
+          if (/^\w$/.test(nextChar)) {
+            return ' ';
+          }
+
+          // Only return match if case is consistent (matches Gmail behavior)
+          if (match.toLowerCase() !== match && match.toUpperCase() !== match) {
+            return ' ';
+          }
+
+          return ` ${match} `;
+        });
+
+      const urls = processedText.match(URL_REGEX) || [];
+      const uniqueUrls = new Set();
+
+      for (const url of urls) {
+        const normalized = this.getNormalizedUrl(url);
+        if (normalized) {
+          uniqueUrls.add(normalized);
+        }
+      }
+
+      return [...uniqueUrls];
+    } catch (error) {
+      this.config.logger.error('Error extracting URLs:', error);
+      return [];
+    }
+  }
+
+  // Enhanced tokenization with language detection and performance optimization
+  async getTokens(string, locale, isHTML = false) {
+    const startTime = Date.now();
+
+    try {
+      // Parse HTML for language information
+      if (!locale && isHTML) {
+        locale = this.extractLanguageFromHTML(string);
+      }
+
+      // Use lande instead of franc for better language detection
+      if (!locale) {
+        try {
+          const detected = lande(string);
+          if (detected && detected.length > 0) {
+            const topLanguage = detected[0];
+            if (topLanguage[1] > 0.5) {
+              // Confidence threshold
+              locale = topLanguage[0];
+            }
+          }
+        } catch (error) {
+          this.config.logger.warn('Language detection failed:', error);
+        }
+      }
+
+      // Fallback to configured locale
+      if (!locale || !locales.has(this.parseLocale(locale))) {
+        locale = this.config.locale;
+      }
+
+      locale = this.parseLocale(locale);
+
+      // Apply text preprocessing
+      const processedString = this.preprocessText(string, isHTML);
+
+      // Tokenize based on language
+      const tokens = await this.tokenizeByLanguage(processedString, locale);
+
+      this.metrics.tokenizationTime += Date.now() - startTime;
+      return tokens;
+    } catch (error) {
+      this.config.logger.error('Tokenization error:', error);
+      this.metrics.tokenizationTime += Date.now() - startTime;
+      return [];
+    }
+  }
+
+  // Extract language from HTML meta tags
+  extractLanguageFromHTML(html) {
+    try {
+      const root = parse(html);
+
+      // Check for lang attribute on html tag
+      const htmlTag = root.querySelector('html');
+      if (htmlTag && htmlTag.getAttribute('lang')) {
+        const lang = this.parseLocale(htmlTag.getAttribute('lang'));
+        if (locales.has(lang)) {
+          return lang;
+        }
+      }
+
+      // Check for Content-Language meta tag
+      const metas = root.querySelectorAll('meta, META');
+      for (const meta of metas) {
+        const httpEquiv = meta.getAttribute('http-equiv') || meta.getAttribute('HTTP-EQUIV');
+        const content = meta.getAttribute('content') || meta.getAttribute('CONTENT');
+
+        if (httpEquiv === 'Content-Language' && isSANB(content)) {
+          const lang = this.parseLocale(content);
+          if (locales.has(lang)) {
+            return lang;
+          }
+        }
+      }
+    } catch (error) {
+      this.config.logger.warn('HTML language extraction failed:', error);
+    }
+
+    return null;
+  }
+
+  // Enhanced text preprocessing with all TODO implementations
+  preprocessText(string, isHTML = false) {
+    let text = string;
+
+    // Strip HTML if needed
+    if (isHTML) {
+      text = striptags(text);
+    }
+
+    // Apply all text replacements and detections
+    text = this.detectAndReplaceFilePaths(text);
+    text = this.detectAndReplaceDates(text);
+    text = this.replaceJapaneseSymbols(text);
+
+    // Detect mixed languages
+    const mixedLanguage = this.detectMixedLanguage(text);
+    if (mixedLanguage) {
+      this.config.logger.info(`Mixed language detected: ${mixedLanguage}`);
+    }
+
+    // Apply standard replacements
+    text = text.replace(this.REPLACEMENTS_REGEX, match => ` ${match} `);
+
+    // Remove extra whitespace
+    text = text.replaceAll(/\s+/g, ' ').trim();
+
+    return text;
+  }
+
+  // Enhanced tokenization by language with reusable tokenizers
+  async tokenizeByLanguage(text, locale) {
+    const cacheKey = `${locale}_tokenizer`;
+
+    // Reuse tokenizer if available (TODO implementation)
+    if (this.config.enableTokenizerReuse && this.tokenizerCache.has(cacheKey)) {
+      const tokenizer = this.tokenizerCache.get(cacheKey);
+      return this.processTokens(tokenizer.tokenize(text), locale);
+    }
+
+    let tokenizer;
+    let tokens = [];
+
+    try {
+      switch (locale) {
+        case 'zh': {
+          // Chinese tokenization
+          tokens = chineseTokenizer.tokenize(text);
+          break;
+        }
+
+        case 'ja': {
+          // Japanese tokenization
+          tokenizer = tokenizers.ja;
+          tokens = tokenizer.tokenize(text);
+          break;
+        }
+
+        case 'fi': {
+          // Finnish with orthography
+          tokenizer = tokenizers.orthography;
+          tokens = tokenizer.tokenize(text);
+          break;
+        }
+
+        case 'fa': {
+          tokenizer = tokenizers.fa;
+          tokens = tokenizer.tokenize(text);
+          break;
+        }
+
+        case 'fr': {
+          tokenizer = tokenizers.fr;
+          tokens = tokenizer.tokenize(text);
+          break;
+        }
+
+        case 'id': {
+          tokenizer = tokenizers.id;
+          tokens = tokenizer.tokenize(text);
+          break;
+        }
+
+        case 'it': {
+          tokenizer = tokenizers.it;
+          tokens = tokenizer.tokenize(text);
+          break;
+        }
+
+        case 'no': {
+          tokenizer = tokenizers.no;
+          tokens = tokenizer.tokenize(text);
+          break;
+        }
+
+        case 'pl': {
+          tokenizer = tokenizers.pl;
+          tokens = tokenizer.tokenize(text);
+          break;
+        }
+
+        case 'pt': {
+          tokenizer = tokenizers.pt;
+          tokens = tokenizer.tokenize(text);
+          break;
+        }
+
+        case 'es': {
+          tokenizer = tokenizers.es;
+          tokens = tokenizer.tokenize(text);
+          break;
+        }
+
+        case 'sv': {
+          tokenizer = tokenizers.sv;
+          tokens = tokenizer.tokenize(text);
+          break;
+        }
+
+        case 'ru': {
+          tokenizer = tokenizers.ru;
+          tokens = tokenizer.tokenize(text);
+          break;
+        }
+
+        case 'vi': {
+          tokenizer = tokenizers.vi;
+          tokens = tokenizer.tokenize(text);
+          break;
+        }
+
+        default: {
+          // Default to generic tokenizer for English and other languages
+          tokenizer = tokenizers.generic;
+          tokens = tokenizer.tokenize(text);
+          break;
+        }
+      }
+
+      // Cache tokenizer for reuse
+      if (this.config.enableTokenizerReuse && tokenizer) {
+        this.tokenizerCache.set(cacheKey, tokenizer);
+      }
+
+      return this.processTokens(tokens, locale);
+    } catch (error) {
+      this.config.logger.error(`Tokenization failed for locale ${locale}:`, error);
+      // Fallback to generic tokenizer
+      return this.processTokens(tokenizers.generic.tokenize(text), 'en');
+    }
+  }
+
+  // Process tokens with stemming and stopword removal
+  processTokens(tokens, locale) {
+    if (!Array.isArray(tokens)) {
+      return [];
+    }
+
+    let processedTokens = tokens
+      .map(token => token.toLowerCase().trim())
+      .filter(token => token.length > 1);
+
+    // Remove stopwords
+    const stopwordSet = stopwordsMap.get(locale) || stopwordsMap.get('en');
+    if (stopwordSet) {
+      processedTokens = processedTokens.filter(token => !stopwordSet.has(token));
+    }
+
+    // Apply stemming if supported
+    const languageSupport = LANGUAGE_SUPPORT.get(locale);
+    if (languageSupport && languageSupport.stemmer) {
+      try {
+        processedTokens = processedTokens.map(token => {
+          switch (locale) {
+            case 'en': {
+              return natural.PorterStemmer.stem(token);
+            }
+
+            case 'de': {
+              // TODO: Consider using porterstemmerde
+              return snowball.stemword(token, 'german');
+            }
+
+            case 'da': {
+              return snowball.stemword(token, 'danish');
+            }
+
+            case 'es': {
+              return snowball.stemword(token, 'spanish');
+            }
+
+            case 'fi': {
+              return snowball.stemword(token, 'finnish');
+            }
+
+            case 'fr': {
+              return snowball.stemword(token, 'french');
+            }
+
+            case 'hu': {
+              return snowball.stemword(token, 'hungarian');
+            }
+
+            case 'it': {
+              return snowball.stemword(token, 'italian');
+            }
+
+            case 'nl': {
+              return snowball.stemword(token, 'dutch');
+            }
+
+            case 'no': {
+              return snowball.stemword(token, 'norwegian');
+            }
+
+            case 'pt': {
+              return snowball.stemword(token, 'portuguese');
+            }
+
+            case 'ro': {
+              return snowball.stemword(token, 'romanian');
+            }
+
+            case 'ru': {
+              return snowball.stemword(token, 'russian');
+            }
+
+            case 'sv': {
+              return snowball.stemword(token, 'swedish');
+            }
+
+            case 'tr': {
+              return snowball.stemword(token, 'turkish');
+            }
+
+            default: {
+              return token;
+            }
+          }
+        });
+      } catch (error) {
+        this.config.logger.warn(`Stemming failed for locale ${locale}:`, error);
+      }
+    }
+
+    return processedTokens.filter(token => token && token.length > 1);
+  }
+
+  // Main scan method - enhanced with all improvements
+  async scan(input, options = {}) {
+    const startTime = Date.now();
+
+    try {
+      // Initialize if not already done
+      if (!this.classifier) {
+        await this.initializeClassifier();
+      }
+
+      if (!this.replacements) {
+        await this.initializeReplacements();
+      }
+
+      if (!this.clamscan && this.config.clamscan !== false) {
+        await this.initializeClamscan();
+      }
+
+      // Initialize regex helpers if not done
+      if (!this.EMAIL_REPLACEMENT_REGEX) {
+        this.initializeRegexHelpers();
+      }
+
+      // Initialize memoization if not done
+      if (!this.memoizedIsCloudflareBlocked) {
+        this.initializeMemoization();
+      }
+
+      // Parse email if needed
+      let mail;
+      mail =
+        typeof input === 'string' || Buffer.isBuffer(input)
+          ? await simpleParser(input, this.config.simpleParser)
+          : input;
+
+      // Initialize results
+      const results = {
+        is_spam: false,
+        message: '',
+        results: [],
+        classification: null,
+        tokens: [],
+        urls: [],
+        executables: [],
+        arbitrary: [],
+        virus: [],
+        phishing: [],
+        malware: [],
+        metrics: {}
+      };
+
+      // Get arbitrary results (GTUBE test, etc.)
+      results.arbitrary = this.getArbitraryResults(mail);
+
+      // Get virus scan results
+      results.virus = await this.getVirusResults(mail);
+
+      // Process text content
+      const textContent = this.extractTextContent(mail);
+      const tokens = await this.getTokens(textContent, options.locale);
+      results.tokens = tokens;
+
+      // Get classification
+      if (tokens.length > 0) {
+        results.classification = await this.getClassification(tokens);
+      }
+
+      // Extract and analyze URLs
+      results.urls = this.getUrls(textContent);
+
+      // Check for malware URLs
+      if (results.urls.length > 0) {
+        const urlResults = await this.parseUrlsOptimized(textContent);
+        results.malware = await this.checkMalwareUrls(urlResults);
+      }
+
+      // Check for executable attachments
+      results.executables = this.getExecutableResults(mail);
+
+      // Check for phishing
+      results.phishing = await this.getPhishingResults(mail);
+
+      // Determine if spam
+      results.is_spam = this.determineSpamStatus(results);
+
+      // Generate message
+      results.message = this.generateResultMessage(results);
+
+      // Add performance metrics
+      this.metrics.totalProcessingTime = Date.now() - startTime;
+      results.metrics = { ...this.metrics };
+
+      return results;
+    } catch (error) {
+      this.config.logger.error('Scan error:', error);
+      throw error;
+    }
+  }
+
+  // Extract text content from mail object
+  extractTextContent(mail) {
+    let content = '';
+
+    if (isSANB(mail.text)) {
+      content += mail.text + ' ';
+    }
+
+    if (isSANB(mail.html)) {
+      content += striptags(mail.html) + ' ';
+    }
+
+    if (isSANB(mail.subject)) {
+      content += mail.subject + ' ';
+    }
+
+    return content.trim();
+  }
+
+  // Check for executable attachments
+  getExecutableResults(mail) {
+    const results = [];
+
+    if (!Array.isArray(mail.attachments)) {
+      return results;
+    }
+
+    for (const attachment of mail.attachments) {
+      if (isSANB(attachment.filename)) {
+        const ext = fileExtension(attachment.filename).toLowerCase();
+        if (EXECUTABLES.has(ext)) {
+          results.push(`Attachment "${attachment.filename}" has executable extension: ${ext}`);
+        }
+      }
+    }
+
+    return results;
+  }
+
+  // Enhanced phishing detection
+  async getPhishingResults(mail) {
+    const results = [];
+
+    // Check for suspicious URLs
+    const textContent = this.extractTextContent(mail);
+    const urls = this.getUrls(textContent);
+
+    for (const url of urls) {
+      try {
+        const hostname = this.getHostname(url);
+        if (hostname) {
+          // Check against Cloudflare blocking
+          const cloudflareResult = await this.memoizedIsCloudflareBlocked(hostname);
+          if (cloudflareResult.isAdult || cloudflareResult.isMalware) {
+            results.push(
+              `URL ${url} is blocked by Cloudflare (Adult: ${cloudflareResult.isAdult}, Malware: ${cloudflareResult.isMalware})`
+            );
+          }
+        }
+      } catch (error) {
+        this.config.logger.error(`Phishing check failed for ${url}:`, error);
+      }
+    }
+
+    return results;
+  }
+
+  // Determine spam status based on all results
+  determineSpamStatus(results) {
+    // Virus detection
+    if (results.virus.length > 0) {
+      return true;
+    }
+
+    // Malware URLs
+    if (results.malware.length > 0) {
+      return true;
+    }
+
+    // Phishing detection
+    if (results.phishing.length > 0) {
+      return true;
+    }
+
+    // GTUBE test
+    if (results.arbitrary.some(message => message.includes('GTUBE'))) {
+      return true;
+    }
+
+    // Classification result
+    if (results.classification && results.classification.label === 'spam') {
+      return results.classification.value > 0.5;
+    }
+
+    return false;
+  }
+
+  // Generate result message
+  generateResultMessage(results) {
+    const messages = [
+      ...results.arbitrary,
+      ...results.virus,
+      ...results.malware.map(m => m.reason),
+      ...results.phishing,
+      ...results.executables
+    ];
+
+    if (messages.length === 0) {
+      return results.is_spam ? 'Message classified as spam' : 'Message appears to be legitimate';
+    }
+
+    return messages.join(' ');
+  }
+}
+
+// Export the class
+export default SpamScanner;

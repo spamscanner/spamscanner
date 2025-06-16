@@ -1,0 +1,8 @@
+onlyBuiltDependencies:
+  - es5-ext
+  - esbuild
+  - iconv
+  - node-snowball
+  - re2
+  - sharp
+  - unrs-resolver
