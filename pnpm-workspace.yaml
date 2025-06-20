@@ -1,4 +1,6 @@
 onlyBuiltDependencies:
+  - '@tensorflow/tfjs-node'
+  - core-js
   - es5-ext
   - esbuild
   - iconv

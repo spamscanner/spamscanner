@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
+import {createHash} from 'node:crypto';
 import {debuglog} from 'node:util';
 import {fileURLToPath} from 'node:url';
 import autoBind from 'auto-bind';
@@ -764,6 +765,16 @@ class SpamScanner {
 			// If stemming fails, continue with original tokens
 		}
 
+		// Apply token hashing if enabled
+		if (this.config.hashTokens) {
+			processedTokens = processedTokens.map(token =>
+				createHash('sha256')
+					.update(token)
+					.digest('hex')
+					.slice(0, 16), // Use first 16 characters for efficiency
+			);
+		}
+
 		return processedTokens;
 	}
 
@@ -812,8 +823,8 @@ class SpamScanner {
 			// Get tokens and mail from source
 			const {tokens, mail} = await this.getTokensAndMailFromSource(source);
 
-			// Run all detection methods in parallel
-			const [classification, phishing, executables, macros, arbitrary, viruses, patterns]
+			// Run all detecti		// Run all detection methods in parallel
+			const [classification, phishing, executables, macros, arbitrary, viruses, patterns, idnHomographAttack]
         = await Promise.all([
         	this.getClassification(tokens),
         	this.getPhishingResults(mail),
@@ -822,6 +833,7 @@ class SpamScanner {
         	this.getArbitraryResults(mail),
         	this.getVirusResults(mail),
         	this.getPatternResults(mail),
+        	this.getIDNHomographResults(mail),
         ]);
 
 			// Determine if spam
@@ -832,7 +844,8 @@ class SpamScanner {
         	|| macros.length > 0
         	|| arbitrary.length > 0
         	|| viruses.length > 0
-        	|| patterns.length > 0;
+        	|| patterns.length > 0
+        	|| (idnHomographAttack && idnHomographAttack.detected);
 
 			// Generate message
 			let message = 'Ham';
@@ -866,6 +879,10 @@ class SpamScanner {
 					reasons.push('suspicious patterns');
 				}
 
+				if (idnHomographAttack && idnHomographAttack.detected) {
+					reasons.push('IDN homograph attack');
+				}
+
 				message = `Spam (${arrayJoinConjunction(reasons)})`;
 			}
 
@@ -890,6 +907,7 @@ class SpamScanner {
 					arbitrary,
 					viruses,
 					patterns,
+					idnHomographAttack,
 				},
 				links: this.extractAllUrls(mail, source),
 				tokens,
@@ -906,6 +924,7 @@ class SpamScanner {
 					macroTime: 0,
 					virusTime: 0,
 					patternTime: 0,
+					idnTime: 0,
 					memoryUsage: process.memoryUsage(),
 				};
 			}
@@ -1033,13 +1052,39 @@ class SpamScanner {
 					});
 				}
 
-				// Check for IDN homograph attacks
-				if (parsed.hostname.includes('xn--')) {
-					results.push({
-						type: 'phishing',
-						url: normalizedUrl,
-						description: 'Potential IDN homograph attack',
-					});
+				// Enhanced IDN homograph attack detection
+				const idnDetector = await this.getIDNDetector();
+				if (idnDetector && parsed.hostname) {
+					const context = {
+						emailContent: mail.text || mail.html || '',
+						displayText: url === normalizedUrl ? null : url,
+						senderReputation: 0.5, // Default neutral reputation
+					};
+
+					const idnAnalysis = idnDetector.detectHomographAttack(parsed.hostname, context);
+
+					if (idnAnalysis.riskScore > 0.6) {
+						results.push({
+							type: 'phishing',
+							url: normalizedUrl,
+							description: `IDN homograph attack detected (risk: ${(idnAnalysis.riskScore * 100).toFixed(1)}%)`,
+							details: {
+								riskFactors: idnAnalysis.riskFactors,
+								recommendations: idnAnalysis.recommendations,
+								confidence: idnAnalysis.confidence,
+							},
+						});
+					} else if (idnAnalysis.riskScore > 0.3) {
+						results.push({
+							type: 'suspicious',
+							url: normalizedUrl,
+							description: `Suspicious IDN domain (risk: ${(idnAnalysis.riskScore * 100).toFixed(1)}%)`,
+							details: {
+								riskFactors: idnAnalysis.riskFactors,
+								recommendations: idnAnalysis.recommendations,
+							},
+						});
+					}
 				}
 			} catch (error) {
 				debug('Phishing check error:', error);
@@ -1124,7 +1169,6 @@ class SpamScanner {
 
 		// Handle locale codes like 'en-US' -> 'en'
 		const normalized = locale.toLowerCase().split('-')[0];
-
 		// Map some common variations
 		const localeMap = {
 			nb: 'no', // Norwegian Bokmål
@@ -1132,8 +1176,297 @@ class SpamScanner {
 			'zh-cn': 'zh',
 			'zh-tw': 'zh',
 		};
-
 		return localeMap[normalized] || normalized;
+	}
+
+	// Get IDN homograph attack results
+	async getIDNHomographResults(mail) {
+		const result = {
+			detected: false,
+			domains: [],
+			riskScore: 0,
+			details: [],
+		};
+
+		try {
+			const idnDetector = await this.getIDNDetector();
+			if (!idnDetector) {
+				return result;
+			}
+
+			// Extract URLs from email content
+			const textContent = mail.text || '';
+			const htmlContent = mail.html || '';
+			const allContent = textContent + ' ' + htmlContent;
+			const urls = this.getUrls(allContent);
+
+			// Analyze each domain
+			for (const url of urls) {
+				try {
+					const normalizedUrl = await this.optimizeUrlParsing(url);
+					const parsed = new URL(normalizedUrl);
+					const domain = parsed.hostname;
+
+					if (!domain) {
+						continue;
+					}
+
+					// Prepare context for analysis
+					const context = {
+						emailContent: allContent,
+						displayText: url === normalizedUrl ? null : url,
+						senderReputation: 0.5, // Default neutral reputation
+						emailHeaders: mail.headers || {},
+					};
+
+					// Perform IDN analysis
+					const analysis = idnDetector.detectHomographAttack(domain, context);
+
+					if (analysis.riskScore > 0.3) {
+						result.detected = true;
+						result.domains.push({
+							domain,
+							originalUrl: url,
+							normalizedUrl,
+							riskScore: analysis.riskScore,
+							riskFactors: analysis.riskFactors,
+							recommendations: analysis.recommendations,
+							confidence: analysis.confidence,
+						});
+
+						// Update overall risk score to highest found
+						result.riskScore = Math.max(result.riskScore, analysis.riskScore);
+					}
+				} catch (error) {
+					debug('IDN analysis error for URL:', url, error);
+				}
+			}
+
+			// Add summary details
+			if (result.detected) {
+				result.details.push(`Found ${result.domains.length} suspicious domain(s)`);
+				result.details.push(`Highest risk score: ${(result.riskScore * 100).toFixed(1)}%`);
+
+				// Add specific risk factors
+				const allRiskFactors = new Set();
+				for (const domain of result.domains) {
+					for (const factor of domain.riskFactors) {
+						allRiskFactors.add(factor);
+					}
+				}
+
+				result.details.push(...allRiskFactors);
+			}
+		} catch (error) {
+			debug('IDN homograph detection error:', error);
+		}
+
+		return result;
+	}
+
+	// Get IDN detector instance
+	async getIDNDetector() {
+		if (!this.idnDetector) {
+			try {
+				const {default: EnhancedIDNDetector} = await import('./enhanced-idn-detector.js');
+				this.idnDetector = new EnhancedIDNDetector({
+					strictMode: this.config.strictIDNDetection || false,
+					enableWhitelist: true,
+					enableBrandProtection: true,
+					enableContextAnalysis: true,
+				});
+			} catch (error) {
+				debug('Failed to load IDN detector:', error);
+				return null;
+			}
+		}
+
+		return this.idnDetector;
+	}
+
+	// Hybrid language detection using both lande and franc
+	async detectLanguageHybrid(text) {
+		if (!text || typeof text !== 'string' || text.length < 3) {
+			return 'en';
+		}
+
+		// Handle edge cases for non-linguistic content
+		const cleanText = text.trim();
+		if (!cleanText || /^[\d\s\W]+$/.test(cleanText)) {
+			// Only numbers, spaces, and special characters
+			return 'en';
+		}
+
+		try {
+			// Use lande for short text (< 50 chars), franc for longer text
+			if (text.length < 50) {
+				const landeResult = lande(text);
+				if (landeResult && landeResult.length > 0) {
+					// Convert lande's 3-letter codes to 2-letter codes
+					const detected = landeResult[0][0];
+					const normalized = this.normalizeLanguageCode(detected);
+
+					// Additional validation for short text detection
+					if (this.isValidShortTextDetection(text, normalized)) {
+						return normalized;
+					}
+
+					// Fallback to English for ambiguous short text
+					return 'en';
+				}
+
+				return 'en';
+			}
+
+			// Import franc dynamically
+			const {franc} = await import('franc');
+			const francResult = franc(text);
+			if (francResult === 'und') {
+				// Fallback to lande if franc can't detect
+				const landeResult = lande(text);
+				if (landeResult && landeResult.length > 0) {
+					return this.normalizeLanguageCode(landeResult[0][0]);
+				}
+
+				return 'en';
+			}
+
+			return this.normalizeLanguageCode(francResult);
+		} catch (error) {
+			debug('Language detection error:', error);
+			// Fallback to lande
+			try {
+				const landeResult = lande(text);
+				if (landeResult && landeResult.length > 0) {
+					return this.normalizeLanguageCode(landeResult[0][0]);
+				}
+
+				return 'en';
+			} catch {
+				return 'en';
+			}
+		}
+	}
+
+	// Validate short text language detection
+	isValidShortTextDetection(text, detectedLang) {
+		// For non-Latin scripts, always trust the detection
+		const hasNonLatin = /[^\u0000-\u024F\u1E00-\u1EFF]/.test(text);
+		if (hasNonLatin) {
+			return true;
+		}
+
+		// For very short Latin text (< 7 chars), be conservative
+		if (text.length < 7 && detectedLang !== 'en') {
+			return false;
+		}
+
+		// For longer Latin text, trust the detection
+		return true;
+	}
+
+	// Normalize language codes from 3-letter to 2-letter format
+	normalizeLanguageCode(code) {
+		if (!code || typeof code !== 'string') {
+			return 'en';
+		}
+
+		// If already 2-letter code, return as-is
+		if (code.length === 2) {
+			return code.toLowerCase();
+		}
+
+		// Convert 3-letter ISO 639-2/3 codes to 2-letter ISO 639-1 codes
+		const codeMap = {
+			// Common language mappings
+			eng: 'en', // English
+			fra: 'fr', // French
+			fre: 'fr', // French (alternative)
+			spa: 'es', // Spanish
+			deu: 'de', // German
+			ger: 'de', // German (alternative)
+			ita: 'it', // Italian
+			por: 'pt', // Portuguese
+			rus: 'ru', // Russian
+			jpn: 'ja', // Japanese
+			kor: 'ko', // Korean
+			cmn: 'zh', // Chinese (Mandarin)
+			zho: 'zh', // Chinese
+			chi: 'zh', // Chinese (alternative)
+			ara: 'ar', // Arabic
+			hin: 'hi', // Hindi
+			ben: 'bn', // Bengali
+			urd: 'ur', // Urdu
+			tur: 'tr', // Turkish
+			pol: 'pl', // Polish
+			nld: 'nl', // Dutch
+			dut: 'nl', // Dutch (alternative)
+			swe: 'sv', // Swedish
+			nor: 'no', // Norwegian
+			dan: 'da', // Danish
+			fin: 'fi', // Finnish
+			hun: 'hu', // Hungarian
+			ces: 'cs', // Czech
+			cze: 'cs', // Czech (alternative)
+			slk: 'sk', // Slovak
+			slo: 'sk', // Slovak (alternative)
+			slv: 'sl', // Slovenian
+			hrv: 'hr', // Croatian
+			srp: 'sr', // Serbian
+			bul: 'bg', // Bulgarian
+			ron: 'ro', // Romanian
+			rum: 'ro', // Romanian (alternative)
+			ell: 'el', // Greek
+			gre: 'el', // Greek (alternative)
+			heb: 'he', // Hebrew
+			tha: 'th', // Thai
+			vie: 'vi', // Vietnamese
+			ind: 'id', // Indonesian
+			msa: 'ms', // Malay
+			may: 'ms', // Malay (alternative)
+			tgl: 'tl', // Tagalog
+			ukr: 'uk', // Ukrainian
+			bel: 'be', // Belarusian
+			lit: 'lt', // Lithuanian
+			lav: 'lv', // Latvian
+			est: 'et', // Estonian
+			cat: 'ca', // Catalan
+			eus: 'eu', // Basque
+			baq: 'eu', // Basque (alternative)
+			glg: 'gl', // Galician
+			gle: 'ga', // Irish
+			gla: 'gd', // Scottish Gaelic
+			cym: 'cy', // Welsh
+			wel: 'cy', // Welsh (alternative)
+			isl: 'is', // Icelandic
+			ice: 'is', // Icelandic (alternative)
+			mlt: 'mt', // Maltese
+			afr: 'af', // Afrikaans
+			swa: 'sw', // Swahili
+			amh: 'am', // Amharic
+			hau: 'ha', // Hausa
+			yor: 'yo', // Yoruba
+			ibo: 'ig', // Igbo
+			som: 'so', // Somali
+			orm: 'om', // Oromo
+			tig: 'ti', // Tigrinya
+			mlg: 'mg', // Malagasy
+			nya: 'ny', // Chichewa
+			sna: 'sn', // Shona
+			xho: 'xh', // Xhosa
+			zul: 'zu', // Zulu
+			nso: 'nso', // Northern Sotho
+			sot: 'st', // Southern Sotho
+			tsn: 'tn', // Tswana
+			ven: 've', // Venda
+			tso: 'ts', // Tsonga
+			ssw: 'ss', // Swati
+			nde: 'nr', // Southern Ndebele
+			nbl: 'nd', // Northern Ndebele
+		};
+
+		const normalized = code.toLowerCase();
+		return codeMap[normalized] || 'en';
 	}
 }
 

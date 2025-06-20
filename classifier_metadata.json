@@ -1,0 +1,8 @@
+{
+  "totalEmails": 31653,
+  "hamEmails": 15553,
+  "spamEmails": 16100,
+  "vocabularySize": 20000,
+  "timestamp": "2025-06-16T15:36:29.350Z",
+  "version": "simple-v1"
+}

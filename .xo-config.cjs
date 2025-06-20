@@ -13,7 +13,15 @@ module.exports = {
 		'logical-assignment-operators': 'off',
 		'unicorn/prefer-string-replace-all': 'off',
 		'curly': 'off',
-		'@stylistic/operator-linebreak': 'off'
+		'@stylistic/operator-linebreak': 'off',
+		'unicorn/prefer-module': 'off',
+		'unicorn/prefer-top-level-await': 'off',
+		'import-x/extensions': 'off',
+		'no-unused-vars': 'off',
+		'n/prefer-global/buffer': 'off',
+		'n/prefer-global/process': 'off',
+		'import-x/no-mutable-exports': 'off',
+		'@stylistic/no-mixed-spaces-and-tabs': 'off'
 	},
 	ignores: [
 		'dist/',
