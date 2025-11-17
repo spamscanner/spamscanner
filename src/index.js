@@ -18,6 +18,7 @@ import fileExtension from 'file-extension';
 import floatingPointRegex from 'floating-point-regex';
 import lande from 'lande'; // Replaced franc with lande as per TODO
 import hexaColorRegex from 'hexa-color-regex';
+import {parse as parseTldts} from 'tldts';
 import ipRegex from 'ip-regex';
 import isBuffer from 'is-buffer';
 import isSANB from 'is-string-and-not-blank';
@@ -38,7 +39,6 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Load JSON data
-const REPLACEMENT_WORDS = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'replacement-words.json'), 'utf8'));
 const executablesData = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'executables.json'), 'utf8'));
 
 const EXECUTABLES = new Set(executablesData);
@@ -145,9 +145,7 @@ class SpamScanner {
 		this.config = {
 			// Enhanced configuration options
 			enableMacroDetection: true,
-			enableMalwareUrlCheck: true,
 			enablePerformanceMetrics: false,
-			enableCaching: true,
 			timeout: 30_000,
 			supportedLanguages: ['en'],
 			enableMixedLanguageDetection: false,
@@ -226,9 +224,7 @@ class SpamScanner {
 		}
 
 		try {
-			const replacements = this.config.replacements
-				? this.config.replacements
-				: await getReplacements();
+			const replacements = this.config.replacements || await getReplacements();
 
 			// Ensure replacements is a Map
 			if (replacements instanceof Map) {
@@ -284,10 +280,12 @@ class SpamScanner {
 		for (const attachment of attachments) {
 			try {
 				if (attachment.content && isBuffer(attachment.content)) {
+					// eslint-disable-next-line no-await-in-loop
 					const scanResult = await Promise.race([
 						this.clamscan.scanBuffer(attachment.content),
-						new Promise((_, rejectHandler) =>
-							setTimeout(() => rejectHandler(new Error('Virus scan timeout')), this.config.timeout)),
+						new Promise((_resolve, reject) => {
+							setTimeout(() => reject(new Error('Virus scan timeout')), this.config.timeout);
+						}),
 					]);
 
 					if (scanResult.isInfected) {
@@ -407,15 +405,57 @@ class SpamScanner {
 		for (const attachment of attachments) {
 			if (attachment.filename) {
 				const extension = fileExtension(attachment.filename).toLowerCase();
+
+				// Standalone macro files
 				const macroExtensions = ['vbs', 'vba', 'ps1', 'bat', 'cmd', 'scr', 'pif'];
+
+				// Office documents with macros (OOXML format)
+				const officeMacroExtensions = ['docm', 'xlsm', 'pptm', 'xlam', 'dotm', 'xltm', 'potm'];
+
+				// Legacy Office formats (always have macro capability)
+				const legacyOfficeExtensions = ['doc', 'xls', 'ppt', 'dot', 'xlt', 'pot', 'xla', 'ppa'];
 
 				if (macroExtensions.includes(extension)) {
 					results.push({
 						type: 'macro',
-						subtype: 'attachment',
+						subtype: 'script',
 						filename: attachment.filename,
-						description: `Macro file attachment detected: ${extension}`,
+						description: `Macro script attachment detected: ${extension}`,
 					});
+				} else if (officeMacroExtensions.includes(extension)) {
+					results.push({
+						type: 'macro',
+						subtype: 'office_document',
+						filename: attachment.filename,
+						description: `Office document with macro capability: ${extension}`,
+					});
+				} else if (legacyOfficeExtensions.includes(extension)) {
+					results.push({
+						type: 'macro',
+						subtype: 'legacy_office',
+						filename: attachment.filename,
+						description: `Legacy Office document (macro-capable): ${extension}`,
+						risk: 'high',
+					});
+				}
+
+				// Check PDF attachments for JavaScript
+				if (extension === 'pdf' && attachment.content && isBuffer(attachment.content)) {
+					try {
+						const pdfContent = attachment.content.toString('latin1');
+						// Check for JavaScript in PDF
+						if (pdfContent.includes('/JavaScript') || pdfContent.includes('/JS')) {
+							results.push({
+								type: 'macro',
+								subtype: 'pdf_javascript',
+								filename: attachment.filename,
+								description: 'PDF with embedded JavaScript detected',
+								risk: 'medium',
+							});
+						}
+					} catch (error) {
+						debug('PDF JavaScript detection error:', error);
+					}
 				}
 			}
 		}
@@ -598,8 +638,9 @@ class SpamScanner {
 					stripWWW: false,
 					removeQueryParameters: false,
 				}),
-				new Promise((_, rejectHandler) =>
-					setTimeout(() => rejectHandler(new Error('URL parsing timeout')), 5000)),
+				new Promise((_resolve, reject) => {
+					setTimeout(() => reject(new Error('URL parsing timeout')), 5000);
+				}),
 			]);
 		} catch {
 			return url;
@@ -614,8 +655,9 @@ class SpamScanner {
 					.get(`https://1.1.1.3/dns-query?name=${hostname}&type=A`)
 					.set('Accept', 'application/dns-json')
 					.timeout(5000),
-				new Promise((_, rejectHandler) =>
-					setTimeout(() => rejectHandler(new Error('DNS timeout')), 5000)),
+				new Promise((_resolve, reject) => {
+					setTimeout(() => reject(new Error('DNS timeout')), 5000);
+				}),
 			]);
 
 			return response.body?.Status === 3; // NXDOMAIN indicates blocked
@@ -648,7 +690,7 @@ class SpamScanner {
 		return this.getUrls(allText);
 	}
 
-	// Enhanced URL extraction with improved parsing
+	// Enhanced URL extraction with improved parsing using tldts
 	getUrls(string_) {
 		if (!isSANB(string_)) {
 			return [];
@@ -677,6 +719,26 @@ class SpamScanner {
 		}
 
 		return [...new Set(urls)]; // Remove duplicates
+	}
+
+	// Parse URL using tldts for accurate domain extraction
+	parseUrlWithTldts(url) {
+		try {
+			const parsed = parseTldts(url, {allowPrivateDomains: true});
+			return {
+				domain: parsed.domain,
+				domainWithoutSuffix: parsed.domainWithoutSuffix,
+				hostname: parsed.hostname,
+				publicSuffix: parsed.publicSuffix,
+				subdomain: parsed.subdomain,
+				isIp: parsed.isIp,
+				isIcann: parsed.isIcann,
+				isPrivate: parsed.isPrivate,
+			};
+		} catch (error) {
+			debug('tldts parsing error:', error);
+			return null;
+		}
 	}
 
 	// Enhanced tokenization with language detection
@@ -771,8 +833,7 @@ class SpamScanner {
 				createHash('sha256')
 					.update(token)
 					.digest('hex')
-					.slice(0, 16), // Use first 16 characters for efficiency
-			);
+					.slice(0, 16)); // Use first 16 characters for efficiency
 		}
 
 		return processedTokens;
@@ -823,29 +884,43 @@ class SpamScanner {
 			// Get tokens and mail from source
 			const {tokens, mail} = await this.getTokensAndMailFromSource(source);
 
-			// Run all detecti		// Run all detection methods in parallel
-			const [classification, phishing, executables, macros, arbitrary, viruses, patterns, idnHomographAttack]
-        = await Promise.all([
-        	this.getClassification(tokens),
-        	this.getPhishingResults(mail),
-        	this.getExecutableResults(mail),
-        	this.getMacroResults(mail),
-        	this.getArbitraryResults(mail),
-        	this.getVirusResults(mail),
-        	this.getPatternResults(mail),
-        	this.getIDNHomographResults(mail),
-        ]);
+			// Run all detection methods
+			const [
+				classification,
+				phishing,
+				executables,
+				macros,
+				arbitrary,
+				viruses,
+				patterns,
+				idnHomographAttack,
+				toxicity,
+				nsfw,
+			] = await Promise.all([
+				this.getClassification(tokens),
+				this.getPhishingResults(mail),
+				this.getExecutableResults(mail),
+				this.config.enableMacroDetection ? this.getMacroResults(mail) : [],
+				this.getArbitraryResults(mail),
+				this.getVirusResults(mail),
+				this.getPatternResults(mail),
+				this.getIDNHomographResults(mail),
+				this.getToxicityResults(mail),
+				this.getNSFWResults(mail),
+			]);
 
 			// Determine if spam
 			const isSpam
-        = classification.category === 'spam'
-        	|| phishing.length > 0
-        	|| executables.length > 0
-        	|| macros.length > 0
-        	|| arbitrary.length > 0
-        	|| viruses.length > 0
-        	|| patterns.length > 0
-        	|| (idnHomographAttack && idnHomographAttack.detected);
+				= classification.category === 'spam'
+					|| phishing.length > 0
+					|| executables.length > 0
+					|| macros.length > 0
+					|| arbitrary.length > 0
+					|| viruses.length > 0
+					|| patterns.length > 0
+					|| (idnHomographAttack && idnHomographAttack.detected)
+					|| toxicity.length > 0
+					|| nsfw.length > 0;
 
 			// Generate message
 			let message = 'Ham';
@@ -883,6 +958,14 @@ class SpamScanner {
 					reasons.push('IDN homograph attack');
 				}
 
+				if (toxicity.length > 0) {
+					reasons.push('toxic content');
+				}
+
+				if (nsfw.length > 0) {
+					reasons.push('NSFW content');
+				}
+
 				message = `Spam (${arrayJoinConjunction(reasons)})`;
 			}
 
@@ -893,8 +976,8 @@ class SpamScanner {
 			this.metrics.totalScans++;
 			this.metrics.lastScanTime = processingTime;
 			this.metrics.averageTime
-        = (this.metrics.averageTime * (this.metrics.totalScans - 1) + processingTime)
-        	/ this.metrics.totalScans;
+				= ((this.metrics.averageTime * (this.metrics.totalScans - 1)) + processingTime)
+					/ this.metrics.totalScans;
 
 			const result = {
 				isSpam,
@@ -908,6 +991,8 @@ class SpamScanner {
 					viruses,
 					patterns,
 					idnHomographAttack,
+					toxicity,
+					nsfw,
 				},
 				links: this.extractAllUrls(mail, source),
 				tokens,
@@ -1039,20 +1124,24 @@ class SpamScanner {
 
 		for (const url of links) {
 			try {
+				// eslint-disable-next-line no-await-in-loop
 				const normalizedUrl = await this.optimizeUrlParsing(url);
 				const parsed = new URL(normalizedUrl);
 
 				// Check for suspicious domains
+				// eslint-disable-next-line no-await-in-loop
 				const isBlocked = await this.isCloudflareBlocked(parsed.hostname);
 				if (isBlocked) {
 					results.push({
 						type: 'phishing',
 						url: normalizedUrl,
+
 						description: 'Blocked by security filters',
 					});
 				}
 
 				// Enhanced IDN homograph attack detection
+				// eslint-disable-next-line no-await-in-loop
 				const idnDetector = await this.getIDNDetector();
 				if (idnDetector && parsed.hostname) {
 					const context = {
@@ -1111,11 +1200,25 @@ class SpamScanner {
 						description: 'Executable file attachment',
 					});
 				}
+
+				// Check for archive files (potential evasion technique)
+				const archiveExtensions = ['zip', 'rar', '7z', 'tar', 'gz', 'bz2', 'xz', 'arj', 'cab', 'lzh', 'ace', 'iso'];
+				if (archiveExtensions.includes(extension)) {
+					results.push({
+						type: 'archive',
+						filename: attachment.filename,
+						extension,
+						description: 'Archive attachment (contents not scanned)',
+						risk: 'medium',
+						warning: 'Archive contents should be extracted and scanned separately',
+					});
+				}
 			}
 
 			// Check file content for executable signatures
 			if (attachment.content && isBuffer(attachment.content)) {
 				try {
+					// eslint-disable-next-line no-await-in-loop
 					const fileType = await fileTypeFromBuffer(attachment.content);
 					if (fileType && EXECUTABLES.has(fileType.ext)) {
 						results.push({
@@ -1203,6 +1306,7 @@ class SpamScanner {
 			// Analyze each domain
 			for (const url of urls) {
 				try {
+					// eslint-disable-next-line no-await-in-loop
 					const normalizedUrl = await this.optimizeUrlParsing(url);
 					const parsed = new URL(normalizedUrl);
 					const domain = parsed.hostname;
@@ -1244,8 +1348,10 @@ class SpamScanner {
 
 			// Add summary details
 			if (result.detected) {
-				result.details.push(`Found ${result.domains.length} suspicious domain(s)`);
-				result.details.push(`Highest risk score: ${(result.riskScore * 100).toFixed(1)}%`);
+				result.details.push(
+					`Found ${result.domains.length} suspicious domain(s)`,
+					`Highest risk score: ${(result.riskScore * 100).toFixed(1)}%`,
+				);
 
 				// Add specific risk factors
 				const allRiskFactors = new Set();
@@ -1308,6 +1414,15 @@ class SpamScanner {
 
 					// Additional validation for short text detection
 					if (this.isValidShortTextDetection(text, normalized)) {
+						// Filter by supportedLanguages if configured
+						if (this.config.supportedLanguages && this.config.supportedLanguages.length > 0) {
+							if (this.config.supportedLanguages.includes(normalized)) {
+								return normalized;
+							}
+
+							return this.config.supportedLanguages[0];
+						}
+
 						return normalized;
 					}
 
@@ -1331,7 +1446,19 @@ class SpamScanner {
 				return 'en';
 			}
 
-			return this.normalizeLanguageCode(francResult);
+			const detected = this.normalizeLanguageCode(francResult);
+
+			// Filter by supportedLanguages if configured
+			if (this.config.supportedLanguages && this.config.supportedLanguages.length > 0) {
+				if (this.config.supportedLanguages.includes(detected)) {
+					return detected;
+				}
+
+				// If detected language not supported, return first supported language
+				return this.config.supportedLanguages[0];
+			}
+
+			return detected;
 		} catch (error) {
 			debug('Language detection error:', error);
 			// Fallback to lande
@@ -1351,6 +1478,7 @@ class SpamScanner {
 	// Validate short text language detection
 	isValidShortTextDetection(text, detectedLang) {
 		// For non-Latin scripts, always trust the detection
+		// eslint-disable-next-line no-control-regex
 		const hasNonLatin = /[^\u0000-\u024F\u1E00-\u1EFF]/.test(text);
 		if (hasNonLatin) {
 			return true;
@@ -1363,6 +1491,158 @@ class SpamScanner {
 
 		// For longer Latin text, trust the detection
 		return true;
+	}
+
+	// Get toxicity detection results
+	async getToxicityResults(mail) {
+		const results = [];
+
+		try {
+			// Lazy load TensorFlow and toxicity model
+			if (!this.toxicityModel) {
+				const _tf = await import('@tensorflow/tfjs-node');
+				const toxicity = await import('@tensorflow-models/toxicity');
+
+				// Load model with threshold of 0.7 (higher = more strict)
+				const threshold = this.config.toxicityThreshold || 0.7;
+				this.toxicityModel = await toxicity.load(threshold);
+			}
+
+			// Get text content from email
+			const textContent = mail.text || '';
+			const htmlContent = striptags(mail.html || '');
+			const subjectContent = mail.subject || '';
+
+			// Combine all content
+			const allContent = [subjectContent, textContent, htmlContent]
+				.filter(text => text && text.trim().length > 0)
+				.join(' ')
+				.slice(0, 5000); // Limit to 5000 chars for performance
+
+			if (!allContent || allContent.trim().length < 10) {
+				return results;
+			}
+
+			// Classify text for toxicity
+			const predictions = await Promise.race([
+				this.toxicityModel.classify([allContent]),
+				new Promise((_resolve, reject) => {
+					setTimeout(() => reject(new Error('Toxicity detection timeout')), this.config.timeout);
+				}),
+			]);
+
+			// Process predictions
+			for (const prediction of predictions) {
+				const {label} = prediction;
+				const matches = prediction.results[0].match;
+
+				if (matches) {
+					const {probabilities} = prediction.results[0];
+					const toxicProbability = probabilities[1]; // Index 1 is toxic probability
+
+					results.push({
+						type: 'toxicity',
+						category: label,
+						probability: toxicProbability,
+						description: `Toxic content detected: ${label} (${(toxicProbability * 100).toFixed(1)}%)`,
+					});
+				}
+			}
+		} catch (error) {
+			debug('Toxicity detection error:', error);
+			// Don't fail the whole scan if toxicity detection fails
+		}
+
+		return results;
+	}
+
+	// Get NSFW image detection results
+	async getNSFWResults(mail) {
+		const results = [];
+
+		try {
+			// Lazy load TensorFlow and NSFW model
+			if (!this.nsfwModel) {
+				const _tf = await import('@tensorflow/tfjs-node');
+				const nsfw = await import('nsfwjs');
+
+				// Load model
+				this.nsfwModel = await nsfw.load();
+			}
+
+			const attachments = mail.attachments || [];
+
+			// Process image attachments
+			for (const attachment of attachments) {
+				try {
+					if (!attachment.content || !isBuffer(attachment.content)) {
+						continue;
+					}
+
+					// Check if it's an image
+					// eslint-disable-next-line no-await-in-loop
+					const fileType = await fileTypeFromBuffer(attachment.content);
+
+					if (!fileType || !fileType.mime.startsWith('image/')) {
+						continue;
+					}
+
+					// Use sharp to process image for NSFW detection
+					// eslint-disable-next-line no-await-in-loop, unicorn/no-await-expression-member
+					const sharp = (await import('sharp')).default;
+					// eslint-disable-next-line no-await-in-loop
+					const processedImage = await sharp(attachment.content)
+						.resize(224, 224) // NSFW model expects 224x224
+						.raw()
+						.toBuffer();
+
+					// Convert to tensor and classify
+					// eslint-disable-next-line no-await-in-loop
+					const _tf = await import('@tensorflow/tfjs-node');
+					const imageTensor = _tf.tensor3d(
+						new Uint8Array(processedImage),
+						[224, 224, 3],
+					);
+
+					// eslint-disable-next-line no-await-in-loop
+					const predictions = await Promise.race([
+						this.nsfwModel.classify(imageTensor),
+						new Promise((_resolve, reject) => {
+							setTimeout(() => reject(new Error('NSFW detection timeout')), this.config.timeout);
+						}),
+					]);
+
+					// Clean up tensor
+					imageTensor.dispose();
+
+					// Check predictions
+					const nsfwThreshold = this.config.nsfwThreshold || 0.6;
+					for (const prediction of predictions) {
+						if (
+							(prediction.className === 'Porn'
+								|| prediction.className === 'Hentai'
+								|| prediction.className === 'Sexy')
+							&& prediction.probability > nsfwThreshold
+						) {
+							results.push({
+								type: 'nsfw',
+								filename: attachment.filename || 'unknown',
+								category: prediction.className,
+								probability: prediction.probability,
+								description: `NSFW image detected: ${prediction.className} (${(prediction.probability * 100).toFixed(1)}%)`,
+							});
+						}
+					}
+				} catch (error) {
+					debug('NSFW detection error for attachment:', attachment.filename, error);
+				}
+			}
+		} catch (error) {
+			debug('NSFW detection error:', error);
+			// Don't fail the whole scan if NSFW detection fails
+		}
+
+		return results;
 	}
 
 	// Normalize language codes from 3-letter to 2-letter format

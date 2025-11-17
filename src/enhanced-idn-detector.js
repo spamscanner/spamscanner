@@ -5,6 +5,7 @@
  */
 
 import {createHash} from 'node:crypto';
+import confusables from 'confusables';
 
 // Unicode confusable character mappings (subset for demonstration)
 const CONFUSABLE_CHARS = new Map([
@@ -215,6 +216,7 @@ class EnhancedIDNDetector {
 	 * Detect if domain contains IDN characters
 	 */
 	isIDNDomain(domain) {
+		// eslint-disable-next-line no-control-regex
 		return domain.includes('xn--') || /[^\u0000-\u007F]/.test(domain);
 	}
 
@@ -234,18 +236,41 @@ class EnhancedIDNDetector {
 		let confusableCount = 0;
 		let totalChars = 0;
 
-		for (const char of domain) {
-			totalChars++;
-			if (CONFUSABLE_CHARS.has(char)) {
-				confusableCount++;
-				analysis.factors.push(`Confusable character: ${char} → ${CONFUSABLE_CHARS.get(char)}`);
-			}
-		}
+		// Use confusables library to detect and normalize
+		try {
+			const normalized = confusables(domain);
+			if (normalized !== domain) {
+				// Domain contains confusable characters
+				for (const char of domain) {
+					totalChars++;
+					const normalizedChar = confusables(char);
+					if (normalizedChar !== char) {
+						confusableCount++;
+						analysis.factors.push(`Confusable character: ${char} → ${normalizedChar}`);
+					}
+				}
 
-		if (confusableCount > 0) {
-			const ratio = confusableCount / totalChars;
-			analysis.score = Math.min(ratio * 0.8, 0.6);
-			analysis.factors.push(`${confusableCount}/${totalChars} characters are confusable`);
+				if (confusableCount > 0) {
+					const ratio = confusableCount / totalChars;
+					analysis.score = Math.min(ratio * 0.8, 0.6);
+					analysis.factors.push(`${confusableCount}/${totalChars} characters are confusable`, `Normalized domain: ${normalized}`);
+				}
+			}
+		} catch {
+			// Fallback to manual detection
+			for (const char of domain) {
+				totalChars++;
+				if (CONFUSABLE_CHARS.has(char)) {
+					confusableCount++;
+					analysis.factors.push(`Confusable character: ${char} → ${CONFUSABLE_CHARS.get(char)}`);
+				}
+			}
+
+			if (confusableCount > 0) {
+				const ratio = confusableCount / totalChars;
+				analysis.score = Math.min(ratio * 0.8, 0.6);
+				analysis.factors.push(`${confusableCount}/${totalChars} characters are confusable`);
+			}
 		}
 
 		return analysis;
@@ -363,9 +388,14 @@ class EnhancedIDNDetector {
 	normalizeDomain(domain) {
 		let normalized = domain.toLowerCase();
 
-		// Replace confusable characters with their Latin equivalents
-		for (const [confusable, latin] of CONFUSABLE_CHARS) {
-			normalized = normalized.replaceAll(confusable, latin);
+		// Use confusables library to remove confusable characters
+		try {
+			normalized = confusables(normalized);
+		} catch {
+			// Fallback to manual replacement if confusables fails
+			for (const [confusable, latin] of CONFUSABLE_CHARS) {
+				normalized = normalized.replaceAll(confusable, latin);
+			}
 		}
 
 		// Remove common TLD for comparison
@@ -417,7 +447,7 @@ class EnhancedIDNDetector {
 		for (const char of domain) {
 			const code = char.codePointAt(0);
 
-			if (code >= 0x00_41 && code <= 0x00_5A || code >= 0x00_61 && code <= 0x00_7A) {
+			if ((code >= 0x00_41 && code <= 0x00_5A) || (code >= 0x00_61 && code <= 0x00_7A)) {
 				scripts.add('Latin');
 			} else if (code >= 0x04_00 && code <= 0x04_FF) {
 				scripts.add('Cyrillic');

@@ -1,1397 +1,1278 @@
-<h1 align="center">
-  <a href="https://spamscanner.net"><img src="https://d1i8ikybhfrv4r.cloudfront.net/spamscanner.png" alt="spamscanner" /></a>
-</h1>
-<div align="center">
-  <a href="https://github.com/spamscanner/spamscanner/actions/workflows/ci.yml"><img src="https://github.com/spamscanner/spamscanner/actions/workflows/ci.yml/badge.svg" alt="build status" /></a>
-  <a href="https://github.com/sindresorhus/xo"><img src="https://img.shields.io/badge/code_style-XO-5ed9c7.svg" alt="code style" /></a>
-  <a href="https://github.com/prettier/prettier"><img src="https://img.shields.io/badge/styled_with-prettier-ff69b4.svg" alt="styled with prettier" /></a>
-  <a href="https://lass.js.org"><img src="https://img.shields.io/badge/made_with-lass-95CC28.svg" alt="made with lass" /></a>
-  <a href="LICENSE"><img src="https://img.shields.io/github/license/spamscanner/spamscanner.svg" alt="license" /></a>
-</div>
-<br />
-<div align="center">
-  Spam Scanner is the best <a href="https://en.wikipedia.org/wiki/Anti-spam_techniques" target="_blank">anti-spam</a>, <a href="https://en.wikipedia.org/wiki/Email_filtering" target="_blank">email filtering</a>, and <a href="https://en.wikipedia.org/wiki/Phishing" target="_blank">phishing prevention</a> service.
-</div>
-<hr />
-<div align="center">
-  Spam Scanner is a drop-in replacement and the best alternative to SpamAssassin, rspamd, SpamTitan, and more.
-</div>
-<hr />
+# Spam Scanner
 
+> **The best anti-spam, email filtering, and phishing prevention service for Node.js**
 
-## 🚀 What's New in v6.0
+[![build status](https://github.com/spamscanner/spamscanner/actions/workflows/ci.yml/badge.svg)](https://github.com/spamscanner/spamscanner/actions/workflows/ci.yml)
+[![code coverage](https://img.shields.io/badge/coverage-88.41%25-brightgreen.svg)](https://github.com/spamscanner/spamscanner)
+[![code style](https://img.shields.io/badge/code_style-XO-5ed9c7.svg)](https://github.com/sindresorhus/xo)
+[![styled with prettier](https://img.shields.io/badge/styled_with-prettier-ff69b4.svg)](https://github.com/prettier/prettier)
+[![made with lass](https://img.shields.io/badge/made_with-lass-95CC28.svg)](https://lass.js.org)
+[![license](https://img.shields.io/github/license/spamscanner/spamscanner.svg)](LICENSE)
 
-**Spam Scanner v6.0** represents a complete modernization and overhaul of the codebase with significant enhancements while maintaining 100% backwards compatibility:
+> \[!NOTE]
+> Spam Scanner is actively maintained and used in production at [Forward Email](https://forwardemail.net) to protect millions of emails daily.
 
-### ✨ **Modern JavaScript & Build System**
-
-* **ESM/CJS Dual Build**: Native ES modules with CommonJS fallback for maximum compatibility
-* **Modern Dependencies**: All packages updated to latest versions (Natural 8.x, Superagent 10.x, etc.)
-* **Enhanced Performance**: 50% faster tokenization, 30% reduced memory usage
-* **pnpm Support**: Modern package manager with improved dependency management
-
-### 🔒 **Enhanced Security Features**
-
-* **Advanced IDN Homograph Detection**: Multi-factor analysis system that detects internationalized domain name attacks using Unicode confusable characters, script mixing, and brand similarity analysis
-* **Token Hashing**: Privacy-preserving SHA-256 token hashing for secure classifier training that prevents reverse-engineering of training data
-* **Macro Detection**: VBA, PowerShell, JavaScript, and batch file macro detection
-* **Advanced Malware Protection**: Enhanced URL reputation checking and malicious script detection
-* **File Path Detection**: Unix/Windows path recognition for improved security analysis
-* **Phishing Protection**: Advanced domain analysis with context-aware risk scoring and configurable thresholds
-
-### 🌍 **Extended Language Support**
-
-* **40+ Languages**: Comprehensive tokenization support for global email analysis
-* **Mixed Language Detection**: Advanced multi-language email processing
-* **Enhanced Asian Language Support**: Improved Chinese, Japanese, and Korean text processing
-* **Hybrid Language Detection**: Smart franc/lande combination for optimal accuracy and performance - uses lande for short text (< 50 chars) and franc for longer text, with automatic fallback and language code normalization
-
-### ⚡ **Performance & Reliability**
-
-* **Caching System**: Memoized expensive operations for improved performance
-* **Timeout Protection**: Prevents hanging on malformed input with configurable timeouts
-* **Memory Management**: Optimized memory usage and leak prevention
-* **Processing Metrics**: Built-in performance tracking and monitoring
-
-### 🛠 **Developer Experience**
-
-* **Modern Tooling**: Updated linting (XO), formatting (Prettier), and testing (AVA)
-* **TypeScript Support**: Full type definitions for better development experience
-* **Pre-commit Hooks**: Automated quality checks with Husky integration
-* **Comprehensive Testing**: Enhanced test suite with performance and integration tests
+---
 
 
 ## Table of Contents
 
 * [Foreword](#foreword)
+* [Why Spam Scanner](#why-spam-scanner)
+  * [Key Advantages](#key-advantages)
 * [Features](#features)
+  * [Core Detection Features](#core-detection-features)
   * [Naive Bayes Classifier](#naive-bayes-classifier)
-  * [Spam Content Detection](#spam-content-detection)
-  * [Phishing Content Detection](#phishing-content-detection)
-  * [Executable Link and Attachment Detection](#executable-link-and-attachment-detection)
-  * [Virus Detection](#virus-detection)
+  * [Phishing Detection](#phishing-detection)
+  * [Virus Scanning](#virus-scanning)
+  * [Executable Detection](#executable-detection)
   * [NSFW Image Detection](#nsfw-image-detection)
-  * [Language Toxicity Detection](#language-toxicity-detection)
+  * [Toxicity Detection](#toxicity-detection)
   * [Macro Detection](#macro-detection)
-  * [Advanced Pattern Recognition](#advanced-pattern-recognition)
-* [Functionality](#functionality)
+  * [Language Detection](#language-detection)
+  * [Pattern Recognition](#pattern-recognition)
+  * [URL Analysis](#url-analysis)
+* [Comparison](#comparison)
+  * [Spam Scanner vs. Alternatives](#spam-scanner-vs-alternatives)
+* [Architecture](#architecture)
+  * [System Overview](#system-overview)
+  * [Detection Flow](#detection-flow)
+  * [Component Architecture](#component-architecture)
 * [Requirements](#requirements)
-  * [ClamAV Configuration](#clamav-configuration)
-* [Install](#install)
-  * [npm](#npm)
-  * [pnpm (Recommended)](#pnpm-recommended)
-  * [yarn](#yarn)
-* [Usage](#usage)
-  * [Modern ES Modules](#modern-es-modules)
-  * [CommonJS (Legacy)](#commonjs-legacy)
-  * [Advanced Configuration](#advanced-configuration)
-* [Classifier Training](#classifier-training)
-  * [Quick Start](#quick-start)
-  * [Training Features](#training-features)
-  * [Supported Datasets](#supported-datasets)
-  * [Training Scripts](#training-scripts)
-  * [Custom Dataset Format](#custom-dataset-format)
-  * [Advanced Configuration](#advanced-configuration-1)
-  * [Performance Metrics](#performance-metrics)
-  * [Performance Metrics](#performance-metrics-1)
-* [API](#api)
-  * [`const scanner = new SpamScanner(options)`](#const-scanner--new-spamscanneroptions)
-  * [`scanner.scan(source)`](#scannerscansource)
-  * [`scanner.getTokensAndMailFromSource(source)`](#scannergettokensandmailfromsourcesource)
-  * [`scanner.getClassification(tokens)`](#scannergetclassificationtokens)
-  * [`scanner.getPhishingResults(mail)`](#scannergetphishingresultsmail)
-  * [`scanner.getExecutableResults(mail)`](#scannergetexecutableresultsmail)
-  * [`scanner.getTokens(str, locale, isHTML = false)`](#scannergettokensstr-locale-ishtml--false)
-  * [`scanner.getArbitraryResults(mail)`](#scannergetarbitraryresultsmail)
-  * [`scanner.getVirusResults(mail)`](#scannergetvirusresultsmail)
-  * [`scanner.parseLocale(locale)`](#scannerparselocalelocale)
+  * [System Requirements](#system-requirements)
+  * [Dependencies](#dependencies)
+* [Installation](#installation)
+  * [ClamAV Installation](#clamav-installation)
+* [Quick Start](#quick-start)
+  * [Basic Usage](#basic-usage)
+  * [With Configuration](#with-configuration)
+  * [Checking Specific Features](#checking-specific-features)
+* [API Documentation](#api-documentation)
+  * [Constructor Options](#constructor-options)
+  * [Methods](#methods)
+  * [Result Object](#result-object)
+* [Advanced Usage](#advanced-usage)
+  * [Custom Classifier](#custom-classifier)
+  * [Custom Text Replacements](#custom-text-replacements)
+  * [Language Filtering](#language-filtering)
+  * [Performance Monitoring](#performance-monitoring)
+  * [Selective Feature Disabling](#selective-feature-disabling)
+  * [Custom Timeout](#custom-timeout)
+  * [Custom Logger](#custom-logger)
 * [Performance](#performance)
-  * [Performance Metrics](#performance-metrics-2)
-  * [Caching System](#caching-system)
-  * [Timeout Protection](#timeout-protection)
-  * [Concurrent Processing](#concurrent-processing)
-* [Caching](#caching)
-  * [Memory Caching](#memory-caching)
-  * [Redis Caching](#redis-caching)
-  * [Custom Caching](#custom-caching)
-* [Debugging](#debugging)
-  * [Debug Mode](#debug-mode)
-  * [Performance Debugging](#performance-debugging)
-  * [Memory Debugging](#memory-debugging)
-* [Migration Guide](#migration-guide)
-  * [Migrating from v5.x to v6.0](#migrating-from-v5x-to-v60)
-  * [Breaking Changes](#breaking-changes)
-  * [Deprecated Features](#deprecated-features)
-* [Contributors](#contributors)
-* [References](#references)
+  * [Benchmarks](#benchmarks)
+  * [Optimization Tips](#optimization-tips)
+  * [Memory Usage](#memory-usage)
+* [Contributing](#contributing)
+  * [Development Setup](#development-setup)
+  * [Running Tests](#running-tests)
 * [License](#license)
+* [Support](#support)
+* [Acknowledgments](#acknowledgments)
 
 
 ## Foreword
 
-Spam Scanner is a tool and service created after hitting countless roadblocks with existing spam-detection solutions.  In other words, it's our current [plan][plan-for-spam] for [spam][better-plan-for-spam].
+Spam Scanner is a tool and service created after hitting countless roadblocks with existing spam-detection solutions. In other words, it's our current [plan for spam](https://forwardemail.net/blog/our-plan-for-spam) and our [better plan for spam](https://forwardemail.net/blog/a-better-plan-for-spam).
 
-Our goal is to build and utilize a scalable, performant, simple, easy to maintain, and powerful API for use in our service at [Forward Email][forward-email] to limit spam and provide other measures to prevent attacks on our users.
+Our goal is to build and utilize a scalable, performant, simple, easy to maintain, and powerful API for use in our service at [Forward Email](https://forwardemail.net) to limit spam and provide other measures to prevent attacks on our users.
 
-Initially we tried using [SpamAssassin][], and later evaluated [rspamd][] – but in the end we learned that all existing solutions (even ones besides these) are overtly complex, missing required features or documentation, incredibly challenging to configure; high-barrier to entry, or have proprietary storage backends (that could store and read your messages without your consent) that limit our scalability.
+Initially we tried using [SpamAssassin](https://spamassassin.apache.org), and later evaluated [rspamd](https://rspamd.com) – but in the end we learned that all existing solutions (even ones besides these) are overtly complex, missing required features or documentation, incredibly challenging to configure; high-barrier to entry, or have proprietary storage backends (that could store and read your messages without your consent) that limit our scalability.
 
-To us, we value privacy and the security of our data and users – specifically we have a "Zero-Tolerance Policy" on storing logs or metadata of any kind, whatsoever (see our [Privacy Policy][privacy-policy] for more on that).  None of these solutions honored this privacy policy (without removing essential spam-detection functionality), so we had to create our own tool – thus "Spam Scanner" was born.
+To us, we value privacy and the security of our data and users – specifically we have a "Zero-Tolerance Policy" on storing logs or metadata of any kind, whatsoever (see our [Privacy Policy](https://forwardemail.net/privacy-policy) for more on that). None of these solutions honored this privacy policy (without removing essential spam-detection functionality), so we had to create our own tool – thus "Spam Scanner" was born.
 
-The solution we created provides several [Features](#features) and is completely configurable to your liking.  You can learn more about the actual [functionality](#functionality) below.  Contributors are welcome.
+---
+
+
+## Why Spam Scanner
+
+> \[!TIP]
+> Spam Scanner is the only modern, privacy-focused, Node.js-based spam detection solution with AI-powered features.
+
+### Key Advantages
+
+* **🔒 Privacy-First** - Zero logging, zero metadata storage
+* **🚀 Modern** - Built with Node.js 18+, ES modules, and latest AI models
+* **🎯 Accurate** - 88%+ detection accuracy with Naive Bayes classifier
+* **⚡ Fast** - Scans emails in under 3 seconds (with model caching)
+* **🛡️ Comprehensive** - 10+ detection methods (virus, phishing, NSFW, toxicity, macros, etc.)
+* **🌍 Multilingual** - Supports 40+ languages with automatic detection
+* **🔧 Easy to Use** - Simple API, extensive documentation, TypeScript support
+* **📊 Battle-Tested** - Used in production at Forward Email
+
+---
 
 
 ## Features
 
-Spam Scanner includes modern, essential, and performant features that help reduce spam, phishing, and executable attacks. **Version 6.0** introduces significant enhancements to all existing features plus new advanced detection capabilities.
+Spam Scanner includes modern, essential, and performant features that help reduce spam, phishing, and executable attacks.
+
+### Core Detection Features
+
+| Feature                                               | Description                                                        | Status       |
+| ----------------------------------------------------- | ------------------------------------------------------------------ | ------------ |
+| **[Naive Bayes Classifier](#naive-bayes-classifier)** | Machine learning spam classification trained on 100K+ emails       | ✅ Production |
+| **[Phishing Detection](#phishing-detection)**         | IDN homograph detection, confusables, suspicious link analysis     | ✅ Production |
+| **[Virus Scanning](#virus-scanning)**                 | ClamAV integration for attachment scanning                         | ✅ Production |
+| **[Executable Detection](#executable-detection)**     | Detects 195+ dangerous file extensions + magic number verification | ✅ Production |
+| **[NSFW Image Detection](#nsfw-image-detection)**     | TensorFlow.js-powered image content analysis                       | ✅ Production |
+| **[Toxicity Detection](#toxicity-detection)**         | AI-powered toxic language detection (threats, insults, harassment) | ✅ Production |
+| **[Macro Detection](#macro-detection)**               | VBA, PowerShell, JavaScript, Batch script detection in attachments | ✅ Production |
+| **[Language Detection](#language-detection)**         | Hybrid franc/lande detection for 40+ languages                     | ✅ Production |
+| **[Pattern Recognition](#pattern-recognition)**       | Credit cards, phone numbers, IPs, Bitcoin addresses, etc.          | ✅ Production |
+| **[URL Analysis](#url-analysis)**                     | TLD parsing, Cloudflare blocking detection, suspicious domains     | ✅ Production |
 
 ### Naive Bayes Classifier
 
-Our Naive Bayesian classifier is available in this [repository](classifier.json), the npm package, and is updated frequently as it gains upstream, anonymous, SHA-256 hashed data from [Forward Email][forward-email].
+Our Naive Bayesian classifier is available in this [repository](classifier.json), the npm package, and is updated frequently as it gains upstream, anonymous, SHA-256 hashed data from [Forward Email](https://forwardemail.net).
 
-It was trained with an extremely large dataset of spam, ham, and abuse reporting format ("ARF") data. This dataset was compiled privately from multiple sources.
+* **Training Data**: 100,000+ spam and ham emails
+* **Accuracy**: 88%+ classification accuracy
+* **Languages**: Supports 40+ languages with language-specific tokenization
+* **Stemming**: Porter Stemmer for English, Snowball for 15+ other languages
+* **Privacy**: All training data is anonymized and SHA-256 hashed
 
-**v6.0 Enhancements:**
+### Phishing Detection
 
-* **Improved Tokenization**: 50% faster processing with enhanced language-specific tokenization
-* **Memory Optimization**: 30% reduced memory usage through efficient data structures
-* **Enhanced Training**: Continuously updated with new spam patterns and techniques
+Advanced phishing detection using multiple techniques:
 
-### Spam Content Detection
+* **IDN Homograph Detection**: Detects lookalike domains (e.g., `аpple.com` using Cyrillic "а")
+* **Confusables Integration**: Uses Unicode confusables database to detect character substitution
+* **TLD Analysis**: Validates TLDs and detects suspicious domain patterns
+* **Link Analysis**: Checks for mismatched display text and actual URLs
+* **Cloudflare Detection**: Identifies domains blocked by Cloudflare
 
-Provides an out of the box trained [Naive Bayesian classifier](#naive-bayes-classifier) (uses [@ladjs/naivebayes][] and [natural][] under the hood), which is sourced from hundreds of thousands of spam and ham emails. This classifier relies upon tokenized and stemmed words (with respect to the language of the email as well) into two categories ("spam" and "ham").
+### Virus Scanning
 
-**v6.0 Enhancements:**
+Integrates with ClamAV for comprehensive virus detection:
 
-* **40+ Language Support**: Extended from basic language support to comprehensive global coverage
-* **Hybrid Language Detection**: Smart combination of franc and lande libraries for optimal accuracy
-* **Enhanced Stemming**: Improved word stemming algorithms for better accuracy
-* **Performance Caching**: Memoized operations for faster repeated scans
+* **Real-time Scanning**: Scans all email attachments
+* **Buffer Support**: Direct buffer scanning without file I/O
+* **Timeout Protection**: Configurable scan timeouts
+* **Virus Database**: Uses ClamAV's regularly updated virus definitions
 
-#### Hybrid Language Detection System
+### Executable Detection
 
-SpamScanner v6.0 introduces an intelligent hybrid language detection system that combines the strengths of both `franc` and `lande` libraries:
+Detects dangerous executable files:
 
-**Smart Detection Strategy:**
-
-* **Short Text (< 50 characters)**: Uses `lande` for better accuracy on brief content like subject lines
-* **Long Text (≥ 50 characters)**: Uses `franc` for comprehensive analysis of email bodies
-* **Automatic Fallback**: Graceful degradation if one library fails
-* **Performance Optimized**: Chooses the fastest method for each content type
-
-**Benefits:**
-
-* **Higher Accuracy**: Combines strengths of both libraries for optimal detection
-* **Better Performance**: Uses the most efficient method for each text length
-* **Robust Error Handling**: Multiple fallback mechanisms prevent detection failures
-* **Global Coverage**: Supports 40+ languages with enhanced accuracy
-
-**Usage:**
-
-```javascript
-const scanner = new SpamScanner();
-
-// Automatic hybrid detection
-const language = await scanner.detectLanguageHybrid('Hello world');
-console.log(language); // 'en'
-
-// Works with any text length
-const shortLang = await scanner.detectLanguageHybrid('Bonjour');     // Uses lande
-const longLang = await scanner.detectLanguageHybrid(longEmailText); // Uses franc
-```
-
-### Phishing Content Detection
-
-Robust phishing detection approach which prevents domain swapping, [IDN homograph attacks][homograph-attack], and more.
-
-**v6.0 Enhancements:**
-
-* **Advanced URL Analysis**: Enhanced domain reputation checking with timeout protection
-* **Malware URL Detection**: Integration with security databases for real-time threat detection
-* **Enhanced IDN Homograph Protection**: Multi-factor detection system with reduced false positives
-* **Link Obfuscation Detection**: Advanced techniques to detect hidden and obfuscated links
-
-#### Enhanced IDN Homograph Attack Detection
-
-SpamScanner v6.0 includes a comprehensive IDN homograph attack detection system that significantly improves accuracy while reducing false positives:
-
-**Detection Methods:**
-
-* **Unicode Confusable Analysis**: Detects visually similar characters across different scripts (Latin/Cyrillic/Greek)
-* **Brand Similarity Protection**: Analyzes similarity against popular brands and domains to prevent spoofing
-* **Script Mixing Detection**: Identifies suspicious mixing of character scripts within domains
-* **Context-Aware Analysis**: Considers email content, sender reputation, and domain context
-* **Punycode Enhancement**: Advanced analysis of xn-- encoded domains with risk scoring
-
-**False Positive Reduction:**
-
-* **Whitelist Support**: Configurable whitelist for legitimate international domains
-* **Multi-Factor Scoring**: Combines multiple detection methods for accurate risk assessment
-* **Configurable Thresholds**: Adjustable sensitivity levels for different security requirements
-* **Graceful Fallbacks**: Robust error handling with fallback detection methods
-
-**Configuration:**
-
-```javascript
-const scanner = new SpamScanner({
-  enableIDNDetection: true,        // Enable enhanced IDN detection
-  idnSensitivity: 'medium',        // 'low', 'medium', 'high'
-  idnWhitelist: ['example.com'],   // Trusted international domains
-  brandProtection: true            // Enable brand similarity analysis
-});
-```
-
-### Executable Link and Attachment Detection
-
-Link and attachment detection techniques that check links in the message, "Content-Type" headers, file extensions, [magic number][magic-number], and prevents [homograph attacks][homograph-attack] on file names – all against a list of [executable file extensions](executables.json).
-
-**v6.0 Enhancements:**
-
-* **Enhanced File Type Detection**: Improved magic number analysis and MIME type validation
-* **Archive Analysis**: Deep scanning of compressed files and archives
-* **Script Detection**: Advanced detection of embedded scripts and macros
-* **Binary Analysis**: Enhanced executable file identification
-
-### Virus Detection
-
-Using ClamAV, it scans email attachments (including embedded CID images) for trojans, viruses, malware, and/or other malicious threats.
-
-**v6.0 Enhancements:**
-
-* **Performance Optimization**: Faster scanning with improved ClamAV integration
-* **Enhanced Coverage**: Better detection of modern malware and threats
-* **Memory Management**: Optimized memory usage during virus scanning
-* **Error Handling**: Improved error recovery and fallback mechanisms
+* **195+ File Extensions**: exe, dll, bat, vbs, ps1, scr, pif, cmd, com, etc.
+* **Magic Number Verification**: Detects renamed executables by file content
+* **Office Macros**: Detects macro-enabled Office documents (docm, xlsm, pptm)
+* **Legacy Office**: Flags legacy Office formats (doc, xls, ppt) as high-risk
+* **PDF JavaScript**: Detects malicious JavaScript in PDF files
+* **Archive Detection**: Flags archives (zip, rar, 7z) that may hide executables
 
 ### NSFW Image Detection
 
-Indecent and provocative content is detected using [NSFW image detection][nsfw] models.
+AI-powered image content analysis using TensorFlow\.js:
 
-**v6.0 Enhancements:**
+* **Categories**: Porn, Hentai, Sexy, Neutral, Drawing
+* **Model**: NSFWJS model trained on 60K+ images
+* **Threshold**: Configurable detection threshold (default: 0.7)
+* **Performance**: Model caching for fast subsequent scans
+* **Formats**: Supports JPEG, PNG, GIF, WebP, BMP
 
-* **Improved Accuracy**: Enhanced detection models with better precision
-* **Performance Optimization**: Faster image analysis with reduced resource usage
-* **Format Support**: Extended support for modern image formats
+### Toxicity Detection
 
-### Language Toxicity Detection
+Detects toxic language using TensorFlow\.js Toxicity model:
 
-Profane content is detected using [toxicity][toxicity] models.
-
-**v6.0 Enhancements:**
-
-* **Multi-language Toxicity**: Extended toxicity detection across 40+ languages
-* **Context Awareness**: Improved understanding of context and intent
-* **Reduced False Positives**: Better accuracy in distinguishing toxic vs. legitimate content
+* **Categories**: Identity attack, insult, obscenity, severe toxicity, sexual explicit, threat
+* **Threshold**: Configurable toxicity threshold (default: 0.7)
+* **Languages**: Optimized for English, supports other languages
+* **Performance**: Model caching for fast subsequent scans
 
 ### Macro Detection
 
-**🆕 New in v6.0**: Advanced detection of malicious macros and scripts embedded in documents and emails.
+Detects malicious macros in email content and attachments:
 
-* **VBA Macro Detection**: Identifies Visual Basic for Applications macros in Office documents
-* **PowerShell Script Detection**: Detects embedded PowerShell commands and scripts
-* **JavaScript Analysis**: Identifies potentially malicious JavaScript code
-* **Batch File Detection**: Recognizes Windows batch files and command sequences
-* **Cross-Platform Coverage**: Supports Windows, macOS, and Linux script detection
+* **VBA Macros**: Detects Visual Basic for Applications code
+* **PowerShell**: Detects PowerShell scripts and commands
+* **JavaScript**: Detects JavaScript code in emails
+* **Batch Scripts**: Detects Windows batch files
+* **Office Documents**: Scans docm, xlsm, pptm, xlam, dotm, xltm, potm
+* **PDF JavaScript**: Detects JavaScript in PDF attachments
 
-### Advanced Pattern Recognition
+### Language Detection
 
-**🆕 New in v6.0**: Enhanced pattern recognition for modern spam and phishing techniques.
+Hybrid language detection using franc and lande:
 
-* **Date Pattern Detection**: Recognizes various date formats used in spam campaigns
-* **File Path Detection**: Identifies suspicious file paths and directory structures
-* **Credit Card Pattern Detection**: Enhanced financial data recognition and protection
-* **Phone Number Analysis**: Improved phone number pattern matching across regions
-* **Cryptocurrency Detection**: Bitcoin and other cryptocurrency address recognition
+* **40+ Languages**: Supports all major world languages
+* **Automatic Detection**: Detects language from email content
+* **Fallback System**: Uses lande when franc returns "undetermined"
+* **Mixed Language Support**: Optional mixed language detection
+* **Language Filtering**: Filter results to supported languages only
+
+### Pattern Recognition
+
+Detects various patterns in email content:
+
+* **Credit Cards**: Visa, MasterCard, Amex, Discover, etc.
+* **Phone Numbers**: International phone number formats
+* **Email Addresses**: RFC-compliant email detection
+* **IP Addresses**: IPv4 and IPv6 addresses
+* **URLs**: Full URL extraction and analysis
+* **Bitcoin Addresses**: Cryptocurrency wallet addresses
+* **MAC Addresses**: Network hardware addresses
+* **Hex Colors**: Color codes (#RRGGBB)
+* **Floating Point Numbers**: Decimal numbers
+* **Dates**: Multiple date formats (MM/DD/YYYY, YYYY-MM-DD, etc.)
+* **File Paths**: Windows and Unix file paths
+
+### URL Analysis
+
+Comprehensive URL analysis and validation:
+
+* **TLD Parsing**: Uses tldts for accurate TLD extraction
+* **Domain Analysis**: Extracts domain, subdomain, public suffix
+* **IP Detection**: Identifies IP-based URLs
+* **Cloudflare Check**: Detects Cloudflare-blocked domains
+* **URL Normalization**: Normalizes URLs for consistent analysis
+* **Suspicious Pattern Detection**: Identifies phishing URL patterns
+
+---
 
 
-## Functionality
+## Comparison
 
-Here is how Spam Scanner functions:
+### Spam Scanner vs. Alternatives
 
-1. A message is passed to Spam Scanner, known as the "source".
+| Feature                       | Spam Scanner |  SpamAssassin |     rspamd    |  ClamAV |
+| ----------------------------- | :----------: | :-----------: | :-----------: | :-----: |
+| **License**                   |    BSL 1.1   |   Apache 2.0  |   Apache 2.0  |  GPLv2  |
+| **Language**                  |    Node.js   |      Perl     |       C       |    C    |
+| **Modern Architecture**       |      Yes     |       No      |    Partial    |    No   |
+| **Easy to Use**               |      Yes     |       No      |       No      |   Yes   |
+| **Privacy-Focused**           |      Yes     |    Partial    |    Partial    |   Yes   |
+| **Naive Bayes Classifier**    |      Yes     |      Yes      |      Yes      |    No   |
+| **Virus Scanning**            |      Yes     |      Yes      |      Yes      |   Yes   |
+| **Phishing Detection**        |      Yes     |      Yes      |      Yes      |    No   |
+| **IDN Homograph Detection**   |      Yes     |       No      |      Yes      |    No   |
+| **NSFW Image Detection**      |      Yes     |       No      |       No      |    No   |
+| **Toxicity Detection**        |      Yes     |       No      |       No      |    No   |
+| **Macro Detection**           |      Yes     |      Yes      |      Yes      |   Yes   |
+| **Language Detection**        |   Yes (40+)  | Yes (limited) | Yes (limited) |    No   |
+| **Pattern Recognition**       |      Yes     |      Yes      |      Yes      |    No   |
+| **Executable Detection**      |  Yes (195+)  |      Yes      |      Yes      |   Yes   |
+| **Magic Number Verification** |      Yes     |       No      |       No      |   Yes   |
+| **PDF JavaScript Detection**  |      Yes     |       No      |       No      | Partial |
+| **Archive Detection**         |      Yes     |      Yes      |      Yes      |   Yes   |
+| **Performance Metrics**       |      Yes     |       No      |      Yes      |    No   |
+| **TypeScript Support**        |      Yes     |       No      |       No      |    No   |
+| **Active Development**        |      Yes     |      Yes      |      Yes      |   Yes   |
+| **Production Ready**          |      Yes     |      Yes      |      Yes      |   Yes   |
 
-2. In parallel and asynchronously, the source is passed to functions that detect the following:
+> \[!NOTE]
+> **Alternative to SpamAssassin**: Spam Scanner provides a modern, Node.js-based alternative to SpamAssassin with AI-powered features and better privacy.
+>
+> **Alternative to rspamd**: Spam Scanner offers easier configuration and better documentation than rspamd, with comparable detection accuracy.
+>
+> **Alternative to ClamAV**: While Spam Scanner uses ClamAV for virus scanning, it provides comprehensive spam and phishing detection that ClamAV doesn't offer.
 
-   * [Classification](#spam-content-detection) - Enhanced Naive Bayes with 40+ language support
-   * [Phishing](#phishing-content-detection) - Advanced URL analysis and domain reputation
-   * [Executables](#executable-link-and-attachment-detection) - Enhanced file type and script detection
-   * [Macro Detection](#macro-detection) - **New**: VBA, PowerShell, JavaScript macro detection
-   * Arbitrary [GTUBE](https://spamassassin.apache.org/gtube/) - Standard spam testing
-   * [Viruses](#virus-detection) - ClamAV integration with performance optimization
-   * [NSFW](#nsfw-image-detection) - Enhanced image content analysis
-   * [Toxicity](#language-toxicity-detection) - Multi-language toxicity detection
+---
 
-3. After all functions complete, if any returned a value indicating it is spam, then the source is considered to be spam. A detailed result object is provided for inspection into the reason(s).
 
-**v6.0 Performance Improvements:**
+## Architecture
 
-* **Concurrent Processing**: Optimized parallel execution of detection functions
-* **Caching System**: Intelligent caching of expensive operations
-* **Timeout Protection**: Configurable timeouts prevent hanging on malformed input
-* **Memory Management**: Optimized memory usage and automatic cleanup
+### System Overview
 
-We have extensively documented the [API](#api) which provides insight into how each of these functions work.
+```mermaid
+graph TB
+    A[Email Input] --> B{Spam Scanner}
+    B --> C[Preprocessing]
+    C --> D[Language Detection]
+    D --> E[Tokenization]
+    E --> F[Naive Bayes Classification]
+    
+    B --> G[Phishing Detection]
+    G --> G1[IDN Homograph Check]
+    G --> G2[Confusables Analysis]
+    G --> G3[URL Analysis]
+    
+    B --> H[Attachment Scanning]
+    H --> H1[Virus Scan]
+    H --> H2[Executable Check]
+    H --> H3[Macro Detection]
+    H --> H4[NSFW Detection]
+    
+    B --> I[Content Analysis]
+    I --> I1[Toxicity Detection]
+    I --> I2[Pattern Recognition]
+    
+    F --> J[Result Aggregation]
+    G --> J
+    H --> J
+    I --> J
+    
+    J --> K{Is Spam?}
+    K -->|Yes| L[Spam Result]
+    K -->|No| M[Ham Result]
+```
+
+### Detection Flow
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Scanner
+    participant Classifier
+    participant ClamAV
+    participant TensorFlow
+    
+    Client->>Scanner: scan(email)
+    Scanner->>Scanner: Parse Email
+    Scanner->>Scanner: Extract URLs
+    Scanner->>Scanner: Detect Language
+    
+    par Parallel Detection
+        Scanner->>Classifier: Classify Tokens
+        Scanner->>ClamAV: Scan Attachments
+        Scanner->>TensorFlow: Detect NSFW
+        Scanner->>TensorFlow: Detect Toxicity
+        Scanner->>Scanner: Check Phishing
+        Scanner->>Scanner: Check Macros
+    end
+    
+    Scanner->>Scanner: Aggregate Results
+    Scanner->>Client: Return Result
+```
+
+### Component Architecture
+
+```mermaid
+graph LR
+    A[Spam Scanner] --> B[Core Engine]
+    A --> C[Classifiers]
+    A --> D[Detectors]
+    A --> E[Analyzers]
+    
+    B --> B1[Email Parser]
+    B --> B2[Tokenizer]
+    B --> B3[Preprocessor]
+    
+    C --> C1[Naive Bayes]
+    C --> C2[TensorFlow NSFW]
+    C --> C3[TensorFlow Toxicity]
+    
+    D --> D1[Phishing Detector]
+    D --> D2[Virus Scanner]
+    D --> D3[Macro Detector]
+    D --> D4[Executable Detector]
+    
+    E --> E1[Language Analyzer]
+    E --> E2[URL Analyzer]
+    E --> E3[Pattern Analyzer]
+```
+
+---
 
 
 ## Requirements
 
-Note that you can simply use the Spam Scanner API for free at <https://spamscanner.net> instead of having to independently maintain and self-host your own instance.
+> \[!WARNING]
+> ClamAV is required for virus scanning. If you do not have it installed, virus scanning will be disabled.
 
-| Dependency     | Description                                                                                                                                                                                                                                                                                         |
-| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [Node.js][]    | **v6.0 requires Node.js 18+** (updated from 16+). You must install Node.js in order to use this project as it is Node.js based. We recommend using [nvm][] and installing the latest LTS with `nvm install --lts`. If you simply want to use the Spam Scanner API, visit <https://spamscanner.net>. |
-| [Cloudflare][] | You can optionally set `1.1.1.3` and `1.0.0.3` as your DNS servers as we use DNS over HTTPS to perform a lookup on links, with a fallback to the DNS servers set on the system itself if the DNS over HTTPS request fails. We use Cloudflare for Family for detecting phishing and malware links.   |
-| [ClamAV][]     | You must install ClamAV on your system as we use it to scan for viruses. See [ClamAV Configuration](#clamav-configuration) below. **v6.0** includes improved ClamAV integration with better error handling and performance.                                                                         |
+### System Requirements
 
-### ClamAV Configuration
+* **Node.js**: >= 18.0.0
+* **ClamAV**: Latest version (for virus scanning)
+* **Memory**: 2GB+ RAM recommended (for TensorFlow models)
+* **Disk Space**: 500MB+ (for models and virus definitions)
 
-#### Ubuntu
+### Dependencies
 
-1. Install ClamAV:
+* **@tensorflow/tfjs-node**: For NSFW and toxicity detection
+* **@ladjs/naivebayes**: For spam classification
+* **clamscan**: For virus scanning
+* **mailparser**: For email parsing
+* **natural**: For NLP and tokenization
+* **tldts**: For TLD parsing
+* **confusables**: For Unicode confusables detection
 
-   ```sh
-   sudo apt-get update
-   sudo apt-get install build-essential clamav-daemon clamav-freshclam -qq
-   sudo service clamav-daemon start
-   ```
-
-   > You may need to run `sudo freshclam -v` if you receive an error when checking `sudo service clamav-daemon status`, but it is unlikely and depends on your distro.
-
-   <!-- https://blog.frehi.be/2021/01/25/using-fangfrisch-to-improve-malware-e-mail-detection-with-clamav/ -->
-
-   <!-- https://github.com/rseichter/fangfrisch -->
-
-2. Configure ClamAV:
-
-   ```sh
-   sudo vim /etc/clamav/clamd.conf
-   ```
-
-   ```diff
-   -Example
-   +#Example
-
-   -#StreamMaxLength 10M
-   +StreamMaxLength 50M
-
-   +# this file path may be different on your OS (that's OK)
-
-   \-#LocalSocket /tmp/clamd.socket
-   \+LocalSocket /tmp/clamd.socket
-   ```
-
-   ```sh
-   sudo vim /etc/clamav/freshclam.conf
-   ```
-
-   ```diff
-   -Example
-   +#Example
-   ```
-
-3. Ensure that ClamAV starts on boot:
-
-   ```sh
-   systemctl enable freshclamd
-   systemctl enable clamd
-   systemctl start freshclamd
-   systemctl start clamd
-   ```
-
-#### macOS
-
-1. Install ClamAV:
-
-   ```sh
-   brew install clamav
-   ```
-
-2. Configure ClamAV:
-
-   ```sh
-   # if you are on Intel macOS
-   sudo mv /usr/local/etc/clamav/clamd.conf.sample /usr/local/etc/clamav/clamd.conf
-
-   # if you are on M1 macOS (or newer brew which installs to `/opt/homebrew`)
-   sudo mv /opt/homebrew/etc/clamav/clamd.conf.sample /opt/homebrew/etc/clamav/clamd.conf
-   ```
-
-   ```sh
-   # if you are on Intel macOS
-   sudo vim /usr/local/etc/clamav/clamd.conf
-
-   # if you are on M1 macOS (or newer brew which installs to `/opt/homebrew`)
-   sudo vim /opt/homebrew/etc/clamav/clamd.conf
-   ```
-
-   ```diff
-   -Example
-   +#Example
-
-   -#StreamMaxLength 10M
-   +StreamMaxLength 50M
-
-   +# this file path may be different on your OS (that's OK)
-
-   \-#LocalSocket /tmp/clamd.socket
-   \+LocalSocket /tmp/clamd.socket
-   ```
-
-   ```sh
-   # if you are on Intel macOS
-   sudo mv /usr/local/etc/clamav/freshclam.conf.sample /usr/local/etc/clamav/freshclam.conf
-
-   # if you are on M1 macOS (or newer brew which installs to `/opt/homebrew`)
-   sudo mv /opt/homebrew/etc/clamav/freshclam.conf.sample /opt/homebrew/etc/clamav/freshclam.conf
-   ```
-
-   ```sh
-   # if you are on Intel macOS
-   sudo vim /usr/local/etc/clamav/freshclam.conf
-
-   # if you are on M1 macOS (or newer brew which installs to `/opt/homebrew`)
-   sudo vim /opt/homebrew/etc/clamav/freshclam.conf
-   ```
-
-   ```diff
-   -Example
-   +#Example
-   ```
-
-   ```sh
-   freshclam
-   ```
-
-3. Ensure that ClamAV starts on boot:
-
-   ```sh
-   sudo vim /Library/LaunchDaemons/org.clamav.clamd.plist
-   ```
-
-   > If you are on Intel macOS:
-
-   ```plist
-   <?xml version="1.0" encoding="UTF-8"?>
-   <!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-   <plist version="1.0">
-   <dict>
-     <key>Label</key>
-     <string>org.clamav.clamd</string>
-     <key>KeepAlive</key>
-     <true/>
-     <key>Program</key>
-     <string>/usr/local/sbin/clamd</string>
-     <key>ProgramArguments</key>
-     <array>
-       <string>clamd</string>
-     </array>
-     <key>RunAtLoad</key>
-     <true/>
-   </dict>
-   </plist>
-   ```
-
-   > If you are on M1 macOS (or newer brew which installs to `/opt/homebrew`)
-
-   ```plist
-   <?xml version="1.0" encoding="UTF-8"?>
-   <!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-   <plist version="1.0">
-   <dict>
-     <key>Label</key>
-     <string>org.clamav.clamd</string>
-     <key>KeepAlive</key>
-     <true/>
-     <key>Program</key>
-     <string>/opt/homebrew/sbin/clamd</string>
-     <key>ProgramArguments</key>
-     <array>
-       <string>clamd</string>
-     </array>
-     <key>RunAtLoad</key>
-     <true/>
-   </dict>
-   </plist>
-   ```
-
-4. Enable it and start it on boot:
-
-   ```sh
-   sudo launchctl load /Library/LaunchDaemons/org.clamav.clamd.plist
-   sudo launchctl start /Library/LaunchDaemons/org.clamav.clamd.plist
-   ```
-
-5. You may want to periodically run `freshclam` to update the config, or configure a similar `plist` configuration for `launchctl`.
+---
 
 
-## Install
+## Installation
 
-**v6.0** supports multiple package managers with improved installation experience:
-
-### npm
-
-```sh
+```bash
 npm install spamscanner
 ```
 
-### pnpm (Recommended)
+### ClamAV Installation
 
-```sh
-pnpm add spamscanner
+#### macOS
+
+```bash
+brew install clamav
+freshclam
 ```
 
-### yarn
+#### Ubuntu/Debian
 
-```sh
-yarn add spamscanner
+```bash
+sudo apt-get update
+sudo apt-get install clamav clamav-daemon
+sudo freshclam
+sudo systemctl start clamav-daemon
 ```
 
+#### CentOS/RHEL
 
-## Usage
+```bash
+sudo yum install clamav clamav-update
+sudo freshclam
+```
 
-**Spam Scanner v6.0** supports both modern ES modules and legacy CommonJS for maximum compatibility.
+> \[!TIP]
+> See the [ClamAV configuration guide](https://github.com/spamscanner/spamscanner/blob/master/docs/clamav.md) for detailed installation instructions.
 
-### Modern ES Modules
+---
 
-**Recommended for new projects:**
+
+## Quick Start
+
+### Basic Usage
 
 ```js
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import SpamScanner from 'spamscanner';
-
-const scanner = new SpamScanner({
-  // v6.0 enhanced configuration options
-  enableMacroDetection: true,
-  enableMalwareUrlCheck: true,
-  enablePerformanceMetrics: true,
-  timeout: 30000 // 30 second timeout protection
-});
-
-//
-// NOTE: The `source` argument is the full raw email to be scanned
-// and you can pass it as String, Buffer, or valid file path
-//
-const source = readFileSync(
-  join(process.cwd(), 'test', 'fixtures', 'spam.eml')
-);
-
-// async/await usage
-try {
-  const scan = await scanner.scan(source);
-  console.log('scan', scan);
-
-  // v6.0 performance metrics
-  if (scan.metrics) {
-    console.log('Processing time:', scan.metrics.totalTime, 'ms');
-    console.log('Classification time:', scan.metrics.classificationTime, 'ms');
-  }
-} catch (err) {
-  console.error(err);
-}
-```
-
-### CommonJS (Legacy)
-
-**For existing projects and backwards compatibility:**
-
-```js
-const fs = require('fs');
-const path = require('path');
-const SpamScanner = require('spamscanner');
 
 const scanner = new SpamScanner();
 
-//
-// NOTE: The `source` argument is the full raw email to be scanned
-// and you can pass it as String, Buffer, or valid file path
-//
-const source = fs.readFileSync(
-  path.join(__dirname, 'test', 'fixtures', 'spam.eml')
-);
+// Raw email string or Buffer
+const email = `
+From: sender@example.com
+To: recipient@example.com
+Subject: Test Email
 
-// async/await usage
-(async () => {
-  try {
-    const scan = await scanner.scan(source);
-    console.log('scan', scan);
-  } catch (err) {
-    console.error(err);
-  }
-})();
+This is a test email.
+`;
 
-// then/catch usage
-scanner
-  .scan(source)
-  .then(scan => console.log('scan', scan))
-  .catch(console.error);
+const result = await scanner.scan(email);
+
+console.log(result);
+// {
+//   isSpam: false,
+//   message: 'Ham',
+//   results: { ... },
+//   ...
+// }
 ```
 
-### Advanced Configuration
-
-**v6.0** introduces enhanced configuration options for fine-tuned control:
+### With Configuration
 
 ```js
 import SpamScanner from 'spamscanner';
 
 const scanner = new SpamScanner({
-  // Enhanced security features
-  enableMacroDetection: true,
-  enableMalwareUrlCheck: true,
-  enablePhishingProtection: true,
-  enableAdvancedPatternRecognition: true,
-
-  // IDN Homograph Attack Detection
-  enableIDNDetection: true,
-  idnSensitivity: 'medium', // 'low', 'medium', 'high'
-  idnWhitelist: ['example.com', 'münchen.de'], // Trusted international domains
-  brandProtection: true, // Enable brand similarity analysis
-
-  // Token Hashing for Privacy
-  hashTokens: true, // Enable SHA-256 token hashing
-  hashSalt: 'your-custom-salt', // Optional custom salt
-
-  // Hybrid Language Detection
-  enableHybridLanguageDetection: true,
-  languageDetectionThreshold: 50, // Character threshold for franc vs lande
-
-  // Performance optimization
-  enableCaching: true,
+  // Enable performance metrics
   enablePerformanceMetrics: true,
-  timeout: 30000, // 30 second timeout
-  maxConcurrentScans: 10,
-
-  // Language support (40+ languages)
-  supportedLanguages: ['en', 'es', 'fr', 'de', 'ja', 'zh', 'ko', 'ar', 'ru'],
-  enableMixedLanguageDetection: true,
-
-  // Advanced tokenization
-  enableEnhancedTokenization: true,
-  enableStemming: true,
-  enableStopwordRemoval: true,
-
-  // Virus scanning
+  
+  // Filter to supported languages
+  supportedLanguages: ['en', 'es', 'fr', 'de'],
+  
+  // Enable macro detection
+  enableMacroDetection: true,
+  
+  // Set scan timeout
+  timeout: 30000,
+  
+  // Custom ClamAV configuration
   clamscan: {
-    removeInfected: false,
-    quarantineInfected: false,
-    scanLog: null,
-    debugMode: false,
-    fileList: null,
-    scanRecursively: true,
-    clamscanPath: '/usr/bin/clamscan',
+    preference: 'clamdscan',
     clamdscanPath: '/usr/bin/clamdscan',
-    preference: 'clamdscan'
   },
-
-  // Custom classifier
-  classifier: require('./path/to/custom/classifier.json'),
-
-  // Custom replacements for enhanced privacy
-  replacements: require('./path/to/custom/replacements.json')
 });
+
+const result = await scanner.scan(email);
 ```
 
-#### Configuration Options Explained
+### Checking Specific Features
 
-**Security Features:**
+```js
+// Check if email is spam
+if (result.isSpam) {
+  console.log('Spam detected!');
+  console.log('Reason:', result.message);
+}
 
-* `enableIDNDetection`: Enables advanced IDN homograph attack detection
-* `idnSensitivity`: Controls detection sensitivity ("low", "medium", "high")
-* `idnWhitelist`: Array of trusted international domains to exclude from detection
-* `brandProtection`: Enables brand similarity analysis to detect spoofing attempts
-* `hashTokens`: Enables privacy-preserving SHA-256 token hashing
-* `hashSalt`: Custom salt for token hashing (optional)
+// Check for viruses
+if (result.results.viruses && result.results.viruses.length > 0) {
+  console.log('Viruses found:', result.results.viruses);
+}
 
-**Language Detection:**
+// Check for phishing
+if (result.results.phishing && result.results.phishing.length > 0) {
+  console.log('Phishing detected:', result.results.phishing);
+}
 
-* `enableHybridLanguageDetection`: Enables smart franc/lande hybrid detection
-* `languageDetectionThreshold`: Character count threshold for choosing detection method
-* `supportedLanguages`: Array of supported language codes
-* `enableMixedLanguageDetection`: Enables detection of emails with multiple languages
+// Check for executables
+if (result.results.executables && result.results.executables.length > 0) {
+  console.log('Executables found:', result.results.executables);
+}
 
-**Performance:**
+// Check for NSFW content
+if (result.results.nsfw && result.results.nsfw.length > 0) {
+  console.log('NSFW content detected:', result.results.nsfw);
+}
 
-* `enableCaching`: Enables intelligent caching of expensive operations
-* `enablePerformanceMetrics`: Includes timing and memory metrics in results
-* `timeout`: Maximum processing time in milliseconds
-* `maxConcurrentScans`: Maximum number of concurrent scan operations
-
-
-## Classifier Training
-
-**🆕 New in v6.0**: SpamScanner now includes comprehensive tools for training your own classifier with custom datasets, featuring privacy-preserving token hashing.
-
-### Quick Start
-
-```bash
-# Navigate to training directory
-cd training/
-
-# Download Enron dataset (31,716 emails)
-python3 download_dataset.py
-
-# Train classifier with token hashing for privacy
-node simple_trainer.js enron_dataset.json classifier.json
-
-# Test the trained classifier
-node test_classifier.js
-
-# Copy to main project
-cp classifier.json ../
-```
-
-### Training Features
-
-**Privacy-Preserving Training:**
-
-* **Token Hashing**: SHA-256 hashing prevents reverse-engineering of training data
-* **Configurable Salt**: Custom salt values for enhanced security
-* **Data Protection**: Training data cannot be reconstructed from the classifier
-
-**Performance Optimizations:**
-
-* **Memory Efficient**: Optimized for large datasets (100k+ emails)
-* **Progress Tracking**: Real-time training progress and metrics
-* **Validation**: Built-in cross-validation and accuracy testing
-* **Export Options**: Multiple classifier format support
-
-### Supported Datasets
-
-* **Enron Email Dataset**: 31,716 emails (ham and spam)
-* **SpamAssassin Public Corpus**: Industry-standard spam detection dataset
-* **Custom Datasets**: Support for custom email collections
-* **Multiple Formats**: mbox, EML, JSON, and text formats
-
-### Training Scripts
-
-**Simple Trainer** (`simple_trainer.js`):
-
-```bash
-# Basic training with default settings
-node simple_trainer.js dataset.json output_classifier.json
-
-# Training with token hashing enabled
-node simple_trainer.js dataset.json output_classifier.json --hash-tokens
-
-# Training with custom configuration
-node simple_trainer.js dataset.json output_classifier.json --config training_config.json
-```
-
-**Advanced Trainer** (`optimized_trainer.js`):
-
-```bash
-# High-performance training for large datasets
-node optimized_trainer.js dataset.json output_classifier.json --workers 4
-
-# Training with cross-validation
-node optimized_trainer.js dataset.json output_classifier.json --validate --test-split 0.2
-```
-
-### Custom Dataset Format
-
-```json
-{
-  "emails": [
-    {
-      "text": "Email content here...",
-      "classification": "spam", // or "ham"
-      "metadata": {
-        "source": "dataset_name",
-        "date": "2023-01-01"
-      }
-    }
-  ]
+// Check for toxic language
+if (result.results.toxicity && result.results.toxicity.length > 0) {
+  console.log('Toxic language detected:', result.results.toxicity);
 }
 ```
 
-### Advanced Configuration
+---
 
-**Training Configuration** (`training_config.json`):
 
-```json
-{
-  "hashTokens": true,
-  "hashSalt": "custom-training-salt",
-  "enableStemming": true,
-  "enableStopwordRemoval": true,
-  "supportedLanguages": ["en", "es", "fr", "de"],
-  "minTokenLength": 2,
-  "maxTokenLength": 50,
-  "vocabularyLimit": 100000,
-  "smoothing": 1.0,
-  "validation": {
-    "enabled": true,
-    "testSplit": 0.2,
-    "crossValidation": 5
+## API Documentation
+
+### Constructor Options
+
+#### `new SpamScanner(options)`
+
+Creates a new Spam Scanner instance.
+
+##### Options
+
+| Option                             | Type          | Default   | Description                                                                   |
+| ---------------------------------- | ------------- | --------- | ----------------------------------------------------------------------------- |
+| `enableMacroDetection`             | `boolean`     | `true`    | Enable macro detection in emails and attachments                              |
+| `enablePerformanceMetrics`         | `boolean`     | `false`   | Track and return performance metrics                                          |
+| `timeout`                          | `number`      | `30000`   | Timeout in milliseconds for scans (virus, URL checks)                         |
+| `supportedLanguages`               | `string[]`    | `['en']`  | Array of supported language codes. Empty array `[]` = all languages supported |
+| `enableMixedLanguageDetection`     | `boolean`     | `false`   | Enable detection of mixed languages in emails                                 |
+| `enableAdvancedPatternRecognition` | `boolean`     | `true`    | Enable advanced pattern recognition (credit cards, phones, etc.)              |
+| `toxicityThreshold`                | `number`      | `0.7`     | Threshold for toxicity detection (0.0-1.0, higher = more strict)              |
+| `nsfwThreshold`                    | `number`      | `0.6`     | Threshold for NSFW detection (0.0-1.0, higher = more strict)                  |
+| `debug`                            | `boolean`     | `false`   | Enable debug logging                                                          |
+| `logger`                           | `object`      | `console` | Custom logger object (must have `log`, `error`, `warn` methods)               |
+| `clamscan`                         | `object`      | See below | ClamAV configuration options                                                  |
+| `classifier`                       | `object`      | `null`    | Custom Naive Bayes classifier data                                            |
+| `replacements`                     | `Map\|object` | `null`    | Custom text replacements for preprocessing                                    |
+
+##### ClamAV Options (`clamscan`)
+
+| Option               | Type           | Default                | Description                                      |
+| -------------------- | -------------- | ---------------------- | ------------------------------------------------ |
+| `removeInfected`     | `boolean`      | `false`                | Remove infected files                            |
+| `quarantineInfected` | `boolean`      | `false`                | Quarantine infected files                        |
+| `scanLog`            | `string\|null` | `null`                 | Path to scan log file                            |
+| `debugMode`          | `boolean`      | `false`                | Enable ClamAV debug mode                         |
+| `fileList`           | `string\|null` | `null`                 | Path to file list                                |
+| `scanRecursively`    | `boolean`      | `true`                 | Scan directories recursively                     |
+| `clamscanPath`       | `string`       | `'/usr/bin/clamscan'`  | Path to clamscan binary                          |
+| `clamdscanPath`      | `string`       | `'/usr/bin/clamdscan'` | Path to clamdscan binary                         |
+| `preference`         | `string`       | `'clamdscan'`          | Preferred scanner: `'clamdscan'` or `'clamscan'` |
+
+##### Example
+
+```js
+const scanner = new SpamScanner({
+  enableMacroDetection: true,
+  enablePerformanceMetrics: true,
+  timeout: 60000,
+  supportedLanguages: ['en', 'es', 'fr', 'de', 'ja', 'zh'],
+  enableMixedLanguageDetection: false,
+  enableAdvancedPatternRecognition: true,
+  debug: false,
+  logger: console,
+  clamscan: {
+    preference: 'clamdscan',
+    clamdscanPath: '/usr/bin/clamdscan',
+    scanRecursively: true,
+    debugMode: false,
   },
-  "performance": {
-    "enableMetrics": true,
-    "memoryLimit": "4GB",
-    "workers": 4
+});
+```
+
+---
+
+### Methods
+
+#### `scanner.scan(source)`
+
+Scans an email for spam, viruses, phishing, and other threats.
+
+##### Parameters
+
+* `source` (`string` | `Buffer`) - Raw email content (RFC 822 format)
+
+##### Returns
+
+`Promise<object>` - Scan result object (see [Result Object](#result-object))
+
+##### Example
+
+```js
+const result = await scanner.scan(emailString);
+```
+
+##### Edge Cases
+
+* **Empty email**: Returns `isSpam: false` with empty results
+* **Invalid email format**: Attempts to parse, may return partial results
+* **Timeout**: Returns partial results if scan exceeds `timeout` option
+* **ClamAV unavailable**: Skips virus scanning, continues with other checks
+* **TensorFlow model loading**: First scan may take 30+ seconds, subsequent scans are fast (models cached)
+
+---
+
+#### `scanner.getTokensAndMailFromSource(source)`
+
+Parses email and extracts tokens for classification.
+
+##### Parameters
+
+* `source` (`string` | `Buffer`) - Raw email content
+
+##### Returns
+
+`Promise<object>` - Object with `tokens` (array) and `mail` (parsed email object)
+
+##### Example
+
+```js
+const {tokens, mail} = await scanner.getTokensAndMailFromSource(emailString);
+console.log('Tokens:', tokens);
+console.log('Subject:', mail.subject);
+```
+
+---
+
+#### `scanner.getClassification(tokens)`
+
+Classifies tokens as spam or ham using Naive Bayes classifier.
+
+##### Parameters
+
+* `tokens` (`string[]`) - Array of tokens from email
+
+##### Returns
+
+`Promise<object>` - Classification result with `category` and `probability`
+
+##### Example
+
+```js
+const classification = await scanner.getClassification(tokens);
+console.log('Category:', classification.category); // 'spam' or 'ham'
+console.log('Probability:', classification.probability); // 0.0 - 1.0
+```
+
+---
+
+#### `scanner.getPhishingResults(mail)`
+
+Detects phishing attempts in email.
+
+##### Parameters
+
+* `mail` (`object`) - Parsed email object from `mailparser`
+
+##### Returns
+
+`Promise<array>` - Array of phishing detection results
+
+##### Example
+
+```js
+const phishing = await scanner.getPhishingResults(mail);
+// [
+//   {
+//     type: 'idn_homograph',
+//     domain: 'аpple.com',
+//     message: 'IDN homograph attack detected'
+//   }
+// ]
+```
+
+---
+
+#### `scanner.getExecutableResults(mail)`
+
+Detects executable files in email attachments.
+
+##### Parameters
+
+* `mail` (`object`) - Parsed email object from `mailparser`
+
+##### Returns
+
+`Promise<array>` - Array of executable detection results
+
+##### Example
+
+```js
+const executables = await scanner.getExecutableResults(mail);
+// [
+//   {
+//     filename: 'malware.exe',
+//     type: 'executable',
+//     extension: 'exe',
+//     risk: 'high'
+//   }
+// ]
+```
+
+---
+
+#### `scanner.getVirusResults(mail)`
+
+Scans email attachments for viruses using ClamAV.
+
+##### Parameters
+
+* `mail` (`object`) - Parsed email object from `mailparser`
+
+##### Returns
+
+`Promise<array>` - Array of virus detection results
+
+##### Example
+
+```js
+const viruses = await scanner.getVirusResults(mail);
+// [
+//   {
+//     filename: 'infected.pdf',
+//     virus: ['Trojan.PDF.Generic'],
+//     type: 'virus'
+//   }
+// ]
+```
+
+---
+
+#### `scanner.getMacroResults(mail)`
+
+Detects macros in email content and attachments.
+
+##### Parameters
+
+* `mail` (`object`) - Parsed email object from `mailparser`
+
+##### Returns
+
+`Promise<array>` - Array of macro detection results
+
+##### Example
+
+```js
+const macros = await scanner.getMacroResults(mail);
+// [
+//   {
+//     type: 'vba_macro',
+//     message: 'VBA macro detected in email content'
+//   }
+// ]
+```
+
+---
+
+#### `scanner.getNSFWResults(mail)`
+
+Detects NSFW content in image attachments using TensorFlow\.js.
+
+##### Parameters
+
+* `mail` (`object`) - Parsed email object from `mailparser`
+
+##### Returns
+
+`Promise<array>` - Array of NSFW detection results
+
+##### Example
+
+```js
+const nsfw = await scanner.getNSFWResults(mail);
+// [
+//   {
+//     type: 'nsfw',
+//     filename: 'image.jpg',
+//     category: 'Porn',
+//     probability: 0.85,
+//     description: 'NSFW image detected: Porn (85.0%)'
+//   }
+// ]
+```
+
+---
+
+#### `scanner.getToxicityResults(mail)`
+
+Detects toxic language in email content using TensorFlow\.js.
+
+##### Parameters
+
+* `mail` (`object`) - Parsed email object from `mailparser`
+
+##### Returns
+
+`Promise<array>` - Array of toxicity detection results
+
+##### Example
+
+```js
+const toxicity = await scanner.getToxicityResults(mail);
+// [
+//   {
+//     type: 'toxicity',
+//     category: 'threat',
+//     probability: 0.92,
+//     description: 'Toxic content detected: threat (92.0%)'
+//   },
+//   {
+//     type: 'toxicity',
+//     category: 'insult',
+//     probability: 0.78,
+//     description: 'Toxic content detected: insult (78.0%)'
+//   }
+// ]
+```
+
+---
+
+#### `scanner.getTokens(str, locale, isHTML)`
+
+Tokenizes text for classification.
+
+##### Parameters
+
+* `str` (`string`) - Text to tokenize
+* `locale` (`string`) - Language code (e.g., "en", "es", "fr")
+* `isHTML` (`boolean`) - Whether text contains HTML (default: `false`)
+
+##### Returns
+
+`Promise<string[]>` - Array of tokens
+
+##### Example
+
+```js
+const tokens = await scanner.getTokens('Hello world', 'en', false);
+// ['hello', 'world']
+```
+
+---
+
+#### `scanner.parseLocale(locale)`
+
+Normalizes language codes to standard format.
+
+##### Parameters
+
+* `locale` (`string`) - Language code or locale string
+
+##### Returns
+
+`string` - Normalized language code
+
+##### Example
+
+```js
+const normalized = scanner.parseLocale('en-US');
+// 'en'
+```
+
+---
+
+#### `scanner.detectLanguageHybrid(text)`
+
+Detects language using hybrid franc/lande approach.
+
+##### Parameters
+
+* `text` (`string`) - Text to analyze
+
+##### Returns
+
+`Promise<string>` - Detected language code
+
+##### Example
+
+```js
+const language = await scanner.detectLanguageHybrid('Bonjour le monde');
+// 'fr'
+```
+
+---
+
+#### `scanner.extractAllUrls(mail, originalSource)`
+
+Extracts all URLs from email.
+
+##### Parameters
+
+* `mail` (`object`) - Parsed email object
+* `originalSource` (`string`) - Original email source
+
+##### Returns
+
+`string[]` - Array of URLs
+
+##### Example
+
+```js
+const urls = scanner.extractAllUrls(mail, emailString);
+// ['https://example.com', 'http://test.com']
+```
+
+---
+
+#### `scanner.parseUrlWithTldts(url)`
+
+Parses URL using tldts for accurate TLD extraction.
+
+##### Parameters
+
+* `url` (`string`) - URL to parse
+
+##### Returns
+
+`object` - Parsed URL components
+
+##### Example
+
+```js
+const parsed = scanner.parseUrlWithTldts('https://subdomain.example.co.uk/path');
+// {
+//   domain: 'example.co.uk',
+//   subdomain: 'subdomain',
+//   hostname: 'subdomain.example.co.uk',
+//   publicSuffix: 'co.uk',
+//   isIp: false
+// }
+```
+
+---
+
+### Result Object
+
+The `scan()` method returns a comprehensive result object:
+
+```js
+{
+  // Overall spam classification
+  isSpam: boolean,
+  message: string, // 'Ham' or 'Spam: <reasons>'
+  
+  // Detection results
+  results: {
+    // Classification details
+    classification: {
+      category: 'spam' | 'ham',
+      probability: number
+    },
+    
+    // Phishing detection
+    phishing: [
+      {
+        type: 'idn_homograph' | 'suspicious_link' | 'confusables',
+        domain: string,
+        message: string
+      }
+    ],
+    
+    // Executable detection
+    executables: [
+      {
+        filename: string,
+        type: 'executable' | 'office_document' | 'legacy_office' | 'pdf_javascript' | 'archive',
+        extension: string,
+        risk: 'high' | 'medium' | 'low'
+      }
+    ],
+    
+    // Macro detection
+    macros: [
+      {
+        type: 'vba_macro' | 'powershell' | 'javascript' | 'batch',
+        message: string
+      }
+    ],
+    
+    // Arbitrary results (custom detections)
+    arbitrary: [],
+    
+    // Virus scanning
+    viruses: [
+      {
+        filename: string,
+        virus: string[],
+        type: 'virus'
+      }
+    ],
+    
+    // Pattern recognition
+    patterns: {
+      credit_cards: number,
+      phone_numbers: number,
+      emails: number,
+      ips: number,
+      urls: number,
+      bitcoin: number,
+      dates: number,
+      file_paths: number
+    },
+    
+    // IDN homograph attack detection
+    idnHomographAttack: [],
+    
+    // Toxicity detection (array of results)
+    toxicity: [
+      {
+        type: 'toxicity',
+        category: 'identity_attack' | 'insult' | 'obscene' | 'severe_toxicity' | 'sexual_explicit' | 'threat',
+        probability: number,
+        description: string
+      }
+    ],
+    
+    // NSFW detection (array of results)
+    nsfw: [
+      {
+        type: 'nsfw',
+        filename: string,
+        category: 'Porn' | 'Hentai' | 'Sexy' | 'Neutral' | 'Drawing',
+        probability: number,
+        description: string
+      }
+    ]
+  },
+  
+  // All URLs extracted from email
+  links: string[],
+  
+  // Tokens extracted from email
+  tokens: string[],
+  
+  // Email metadata
+  mail: {
+    from: object,
+    to: object[],
+    subject: string,
+    text: string,
+    html: string,
+    attachments: object[],
+    headers: object
+  },
+  
+  // Performance metrics (if enabled)
+  metrics: {
+    totalTime: number, // milliseconds
+    classificationTime: number,
+    phishingTime: number,
+    executableTime: number,
+    macroTime: number,
+    virusTime: number,
+    patternTime: number,
+    idnTime: number,
+    memoryUsage: object
   }
 }
 ```
 
-### Performance Metrics
+---
 
-Training provides comprehensive metrics:
 
-```javascript
-{
-  "accuracy": 0.9876,
-  "precision": 0.9823,
-  "recall": 0.9891,
-  "f1Score": 0.9857,
-  "trainingTime": 45.2,
-  "memoryUsage": "2.1GB",
-  "vocabularySize": 87432,
-  "emailsProcessed": 31716,
-  "tokensHashed": true
-}
+## Advanced Usage
+
+### Custom Classifier
+
+```js
+import SpamScanner from 'spamscanner';
+import NaiveBayes from '@ladjs/naivebayes';
+
+// Train custom classifier
+const classifier = new NaiveBayes();
+classifier.learn('buy viagra now', 'spam');
+classifier.learn('hello friend', 'ham');
+
+const scanner = new SpamScanner({
+  classifier: classifier.toJson()
+});
 ```
 
-SpamScanner v6.0 introduces optional token hashing for enhanced privacy and security:
+### Custom Text Replacements
 
-**Benefits:**
-
-* **Privacy Protection**: Prevents reverse-engineering of training data
-* **Data Security**: SHA-256 hashing makes tokens unreadable
-* **Compliance Ready**: Helps meet data protection requirements
-* **Performance Maintained**: Minimal impact on classification speed
-
-**How it Works:**
-
-1. **Training**: Tokens are hashed before being stored in the classifier
-2. **Classification**: Input tokens are hashed using the same method
-3. **Matching**: Hashed tokens are compared for classification
-4. **Security**: Original tokens cannot be reconstructed from the classifier
-
-**Configuration:**
-
-```javascript
-// Enable during training
+```js
 const scanner = new SpamScanner({
-  hashTokens: true,           // Enable SHA-256 token hashing
-  hashLength: 16             // Hash truncation length (default: 16)
+  replacements: new Map([
+    ['u', 'you'],
+    ['ur', 'your'],
+    ['r', 'are'],
+    ['b4', 'before']
+  ])
+});
+```
+
+### Language Filtering
+
+```js
+// Only accept English, Spanish, and French emails
+const scanner = new SpamScanner({
+  supportedLanguages: ['en', 'es', 'fr']
 });
 
-// Tokens are automatically hashed during getTokens()
-const tokens = await scanner.getTokens('Hello world', 'en');
-console.log(tokens); // ['a1b2c3d4e5f6g7h8', '9i0j1k2l3m4n5o6p']
+// Accept all languages
+const scanner2 = new SpamScanner({
+  supportedLanguages: []
+});
 ```
 
-### Performance Metrics
-
-The included Enron-trained classifier achieves:
-
-* **Processing Speed**: \~500 emails/second during training
-* **Memory Usage**: <500MB peak during training
-* **File Size**: 0.79MB (compact and efficient)
-* **Vocabulary**: 20,000 hashed tokens
-* **Privacy**: SHA-256 token hashing enabled
-
-For detailed training instructions, see [`training/README.md`](training/README.md).
-
-
-## API
-
-### `const scanner = new SpamScanner(options)`
-
-The `SpamScanner` class accepts an optional `options` Object of options to configure the spam scanner instance being created. It returns a new instance referred to commonly as a `scanner`.
-
-We have configured the scanner defaults to utilize a default classifier, and sensible options for ensuring scanning works properly.
-
-**v6.0 Enhanced Options:**
-
-| Option                             | Type    | Default  | Description                                                     |
-| ---------------------------------- | ------- | -------- | --------------------------------------------------------------- |
-| `enableMacroDetection`             | Boolean | `true`   | **New**: Enable VBA, PowerShell, JavaScript macro detection     |
-| `enableMalwareUrlCheck`            | Boolean | `true`   | **New**: Enable advanced malware URL checking                   |
-| `enablePerformanceMetrics`         | Boolean | `false`  | **New**: Track processing times and performance metrics         |
-| `enableCaching`                    | Boolean | `true`   | **New**: Enable intelligent caching of expensive operations     |
-| `timeout`                          | Number  | `30000`  | **Enhanced**: Timeout protection for all operations (ms)        |
-| `supportedLanguages`               | Array   | `['en']` | **Enhanced**: Array of supported language codes (40+ available) |
-| `enableMixedLanguageDetection`     | Boolean | `false`  | **New**: Enable multi-language email analysis                   |
-| `enableAdvancedPatternRecognition` | Boolean | `true`   | **New**: Enable date, file path, and pattern detection          |
-
-For a complete list of all options and their defaults, see the [src/index.js](src/index.js) file.
-
-### `scanner.scan(source)`
-
-> **NOTE:** This is most useful method of this API as it returns the scanned results of a scanned message.
-
-Accepts a required `source` (String, Buffer, or file path) argument which points to (or is) a complete and raw SMTP message (e.g. it includes headers and the full email). Commonly this is known as an "eml" file type and contains the extension `.eml`, however you can pass a String or Buffer representation instead of a file path.
-
-This method returns a Promise that resolves with a `scan` Object when scanning is completed.
-
-v6.0 Enhanced Results:
-
-The scanned results are returned as an Object with the following properties:
-
-```js
-{
-  is_spam: Boolean,
-  message: String,
-  results: {
-    classification: Object,
-    phishing: Array,
-    executables: Array,
-    macros: Array,        // New in v6.0
-    arbitrary: Array,
-    nsfw: Array,
-    toxicity: Array,
-    viruses: Array,
-    patterns: Array       // New in v6.0
-  },
-  links: Array,
-  tokens: Array,
-  mail: Object,
-  metrics: Object         // New in v6.0 (if enabled)
-}
-```
-
-| Property                 | Type    | Description                                                                                                                                                                                                                               |
-| ------------------------ | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `is_spam`                | Boolean | A value of `true` is returned if `category` property of the `results.classification` Object was determined to be `"spam"` or if any phishing, executables, macros, arbitrary, viruses, nsfw, toxicity, or patterns results were detected. |
-| `message`                | String  | A human-readable message indicating why it was flagged as spam (if applicable). **v6.0**: Enhanced with more detailed explanations.                                                                                                       |
-| `results`                | Object  | An object containing detailed scan results from all detection methods. **v6.0**: Added `macros` and `patterns` arrays.                                                                                                                    |
-| `results.classification` | Object  | Naive Bayes classifier results with enhanced accuracy and language support.                                                                                                                                                               |
-| `results.phishing`       | Array   | **Enhanced**: Advanced phishing detection with improved URL analysis.                                                                                                                                                                     |
-| `results.executables`    | Array   | **Enhanced**: Improved executable detection with script analysis.                                                                                                                                                                         |
-| `results.macros`         | Array   | **New**: Macro detection results (VBA, PowerShell, JavaScript, etc.).                                                                                                                                                                     |
-| `results.arbitrary`      | Array   | GTUBE and other arbitrary spam test results.                                                                                                                                                                                              |
-| `results.nsfw`           | Array   | **Enhanced**: Improved NSFW image detection results.                                                                                                                                                                                      |
-| `results.toxicity`       | Array   | **Enhanced**: Multi-language toxicity detection results.                                                                                                                                                                                  |
-| `results.viruses`        | Array   | **Enhanced**: Optimized virus scanning results.                                                                                                                                                                                           |
-| `results.patterns`       | Array   | **New**: Advanced pattern recognition results (dates, file paths, etc.).                                                                                                                                                                  |
-| `links`                  | Array   | **Enhanced**: Extracted links with improved parsing and analysis.                                                                                                                                                                         |
-| `tokens`                 | Array   | **Enhanced**: Tokenized content with 40+ language support.                                                                                                                                                                                |
-| `mail`                   | Object  | Parsed email object with enhanced header analysis.                                                                                                                                                                                        |
-| `metrics`                | Object  | **New**: Performance metrics (if `enablePerformanceMetrics` is true).                                                                                                                                                                     |
-
-**v6.0 Metrics Object:**
-
-```js
-{
-  totalTime: Number,           // Total processing time in milliseconds
-  classificationTime: Number,  // Naive Bayes classification time
-  phishingTime: Number,        // Phishing detection time
-  executableTime: Number,      // Executable detection time
-  macroTime: Number,           // Macro detection time
-  virusTime: Number,           // Virus scanning time
-  nsfwTime: Number,            // NSFW detection time
-  toxicityTime: Number,        // Toxicity detection time
-  patternTime: Number,         // Pattern recognition time
-  memoryUsage: Object          // Memory usage statistics
-}
-```
-
-### `scanner.getTokensAndMailFromSource(source)`
-
-**Enhanced in v6.0** with improved parsing and multi-language support.
-
-Accepts a `source` argument (same as `scanner.scan`) and returns a Promise that resolves with an Object containing `tokens` and `mail` properties.
-
-**v6.0 Enhancements:**
-
-* **40+ Language Support**: Enhanced tokenization for global languages
-* **Mixed Language Detection**: Automatic detection and processing of multi-language content
-* **Performance Optimization**: 50% faster tokenization through optimized algorithms
-* **Enhanced Parsing**: Improved email parsing with better header analysis
-
-### `scanner.getClassification(tokens)`
-
-**Enhanced in v6.0** with improved accuracy and performance.
-
-Accepts a `tokens` Array (from `scanner.getTokens`) and returns a Promise that resolves with a classification Object from the Naive Bayes classifier.
-
-**v6.0 Enhancements:**
-
-* **Improved Accuracy**: Enhanced training data and algorithms
-* **Performance Caching**: Memoized operations for faster repeated classifications
-* **Memory Optimization**: 30% reduced memory usage
-* **Enhanced Error Handling**: Better error recovery and fallback mechanisms
-
-### `scanner.getPhishingResults(mail)`
-
-**Significantly enhanced in v6.0** with advanced threat detection.
-
-Accepts a `mail` Object (from `scanner.getTokensAndMailFromSource`) and returns a Promise that resolves with an Array of phishing detection results.
-
-**v6.0 Enhancements:**
-
-* **Advanced URL Analysis**: Enhanced domain reputation checking
-* **Malware URL Detection**: Real-time threat database integration
-* **Timeout Protection**: Configurable timeouts prevent hanging
-* **IDN Attack Prevention**: Improved internationalized domain name handling
-* **Link Obfuscation Detection**: Advanced techniques for hidden links
-
-### `scanner.getExecutableResults(mail)`
-
-**Enhanced in v6.0** with improved detection capabilities.
-
-Accepts a `mail` Object and returns a Promise that resolves with an Array of executable detection results.
-
-**v6.0 Enhancements:**
-
-* **Enhanced File Type Detection**: Improved magic number analysis
-* **Script Detection**: Advanced detection of embedded scripts
-* **Archive Analysis**: Deep scanning of compressed files
-* **Binary Analysis**: Enhanced executable file identification
-* **Cross-Platform Support**: Improved detection across operating systems
-
-### `scanner.getTokens(str, locale, isHTML = false)`
-
-**Significantly enhanced in v6.0** with comprehensive language support.
-
-Accepts a string `str`, optional `locale` (language code), and optional `isHTML` Boolean, returning an Array of tokens.
-
-**v6.0 Enhancements:**
-
-* **40+ Language Support**: Comprehensive tokenization for global languages
-* **Enhanced Stemming**: Improved word stemming algorithms
-* **Stopword Removal**: Advanced stopword filtering for better accuracy
-* **Unicode Handling**: Comprehensive Unicode support
-* **Performance Optimization**: Faster tokenization through optimized algorithms
-
-**Supported Languages (v6.0):**
-`ar`, `bg`, `bn`, `ca`, `cs`, `da`, `de`, `el`, `en`, `es`, `fa`, `fi`, `fr`, `ga`, `gl`, `gu`, `he`, `hi`, `hr`, `hu`, `hy`, `it`, `ja`, `ko`, `la`, `lt`, `lv`, `mr`, `nl`, `no`, `pl`, `pt`, `ro`, `ru`, `sk`, `sl`, `sv`, `th`, `tr`, `uk`, `vi`, `zh`
-
-### `scanner.getArbitraryResults(mail)`
-
-Accepts a `mail` Object and returns a Promise that resolves with an Array of arbitrary detection results (e.g., GTUBE tests).
-
-**v6.0 Enhancements:**
-
-* **Enhanced Pattern Matching**: Improved detection of test patterns
-* **Performance Optimization**: Faster pattern matching algorithms
-
-### `scanner.getVirusResults(mail)`
-
-**Enhanced in v6.0** with improved ClamAV integration.
-
-Accepts a `mail` Object and returns a Promise that resolves with an Array of virus detection results.
-
-**v6.0 Enhancements:**
-
-* **Performance Optimization**: Faster scanning with improved ClamAV integration
-* **Enhanced Error Handling**: Better error recovery and fallback mechanisms
-* **Memory Management**: Optimized memory usage during scanning
-* **Timeout Protection**: Configurable timeouts prevent hanging
-
-### `scanner.parseLocale(locale)`
-
-**Enhanced in v6.0** with extended language support.
-
-Accepts a `locale` string and returns a normalized locale code.
-
-**v6.0 Enhancements:**
-
-* **Extended Language Support**: Support for 40+ languages
-* **Improved Parsing**: Better locale detection and normalization
-* **Fallback Mechanisms**: Intelligent fallbacks for unsupported locales
-
-
-## Performance
-
-**v6.0** introduces significant performance improvements and monitoring capabilities:
-
-### Performance Metrics
-
-Enable performance tracking to monitor processing times:
+### Performance Monitoring
 
 ```js
 const scanner = new SpamScanner({
   enablePerformanceMetrics: true
 });
 
-const result = await scanner.scan(source);
-console.log('Performance metrics:', result.metrics);
+const result = await scanner.scan(email);
+
+console.log('Total scan time:', result.metrics.totalTime, 'ms');
+console.log('Classification time:', result.metrics.classificationTime, 'ms');
+console.log('Virus scan time:', result.metrics.virusScanTime, 'ms');
 ```
 
-### Caching System
-
-**v6.0** includes an intelligent caching system for expensive operations:
+### Selective Feature Disabling
 
 ```js
+// Disable macro detection for performance
 const scanner = new SpamScanner({
-  enableCaching: true,
-  cacheSize: 1000,        // Maximum cache entries
-  cacheTTL: 3600000       // Cache TTL in milliseconds (1 hour)
+  enableMacroDetection: false
+});
+
+// Disable advanced pattern recognition
+const scanner2 = new SpamScanner({
+  enableAdvancedPatternRecognition: false
 });
 ```
 
-### Timeout Protection
-
-Configure timeouts to prevent hanging on malformed input:
+### Custom Timeout
 
 ```js
+// Set 60-second timeout for slow scans
 const scanner = new SpamScanner({
-  timeout: 30000,           // Global timeout (30 seconds)
-  classificationTimeout: 10000,  // Classification timeout
-  phishingTimeout: 15000,   // Phishing detection timeout
-  virusTimeout: 60000       // Virus scanning timeout
+  timeout: 60000
 });
 ```
 
-### Concurrent Processing
-
-**v6.0** supports concurrent email scanning:
+### Custom Logger
 
 ```js
-const scanner = new SpamScanner({
-  maxConcurrentScans: 10    // Maximum concurrent scans
+import winston from 'winston';
+
+const logger = winston.createLogger({
+  level: 'info',
+  format: winston.format.json(),
+  transports: [
+    new winston.transports.File({ filename: 'spam-scanner.log' })
+  ]
 });
 
-// Process multiple emails concurrently
-const results = await Promise.all([
-  scanner.scan(email1),
-  scanner.scan(email2),
-  scanner.scan(email3)
-]);
-```
-
-
-## Caching
-
-**v6.0** introduces an advanced caching system to improve performance for repeated operations:
-
-### Memory Caching
-
-```js
-const scanner = new SpamScanner({
-  enableCaching: true,
-  cache: {
-    type: 'memory',
-    maxSize: 1000,          // Maximum cache entries
-    ttl: 3600000            // Time to live (1 hour)
-  }
-});
-```
-
-### Redis Caching
-
-For distributed applications, use Redis caching:
-
-```js
-const scanner = new SpamScanner({
-  enableCaching: true,
-  cache: {
-    type: 'redis',
-    redis: {
-      host: 'localhost',
-      port: 6379,
-      db: 0
-    },
-    ttl: 3600000
-  }
-});
-```
-
-### Custom Caching
-
-Implement custom caching logic:
-
-```js
-const scanner = new SpamScanner({
-  enableCaching: true,
-  cache: {
-    type: 'custom',
-    get: async (key) => {
-      // Custom get implementation
-    },
-    set: async (key, value, ttl) => {
-      // Custom set implementation
-    },
-    del: async (key) => {
-      // Custom delete implementation
-    }
-  }
-});
-```
-
-
-## Debugging
-
-**v6.0** includes enhanced debugging capabilities:
-
-### Debug Mode
-
-```js
 const scanner = new SpamScanner({
   debug: true,
-  logger: console          // Custom logger
+  logger: logger
 });
 ```
 
-### Performance Debugging
+---
 
-```js
-const scanner = new SpamScanner({
-  enablePerformanceMetrics: true,
-  debug: true
-});
 
-const result = await scanner.scan(source);
-console.log('Detailed metrics:', result.metrics);
+## Performance
+
+### Benchmarks
+
+| Scan Type                   | First Scan   | Subsequent Scans | Notes                    |
+| --------------------------- | ------------ | ---------------- | ------------------------ |
+| **Small Email** (< 10KB)    | 2-3s         | 200-500ms        | No attachments           |
+| **Medium Email** (10-100KB) | 3-5s         | 500ms-1s         | 1-2 attachments          |
+| **Large Email** (100KB-1MB) | 5-10s        | 1-3s             | Multiple attachments     |
+| **With NSFW Detection**     | +30s (first) | +100-200ms       | TensorFlow model loading |
+| **With Toxicity Detection** | +30s (first) | +100-200ms       | TensorFlow model loading |
+
+> \[!NOTE]
+> First scans with TensorFlow models (NSFW/toxicity) take 30+ seconds due to model loading. Subsequent scans are fast because models are cached in memory.
+
+### Optimization Tips
+
+1. **Model Caching**: Keep scanner instance alive to cache TensorFlow models
+2. **Disable Unused Features**: Turn off macro detection or pattern recognition if not needed
+3. **Adjust Timeout**: Increase timeout for large emails with many attachments
+4. **Use clamdscan**: Prefer `clamdscan` over `clamscan` for faster virus scanning
+5. **Limit Languages**: Specify `supportedLanguages` to skip unnecessary language detection
+
+### Memory Usage
+
+* **Base**: 50-100MB
+* **With TensorFlow Models**: 500MB-1GB
+* **Per Scan**: 10-50MB (temporary)
+
+---
+
+
+## Contributing
+
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
+
+### Development Setup
+
+```bash
+# Clone repository
+git clone https://github.com/spamscanner/spamscanner.git
+cd spamscanner
+
+# Install dependencies
+pnpm install
+
+# Run tests
+npm test
+
+# Run tests with coverage
+npm run test-coverage
+
+# Build
+pnpm run build
 ```
 
-### Memory Debugging
+### Running Tests
 
-```js
-const scanner = new SpamScanner({
-  enableMemoryTracking: true
-});
+```bash
+# All tests
+npm test
 
-const result = await scanner.scan(source);
-console.log('Memory usage:', result.metrics.memoryUsage);
+# Specific test file
+node --test test/test.js
+
+# With coverage
+npm run test-coverage
 ```
 
-
-## Migration Guide
-
-### Migrating from v5.x to v6.0
-
-**v6.0** maintains 100% backwards compatibility, but you can take advantage of new features:
-
-#### 1. Update Dependencies
-
-```sh
-# Remove old installation
-npm uninstall spamscanner
-
-# Install v6.0
-npm install spamscanner@^6.0.0
-```
-
-#### 2. Optional: Migrate to ES Modules
-
-```js
-// Old (still works)
-const SpamScanner = require('spamscanner');
-
-// New (recommended)
-import SpamScanner from 'spamscanner';
-```
-
-#### 3. Enable New Features
-
-```js
-const scanner = new SpamScanner({
-  // Enable new v6.0 features
-  enableMacroDetection: true,
-  enableMalwareUrlCheck: true,
-  enablePerformanceMetrics: true,
-  enableAdvancedPatternRecognition: true,
-
-  // Enhanced language support
-  supportedLanguages: ['en', 'es', 'fr', 'de', 'ja', 'zh'],
-  enableMixedLanguageDetection: true
-});
-```
-
-#### 4. Update Result Handling
-
-```js
-const result = await scanner.scan(source);
-
-// New v6.0 result properties
-if (result.results.macros.length > 0) {
-  console.log('Macros detected:', result.results.macros);
-}
-
-if (result.results.patterns.length > 0) {
-  console.log('Patterns detected:', result.results.patterns);
-}
-
-if (result.metrics) {
-  console.log('Performance:', result.metrics);
-}
-```
-
-### Breaking Changes
-
-**None** - v6.0 maintains 100% backwards compatibility with v5.x.
-
-### Deprecated Features
-
-* **Node.js 16**: Support dropped, minimum version is now Node.js 18+
-* **Legacy build tools**: Replaced with modern esbuild system
-
-
-## Contributors
-
-| Name              | Website                    |
-| ----------------- | -------------------------- |
-| **Forward Email** | <https://forwardemail.net> |
-
-
-## References
-
-* <https://blog.codinghorror.com/so-long-and-thanks-for-all-the-fish/>
-* <https://github.com/Microsoft/vscode/issues/32405#issuecomment-309716855>
-* <https://en.wikipedia.org/wiki/Naive_Bayes_spam_filtering>
-* <https://en.wikipedia.org/wiki/International_Article_Number>
-* <https://github.com/mathiasbynens/small>
-* <https://github.com/substack/safe-regex>
-* <https://www.npmjs.com/package/re2>
-* <https://github.com/uhop/node-re2>
-* <https://stackoverflow.com/a/26766402>
-* <https://stackoverflow.com/a/16888673>
-* <https://github.com/bestiejs/punycode.js/>
-* <https://github.com/kevva/download>
-* <https://github.com/kevva/is-url>
-* <https://github.com/broofa/mime>
-* <https://github.com/nodemailer/mailparser>
-* <https://github.com/Automattic/juice>
-* <https://github.com/fb55/htmlparser2>
-* <https://github.com/mathiasbynens/he>
-* <https://github.com/cure53/DOMPurify>
-* <https://github.com/apostrophecms/sanitize-html>
-* <https://github.com/mozilla/bleach>
-* <https://github.com/remy/inliner>
-* <https://github.com/Swaagie/minimize>
-* <https://github.com/kangax/html-minifier>
-* <https://github.com/posthtml/htmlnano>
-* <https://github.com/ben-eb/cssnano>
-* <https://github.com/jakubpawlowicz/clean-css>
-* <https://github.com/GoalSmashers/css-minification-benchmark>
-* <https://github.com/addyosmani/critical>
-* <https://github.com/filamentgroup/criticalCSS>
-* <https://github.com/pocketjoso/penthouse>
+---
 
 
 ## License
 
 [Business Source License 1.1](LICENSE) © [Forward Email](https://forwardemail.net)
 
-[plan-for-spam]: https://blog.codinghorror.com/so-long-and-thanks-for-all-the-fish/
 
-[better-plan-for-spam]: https://github.com/Microsoft/vscode/issues/32405#issuecomment-309716855
+## Support
 
-[forward-email]: https://forwardemail.net
+* **Documentation**: <https://spamscanner.net>
+* **Issues**: [GitHub Issues](https://github.com/spamscanner/spamscanner/issues)
+* **Email**: <mailto:support@forwardemail.net>
 
-[spamassassin]: https://spamassassin.apache.org/
+---
 
-[rspamd]: https://rspamd.com/
 
-[privacy-policy]: https://forwardemail.net/privacy
+## Acknowledgments
 
-[@ladjs/naivebayes]: https://github.com/ladjs/naivebayes
+* [Forward Email](https://forwardemail.net) - Production usage and testing
+* [TensorFlow.js](https://www.tensorflow.org/js) - NSFW and toxicity detection
+* [ClamAV](https://www.clamav.net/) - Virus scanning
+* [Natural](https://github.com/NaturalNode/natural) - NLP and tokenization
+* [tldts](https://github.com/remusao/tldts) - TLD parsing
+* [confusables](https://github.com/gc/confusables) - Unicode confusables detection
 
-[natural]: https://github.com/NaturalNode/natural
+---
 
-[homograph-attack]: https://en.wikipedia.org/wiki/IDN_homograph_attack
-
-[magic-number]: https://en.wikipedia.org/wiki/Magic_number_\(programming\)#Magic_numbers_in_files
-
-[nsfw]: https://github.com/infinitered/nsfwjs
-
-[toxicity]: https://github.com/tensorflow/tfjs-models/tree/master/toxicity
-
-[node.js]: https://nodejs.org
-
-[nvm]: https://github.com/nvm-sh/nvm
-
-[cloudflare]: https://developers.cloudflare.com/1.1.1.1/1.1.1.1-for-families/
-
-[clamav]: https://www.clamav.net/
+> Made with ❤️ by the [Forward Email](https://forwardemail.net) team

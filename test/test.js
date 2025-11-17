@@ -1,5 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert';
+import process from 'node:process';
+import {Buffer} from 'node:buffer';
 import SpamScanner from '../src/index.js';
 
 // Test data
@@ -11,7 +13,7 @@ const testEmails = {
 	phishing: 'Your PayPal account has been suspended. Click here to verify: http://fake-paypal.com',
 };
 
-const scanner = new SpamScanner();
+const scanner = new SpamScanner({supportedLanguages: []});
 
 test('should detect GTUBE spam correctly', async () => {
 	const result = await scanner.scan(testEmails.gtube);

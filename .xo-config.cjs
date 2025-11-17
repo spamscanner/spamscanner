@@ -24,15 +24,24 @@ module.exports = {
 		'@stylistic/no-mixed-spaces-and-tabs': 'off'
 	},
 	ignores: [
-		'dist/',
-		'build/',
-		'coverage/',
-		'node_modules/',
-		'*.min.js',
-		'test/fixtures/',
-		'*.config.js',
-		'*.config.cjs',
-		'*.config.mjs'
+		'dist/**',
+		'build/**',
+		'coverage/**',
+		'node_modules/**',
+		'**/*.min.js',
+		'test/fixtures/**',
+		'**/*.config.js',
+		'**/*.config.cjs',
+		'**/*.config.mjs',
+		'training/**',
+		'mbox-split.js',
+		'classifier-worker.js',
+		'get-classifier.js',
+		'test-hybrid-language-detection.js',
+		'mbox-patterns.js',
+		'test-franc-vs-lande.js',
+		'classifier-ignores.js',
+		'replacements.js'
 	]
 };
 

@@ -1,5 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert';
+import {Buffer} from 'node:buffer';
 import SpamScanner from '../src/index.js';
 
 // Modern test suite for the updated SpamScanner
@@ -61,7 +62,7 @@ test('should preprocess text', async () => {
 	assert.ok(processed.length > 0);
 });
 
-test('should parse locales', t => {
+test('should parse locales', _t => {
 	assert.strictEqual(scanner.parseLocale('en-US'), 'en');
 	assert.strictEqual(scanner.parseLocale('fr-FR'), 'fr');
 	assert.strictEqual(scanner.parseLocale(null), 'en');
@@ -158,7 +159,7 @@ test('should track metrics', async () => {
 	assert.strictEqual(typeof scanner.metrics.lastScanTime, 'number');
 });
 
-test('should handle configuration', t => {
+test('should handle configuration', _t => {
 	const customScanner = new SpamScanner({
 		enableMacroDetection: false,
 		timeout: 5000,
@@ -199,7 +200,7 @@ test('should handle HTML content', async () => {
 	assert.strictEqual(typeof result.isSpam, 'boolean');
 });
 
-test('should export correctly', t => {
+test('should export correctly', _t => {
 	assert.strictEqual(typeof SpamScanner, 'function');
 	assert.strictEqual(SpamScanner.name, 'SpamScanner');
 });

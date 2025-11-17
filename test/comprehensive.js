@@ -1,5 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert';
+import {Buffer} from 'node:buffer';
 import SpamScanner from '../src/index.js';
 
 const scanner = new SpamScanner();
