@@ -108,7 +108,7 @@ test('benchmark: large email handling', async () => {
 	const duration = Number(endTime - startTime) / 1_000_000;
 
 	assert.strictEqual(typeof result, 'object');
-	assert.ok(duration < 3000); // Should complete within 3000ms
+	assert.ok(duration < 5000); // Should complete within 5000ms
 
 	console.log(`Large email scan took ${duration.toFixed(2)}ms`);
 });

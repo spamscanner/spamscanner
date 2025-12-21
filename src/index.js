@@ -34,12 +34,29 @@ import urlRegexSafe from 'url-regex-safe';
 import {simpleParser} from 'mailparser';
 import {fileTypeFromBuffer} from 'file-type';
 
-// ES module compatibility
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// ES module compatibility - handle both ESM and CJS builds
+// In ESM, import.meta.url is defined; in CJS (via esbuild), it's undefined
+const __filename = import.meta.url ? fileURLToPath(import.meta.url) : '';
+const __dirname = __filename ? path.dirname(__filename) : process.cwd();
+
+// Find package root - works from both src/ and dist/esm/ or dist/cjs/
+const findPackageRoot = startDir => {
+	let dir = startDir;
+	while (dir !== path.dirname(dir)) {
+		if (fs.existsSync(path.join(dir, 'package.json'))) {
+			return dir;
+		}
+
+		dir = path.dirname(dir);
+	}
+
+	return startDir;
+};
+
+const packageRoot = findPackageRoot(__dirname);
 
 // Load JSON data
-const executablesData = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'executables.json'), 'utf8'));
+const executablesData = JSON.parse(fs.readFileSync(path.join(packageRoot, 'executables.json'), 'utf8'));
 
 const EXECUTABLES = new Set(executablesData);
 

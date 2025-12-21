@@ -1,4 +1,4 @@
-import {readFileSync} from 'node:fs';
+import {copyFileSync, mkdirSync, readFileSync} from 'node:fs';
 import {build} from 'esbuild';
 
 const packageJson = JSON.parse(readFileSync('package.json', 'utf8'));
@@ -27,12 +27,19 @@ await build({
 	outfile: 'dist/esm/index.js',
 });
 
-// Build CJS
+// Build CJS - suppress the import.meta warning since CJS has __filename/__dirname natively
 await build({
 	...baseConfig,
 	format: 'cjs',
 	outfile: 'dist/cjs/index.js',
+	logOverride: {
+		'empty-import-meta': 'silent',
+	},
 });
 
-console.log('Build completed successfully!');
+// Copy TypeScript declaration files
+mkdirSync('dist/types', {recursive: true});
+copyFileSync('src/index.d.ts', 'dist/types/index.d.ts');
+copyFileSync('src/enhanced-idn-detector.d.ts', 'dist/types/enhanced-idn-detector.d.ts');
 
+console.log('Build completed successfully!');
