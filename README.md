@@ -1,18 +1,25 @@
-# Spam Scanner
-
-> **The best anti-spam, email filtering, and phishing prevention service for Node.js**
-
-[![build status](https://github.com/spamscanner/spamscanner/actions/workflows/ci.yml/badge.svg)](https://github.com/spamscanner/spamscanner/actions/workflows/ci.yml)
-[![code coverage](https://img.shields.io/badge/coverage-88.41%25-brightgreen.svg)](https://github.com/spamscanner/spamscanner)
-[![code style](https://img.shields.io/badge/code_style-XO-5ed9c7.svg)](https://github.com/sindresorhus/xo)
-[![styled with prettier](https://img.shields.io/badge/styled_with-prettier-ff69b4.svg)](https://github.com/prettier/prettier)
-[![made with lass](https://img.shields.io/badge/made_with-lass-95CC28.svg)](https://lass.js.org)
-[![license](https://img.shields.io/github/license/spamscanner/spamscanner.svg)](LICENSE)
+<h1 align="center">
+  <a href="https://spamscanner.net"><img src="https://raw.githubusercontent.com/spamscanner/spamscanner/master/media/spamscanner.png" alt="spamscanner" /></a>
+</h1>
+<div align="center">
+  <a href="https://github.com/spamscanner/spamscanner/actions/workflows/ci.yml"><img src="https://github.com/spamscanner/spamscanner/actions/workflows/ci.yml/badge.svg" alt="build status" /></a>
+  <a href="https://github.com/sindresorhus/xo"><img src="https://img.shields.io/badge/code_style-XO-5ed9c7.svg" alt="code style" /></a>
+  <a href="https://github.com/prettier/prettier"><img src="https://img.shields.io/badge/styled_with-prettier-ff69b4.svg" alt="styled with prettier" /></a>
+  <a href="https://lass.js.org"><img src="https://img.shields.io/badge/made_with-lass-95CC28.svg" alt="made with lass" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/spamscanner/spamscanner.svg" alt="license" /></a>
+</div>
+<br />
+<div align="center">
+  Spam Scanner is the best <a href="https://en.wikipedia.org/wiki/Anti-spam_techniques" target="_blank">anti-spam</a>, <a href="https://en.wikipedia.org/wiki/Email_filtering" target="_blank">email filtering</a>, and <a href="https://en.wikipedia.org/wiki/Phishing" target="_blank">phishing prevention</a> service.
+</div>
+<hr />
+<div align="center">
+  Spam Scanner is a drop-in replacement and the best alternative to SpamAssassin, rspamd, SpamTitan, and more.
+</div>
+<hr />
 
 > \[!NOTE]
 > Spam Scanner is actively maintained and used in production at [Forward Email](https://forwardemail.net) to protect millions of emails daily.
-
----
 
 
 ## Table of Contents
@@ -282,27 +289,27 @@ graph TB
     C --> D[Language Detection]
     D --> E[Tokenization]
     E --> F[Naive Bayes Classification]
-    
+
     B --> G[Phishing Detection]
     G --> G1[IDN Homograph Check]
     G --> G2[Confusables Analysis]
     G --> G3[URL Analysis]
-    
+
     B --> H[Attachment Scanning]
     H --> H1[Virus Scan]
     H --> H2[Executable Check]
     H --> H3[Macro Detection]
     H --> H4[NSFW Detection]
-    
+
     B --> I[Content Analysis]
     I --> I1[Toxicity Detection]
     I --> I2[Pattern Recognition]
-    
+
     F --> J[Result Aggregation]
     G --> J
     H --> J
     I --> J
-    
+
     J --> K{Is Spam?}
     K -->|Yes| L[Spam Result]
     K -->|No| M[Ham Result]
@@ -317,12 +324,12 @@ sequenceDiagram
     participant Classifier
     participant ClamAV
     participant TensorFlow
-    
+
     Client->>Scanner: scan(email)
     Scanner->>Scanner: Parse Email
     Scanner->>Scanner: Extract URLs
     Scanner->>Scanner: Detect Language
-    
+
     par Parallel Detection
         Scanner->>Classifier: Classify Tokens
         Scanner->>ClamAV: Scan Attachments
@@ -331,7 +338,7 @@ sequenceDiagram
         Scanner->>Scanner: Check Phishing
         Scanner->>Scanner: Check Macros
     end
-    
+
     Scanner->>Scanner: Aggregate Results
     Scanner->>Client: Return Result
 ```
@@ -344,20 +351,20 @@ graph LR
     A --> C[Classifiers]
     A --> D[Detectors]
     A --> E[Analyzers]
-    
+
     B --> B1[Email Parser]
     B --> B2[Tokenizer]
     B --> B3[Preprocessor]
-    
+
     C --> C1[Naive Bayes]
     C --> C2[TensorFlow NSFW]
     C --> C3[TensorFlow Toxicity]
-    
+
     D --> D1[Phishing Detector]
     D --> D2[Virus Scanner]
     D --> D3[Macro Detector]
     D --> D4[Executable Detector]
-    
+
     E --> E1[Language Analyzer]
     E --> E2[URL Analyzer]
     E --> E3[Pattern Analyzer]
@@ -465,16 +472,16 @@ import SpamScanner from 'spamscanner';
 const scanner = new SpamScanner({
   // Enable performance metrics
   enablePerformanceMetrics: true,
-  
+
   // Filter to supported languages
   supportedLanguages: ['en', 'es', 'fr', 'de'],
-  
+
   // Enable macro detection
   enableMacroDetection: true,
-  
+
   // Set scan timeout
   timeout: 30000,
-  
+
   // Custom ClamAV configuration
   clamscan: {
     preference: 'clamdscan',
@@ -954,7 +961,7 @@ The `scan()` method returns a comprehensive result object:
   // Overall spam classification
   isSpam: boolean,
   message: string, // 'Ham' or 'Spam: <reasons>'
-  
+
   // Detection results
   results: {
     // Classification details
@@ -962,7 +969,7 @@ The `scan()` method returns a comprehensive result object:
       category: 'spam' | 'ham',
       probability: number
     },
-    
+
     // Phishing detection
     phishing: [
       {
@@ -971,7 +978,7 @@ The `scan()` method returns a comprehensive result object:
         message: string
       }
     ],
-    
+
     // Executable detection
     executables: [
       {
@@ -981,7 +988,7 @@ The `scan()` method returns a comprehensive result object:
         risk: 'high' | 'medium' | 'low'
       }
     ],
-    
+
     // Macro detection
     macros: [
       {
@@ -989,10 +996,10 @@ The `scan()` method returns a comprehensive result object:
         message: string
       }
     ],
-    
+
     // Arbitrary results (custom detections)
     arbitrary: [],
-    
+
     // Virus scanning
     viruses: [
       {
@@ -1001,7 +1008,7 @@ The `scan()` method returns a comprehensive result object:
         type: 'virus'
       }
     ],
-    
+
     // Pattern recognition
     patterns: {
       credit_cards: number,
@@ -1013,10 +1020,10 @@ The `scan()` method returns a comprehensive result object:
       dates: number,
       file_paths: number
     },
-    
+
     // IDN homograph attack detection
     idnHomographAttack: [],
-    
+
     // Toxicity detection (array of results)
     toxicity: [
       {
@@ -1026,7 +1033,7 @@ The `scan()` method returns a comprehensive result object:
         description: string
       }
     ],
-    
+
     // NSFW detection (array of results)
     nsfw: [
       {
@@ -1038,13 +1045,13 @@ The `scan()` method returns a comprehensive result object:
       }
     ]
   },
-  
+
   // All URLs extracted from email
   links: string[],
-  
+
   // Tokens extracted from email
   tokens: string[],
-  
+
   // Email metadata
   mail: {
     from: object,
@@ -1055,7 +1062,7 @@ The `scan()` method returns a comprehensive result object:
     attachments: object[],
     headers: object
   },
-  
+
   // Performance metrics (if enabled)
   metrics: {
     totalTime: number, // milliseconds
@@ -1276,3 +1283,8 @@ npm run test-coverage
 ---
 
 > Made with ❤️ by the [Forward Email](https://forwardemail.net) team
+
+
+##
+
+<a href="#"><img src="https://raw.githubusercontent.com/spamscanner/spamscanner/master/media/footer.png" alt="#" /></a>
