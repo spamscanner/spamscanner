@@ -1,4 +1,14 @@
 import type {ParsedMail, Attachment} from 'mailparser';
+import type {AuthResult, AuthOptions, AuthScoreWeights, AuthScoreResult} from './auth.d.ts';
+import type {ReputationResult, ReputationOptions} from './reputation.d.ts';
+import type {SessionInfo, GetAttributesOptions, ExtractAttributesResult} from './get-attributes.d.ts';
+import type {ArbitraryResult, ArbitraryOptions} from './is-arbitrary.d.ts';
+
+// Re-export auth and reputation types
+export type {AuthResult, AuthOptions, AuthScoreWeights, AuthScoreResult} from './auth.d.ts';
+export type {ReputationResult, ReputationOptions} from './reputation.d.ts';
+export type {SessionInfo, GetAttributesOptions, ExtractAttributesResult} from './get-attributes.d.ts';
+export type {ArbitraryResult, ArbitraryOptions} from './is-arbitrary.d.ts';
 
 /**
  * ClamScan configuration options
@@ -68,6 +78,20 @@ export type SpamScannerConfig = {
 	strictIdnDetection?: boolean;
 	/** Enable token hashing */
 	hashTokens?: boolean;
+	/** Enable email authentication (DKIM/SPF/ARC/DMARC/BIMI) */
+	enableAuthentication?: boolean;
+	/** Authentication options */
+	authOptions?: AuthOptions;
+	/** Authentication score weights */
+	authScoreWeights?: AuthScoreWeights;
+	/** Enable Forward Email reputation checking */
+	enableReputation?: boolean;
+	/** Reputation API options */
+	reputationOptions?: ReputationOptions;
+	/** Enable arbitrary spam detection */
+	enableArbitraryDetection?: boolean;
+	/** Arbitrary spam score threshold */
+	arbitraryThreshold?: number;
 };
 
 /**
@@ -135,13 +159,19 @@ export type MacroResult = {
 };
 
 /**
- * Arbitrary detection result (e.g., GTUBE)
+ * Arbitrary detection result (e.g., GTUBE, spam patterns)
  */
 export type ArbitraryResult = {
 	/** Type of detection */
 	type: 'arbitrary';
+	/** Subtype of arbitrary detection */
+	subtype?: 'gtube' | 'pattern';
 	/** Description of the issue */
 	description: string;
+	/** Arbitrary spam score */
+	score?: number;
+	/** List of reasons why the message was flagged */
+	reasons?: string[];
 };
 
 /**
@@ -239,6 +269,29 @@ export type NsfwResult = {
 /**
  * All scan results
  */
+/**
+ * Extended authentication result with score
+ */
+export type AuthenticationResult = AuthResult & {
+	/** Authentication score */
+	score: AuthScoreResult;
+	/** Formatted Authentication-Results header */
+	authResultsHeader: string;
+};
+
+/**
+ * Extended reputation result with details
+ */
+export type ExtendedReputationResult = ReputationResult & {
+	/** Values that were checked */
+	checkedValues: string[];
+	/** Detailed results per value */
+	details: Record<string, ReputationResult>;
+};
+
+/**
+ * All scan results
+ */
 export type ScanResults = {
 	/** Classification result */
 	classification: ClassificationResult;
@@ -260,6 +313,10 @@ export type ScanResults = {
 	toxicity: ToxicityResult[];
 	/** NSFW detection results */
 	nsfw: NsfwResult[];
+	/** Authentication results (if enabled) */
+	authentication?: AuthenticationResult | null;
+	/** Reputation results (if enabled) */
+	reputation?: ExtendedReputationResult | null;
 };
 
 /**
@@ -433,11 +490,31 @@ declare class SpamScanner {
 	initializeRegex(): void;
 
 	/**
+	 * Scan options for per-scan configuration
+	 */
+	scanOptions?: {
+		/** Enable authentication for this scan */
+		enableAuthentication?: boolean;
+		/** Authentication options for this scan */
+		authOptions?: AuthOptions;
+		/** Enable reputation checking for this scan */
+		enableReputation?: boolean;
+		/** Reputation options for this scan */
+		reputationOptions?: ReputationOptions;
+	};
+
+	/**
 	 * Scan an email for spam
 	 * @param source - Email source (string, Uint8Array, or file path)
+	 * @param scanOptions - Optional per-scan configuration
 	 * @returns Scan result
 	 */
-	scan(source: ScanSource): Promise<ScanResult>;
+	scan(source: ScanSource, scanOptions?: {
+		enableAuthentication?: boolean;
+		authOptions?: AuthOptions;
+		enableReputation?: boolean;
+		reputationOptions?: ReputationOptions;
+	}): Promise<ScanResult>;
 
 	/**
 	 * Get tokens and parsed mail from source
@@ -616,6 +693,32 @@ declare class SpamScanner {
 	 * @returns IDN detector or null
 	 */
 	getIdnDetector(): Promise<EnhancedIdnDetector | undefined>;
+
+	/**
+	 * Get authentication results using mailauth
+	 * @param source - Email source
+	 * @param mail - Parsed mail object
+	 * @param options - Authentication options
+	 * @returns Authentication result or null
+	 */
+	getAuthenticationResults(
+		source: ScanSource,
+		mail: MailObject,
+		options?: AuthOptions
+	): Promise<AuthenticationResult | null>;
+
+	/**
+	 * Get reputation results from Forward Email API
+	 * @param mail - Parsed mail object
+	 * @param authOptions - Authentication options (for IP/sender)
+	 * @param reputationOptions - Reputation API options
+	 * @returns Reputation result or null
+	 */
+	getReputationResults(
+		mail: MailObject,
+		authOptions?: AuthOptions,
+		reputationOptions?: ReputationOptions
+	): Promise<ExtendedReputationResult | null>;
 }
 
 /**

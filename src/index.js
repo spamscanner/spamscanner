@@ -1,3 +1,4 @@
+import {Buffer} from 'node:buffer';
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
@@ -33,6 +34,11 @@ import sw from 'stopword';
 import urlRegexSafe from 'url-regex-safe';
 import {simpleParser} from 'mailparser';
 import {fileTypeFromBuffer} from 'file-type';
+// SpamScanner modules
+import {authenticate, calculateAuthScore, formatAuthResultsHeader} from './auth.js';
+import {checkReputationBatch, aggregateReputationResults} from './reputation.js';
+import {isArbitrary, buildSessionInfo} from './is-arbitrary.js';
+import {extractAttributes} from './get-attributes.js';
 
 // ES module compatibility - handle both ESM and CJS builds
 // In ESM, import.meta.url is defined; in CJS (via esbuild), it's undefined
@@ -167,6 +173,39 @@ class SpamScanner {
 			supportedLanguages: ['en'],
 			enableMixedLanguageDetection: false,
 			enableAdvancedPatternRecognition: true,
+
+			// Authentication options (mailauth)
+			enableAuthentication: false,
+			authOptions: {
+				ip: null, // Remote IP address (required for auth)
+				helo: null, // HELO/EHLO hostname
+				mta: 'spamscanner', // MTA hostname
+				sender: null, // Envelope sender (MAIL FROM)
+				timeout: 10_000, // DNS lookup timeout
+			},
+			authScoreWeights: {
+				dkimPass: -2,
+				dkimFail: 3,
+				spfPass: -1,
+				spfFail: 2,
+				spfSoftfail: 1,
+				dmarcPass: -2,
+				dmarcFail: 4,
+				arcPass: -1,
+				arcFail: 1,
+			},
+
+			// Reputation API options (Forward Email)
+			enableReputation: false,
+			reputationOptions: {
+				apiUrl: 'https://api.forwardemail.net/v1/reputation',
+				timeout: 10_000,
+				onlyAligned: true,
+			},
+
+			// Arbitrary spam detection options
+			enableArbitraryDetection: true,
+			arbitraryThreshold: 5,
 
 			// Existing options
 			debug: false,
@@ -889,8 +928,8 @@ class SpamScanner {
 		return text;
 	}
 
-	// Main scan method - enhanced with performance metrics and new features
-	async scan(source) {
+	// Main scan method - enhanced with performance metrics, auth, and reputation
+	async scan(source, scanOptions = {}) {
 		const startTime = Date.now();
 
 		try {
@@ -901,7 +940,40 @@ class SpamScanner {
 			// Get tokens and mail from source
 			const {tokens, mail} = await this.getTokensAndMailFromSource(source);
 
-			// Run all detection methods
+			// Merge scan options with config
+			const authOptions = {...this.config.authOptions, ...scanOptions.authOptions};
+			const reputationOptions = {...this.config.reputationOptions, ...scanOptions.reputationOptions};
+
+			// Run all detection methods in parallel
+			const detectionPromises = [
+				this.getClassification(tokens),
+				this.getPhishingResults(mail),
+				this.getExecutableResults(mail),
+				this.config.enableMacroDetection ? this.getMacroResults(mail) : [],
+				this.config.enableArbitraryDetection ? this.getArbitraryResults(mail, {remoteAddress: authOptions.ip, resolvedClientHostname: authOptions.hostname}) : [],
+				this.getVirusResults(mail),
+				this.getPatternResults(mail),
+				this.getIDNHomographResults(mail),
+				this.getToxicityResults(mail),
+				this.getNSFWResults(mail),
+			];
+
+			// Add authentication check if enabled
+			const enableAuth = scanOptions.enableAuthentication ?? this.config.enableAuthentication;
+			if (enableAuth && authOptions.ip) {
+				detectionPromises.push(this.getAuthenticationResults(source, mail, authOptions));
+			} else {
+				detectionPromises.push(Promise.resolve(null));
+			}
+
+			// Add reputation check if enabled
+			const enableReputation = scanOptions.enableReputation ?? this.config.enableReputation;
+			if (enableReputation) {
+				detectionPromises.push(this.getReputationResults(mail, authOptions, reputationOptions));
+			} else {
+				detectionPromises.push(Promise.resolve(null));
+			}
+
 			const [
 				classification,
 				phishing,
@@ -913,21 +985,12 @@ class SpamScanner {
 				idnHomographAttack,
 				toxicity,
 				nsfw,
-			] = await Promise.all([
-				this.getClassification(tokens),
-				this.getPhishingResults(mail),
-				this.getExecutableResults(mail),
-				this.config.enableMacroDetection ? this.getMacroResults(mail) : [],
-				this.getArbitraryResults(mail),
-				this.getVirusResults(mail),
-				this.getPatternResults(mail),
-				this.getIDNHomographResults(mail),
-				this.getToxicityResults(mail),
-				this.getNSFWResults(mail),
-			]);
+				authResult,
+				reputationResult,
+			] = await Promise.all(detectionPromises);
 
-			// Determine if spam
-			const isSpam
+			// Determine if spam (considering reputation)
+			let isSpam
 				= classification.category === 'spam'
 					|| phishing.length > 0
 					|| executables.length > 0
@@ -938,6 +1001,12 @@ class SpamScanner {
 					|| (idnHomographAttack && idnHomographAttack.detected)
 					|| toxicity.length > 0
 					|| nsfw.length > 0;
+
+			// Override spam status based on reputation
+			// Only denylist should override - truth source and allowlist are informational only
+			if (reputationResult && reputationResult.isDenylisted) {
+				isSpam = true;
+			}
 
 			// Generate message
 			let message = 'Ham';
@@ -983,7 +1052,15 @@ class SpamScanner {
 					reasons.push('NSFW content');
 				}
 
+				if (reputationResult?.isDenylisted) {
+					reasons.push('denylisted sender');
+				}
+
 				message = `Spam (${arrayJoinConjunction(reasons)})`;
+			} else if (reputationResult?.isTruthSource) {
+				message = 'Ham (truth source)';
+			} else if (reputationResult?.isAllowlisted) {
+				message = 'Ham (allowlisted)';
 			}
 
 			const endTime = Date.now();
@@ -1010,6 +1087,8 @@ class SpamScanner {
 					idnHomographAttack,
 					toxicity,
 					nsfw,
+					authentication: authResult,
+					reputation: reputationResult,
 				},
 				links: this.extractAllUrls(mail, source),
 				tokens,
@@ -1035,6 +1114,112 @@ class SpamScanner {
 		} catch (error) {
 			debug('Scan error:', error);
 			throw error;
+		}
+	}
+
+	// Get authentication results using mailauth
+	async getAuthenticationResults(source, mail, options = {}) {
+		try {
+			// Get raw message buffer
+			const messageBuffer = typeof source === 'string'
+				? Buffer.from(source)
+				: source;
+
+			// Extract sender from mail if not provided
+			const sender = options.sender
+				|| mail.from?.value?.[0]?.address
+				|| mail.from?.text;
+
+			// Authenticate the message
+			const authResult = await authenticate(messageBuffer, {
+				ip: options.ip,
+				helo: options.helo,
+				mta: options.mta || 'spamscanner',
+				sender,
+				timeout: options.timeout || 10_000,
+			});
+
+			// Calculate auth score
+			const scoreResult = calculateAuthScore(authResult, this.config.authScoreWeights);
+
+			return {
+				...authResult,
+				score: scoreResult,
+				authResultsHeader: formatAuthResultsHeader(authResult, options.mta || 'spamscanner'),
+			};
+		} catch (error) {
+			debug('Authentication error:', error);
+			return null;
+		}
+	}
+
+	// Get reputation results from Forward Email API
+	// Uses get-attributes module to extract comprehensive attributes for checking
+	async getReputationResults(mail, authOptions = {}, reputationOptions = {}) {
+		try {
+			// Use extractAttributes for comprehensive attribute extraction
+			// This follows Forward Email's get-attributes.js pattern
+			const {attributes, session} = await extractAttributes(mail, {
+				isAligned: reputationOptions.onlyAligned ?? true,
+				senderIp: authOptions.ip,
+				senderHostname: authOptions.hostname,
+				authResults: authOptions.authResults,
+			});
+
+			// Add any additional values from authOptions that weren't extracted
+			const valuesToCheck = [...attributes];
+
+			// Add envelope sender if provided and not already included
+			if (authOptions.sender) {
+				const senderLower = authOptions.sender.toLowerCase();
+				if (!valuesToCheck.includes(senderLower)) {
+					valuesToCheck.push(senderLower);
+				}
+
+				// Add envelope sender domain
+				const envelopeDomain = senderLower.split('@')[1];
+				if (envelopeDomain && !valuesToCheck.includes(envelopeDomain)) {
+					valuesToCheck.push(envelopeDomain);
+				}
+			}
+
+			// Add Reply-To addresses if not already included
+			const replyTo = mail.replyTo?.value || [];
+			for (const addr of replyTo) {
+				if (addr.address) {
+					const addrLower = addr.address.toLowerCase();
+					if (!valuesToCheck.includes(addrLower)) {
+						valuesToCheck.push(addrLower);
+					}
+
+					const domain = addrLower.split('@')[1];
+					if (domain && !valuesToCheck.includes(domain)) {
+						valuesToCheck.push(domain);
+					}
+				}
+			}
+
+			if (valuesToCheck.length === 0) {
+				return null;
+			}
+
+			debug('Checking reputation for %d attributes: %o', valuesToCheck.length, valuesToCheck);
+
+			// Check reputation for all values in parallel
+			const resultsMap = await checkReputationBatch(valuesToCheck, reputationOptions);
+
+			// Aggregate results
+			const aggregated = aggregateReputationResults([...resultsMap.values()]);
+
+			return {
+				...aggregated,
+				checkedValues: valuesToCheck,
+				details: Object.fromEntries(resultsMap),
+				session, // Include session info for debugging
+			};
+		} catch (error) {
+			debug('Reputation check error:', error);
+			return null;
 		}
 	}
 
@@ -1254,8 +1439,9 @@ class SpamScanner {
 		return results;
 	}
 
-	// Arbitrary results (GTUBE, etc.)
-	async getArbitraryResults(mail) {
+	// Arbitrary results (GTUBE, spam patterns, etc.)
+	// Updated to use session info for Microsoft Exchange spam detection
+	async getArbitraryResults(mail, sessionInfo = {}) {
 		const results = [];
 
 		// Get content from text, html, and header lines
@@ -1274,8 +1460,43 @@ class SpamScanner {
 		if (content.includes('XJS*C4JDBQADN1.NSBN3*2IDNEN*GTUBE-STANDARD-ANTI-UBE-TEST-EMAIL*C.34X')) {
 			results.push({
 				type: 'arbitrary',
+				subtype: 'gtube',
 				description: 'GTUBE spam test pattern detected',
+				score: 100,
 			});
+		}
+
+		// Use is-arbitrary module for advanced spam pattern detection
+		// Now includes Microsoft Exchange spam detection and vendor-specific checks
+		try {
+			// Build session info from parsed email if not provided
+			const session = buildSessionInfo(mail, sessionInfo);
+
+			const arbitraryResult = isArbitrary(mail, {
+				threshold: this.config.arbitraryThreshold || 5,
+				checkSubject: true,
+				checkBody: true,
+				checkSender: true,
+				checkHeaders: true,
+				checkLinks: true,
+				checkMicrosoftHeaders: true, // Enable Microsoft Exchange spam detection
+				checkVendorSpam: true, // Enable vendor-specific spam detection
+				checkSpoofing: true, // Enable spoofing attack detection
+				session, // Pass session info for advanced checks
+			});
+
+			if (arbitraryResult.isArbitrary) {
+				results.push({
+					type: 'arbitrary',
+					subtype: arbitraryResult.category ? arbitraryResult.category.toLowerCase() : 'pattern',
+					description: `Arbitrary spam patterns detected (score: ${arbitraryResult.score})`,
+					score: arbitraryResult.score,
+					reasons: arbitraryResult.reasons,
+					category: arbitraryResult.category,
+				});
+			}
+		} catch (error) {
+			debug('Arbitrary detection error:', error);
 		}
 
 		return results;

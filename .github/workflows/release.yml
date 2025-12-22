@@ -1,0 +1,78 @@
+name: Release Binaries
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  build-binaries:
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: linux-x64
+            artifact: spamscanner-linux-x64
+          - os: macos-latest
+            target: darwin-x64
+            artifact: spamscanner-darwin-x64
+          - os: macos-14
+            target: darwin-arm64
+            artifact: spamscanner-darwin-arm64
+          - os: windows-latest
+            target: win-x64
+            artifact: spamscanner-win-x64.exe
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install dependencies
+        run: npm install
+      - name: Build
+        run: npm run build
+      - name: Create standalone binary
+        run: |
+          npx @vercel/ncc build dist/esm/cli.js -o ncc-out --minify
+        shell: bash
+      - name: Create sea-config.json
+        run: |
+          cat > sea-config.json << 'EOF'
+          {
+            "main": "ncc-out/index.js",
+            "output": "sea-prep.blob",
+            "disableExperimentalSEAWarning": true
+          }
+          EOF
+        shell: bash
+      - name: Build SEA blob (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: |
+          node --experimental-sea-config sea-config.json
+          cp $(which node) ${{ matrix.artifact }}
+          if [[ "$OSTYPE" == "darwin"* ]]; then
+            codesign --remove-signature ${{ matrix.artifact }}
+            npx postject ${{ matrix.artifact }} NODE_SEA_BLOB sea-prep.blob \
+              --sentinel-fuse NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2 \
+              --macho-segment-name NODE_SEA
+            codesign --sign - ${{ matrix.artifact }}
+          else
+            npx postject ${{ matrix.artifact }} NODE_SEA_BLOB sea-prep.blob \
+              --sentinel-fuse NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2
+          fi
+        shell: bash
+      - name: Build SEA blob (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          node --experimental-sea-config sea-config.json
+          node -e "require('fs').copyFileSync(process.execPath, '${{ matrix.artifact }}')"
+          npx postject ${{ matrix.artifact }} NODE_SEA_BLOB sea-prep.blob --sentinel-fuse NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2
+        shell: bash
+      - name: Upload binary to release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: ${{ matrix.artifact }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

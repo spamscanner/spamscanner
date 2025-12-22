@@ -3,6 +3,9 @@
   "description": "Spam Scanner - The Best Anti-Spam Scanning Service and Anti-Spam API",
   "version": "6.0.1",
   "author": "Forward Email (https://forwardemail.net)",
+  "bin": {
+    "spamscanner": "./dist/esm/cli.js"
+  },
   "bugs": {
     "url": "https://github.com/spamscanner/spamscanner/issues"
   },
@@ -48,6 +51,7 @@
     "lande": "^1.0.10",
     "mac-regex": "^1.0.0",
     "macos-version": "^6.0.0",
+    "mailauth": "^4.12.0",
     "mailparser": "^3.7.3",
     "memoizee": "^0.4.17",
     "mime-types": "^3.0.1",
@@ -114,6 +118,11 @@
       "types": "./dist/types/index.d.ts",
       "import": "./dist/esm/index.js",
       "require": "./dist/cjs/index.js"
+    },
+    "./arf": {
+      "types": "./dist/types/arf.d.ts",
+      "import": "./dist/esm/arf.js",
+      "require": "./dist/cjs/arf.js"
     }
   },
   "files": [
@@ -193,7 +202,7 @@
     "pre-commit": "lint-staged",
     "prepare": "husky",
     "prepublishOnly": "npm run build",
-    "pretest": "npm run lint",
+    "pretest": "npm run build && npm run lint",
     "test": "node --test test/*.js",
     "test-coverage": "c8 --reporter=text --reporter=html node --test test/*.js"
   },

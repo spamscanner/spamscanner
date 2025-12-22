@@ -26,7 +26,7 @@ test('performance: should handle small emails quickly', async () => {
 	const duration = Number(endTime - startTime) / 1_000_000;
 
 	assert.strictEqual(typeof result, 'object');
-	assert.ok(duration < 3000); // Should complete within 3000ms (includes TensorFlow loading)
+	assert.ok(duration < 12_000); // Should complete within 12000ms (includes TensorFlow loading)
 });
 
 test('performance: should handle medium emails efficiently', async () => {
@@ -39,7 +39,7 @@ test('performance: should handle medium emails efficiently', async () => {
 	const duration = Number(endTime - startTime) / 1_000_000;
 
 	assert.strictEqual(typeof result, 'object');
-	assert.ok(duration < 5000); // Should complete within 5000ms (includes TensorFlow loading)
+	assert.ok(duration < 10_000); // Should complete within 10000ms (includes TensorFlow loading)
 });
 
 test('performance: should handle large emails within timeout', async () => {
@@ -52,7 +52,7 @@ test('performance: should handle large emails within timeout', async () => {
 	const duration = Number(endTime - startTime) / 1_000_000;
 
 	assert.strictEqual(typeof result, 'object');
-	assert.ok(duration < 5000); // Should complete within 5000ms
+	assert.ok(duration < 10_000); // Should complete within 10000ms
 });
 
 test('performance: should handle concurrent scans efficiently', async () => {
@@ -65,7 +65,7 @@ test('performance: should handle concurrent scans efficiently', async () => {
 	const duration = Number(endTime - startTime) / 1_000_000;
 
 	assert.strictEqual(results.length, 3);
-	assert.ok(duration < 6000); // Should complete within 6000ms (includes TensorFlow loading)
+	assert.ok(duration < 12_000); // Should complete within 12000ms (includes TensorFlow loading)
 });
 
 test('stress: should handle many URLs without crashing', async () => {

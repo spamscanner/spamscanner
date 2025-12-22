@@ -1,7 +1,12 @@
 name: CI
+
 on:
-  - push
-  - pull_request
+  push:
+    branches:
+      - master
+      - main
+  pull_request:
+
 jobs:
   build:
     runs-on: ${{ matrix.os }}
@@ -15,9 +20,9 @@ jobs:
           - 22
     name: Node ${{ matrix.node_version }} on ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Setup node
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node_version }}
       - name: Install ClamAV
@@ -31,5 +36,9 @@ jobs:
           sudo service clamav-daemon status -l
       - name: Install dependencies
         run: npm install
+      - name: Build
+        run: npm run build
+      - name: Lint
+        run: npm run lint
       - name: Run tests
-        run: npm run test
+        run: npm run test --ignore-scripts
