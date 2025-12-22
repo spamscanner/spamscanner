@@ -22,8 +22,17 @@ import {fileURLToPath} from 'node:url';
 import SpamScanner from './index.js';
 
 // Get version from package.json
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// Handle both ESM (import.meta.url) and CJS/bundled contexts
+let __filename;
+let __dirname;
+try {
+	__filename = fileURLToPath(import.meta.url);
+	__dirname = path.dirname(__filename);
+} catch {
+	// In bundled CJS context, use process.cwd() as fallback
+	__filename = '';
+	__dirname = process.cwd();
+}
 
 /**
  * Supported languages with their ISO 639-1 codes
@@ -121,11 +130,19 @@ const UPDATE_CHECK_INTERVAL = 24 * 60 * 60 * 1000; // 24 hours
  * @returns {string} Version string
  */
 function getVersion() {
+	// For bundled binaries, use build-time version
+	// This is replaced during build by esbuild define
+	const BUNDLED_VERSION = process.env.SPAMSCANNER_VERSION || null;
+	if (BUNDLED_VERSION) {
+		return BUNDLED_VERSION;
+	}
+
 	// Try multiple possible locations
 	const possiblePaths = [
 		path.join(__dirname, '..', 'package.json'),
 		path.join(__dirname, '..', '..', 'package.json'),
 		path.join(__dirname, '..', '..', '..', 'package.json'),
+		path.join(process.cwd(), 'package.json'),
 	];
 
 	for (const pkgPath of possiblePaths) {

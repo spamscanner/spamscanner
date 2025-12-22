@@ -31,17 +31,18 @@ jobs:
           node-version: 20
       - name: Install dependencies
         run: npm install
-      - name: Build
+      - name: Build (includes standalone CLI)
         run: npm run build
-      - name: Create standalone binary
-        run: |
-          npx @vercel/ncc build dist/esm/cli.js -o ncc-out --minify
+
+      - name: Verify standalone CLI works
+        run: node dist/standalone/cli.cjs --version
         shell: bash
+
       - name: Create sea-config.json
         run: |
           cat > sea-config.json << 'EOF'
           {
-            "main": "ncc-out/index.js",
+            "main": "dist/standalone/cli.cjs",
             "output": "sea-prep.blob",
             "disableExperimentalSEAWarning": true
           }
@@ -70,6 +71,22 @@ jobs:
           node -e "require('fs').copyFileSync(process.execPath, '${{ matrix.artifact }}')"
           npx postject ${{ matrix.artifact }} NODE_SEA_BLOB sea-prep.blob --sentinel-fuse NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2
         shell: bash
+
+      - name: Test binary (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: |
+          chmod +x ${{ matrix.artifact }}
+          ./${{ matrix.artifact }} --version
+          ./${{ matrix.artifact }} --help
+        shell: bash
+
+      - name: Test binary (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          ./${{ matrix.artifact }} --version
+          ./${{ matrix.artifact }} --help
+        shell: bash
+
       - name: Upload binary to release
         uses: softprops/action-gh-release@v1
         with:

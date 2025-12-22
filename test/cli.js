@@ -473,3 +473,141 @@ Test email.
 		});
 	});
 });
+
+describe('Standalone Binary', () => {
+	const STANDALONE_CLI_PATH = path.join(__dirname, '..', 'dist', 'standalone', 'cli.cjs');
+
+	/**
+	 * Run the standalone CLI with given arguments
+	 * @param {string[]} args - CLI arguments
+	 * @param {string} [stdin] - Optional stdin input
+	 * @returns {Promise<{stdout: string, stderr: string, code: number}>}
+	 */
+	function runStandaloneCli(args, stdin) {
+		return new Promise(resolve => {
+			const proc = spawn('node', [STANDALONE_CLI_PATH, ...args], {
+				stdio: ['pipe', 'pipe', 'pipe'],
+			});
+
+			let stdout = '';
+			let stderr = '';
+
+			proc.stdout.on('data', data => {
+				stdout += data.toString();
+			});
+
+			proc.stderr.on('data', data => {
+				stderr += data.toString();
+			});
+
+			if (stdin) {
+				proc.stdin.write(stdin);
+				proc.stdin.end();
+			}
+
+			proc.on('close', code => {
+				resolve({stdout, stderr, code});
+			});
+		});
+	}
+
+	it('should show help with --help flag', async () => {
+		const {stdout, code} = await runStandaloneCli(['--help']);
+
+		assert.strictEqual(code, 0, 'Exit code should be 0');
+		assert.ok(stdout.includes('SpamScanner CLI'), 'Should show CLI header');
+		assert.ok(stdout.includes('scan'), 'Should show scan command');
+	});
+
+	it('should show version with --version flag', async () => {
+		const {stdout, code} = await runStandaloneCli(['--version']);
+
+		assert.strictEqual(code, 0, 'Exit code should be 0');
+		// Version should be a valid semver (not "unknown")
+		assert.ok(/\d+\.\d+\.\d+/.test(stdout), 'Should show valid version number');
+		assert.ok(!stdout.includes('unknown'), 'Version should not be unknown');
+	});
+
+	it('should scan email from stdin', async () => {
+		const testEmail = `From: sender@example.com
+To: recipient@example.net
+Subject: Test Email
+Date: Thu, 1 Jan 2024 00:00:00 +0000
+Message-ID: <test@example.com>
+
+This is a test email for standalone CLI testing.
+`;
+		const {stdout, code} = await runStandaloneCli(['scan', '-', '--no-update-check'], testEmail);
+
+		// Should complete without crashing (exit 0 for clean, 1 for spam)
+		assert.ok(code === 0 || code === 1, `Expected exit code 0 or 1, got ${code}`);
+		// Should produce output
+		assert.ok(stdout.length > 0, 'Should produce output');
+	});
+
+	it('should output JSON with --json flag', async () => {
+		const testEmail = `From: sender@example.com
+To: recipient@example.net
+Subject: Test Email
+Date: Thu, 1 Jan 2024 00:00:00 +0000
+Message-ID: <test@example.com>
+
+This is a test email.
+`;
+		const {stdout, code} = await runStandaloneCli(['scan', '-', '--json', '--no-update-check'], testEmail);
+
+		assert.ok(code === 0 || code === 1, `Expected exit code 0 or 1, got ${code}`);
+
+		// Extract JSON from output (may have TensorFlow warnings before it)
+		const jsonMatch = stdout.match(/{[\s\S]*}/);
+		assert.ok(jsonMatch, 'Output should contain JSON object');
+
+		// Should be valid JSON
+		let parsed;
+		try {
+			parsed = JSON.parse(jsonMatch[0]);
+		} catch {
+			assert.fail('Output should be valid JSON');
+		}
+
+		assert.ok('isSpam' in parsed, 'JSON should have isSpam field');
+		assert.ok('score' in parsed, 'JSON should have score field');
+	});
+
+	it('should handle auth options', async () => {
+		const testEmail = `From: sender@example.com
+To: recipient@example.net
+Subject: Test Email
+Date: Thu, 1 Jan 2024 00:00:00 +0000
+Message-ID: <test@example.com>
+
+This is a test email.
+`;
+		const {stdout, code} = await runStandaloneCli([
+			'scan',
+			'-',
+			'--enable-auth',
+			'--sender-ip',
+			'192.168.1.1',
+			'--json',
+			'--no-update-check',
+		], testEmail);
+
+		assert.ok(code === 0 || code === 1, `Expected exit code 0 or 1, got ${code}`);
+
+		// Extract JSON from output (may have TensorFlow warnings before it)
+		const jsonMatch = stdout.match(/{[\s\S]*}/);
+		assert.ok(jsonMatch, 'Output should contain JSON object');
+
+		let parsed;
+		try {
+			parsed = JSON.parse(jsonMatch[0]);
+		} catch {
+			assert.fail('Output should be valid JSON');
+		}
+
+		// Auth should be present when enabled (it's under results.authentication)
+		assert.ok(parsed.results && 'authentication' in parsed.results, 'JSON should have authentication field when --enable-auth is used');
+		assert.ok(parsed.results.authentication !== null, 'Authentication results should not be null when --enable-auth is used');
+	});
+});

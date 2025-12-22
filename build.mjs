@@ -2,6 +2,7 @@ import {copyFileSync, mkdirSync, readFileSync} from 'node:fs';
 import {build} from 'esbuild';
 
 const packageJson = JSON.parse(readFileSync('package.json', 'utf8'));
+const {version} = packageJson;
 
 // Get all dependencies to mark as external
 const externals = [
@@ -79,6 +80,49 @@ await build({
 	},
 	logOverride: {
 		'empty-import-meta': 'silent',
+	},
+});
+
+// Build standalone CLI bundle for SEA (Single Executable Application)
+// This bundles most dependencies but keeps native modules external
+mkdirSync('dist/standalone', {recursive: true});
+
+// Native modules and problematic packages that can't be bundled
+const nativeExternals = [
+	// Native addons
+	're2',
+	'node-snowball',
+	// Packages with native dependencies
+	'@mapbox/node-pre-gyp',
+	// Optional AWS/mock packages
+	'mock-aws-s3',
+	'aws-sdk',
+	'nock',
+];
+
+await build({
+	entryPoints: ['src/cli.js'],
+	bundle: true,
+	platform: 'node',
+	target: 'node20',
+	format: 'cjs',
+	outfile: 'dist/standalone/cli.cjs',
+	minify: true,
+	external: nativeExternals,
+	logOverride: {
+		'empty-import-meta': 'silent',
+	},
+	define: {
+		// Inject version at build time
+		'process.env.SPAMSCANNER_VERSION': JSON.stringify(version),
+	},
+	banner: {
+		js: '#!/usr/bin/env node\n"use strict";',
+	},
+	// Handle .html and other non-JS files
+	loader: {
+		'.html': 'text',
+		'.node': 'copy',
 	},
 });
 
