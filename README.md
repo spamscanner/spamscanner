@@ -25,6 +25,15 @@
 ## Table of Contents
 
 * [Foreword](#foreword)
+* [Installation](#installation)
+  * [npm (Recommended)](#npm-recommended)
+  * [Standalone Binary (No Node.js Required)](#standalone-binary-no-nodejs-required)
+  * [ClamAV Installation (Optional)](#clamav-installation-optional)
+* [CLI (Command Line Interface)](#cli-command-line-interface)
+  * [CLI Installation](#cli-installation)
+  * [Commands](#commands)
+  * [Exit Codes](#exit-codes)
+  * [CLI Examples](#cli-examples)
 * [Why Spam Scanner](#why-spam-scanner)
   * [Key Advantages](#key-advantages)
 * [Features](#features)
@@ -48,8 +57,6 @@
 * [Requirements](#requirements)
   * [System Requirements](#system-requirements)
   * [Dependencies](#dependencies)
-* [Installation](#installation)
-  * [ClamAV Installation](#clamav-installation)
 * [Quick Start](#quick-start)
   * [Basic Usage](#basic-usage)
   * [With Configuration](#with-configuration)
@@ -66,11 +73,6 @@
   * [Selective Feature Disabling](#selective-feature-disabling)
   * [Custom Timeout](#custom-timeout)
   * [Custom Logger](#custom-logger)
-* [CLI (Command Line Interface)](#cli-command-line-interface)
-  * [CLI Installation](#cli-installation)
-  * [Commands](#commands)
-  * [Exit Codes](#exit-codes)
-  * [CLI Examples](#cli-examples)
 * [ARF (Abuse Reporting Format)](#arf-abuse-reporting-format)
   * [Parsing ARF Reports](#parsing-arf-reports)
   * [Creating ARF Reports](#creating-arf-reports)
@@ -100,6 +102,371 @@ Our goal is to build and utilize a scalable, performant, simple, easy to maintai
 Initially we tried using [SpamAssassin](https://spamassassin.apache.org), and later evaluated [rspamd](https://rspamd.com) – but in the end we learned that all existing solutions (even ones besides these) are overtly complex, missing required features or documentation, incredibly challenging to configure; high-barrier to entry, or have proprietary storage backends (that could store and read your messages without your consent) that limit our scalability.
 
 To us, we value privacy and the security of our data and users – specifically we have a "Zero-Tolerance Policy" on storing logs or metadata of any kind, whatsoever (see our [Privacy Policy](https://forwardemail.net/privacy-policy) for more on that). None of these solutions honored this privacy policy (without removing essential spam-detection functionality), so we had to create our own tool – thus "Spam Scanner" was born.
+
+---
+
+
+## Installation
+
+### npm (Recommended)
+
+```bash
+npm install spamscanner
+```
+
+For CLI usage:
+
+```bash
+# Install globally
+npm install -g spamscanner
+
+# Or use npx without installing
+npx spamscanner scan email.eml
+```
+
+### Standalone Binary (No Node.js Required)
+
+Download a pre-built binary for your platform. These are self-contained executables that don't require Node.js.
+
+See [CLI Installation](#cli-installation) for download links and platform-specific instructions.
+
+### ClamAV Installation (Optional)
+
+#### macOS
+
+```bash
+brew install clamav
+freshclam
+```
+
+#### Ubuntu/Debian
+
+```bash
+sudo apt-get update
+sudo apt-get install clamav clamav-daemon
+sudo freshclam
+sudo systemctl start clamav-daemon
+```
+
+#### CentOS/RHEL
+
+```bash
+sudo yum install clamav clamav-update
+sudo freshclam
+```
+
+> \[!TIP]
+> See the [ClamAV configuration guide](https://github.com/spamscanner/spamscanner/blob/master/docs/clamav.md) for detailed installation instructions.
+
+---
+
+
+## CLI (Command Line Interface)
+
+SpamScanner provides a command-line interface for scanning emails directly from the terminal or integrating with mail servers.
+
+### CLI Installation
+
+SpamScanner can be installed via npm or as a standalone binary. The standalone binary includes Node.js and all dependencies, so no additional runtime is required.
+
+#### Install via npm (requires Node.js)
+
+```bash
+# Install globally
+npm install -g spamscanner
+
+# Or use npx without installing
+npx spamscanner --help
+```
+
+#### Install Standalone Binary
+
+##### macOS
+
+```bash
+# Using curl (Intel or Apple Silicon - auto-detected)
+curl -fsSL https://github.com/spamscanner/spamscanner/releases/latest/download/spamscanner-darwin-$(uname -m | sed 's/x86_64/x64/' | sed 's/aarch64/arm64/' | sed 's/arm64/arm64/') -o /usr/local/bin/spamscanner
+chmod +x /usr/local/bin/spamscanner
+
+# Or download manually for Intel Mac
+curl -fsSL https://github.com/spamscanner/spamscanner/releases/latest/download/spamscanner-darwin-x64 -o /usr/local/bin/spamscanner
+chmod +x /usr/local/bin/spamscanner
+
+# Or download manually for Apple Silicon (M1/M2/M3)
+curl -fsSL https://github.com/spamscanner/spamscanner/releases/latest/download/spamscanner-darwin-arm64 -o /usr/local/bin/spamscanner
+chmod +x /usr/local/bin/spamscanner
+```
+
+##### Linux
+
+```bash
+# Download and install to /usr/local/bin
+sudo curl -fsSL https://github.com/spamscanner/spamscanner/releases/latest/download/spamscanner-linux-x64 -o /usr/local/bin/spamscanner
+sudo chmod +x /usr/local/bin/spamscanner
+
+# Or install to user directory (no sudo required)
+mkdir -p ~/.local/bin
+curl -fsSL https://github.com/spamscanner/spamscanner/releases/latest/download/spamscanner-linux-x64 -o ~/.local/bin/spamscanner
+chmod +x ~/.local/bin/spamscanner
+# Add to PATH if not already: export PATH="$HOME/.local/bin:$PATH"
+```
+
+##### Windows
+
+```powershell
+# Using PowerShell (run as Administrator)
+Invoke-WebRequest -Uri "https://github.com/spamscanner/spamscanner/releases/latest/download/spamscanner-win-x64.exe" -OutFile "C:\Program Files\spamscanner\spamscanner.exe"
+# Add to PATH via System Properties > Environment Variables
+
+# Or download to current directory
+Invoke-WebRequest -Uri "https://github.com/spamscanner/spamscanner/releases/latest/download/spamscanner-win-x64.exe" -OutFile ".\spamscanner.exe"
+```
+
+##### Verify Installation
+
+```bash
+# Check version
+spamscanner version
+
+# Check for updates
+spamscanner update
+```
+
+#### Automatic Updates
+
+SpamScanner CLI automatically checks for updates once every 24 hours and displays a notification if a new version is available. You can also manually check for updates:
+
+```bash
+# Check for updates
+spamscanner update
+
+# Disable automatic update checks
+spamscanner scan email.eml --no-update-check
+```
+
+To update to the latest version, simply re-run the installation command for your platform or use npm:
+
+```bash
+# Update via npm
+npm update -g spamscanner
+
+# Or re-download the binary (macOS/Linux)
+curl -fsSL https://github.com/spamscanner/spamscanner/releases/latest/download/spamscanner-$(uname -s | tr '[:upper:]' '[:lower:]')-$(uname -m | sed 's/x86_64/x64/' | sed 's/aarch64/arm64/') -o /usr/local/bin/spamscanner
+chmod +x /usr/local/bin/spamscanner
+```
+
+### Commands
+
+| Command                   | Description           |
+| ------------------------- | --------------------- |
+| `spamscanner scan <file>` | Scan an email file    |
+| `spamscanner scan -`      | Scan email from stdin |
+| `spamscanner server`      | Start TCP server mode |
+| `spamscanner help`        | Show help message     |
+| `spamscanner version`     | Show version number   |
+| `spamscanner update`      | Check for updates     |
+
+#### General Options
+
+| Option              | Description                                   |
+| ------------------- | --------------------------------------------- |
+| `-h, --help`        | Show help                                     |
+| `-v, --version`     | Show version                                  |
+| `-j, --json`        | Output results as JSON                        |
+| `--verbose`         | Show detailed output                          |
+| `--debug`           | Enable debug mode                             |
+| `--timeout <ms>`    | Scan timeout in milliseconds (default: 30000) |
+| `--no-update-check` | Disable automatic update check                |
+
+#### Spam Detection Options
+
+SpamScanner calculates a spam score based on multiple detection methods. You can configure which checks are included and customize the score weights.
+
+| Option                | Description                                       |
+| --------------------- | ------------------------------------------------- |
+| `--threshold <score>` | Spam score threshold (default: 5.0)               |
+| `--check-classifier`  | Include Bayesian classifier in scoring (default)  |
+| `--check-phishing`    | Include phishing detection in scoring (default)   |
+| `--check-executables` | Include executable detection in scoring (default) |
+| `--check-macros`      | Include macro detection in scoring (default)      |
+| `--check-virus`       | Include virus detection in scoring (default)      |
+| `--check-nsfw`        | Include NSFW detection in scoring (disabled)      |
+| `--check-toxicity`    | Include toxicity detection in scoring (disabled)  |
+| `--no-classifier`     | Disable Bayesian classifier scoring               |
+| `--no-phishing`       | Disable phishing scoring                          |
+| `--no-executables`    | Disable executable scoring                        |
+| `--no-macros`         | Disable macro scoring                             |
+| `--no-virus`          | Disable virus scoring                             |
+
+#### Score Weights
+
+Customize how much each detection type contributes to the total spam score:
+
+| Option                   | Description                                 |
+| ------------------------ | ------------------------------------------- |
+| `--score-classifier <n>` | Classifier spam score weight (default: 5.0) |
+| `--score-phishing <n>`   | Phishing score per issue (default: 5.0)     |
+| `--score-executable <n>` | Executable score per file (default: 10.0)   |
+| `--score-macro <n>`      | Macro score per detection (default: 5.0)    |
+| `--score-virus <n>`      | Virus score per detection (default: 100.0)  |
+| `--score-nsfw <n>`       | NSFW score per detection (default: 3.0)     |
+| `--score-toxicity <n>`   | Toxicity score per detection (default: 3.0) |
+
+#### Header Options
+
+For mail server integration, SpamScanner can add X-Spam headers to emails (similar to [SpamAssassin](https://github.com/apache/spamassassin) and [Stalwart](https://github.com/stalwartlabs/stalwart)):
+
+| Option                | Description                                |
+| --------------------- | ------------------------------------------ |
+| `--add-headers`       | Add X-Spam-* headers to output             |
+| `--prepend-subject`   | Prepend [SPAM] to subject if spam detected |
+| `--subject-tag <tag>` | Custom subject tag (default: [SPAM])       |
+
+**X-Spam Headers Added:**
+
+| Header          | Description                                                          |
+| --------------- | -------------------------------------------------------------------- |
+| `X-Spam-Status` | `Yes/No, score=X.X required=Y.Y tests=TEST1,TEST2,... version=X.X.X` |
+| `X-Spam-Score`  | Numeric spam score (e.g., `7.5`)                                     |
+| `X-Spam-Flag`   | `YES` or `NO`                                                        |
+| `X-Spam-Tests`  | Comma-separated list of triggered tests                              |
+
+#### Scanner Configuration Options
+
+These options configure the underlying SpamScanner engine:
+
+| Option                     | Description                                             |
+| -------------------------- | ------------------------------------------------------- |
+| `--languages <list>`       | Comma-separated language codes (default: all languages) |
+| `--mixed-language`         | Enable mixed language detection in emails               |
+| `--no-macro-detection`     | Disable macro detection in attachments                  |
+| `--no-pattern-recognition` | Disable advanced pattern recognition                    |
+| `--strict-idn`             | Enable strict IDN/homograph detection                   |
+| `--nsfw-threshold <n>`     | NSFW detection threshold 0.0-1.0 (default: 0.6)         |
+| `--toxicity-threshold <n>` | Toxicity detection threshold 0.0-1.0 (default: 0.7)     |
+| `--clamscan-path <path>`   | Path to clamscan binary (default: /usr/bin/clamscan)    |
+| `--clamdscan-path <path>`  | Path to clamdscan binary (default: /usr/bin/clamdscan)  |
+
+##### Supported Languages
+
+Use ISO 639-1 language codes with the `--languages` option. Pass an empty string or `all` to enable all languages (default).
+
+| Code | Language        | Code | Language   | Code | Language   |
+| ---- | --------------- | ---- | ---------- | ---- | ---------- |
+| `en` | English         | `fr` | French     | `es` | Spanish    |
+| `de` | German          | `it` | Italian    | `pt` | Portuguese |
+| `ru` | Russian         | `ja` | Japanese   | `ko` | Korean     |
+| `zh` | Chinese         | `ar` | Arabic     | `hi` | Hindi      |
+| `bn` | Bengali         | `ur` | Urdu       | `tr` | Turkish    |
+| `pl` | Polish          | `nl` | Dutch      | `sv` | Swedish    |
+| `no` | Norwegian       | `da` | Danish     | `fi` | Finnish    |
+| `hu` | Hungarian       | `cs` | Czech      | `sk` | Slovak     |
+| `sl` | Slovenian       | `hr` | Croatian   | `sr` | Serbian    |
+| `bg` | Bulgarian       | `ro` | Romanian   | `el` | Greek      |
+| `he` | Hebrew          | `th` | Thai       | `vi` | Vietnamese |
+| `id` | Indonesian      | `ms` | Malay      | `tl` | Tagalog    |
+| `uk` | Ukrainian       | `be` | Belarusian | `lt` | Lithuanian |
+| `lv` | Latvian         | `et` | Estonian   | `ca` | Catalan    |
+| `eu` | Basque          | `gl` | Galician   | `ga` | Irish      |
+| `gd` | Scottish Gaelic | `cy` | Welsh      | `is` | Icelandic  |
+| `mt` | Maltese         | `af` | Afrikaans  | `sw` | Swahili    |
+| `am` | Amharic         | `ha` | Hausa      | `yo` | Yoruba     |
+| `ig` | Igbo            | `so` | Somali     | `om` | Oromo      |
+| `ti` | Tigrinya        | `mg` | Malagasy   | `ny` | Chichewa   |
+| `sn` | Shona           | `xh` | Xhosa      | `zu` | Zulu       |
+| `st` | Southern Sotho  | `tn` | Tswana     |      |            |
+
+#### Server Options
+
+| Option          | Description                          |
+| --------------- | ------------------------------------ |
+| `--port <port>` | TCP server port (default: 7830)      |
+| `--host <host>` | TCP server host (default: 127.0.0.1) |
+
+### Exit Codes
+
+| Code | Meaning          |
+| ---- | ---------------- |
+| `0`  | Clean (not spam) |
+| `1`  | Spam detected    |
+| `2`  | Error occurred   |
+
+### CLI Examples
+
+```bash
+# Scan a file
+spamscanner scan email.eml
+
+# Scan from stdin (for Postfix integration)
+cat email.eml | spamscanner scan -
+
+# Scan with JSON output (includes score and tests)
+spamscanner scan email.eml --json
+
+# Scan with verbose output
+spamscanner scan email.eml --verbose
+
+# Scan with custom spam threshold
+spamscanner scan email.eml --threshold 3.0
+
+# Scan with only classifier and phishing checks
+spamscanner scan email.eml --no-executables --no-macros --no-virus
+
+# Scan and add X-Spam headers (for mail server integration)
+spamscanner scan email.eml --add-headers
+
+# Scan, add headers, and prepend [SPAM] to subject
+spamscanner scan email.eml --add-headers --prepend-subject
+
+# Scan with custom subject tag
+spamscanner scan email.eml --add-headers --prepend-subject --subject-tag "[JUNK]"
+
+# Enable NSFW and toxicity checks with custom weights
+spamscanner scan email.eml --check-nsfw --check-toxicity --score-nsfw 5.0
+
+# Start TCP server on custom port
+spamscanner server --port 8080
+
+# Start TCP server with custom threshold
+spamscanner server --port 8080 --threshold 3.0
+
+# Scan with specific language support (English, Spanish, French only)
+spamscanner scan email.eml --languages en,es,fr
+
+# Scan with mixed language detection enabled
+spamscanner scan email.eml --mixed-language
+
+# Scan with strict IDN/homograph detection
+spamscanner scan email.eml --strict-idn
+
+# Scan with custom NSFW threshold (more sensitive)
+spamscanner scan email.eml --check-nsfw --nsfw-threshold 0.3
+
+# Scan with custom ClamAV paths
+spamscanner scan email.eml --clamscan-path /opt/clamav/bin/clamscan
+```
+
+#### Example JSON Output
+
+```json
+{
+  "isSpam": true,
+  "score": 7.5,
+  "threshold": 5.0,
+  "tests": ["BAYES_SPAM(5.0)", "PHISHING_DETECTED(2.5)"],
+  "message": "Spam",
+  "results": {
+    "classification": { "category": "spam", "probability": 0.95 },
+    "phishing": [{ "type": "suspicious_link", "url": "http://example.com" }]
+  },
+  "headers": {
+    "X-Spam-Status": "Yes, score=7.5 required=5.0 tests=BAYES_SPAM(5.0),PHISHING_DETECTED(2.5) version=6.0.1",
+    "X-Spam-Score": "7.5",
+    "X-Spam-Flag": "YES",
+    "X-Spam-Tests": "BAYES_SPAM(5.0), PHISHING_DETECTED(2.5)"
+  }
+}
+```
 
 ---
 
@@ -407,43 +774,6 @@ graph LR
 * **natural**: For NLP and tokenization
 * **tldts**: For TLD parsing
 * **confusables**: For Unicode confusables detection
-
----
-
-
-## Installation
-
-```bash
-npm install spamscanner
-```
-
-### ClamAV Installation
-
-#### macOS
-
-```bash
-brew install clamav
-freshclam
-```
-
-#### Ubuntu/Debian
-
-```bash
-sudo apt-get update
-sudo apt-get install clamav clamav-daemon
-sudo freshclam
-sudo systemctl start clamav-daemon
-```
-
-#### CentOS/RHEL
-
-```bash
-sudo yum install clamav clamav-update
-sudo freshclam
-```
-
-> \[!TIP]
-> See the [ClamAV configuration guide](https://github.com/spamscanner/spamscanner/blob/master/docs/clamav.md) for detailed installation instructions.
 
 ---
 
@@ -1193,316 +1523,6 @@ const scanner = new SpamScanner({
   debug: true,
   logger: logger
 });
-```
-
----
-
-
-## CLI (Command Line Interface)
-
-SpamScanner provides a command-line interface for scanning emails directly from the terminal or integrating with mail servers.
-
-### CLI Installation
-
-SpamScanner can be installed via npm or as a standalone binary. The standalone binary includes Node.js and all dependencies, so no additional runtime is required.
-
-#### Install via npm (requires Node.js)
-
-```bash
-# Install globally
-npm install -g spamscanner
-
-# Or use npx without installing
-npx spamscanner --help
-```
-
-#### Install Standalone Binary
-
-##### macOS
-
-```bash
-# Using curl (Intel or Apple Silicon - auto-detected)
-curl -fsSL https://github.com/spamscanner/spamscanner/releases/latest/download/spamscanner-darwin-$(uname -m | sed 's/x86_64/x64/' | sed 's/aarch64/arm64/' | sed 's/arm64/arm64/') -o /usr/local/bin/spamscanner
-chmod +x /usr/local/bin/spamscanner
-
-# Or download manually for Intel Mac
-curl -fsSL https://github.com/spamscanner/spamscanner/releases/latest/download/spamscanner-darwin-x64 -o /usr/local/bin/spamscanner
-chmod +x /usr/local/bin/spamscanner
-
-# Or download manually for Apple Silicon (M1/M2/M3)
-curl -fsSL https://github.com/spamscanner/spamscanner/releases/latest/download/spamscanner-darwin-arm64 -o /usr/local/bin/spamscanner
-chmod +x /usr/local/bin/spamscanner
-```
-
-##### Linux
-
-```bash
-# Download and install to /usr/local/bin
-sudo curl -fsSL https://github.com/spamscanner/spamscanner/releases/latest/download/spamscanner-linux-x64 -o /usr/local/bin/spamscanner
-sudo chmod +x /usr/local/bin/spamscanner
-
-# Or install to user directory (no sudo required)
-mkdir -p ~/.local/bin
-curl -fsSL https://github.com/spamscanner/spamscanner/releases/latest/download/spamscanner-linux-x64 -o ~/.local/bin/spamscanner
-chmod +x ~/.local/bin/spamscanner
-# Add to PATH if not already: export PATH="$HOME/.local/bin:$PATH"
-```
-
-##### Windows
-
-```powershell
-# Using PowerShell (run as Administrator)
-Invoke-WebRequest -Uri "https://github.com/spamscanner/spamscanner/releases/latest/download/spamscanner-win-x64.exe" -OutFile "C:\Program Files\spamscanner\spamscanner.exe"
-# Add to PATH via System Properties > Environment Variables
-
-# Or download to current directory
-Invoke-WebRequest -Uri "https://github.com/spamscanner/spamscanner/releases/latest/download/spamscanner-win-x64.exe" -OutFile ".\spamscanner.exe"
-```
-
-##### Verify Installation
-
-```bash
-# Check version
-spamscanner version
-
-# Check for updates
-spamscanner update
-```
-
-#### Automatic Updates
-
-SpamScanner CLI automatically checks for updates once every 24 hours and displays a notification if a new version is available. You can also manually check for updates:
-
-```bash
-# Check for updates
-spamscanner update
-
-# Disable automatic update checks
-spamscanner scan email.eml --no-update-check
-```
-
-To update to the latest version, simply re-run the installation command for your platform or use npm:
-
-```bash
-# Update via npm
-npm update -g spamscanner
-
-# Or re-download the binary (macOS/Linux)
-curl -fsSL https://github.com/spamscanner/spamscanner/releases/latest/download/spamscanner-$(uname -s | tr '[:upper:]' '[:lower:]')-$(uname -m | sed 's/x86_64/x64/' | sed 's/aarch64/arm64/') -o /usr/local/bin/spamscanner
-chmod +x /usr/local/bin/spamscanner
-```
-
-### Commands
-
-| Command                   | Description           |
-| ------------------------- | --------------------- |
-| `spamscanner scan <file>` | Scan an email file    |
-| `spamscanner scan -`      | Scan email from stdin |
-| `spamscanner server`      | Start TCP server mode |
-| `spamscanner help`        | Show help message     |
-| `spamscanner version`     | Show version number   |
-| `spamscanner update`      | Check for updates     |
-
-#### General Options
-
-| Option              | Description                                   |
-| ------------------- | --------------------------------------------- |
-| `-h, --help`        | Show help                                     |
-| `-v, --version`     | Show version                                  |
-| `-j, --json`        | Output results as JSON                        |
-| `--verbose`         | Show detailed output                          |
-| `--debug`           | Enable debug mode                             |
-| `--timeout <ms>`    | Scan timeout in milliseconds (default: 30000) |
-| `--no-update-check` | Disable automatic update check                |
-
-#### Spam Detection Options
-
-SpamScanner calculates a spam score based on multiple detection methods. You can configure which checks are included and customize the score weights.
-
-| Option                | Description                                       |
-| --------------------- | ------------------------------------------------- |
-| `--threshold <score>` | Spam score threshold (default: 5.0)               |
-| `--check-classifier`  | Include Bayesian classifier in scoring (default)  |
-| `--check-phishing`    | Include phishing detection in scoring (default)   |
-| `--check-executables` | Include executable detection in scoring (default) |
-| `--check-macros`      | Include macro detection in scoring (default)      |
-| `--check-virus`       | Include virus detection in scoring (default)      |
-| `--check-nsfw`        | Include NSFW detection in scoring (disabled)      |
-| `--check-toxicity`    | Include toxicity detection in scoring (disabled)  |
-| `--no-classifier`     | Disable Bayesian classifier scoring               |
-| `--no-phishing`       | Disable phishing scoring                          |
-| `--no-executables`    | Disable executable scoring                        |
-| `--no-macros`         | Disable macro scoring                             |
-| `--no-virus`          | Disable virus scoring                             |
-
-#### Score Weights
-
-Customize how much each detection type contributes to the total spam score:
-
-| Option                   | Description                                 |
-| ------------------------ | ------------------------------------------- |
-| `--score-classifier <n>` | Classifier spam score weight (default: 5.0) |
-| `--score-phishing <n>`   | Phishing score per issue (default: 5.0)     |
-| `--score-executable <n>` | Executable score per file (default: 10.0)   |
-| `--score-macro <n>`      | Macro score per detection (default: 5.0)    |
-| `--score-virus <n>`      | Virus score per detection (default: 100.0)  |
-| `--score-nsfw <n>`       | NSFW score per detection (default: 3.0)     |
-| `--score-toxicity <n>`   | Toxicity score per detection (default: 3.0) |
-
-#### Header Options
-
-For mail server integration, SpamScanner can add X-Spam headers to emails (similar to [SpamAssassin](https://github.com/apache/spamassassin) and [Stalwart](https://github.com/stalwartlabs/stalwart)):
-
-| Option                | Description                                |
-| --------------------- | ------------------------------------------ |
-| `--add-headers`       | Add X-Spam-* headers to output             |
-| `--prepend-subject`   | Prepend [SPAM] to subject if spam detected |
-| `--subject-tag <tag>` | Custom subject tag (default: [SPAM])       |
-
-**X-Spam Headers Added:**
-
-| Header          | Description                                                          |
-| --------------- | -------------------------------------------------------------------- |
-| `X-Spam-Status` | `Yes/No, score=X.X required=Y.Y tests=TEST1,TEST2,... version=X.X.X` |
-| `X-Spam-Score`  | Numeric spam score (e.g., `7.5`)                                     |
-| `X-Spam-Flag`   | `YES` or `NO`                                                        |
-| `X-Spam-Tests`  | Comma-separated list of triggered tests                              |
-
-#### Scanner Configuration Options
-
-These options configure the underlying SpamScanner engine:
-
-| Option                     | Description                                             |
-| -------------------------- | ------------------------------------------------------- |
-| `--languages <list>`       | Comma-separated language codes (default: all languages) |
-| `--mixed-language`         | Enable mixed language detection in emails               |
-| `--no-macro-detection`     | Disable macro detection in attachments                  |
-| `--no-pattern-recognition` | Disable advanced pattern recognition                    |
-| `--strict-idn`             | Enable strict IDN/homograph detection                   |
-| `--nsfw-threshold <n>`     | NSFW detection threshold 0.0-1.0 (default: 0.6)         |
-| `--toxicity-threshold <n>` | Toxicity detection threshold 0.0-1.0 (default: 0.7)     |
-| `--clamscan-path <path>`   | Path to clamscan binary (default: /usr/bin/clamscan)    |
-| `--clamdscan-path <path>`  | Path to clamdscan binary (default: /usr/bin/clamdscan)  |
-
-##### Supported Languages
-
-Use ISO 639-1 language codes with the `--languages` option. Pass an empty string or `all` to enable all languages (default).
-
-| Code | Language        | Code | Language   | Code | Language   |
-| ---- | --------------- | ---- | ---------- | ---- | ---------- |
-| `en` | English         | `fr` | French     | `es` | Spanish    |
-| `de` | German          | `it` | Italian    | `pt` | Portuguese |
-| `ru` | Russian         | `ja` | Japanese   | `ko` | Korean     |
-| `zh` | Chinese         | `ar` | Arabic     | `hi` | Hindi      |
-| `bn` | Bengali         | `ur` | Urdu       | `tr` | Turkish    |
-| `pl` | Polish          | `nl` | Dutch      | `sv` | Swedish    |
-| `no` | Norwegian       | `da` | Danish     | `fi` | Finnish    |
-| `hu` | Hungarian       | `cs` | Czech      | `sk` | Slovak     |
-| `sl` | Slovenian       | `hr` | Croatian   | `sr` | Serbian    |
-| `bg` | Bulgarian       | `ro` | Romanian   | `el` | Greek      |
-| `he` | Hebrew          | `th` | Thai       | `vi` | Vietnamese |
-| `id` | Indonesian      | `ms` | Malay      | `tl` | Tagalog    |
-| `uk` | Ukrainian       | `be` | Belarusian | `lt` | Lithuanian |
-| `lv` | Latvian         | `et` | Estonian   | `ca` | Catalan    |
-| `eu` | Basque          | `gl` | Galician   | `ga` | Irish      |
-| `gd` | Scottish Gaelic | `cy` | Welsh      | `is` | Icelandic  |
-| `mt` | Maltese         | `af` | Afrikaans  | `sw` | Swahili    |
-| `am` | Amharic         | `ha` | Hausa      | `yo` | Yoruba     |
-| `ig` | Igbo            | `so` | Somali     | `om` | Oromo      |
-| `ti` | Tigrinya        | `mg` | Malagasy   | `ny` | Chichewa   |
-| `sn` | Shona           | `xh` | Xhosa      | `zu` | Zulu       |
-| `st` | Southern Sotho  | `tn` | Tswana     |      |            |
-
-#### Server Options
-
-| Option          | Description                          |
-| --------------- | ------------------------------------ |
-| `--port <port>` | TCP server port (default: 7830)      |
-| `--host <host>` | TCP server host (default: 127.0.0.1) |
-
-### Exit Codes
-
-| Code | Meaning          |
-| ---- | ---------------- |
-| `0`  | Clean (not spam) |
-| `1`  | Spam detected    |
-| `2`  | Error occurred   |
-
-### CLI Examples
-
-```bash
-# Scan a file
-spamscanner scan email.eml
-
-# Scan from stdin (for Postfix integration)
-cat email.eml | spamscanner scan -
-
-# Scan with JSON output (includes score and tests)
-spamscanner scan email.eml --json
-
-# Scan with verbose output
-spamscanner scan email.eml --verbose
-
-# Scan with custom spam threshold
-spamscanner scan email.eml --threshold 3.0
-
-# Scan with only classifier and phishing checks
-spamscanner scan email.eml --no-executables --no-macros --no-virus
-
-# Scan and add X-Spam headers (for mail server integration)
-spamscanner scan email.eml --add-headers
-
-# Scan, add headers, and prepend [SPAM] to subject
-spamscanner scan email.eml --add-headers --prepend-subject
-
-# Scan with custom subject tag
-spamscanner scan email.eml --add-headers --prepend-subject --subject-tag "[JUNK]"
-
-# Enable NSFW and toxicity checks with custom weights
-spamscanner scan email.eml --check-nsfw --check-toxicity --score-nsfw 5.0
-
-# Start TCP server on custom port
-spamscanner server --port 8080
-
-# Start TCP server with custom threshold
-spamscanner server --port 8080 --threshold 3.0
-
-# Scan with specific language support (English, Spanish, French only)
-spamscanner scan email.eml --languages en,es,fr
-
-# Scan with mixed language detection enabled
-spamscanner scan email.eml --mixed-language
-
-# Scan with strict IDN/homograph detection
-spamscanner scan email.eml --strict-idn
-
-# Scan with custom NSFW threshold (more sensitive)
-spamscanner scan email.eml --check-nsfw --nsfw-threshold 0.3
-
-# Scan with custom ClamAV paths
-spamscanner scan email.eml --clamscan-path /opt/clamav/bin/clamscan
-```
-
-#### Example JSON Output
-
-```json
-{
-  "isSpam": true,
-  "score": 7.5,
-  "threshold": 5.0,
-  "tests": ["BAYES_SPAM(5.0)", "PHISHING_DETECTED(2.5)"],
-  "message": "Spam",
-  "results": {
-    "classification": { "category": "spam", "probability": 0.95 },
-    "phishing": [{ "type": "suspicious_link", "url": "http://example.com" }]
-  },
-  "headers": {
-    "X-Spam-Status": "Yes, score=7.5 required=5.0 tests=BAYES_SPAM(5.0),PHISHING_DETECTED(2.5) version=6.0.1",
-    "X-Spam-Score": "7.5",
-    "X-Spam-Flag": "YES",
-    "X-Spam-Tests": "BAYES_SPAM(5.0), PHISHING_DETECTED(2.5)"
-  }
-}
 ```
 
 ---

@@ -27,7 +27,6 @@ import macRegex from 'mac-regex';
 import natural from 'natural';
 import normalizeUrl from 'normalize-url';
 import phoneRegex from 'phone-regex';
-import snowball from 'node-snowball';
 import striptags from 'striptags';
 import superagent from 'superagent';
 import sw from 'stopword';
@@ -39,6 +38,28 @@ import {authenticate, calculateAuthScore, formatAuthResultsHeader} from './auth.
 import {checkReputationBatch, aggregateReputationResults} from './reputation.js';
 import {isArbitrary, buildSessionInfo} from './is-arbitrary.js';
 import {extractAttributes} from './get-attributes.js';
+// Stemmer map using natural's pure JS implementations (replaces native node-snowball)
+const stemmers = {
+	en: natural.PorterStemmer,
+	es: natural.PorterStemmerEs,
+	fr: natural.PorterStemmerFr,
+	de: natural.PorterStemmerDe,
+	it: natural.PorterStemmerIt,
+	pt: natural.PorterStemmerPt,
+	ru: natural.PorterStemmerRu,
+};
+
+// Snowball-compatible API using natural's stemmers
+const snowball = {
+	stemword(word, locale) {
+		const stemmer = stemmers[locale];
+		if (stemmer) {
+			return stemmer.stem(word);
+		}
+
+		return word;
+	},
+};
 
 // ES module compatibility - handle both ESM and CJS builds
 // In ESM, import.meta.url is defined; in CJS (via esbuild), it's undefined

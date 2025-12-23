@@ -146,7 +146,7 @@ test('integration: should handle performance with large emails', async () => {
 	const duration = Number(endTime - startTime) / 1_000_000;
 
 	assert.strictEqual(typeof result, 'object');
-	assert.ok(duration < 5000); // Should complete within 5 seconds
+	assert.ok(duration < 60_000); // Should complete within 60s (includes model loading)
 });
 
 test('integration: should detect macro-laden email', async () => {

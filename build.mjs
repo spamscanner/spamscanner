@@ -87,11 +87,14 @@ await build({
 // This bundles most dependencies but keeps native modules external
 mkdirSync('dist/standalone', {recursive: true});
 
-// Native modules and problematic packages that can't be bundled
+// Native modules and problematic packages that can't be bundled into SEA
+// Note: node-snowball has been replaced with natural's pure JS stemmers
 const nativeExternals = [
-	// Native addons
-	're2',
-	'node-snowball',
+	// Native addons that are optional
+	're2', // Optional regex engine, falls back to native RegExp
+	'@tensorflow/tfjs-node', // Optional, uses tfjs pure JS fallback
+	'sharp', // Optional image processing
+	'iconv', // Optional encoding
 	// Packages with native dependencies
 	'@mapbox/node-pre-gyp',
 	// Optional AWS/mock packages

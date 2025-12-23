@@ -16,7 +16,7 @@ jobs:
           - os: ubuntu-latest
             target: linux-x64
             artifact: spamscanner-linux-x64
-          - os: macos-latest
+          - os: macos-13
             target: darwin-x64
             artifact: spamscanner-darwin-x64
           - os: macos-14
@@ -24,22 +24,30 @@ jobs:
             artifact: spamscanner-darwin-arm64
           - os: windows-latest
             target: win-x64
-            artifact: spamscanner-win-x64.exe
+            artifact: spamscanner-win-x64
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
+
       - name: Install dependencies
         run: npm install
-      - name: Build (includes standalone CLI)
+
+      - name: Build standalone CLI
         run: npm run build
 
-      - name: Verify standalone CLI works
-        run: node dist/standalone/cli.cjs --version
+      - name: Verify standalone CLI works before SEA
+        run: |
+          echo "Testing standalone CLI..."
+          node dist/standalone/cli.cjs --version
+          node dist/standalone/cli.cjs --help | head -10
+          echo "From: test@example.com" | node dist/standalone/cli.cjs scan - --json | head -5 || true
         shell: bash
 
-      - name: Create sea-config.json
+      - name: Create SEA config
         run: |
           cat > sea-config.json << 'EOF'
           {
@@ -52,51 +60,79 @@ jobs:
           EOF
         shell: bash
 
-      - name: Build SEA blob (Linux/macOS)
-        if: runner.os != 'Windows'
+      - name: Build SEA blob
+        run: node --experimental-sea-config sea-config.json
+
+      - name: Create SEA binary (Linux)
+        if: runner.os == 'Linux'
         run: |
-          node --experimental-sea-config sea-config.json
           cp $(which node) ${{ matrix.artifact }}
-          if [[ "$OSTYPE" == "darwin"* ]]; then
-            codesign --remove-signature ${{ matrix.artifact }}
-            npx postject ${{ matrix.artifact }} NODE_SEA_BLOB sea-prep.blob \
-              --sentinel-fuse NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2 \
-              --macho-segment-name NODE_SEA
-            codesign --sign - ${{ matrix.artifact }}
-          else
-            npx postject ${{ matrix.artifact }} NODE_SEA_BLOB sea-prep.blob \
-              --sentinel-fuse NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2
-          fi
-        shell: bash
+          npx postject ${{ matrix.artifact }} NODE_SEA_BLOB sea-prep.blob \
+            --sentinel-fuse NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2
+          chmod +x ${{ matrix.artifact }}
 
-      - name: Build SEA blob (Windows)
+      - name: Create SEA binary (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          cp $(which node) ${{ matrix.artifact }}
+          codesign --remove-signature ${{ matrix.artifact }} || true
+          npx postject ${{ matrix.artifact }} NODE_SEA_BLOB sea-prep.blob \
+            --sentinel-fuse NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2 \
+            --macho-segment-name NODE_SEA
+          codesign --sign - ${{ matrix.artifact }} || true
+          chmod +x ${{ matrix.artifact }}
+
+      - name: Create SEA binary (Windows)
         if: runner.os == 'Windows'
         run: |
-          node --experimental-sea-config sea-config.json
-          node -e "require('fs').copyFileSync(process.execPath, '${{ matrix.artifact }}')"
-          npx postject ${{ matrix.artifact }} NODE_SEA_BLOB sea-prep.blob --sentinel-fuse NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2
-        shell: bash
+          Copy-Item (Get-Command node).Source -Destination "${{ matrix.artifact }}.exe"
+          npx postject "${{ matrix.artifact }}.exe" NODE_SEA_BLOB sea-prep.blob `
+            --sentinel-fuse NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2
+        shell: pwsh
 
-      - name: Test binary (Linux/macOS)
+      - name: Test SEA binary (Linux/macOS)
         if: runner.os != 'Windows'
         run: |
-          chmod +x ${{ matrix.artifact }}
-          ./${{ matrix.artifact }} --version || echo "Version check failed but continuing..."
-          ./${{ matrix.artifact }} --help | head -20 || echo "Help check failed but continuing..."
+          echo "Testing SEA binary..."
+          ./${{ matrix.artifact }} --version
+          ./${{ matrix.artifact }} --help | head -10
+          echo "From: test@example.com" | ./${{ matrix.artifact }} scan - --json | head -5 || echo "Scan test completed"
         shell: bash
-        continue-on-error: true
 
-      - name: Test binary (Windows)
+      - name: Test SEA binary (Windows)
         if: runner.os == 'Windows'
         run: |
-          ./${{ matrix.artifact }} --version || echo "Version check failed but continuing..."
-          ./${{ matrix.artifact }} --help | head -20 || echo "Help check failed but continuing..."
-        shell: bash
-        continue-on-error: true
+          Write-Host "Testing SEA binary..."
+          & ".\${{ matrix.artifact }}.exe" --version
+          & ".\${{ matrix.artifact }}.exe" --help | Select-Object -First 10
+        shell: pwsh
 
-      - name: Upload binary to release
+      - name: Upload binary to release (Linux/macOS)
+        if: runner.os != 'Windows'
         uses: softprops/action-gh-release@v1
         with:
           files: ${{ matrix.artifact }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload binary to release (Windows)
+        if: runner.os == 'Windows'
+        uses: softprops/action-gh-release@v1
+        with:
+          files: ${{ matrix.artifact }}.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  upload-install-script:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Upload install script
+        uses: softprops/action-gh-release@v1
+        with:
+          files: scripts/install.sh
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -59,7 +59,6 @@
     "natural": "^8.1.0",
     "newline-remove": "^1.0.2",
     "node-html-parser": "^7.0.1",
-    "node-snowball": "^0.8.0",
     "normalize-url": "^8.0.2",
     "nsfwjs": "^4.2.1",
     "p-wait-for": "^5.0.2",
@@ -204,7 +203,8 @@
     "prepublishOnly": "npm run build",
     "pretest": "npm run build && npm run lint",
     "test": "node --test test/*.js",
-    "test-coverage": "c8 --reporter=text --reporter=html node --test test/*.js"
+    "test-coverage": "c8 --reporter=text --reporter=html node --test test/*.js",
+    "test:sea": "node --test test/sea-binary.js"
   },
   "type": "module"
 }
