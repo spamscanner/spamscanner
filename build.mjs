@@ -116,8 +116,8 @@ await build({
 		'empty-import-meta': 'silent',
 	},
 	define: {
-		// Inject version at build time
-		'process.env.SPAMSCANNER_VERSION': JSON.stringify(version),
+		// Inject version at build time using global variable pattern
+		__SPAMSCANNER_VERSION__: JSON.stringify(version),
 	},
 	banner: {
 		js: '#!/usr/bin/env node\n"use strict";',

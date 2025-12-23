@@ -125,6 +125,8 @@ const UPDATE_CACHE_DIR = path.join(homedir(), '.spamscanner');
 const UPDATE_CACHE_FILE = path.join(UPDATE_CACHE_DIR, 'update-check.json');
 const UPDATE_CHECK_INTERVAL = 24 * 60 * 60 * 1000; // 24 hours
 
+/* global __SPAMSCANNER_VERSION__ */
+
 /**
  * Find the package.json by traversing up from current directory
  * @returns {string} Version string
@@ -132,9 +134,9 @@ const UPDATE_CHECK_INTERVAL = 24 * 60 * 60 * 1000; // 24 hours
 function getVersion() {
 	// For bundled binaries, use build-time version
 	// This is replaced during build by esbuild define
-	const BUNDLED_VERSION = process.env.SPAMSCANNER_VERSION || null;
-	if (BUNDLED_VERSION) {
-		return BUNDLED_VERSION;
+	// Using a global variable pattern that esbuild can reliably replace
+	if (typeof __SPAMSCANNER_VERSION__ !== 'undefined') {
+		return __SPAMSCANNER_VERSION__;
 	}
 
 	// Try multiple possible locations
