@@ -1,5 +1,4 @@
 import {debuglog} from 'node:util';
-import {readFileSync} from 'node:fs';
 import cryptoRandomString from 'crypto-random-string';
 import REPLACEMENT_WORDS from './replacement-words.json' with { type: 'json' };
 
@@ -10,15 +9,13 @@ const randomOptions = {
 	characters: 'abcdefghijklmnopqrstuvwxyz',
 };
 
-// Simply delete the replacements.json to generate new replacements
-let replacements = {};
-try {
-	replacements = JSON.parse(readFileSync('./replacements.json', 'utf8'));
-} catch (error) {
-	debug(error);
-	for (const replacement of REPLACEMENT_WORDS) {
-		replacements[replacement] = `${replacement}${cryptoRandomString(randomOptions)}`;
-	}
+// Generate replacements dynamically for each word
+// This ensures the standalone binary works without external files
+const replacements = {};
+for (const replacement of REPLACEMENT_WORDS) {
+	replacements[replacement] = `${replacement}${cryptoRandomString(randomOptions)}`;
 }
+
+debug('Generated replacements for %d words', REPLACEMENT_WORDS.length);
 
 export default replacements;

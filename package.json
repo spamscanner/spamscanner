@@ -129,6 +129,7 @@
     "cedict_1_0_ts_utf-8_mdbg.txt",
     "vocabulary-limit.js",
     "iso-code-mapping.json",
+    "executables.json",
     "replacement-words.json",
     "replacements.json",
     "classifier.json"
