@@ -1,7 +1,7 @@
 {
   "name": "spamscanner",
   "description": "Spam Scanner - The Best Anti-Spam Scanning Service and Anti-Spam API",
-  "version": "6.1.1",
+  "version": "6.1.2",
   "author": "Forward Email (https://forwardemail.net)",
   "bin": {
     "spamscanner": "./dist/esm/cli.js"
