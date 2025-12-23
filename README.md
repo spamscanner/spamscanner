@@ -184,16 +184,14 @@ npx spamscanner --help
 ##### macOS
 
 ```bash
-# Using curl (Intel or Apple Silicon - auto-detected)
-curl -fsSL https://github.com/spamscanner/spamscanner/releases/latest/download/spamscanner-darwin-$(uname -m | sed 's/x86_64/x64/' | sed 's/aarch64/arm64/' | sed 's/arm64/arm64/') -o /usr/local/bin/spamscanner
-chmod +x /usr/local/bin/spamscanner
-
-# Or download manually for Intel Mac
-curl -fsSL https://github.com/spamscanner/spamscanner/releases/latest/download/spamscanner-darwin-x64 -o /usr/local/bin/spamscanner
-chmod +x /usr/local/bin/spamscanner
-
-# Or download manually for Apple Silicon (M1/M2/M3)
+# Download manually for Apple Silicon (M1/M2/M3)
 curl -fsSL https://github.com/spamscanner/spamscanner/releases/latest/download/spamscanner-darwin-arm64 -o /usr/local/bin/spamscanner
+chmod +x /usr/local/bin/spamscanner
+```
+
+```bash
+# Download manually for Intel Mac
+curl -fsSL https://github.com/spamscanner/spamscanner/releases/latest/download/spamscanner-darwin-x64 -o /usr/local/bin/spamscanner
 chmod +x /usr/local/bin/spamscanner
 ```
 
@@ -203,7 +201,10 @@ chmod +x /usr/local/bin/spamscanner
 # Download and install to /usr/local/bin
 sudo curl -fsSL https://github.com/spamscanner/spamscanner/releases/latest/download/spamscanner-linux-x64 -o /usr/local/bin/spamscanner
 sudo chmod +x /usr/local/bin/spamscanner
+# Add to PATH if not already: export PATH="$HOME/.local/bin:$PATH"
+```
 
+```bash
 # Or install to user directory (no sudo required)
 mkdir -p ~/.local/bin
 curl -fsSL https://github.com/spamscanner/spamscanner/releases/latest/download/spamscanner-linux-x64 -o ~/.local/bin/spamscanner
@@ -217,9 +218,12 @@ chmod +x ~/.local/bin/spamscanner
 # Using PowerShell (run as Administrator)
 Invoke-WebRequest -Uri "https://github.com/spamscanner/spamscanner/releases/latest/download/spamscanner-win-x64.exe" -OutFile "C:\Program Files\spamscanner\spamscanner.exe"
 # Add to PATH via System Properties > Environment Variables
+```
 
+```powershell
 # Or download to current directory
 Invoke-WebRequest -Uri "https://github.com/spamscanner/spamscanner/releases/latest/download/spamscanner-win-x64.exe" -OutFile ".\spamscanner.exe"
+# Add to PATH via System Properties > Environment Variables
 ```
 
 ##### Verify Installation
