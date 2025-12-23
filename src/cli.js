@@ -303,11 +303,11 @@ async function printUpdateNotification(force = false) {
 		if (update.downloadUrl) {
 			console.error('│  To update, run one of:                                     │');
 			if (platform === 'darwin') {
-				console.error('│    curl -fsSL https://spamscanner.net/install.sh | sh      │');
+				console.error('│    curl -fsSL https://github.com/spamscanner/spamscanner/releases/latest/download/install.sh | bash │');
 			} else if (platform === 'win32') {
-				console.error('│    irm https://spamscanner.net/install.ps1 | iex           │');
+				console.error('│    irm https://github.com/spamscanner/spamscanner/releases/latest/download/install.ps1 | iex │');
 			} else {
-				console.error('│    curl -fsSL https://spamscanner.net/install.sh | sh      │');
+				console.error('│    curl -fsSL https://github.com/spamscanner/spamscanner/releases/latest/download/install.sh | bash │');
 			}
 
 			console.error('│                                                             │');
