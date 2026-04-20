@@ -95,13 +95,13 @@
 
 ## Foreword
 
-Spam Scanner is a tool and service created after hitting countless roadblocks with existing spam-detection solutions. In other words, it's our current [plan for spam](https://forwardemail.net/blog/our-plan-for-spam) and our [better plan for spam](https://forwardemail.net/blog/a-better-plan-for-spam).
+Spam Scanner is a tool and service created after hitting countless roadblocks with existing spam-detection solutions. In other words, it's our current [plan for spam](https://www.paulgraham.com/spam.html) and our [better plan for spam](https://www.paulgraham.com/better.html).
 
 Our goal is to build and utilize a scalable, performant, simple, easy to maintain, and powerful API for use in our service at [Forward Email](https://forwardemail.net) to limit spam and provide other measures to prevent attacks on our users.
 
 Initially we tried using [SpamAssassin](https://spamassassin.apache.org), and later evaluated [rspamd](https://rspamd.com) – but in the end we learned that all existing solutions (even ones besides these) are overtly complex, missing required features or documentation, incredibly challenging to configure; high-barrier to entry, or have proprietary storage backends (that could store and read your messages without your consent) that limit our scalability.
 
-To us, we value privacy and the security of our data and users – specifically we have a "Zero-Tolerance Policy" on storing logs or metadata of any kind, whatsoever (see our [Privacy Policy](https://forwardemail.net/privacy-policy) for more on that). None of these solutions honored this privacy policy (without removing essential spam-detection functionality), so we had to create our own tool – thus "Spam Scanner" was born.
+To us, we value privacy and the security of our data and users – specifically we have a "Zero-Tolerance Policy" on storing logs or metadata of any kind, whatsoever (see our [Privacy Policy](https://forwardemail.net/en/privacy) for more on that). None of these solutions honored this privacy policy (without removing essential spam-detection functionality), so we had to create our own tool – thus "Spam Scanner" was born.
 
 ---
 
@@ -154,9 +154,6 @@ sudo systemctl start clamav-daemon
 sudo yum install clamav clamav-update
 sudo freshclam
 ```
-
-> \[!TIP]
-> See the [ClamAV configuration guide](https://github.com/spamscanner/spamscanner/blob/master/docs/clamav.md) for detailed installation instructions.
 
 ---
 
@@ -1758,7 +1755,7 @@ cat email.eml | nc localhost 7830
 
 ## Contributing
 
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
+We welcome contributions! Please see our [Contributing Guide](https://github.com/github/.github/blob/main/CONTRIBUTING.md) for details.
 
 ### Development Setup
 
