@@ -1,7 +1,7 @@
 {
   "name": "spamscanner",
   "description": "Spam, phishing and malware filter for email in any language: a trainable classifier, link and attachment checks, SPF/DKIM/DMARC, and an optional AI second opinion from any LLM, including local Ollama models. Works as a library, CLI, Postfix milter or HTTP API.",
-  "version": "7.0.0",
+  "version": "7.0.1",
   "author": "Forward Email (https://forwardemail.net)",
   "bin": {
     "spamscanner": "./dist/esm/cli.js"
