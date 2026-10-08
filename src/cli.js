@@ -5,10 +5,10 @@ import process from 'node:process';
 import {parseArgs} from 'node:util';
 import {Classifier} from './classifier.js';
 import {rewriteMessage, spamHeaders} from './headers.js';
-import {PROVIDERS} from './llm.js';
+import {PROVIDERS, describeHardware} from './llm.js';
 import {MilterServer} from './milter.js';
 import {loadDefaultModel, loadModel, saveModel} from './model.js';
-import {CLASSIFIER_MODELS, RECOMMENDED_MODELS} from './models.js';
+import {CLASSIFIER_MODELS, DECISION_MODELS, RECOMMENDED_MODELS} from './models.js';
 import {createHttpServer, createTcpServer, serializeResult} from './server.js';
 import {createSpamdServer} from './spamd.js';
 import {evaluate, readExamples, train} from './train.js';
@@ -69,11 +69,15 @@ Checks:
 Language model (a second opinion; see "spamscanner models"):
   --llm <provider>     ${Object.keys(PROVIDERS).join(', ')}
   --llm-model <name>   Model name, e.g. qwen3.5:4b or claude-haiku-4-5
+  --llm-method <m>     decision (a probability for each verdict, in one pass;
+                       default where available) or generate (a written verdict)
+  --llm-account <id>   Cloudflare account ID for --llm clef and clef-flash
+                       (or CLOUDFLARE_ACCOUNT_ID)
   --llm-url <url>      Base URL, e.g. http://10.0.0.5:11434 or https://host/v1
   --llm-host <host>  --llm-port <port>  --llm-path <path>  --llm-protocol <http|https>
                        Change parts of the provider's URL
   --llm-api-key <key>  API key (or SPAMSCANNER_LLM_API_KEY, or the provider's
-                       variable: OPENAI_API_KEY, ANTHROPIC_API_KEY, ...)
+                       variable: CLOUDFLARE_API_TOKEN, TYPESAFE_API_KEY, ...)
   --llm-auth <type>    bearer, x-api-key, api-key, basic, header or none
   --llm-auth-header <name>  Header that carries the key, with --llm-auth header
   --llm-username <u>  --llm-password <p>  For --llm-auth basic
@@ -144,6 +148,8 @@ const OPTIONS = {
 	denylist: {type: 'string', multiple: true},
 	llm: {type: 'string'},
 	'llm-model': {type: 'string'},
+	'llm-method': {type: 'string'},
+	'llm-account': {type: 'string'},
 	'llm-url': {type: 'string'},
 	'llm-host': {type: 'string'},
 	'llm-port': {type: 'string'},
@@ -279,7 +285,7 @@ export function buildConfig(values, env = process.env) {
 
 	const llm = {...config.llm};
 	const map = {
-		llm: 'provider', 'llm-model': 'model', 'llm-url': 'baseUrl', 'llm-host': 'host', 'llm-path': 'path', 'llm-protocol': 'protocol', 'llm-api-key': 'apiKey', 'llm-auth': 'auth', 'llm-auth-header': 'authHeader', 'llm-username': 'username', 'llm-password': 'password', 'llm-mode': 'mode', 'llm-policy': 'policy',
+		llm: 'provider', 'llm-model': 'model', 'llm-url': 'baseUrl', 'llm-host': 'host', 'llm-path': 'path', 'llm-protocol': 'protocol', 'llm-api-key': 'apiKey', 'llm-auth': 'auth', 'llm-auth-header': 'authHeader', 'llm-username': 'username', 'llm-password': 'password', 'llm-mode': 'mode', 'llm-policy': 'policy', 'llm-method': 'method', 'llm-account': 'account',
 	};
 	for (const [flag, key] of Object.entries(map)) {
 		if (values[flag] !== undefined) {
@@ -606,7 +612,10 @@ const HANDLERS = {
 			}
 		}
 
-		out(`${correct} of ${SAMPLES.length} correct with ${scanner.llm.config.name} ${scanner.llm.config.model} at ${scanner.llm.config.baseUrl}`);
+		const {name, model, baseUrl} = scanner.llm.config;
+		out(`${correct} of ${SAMPLES.length} correct with ${name} ${model} at ${baseUrl} (method: ${scanner.llm.method()})`);
+		// Times depend on the hardware the model runs on.
+		out(scanner.llm.config.local ? `Hardware (model on this machine): ${describeHardware()}` : `Times include the round trip to ${new URL(baseUrl).host}`);
 		return correct === SAMPLES.length ? 0 : 1;
 	},
 
@@ -614,6 +623,11 @@ const HANDLERS = {
 		out('Open models for --llm ollama (and any server that runs GGUF files):\n');
 		for (const model of RECOMMENDED_MODELS) {
 			out(`  ${model.ollama.padEnd(24)} ${model.tier.padEnd(7)} ${model.license.padEnd(11)} ${model.size.padEnd(7)} hf.co/${model.huggingface}\n      ${model.notes}`);
+		}
+
+		out('\nHosted decision models (a probability for each verdict, in one step):\n');
+		for (const model of DECISION_MODELS) {
+			out(`  --llm ${model.provider.padEnd(17)} ${model.name.padEnd(22)} ${model.license.padEnd(11)} ${model.weights ? `hf.co/${model.weights}` : 'closed weights'}\n      ${model.notes}`);
 		}
 
 		out('\nText classification models for --llm tei or --llm huggingface-classifier (English):\n');

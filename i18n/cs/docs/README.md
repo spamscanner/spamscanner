@@ -1,4 +1,4 @@
-<!-- source: c56969e779c4 -->
+<!-- source: 8860e232d858 -->
 
 # Dokumentace Spam Scanneru
 
@@ -27,7 +27,7 @@ Kontroly:
 * **Ověření**: SPF, DKIM, DMARC a ARC, pokud je známa IP adresa klienta. [Ověření](how-it-works.md#authentication)
 * **DNS blocklisty** pro IP adresu klienta a domény v odkazech a filtrovací resolvery Cloudflare pro známý malware a weby pro dospělé. [Blocklisty](how-it-works.md#blocklists)
 * **Pravidla** pro vzory, které se žádný klasifikátor nemusí učit: testovací řetězec GTUBE, předměty sextortion, podvody s fakturami PayPal, podvrhování vlastní domény a pokyny skryté pro filtry s AI. [Pravidla](scoring.md#rules)
-* **Jazykový model**, volitelný, dává druhý názor v hraničních případech: lokální model přes Ollama nebo jakýkoli server kompatibilní s OpenAI, nebo Claude, ChatGPT, Gemini a další. [Jazykové modely](llm.md)
+* **Jazykový model**, volitelný, dává druhý názor v hraničních případech: lokální model přes Ollama nebo jakýkoli server kompatibilní s OpenAI, rozhodovací model, například Clef od Cloudflaru, nebo Claude, ChatGPT, Gemini a další. Ve výchozím stavu vrátí v jednom kroku pravděpodobnost každého verdiktu, místo aby psal odpověď. [Jazykové modely](llm.md)
 
 
 ## Kde začít
@@ -37,7 +37,7 @@ Kontroly:
 * [Postfix a Sendmail](postfix.md): filtrování poštovního serveru milterem nebo obsahovým filtrem.
 * [Další poštovní servery](mail-servers.md): Exim, Haraka, Dovecot, procmail a cokoli, co umí volat HTTP API.
 * [Trénování](training.md): naučte ho vaši vlastní poštu a změřte výsledek.
-* [Jazykové modely](llm.md): poskytovatelé, doporučené otevřené modely, soukromí a prompt injection.
+* [Jazykové modely](llm.md): rozhodování a generování, naměřená přesnost a rychlost, rozhodovací modely, poskytovatelé, doporučené otevřené modely, soukromí a prompt injection.
 * [Jazyky](languages.md): jak čte čínštinu, arabštinu, thajštinu a každé další písmo.
 * [Forward Email](forward-email.md): jak ho používá Forward Email a přechod z verze 5 nebo 6.
 * [Reference API](api.md) a [testy a skóre](scoring.md).

@@ -1,4 +1,4 @@
-<!-- source: c56969e779c4 -->
+<!-- source: 8860e232d858 -->
 
 # Dokumentation til Spam Scanner
 
@@ -27,7 +27,7 @@ Tjekkene:
 * **Godkendelse**: SPF, DKIM, DMARC og ARC, når klientens IP-adresse er kendt. [Godkendelse](how-it-works.md#authentication)
 * **DNS-blokeringslister** for klientens IP-adresse og domænerne i links samt Cloudflares filtrerende resolvere for kendte malware- og voksenwebsteder. [Blokeringslister](how-it-works.md#blocklists)
 * **Regler** for mønstre, ingen klassifikator behøver at lære: GTUBE-teststrengen, emnelinjer med sextortion, svindel med PayPal-fakturaer, selvforfalskning og instruktioner gemt til AI-filtre. [Regler](scoring.md#rules)
-* **En sprogmodel**, valgfri, giver en second opinion om tvivlstilfælde: en lokal model via Ollama eller enhver OpenAI-kompatibel server eller Claude, ChatGPT, Gemini og andre. [Sprogmodeller](llm.md)
+* **En sprogmodel**, valgfri, giver en second opinion om tvivlstilfælde: en lokal model via Ollama eller enhver OpenAI-kompatibel server, en beslutningsmodel som Cloudflares Clef eller Claude, ChatGPT, Gemini og andre. Som standard returnerer den en sandsynlighed for hver dom i ét trin i stedet for at skrive et svar. [Sprogmodeller](llm.md)
 
 
 ## Hvor du skal begynde
@@ -37,7 +37,7 @@ Tjekkene:
 * [Postfix og Sendmail](postfix.md): filtrér en mailserver med milteren eller et indholdsfilter.
 * [Andre mailservere](mail-servers.md): Exim, Haraka, Dovecot, procmail og alt, der kan kalde et HTTP API.
 * [Træning](training.md): lær det op på din egen post, og mål resultatet.
-* [Sprogmodeller](llm.md): udbydere, anbefalede åbne modeller, privatliv og prompt injection.
+* [Sprogmodeller](llm.md): beslutning og generering, målt præcision og hastighed, beslutningsmodeller, udbydere, anbefalede åbne modeller, privatliv og prompt injection.
 * [Sprog](languages.md): sådan læser det kinesisk, arabisk, thai og alle andre skriftsystemer.
 * [Forward Email](forward-email.md): sådan bruger Forward Email det, og opgradering fra version 5 eller 6.
 * [API-reference](api.md) og [test og scorer](scoring.md).

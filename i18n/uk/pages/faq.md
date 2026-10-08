@@ -1,4 +1,4 @@
-<!-- source: c93fa1a3f9c7 -->
+<!-- source: 361732724f0e -->
 
 <!--
 label: Поширені запитання
@@ -42,7 +42,7 @@ keywords: Spam Scanner FAQ, Spam Scanner запитання, питання пр
 
 ## Яку мовну модель використовувати?
 
-`qwen3.5:4b` через Ollama на CPU або `qwen3.5:9b` з GPU. Обидві мають ліцензію Apache і читають 201 мову. Хмарні моделі від Anthropic, OpenAI, Google та інших теж працюють. [Рекомендовані моделі](../../docs/llm.md#recommended-open-models)
+`qwen3.5:4b` через Ollama на CPU або `qwen3.5:9b` з GPU. Обидві мають ліцензію Apache і читають 201 мову. Spam Scanner зчитує ймовірність кожного вердикту з одного кроку моделі: на двоядерному CPU це займало близько 11 секунд на лист замість 31 для письмової відповіді, з тією самою точністю. Якщо потрібен хмарний сервіс, моделі рішень Cloudflare Clef і TypeSafe Jev відповідають менш ніж за секунду; Anthropic, OpenAI, Google та інші теж працюють. [Вимірювання](../../docs/llm.md#measured) і [рекомендовані моделі](../../docs/llm.md#recommended-open-models)
 
 
 ## Чи може він замінити SpamAssassin?

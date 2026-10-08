@@ -1,4 +1,4 @@
-<!-- source: c93fa1a3f9c7 -->
+<!-- source: 361732724f0e -->
 
 <!--
 label: SSS
@@ -42,7 +42,7 @@ Hayır. Model, sınırdaki durumlar için ikinci bir görüştür. Model olmadan
 
 ## Hangi dil modelini kullanmalıyım?
 
-CPU üzerinde Ollama aracılığıyla `qwen3.5:4b` ya da GPU ile `qwen3.5:9b`. İkisi de Apache lisanslıdır ve 201 dil okur. Anthropic, OpenAI, Google ve diğerlerinin barındırılan modelleri de çalışır. [Önerilen modeller](../../docs/llm.md#recommended-open-models)
+CPU üzerinde Ollama aracılığıyla `qwen3.5:4b` ya da GPU ile `qwen3.5:9b`. İkisi de Apache lisanslıdır ve 201 dil okur. Spam Scanner her kararın olasılığını modelin tek adımından okur; bu, iki çekirdekli bir CPU'da yazılı bir yanıtın 31 saniyesi yerine ileti başına yaklaşık 11 saniye sürdü ve doğruluk aynı kaldı. Barındırılan bir hizmet için Cloudflare Clef ve TypeSafe Jev karar modelleri bir saniyenin altında yanıt verir; Anthropic, OpenAI, Google ve diğerleri de çalışır. [Ölçümler](../../docs/llm.md#measured) ve [önerilen modeller](../../docs/llm.md#recommended-open-models)
 
 
 ## SpamAssassin'in yerini alabilir mi?

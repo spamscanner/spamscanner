@@ -1,4 +1,4 @@
-<!-- source: 05a106ecd728 -->
+<!-- source: 35bf62a30cd7 -->
 
 # Működés
 
@@ -95,7 +95,7 @@ Egyes mintákhoz nincs szükség statisztikára: a GTUBE tesztkarakterlánc, a s
 
 ## A nyelvi modell
 
-Ha a pontszám 1 és 15 pont közé esik (a spamküszöb alatti 4 ponttól az elutasítási küszöbig), vagy az osztályozó bizonytalan, egy nyelvi modell második véleményt adhat: spam, adathalászat, csalás, kártevő vagy ham, a magabiztosságával együtt. Az ítélete legfeljebb 6 pontot ad hozzá vagy legfeljebb 3-at von le. Az egyértelműen spam vagy egyértelműen ham levelek soha nem jutnak el hozzá, így gyors és olcsó marad. [Nyelvi modellek](llm.md)
+Ha a pontszám 1 és 15 pont közé esik (a spamküszöb alatti 4 ponttól az elutasítási küszöbig), vagy az osztályozó bizonytalan, egy nyelvi modell második véleményt adhat: valószínűséget a spam, az adathalászat, a csalás, a kártevő és a ham mindegyikére, a modell egyetlen lépéséből kiolvasva, vagy a szolgáltatói chatmodellektől írásos ítéletet magabiztossággal. Az ítélete legfeljebb 6 pontot ad hozzá vagy legfeljebb 3-at von le. Az egyértelműen spam vagy egyértelműen ham levelek soha nem jutnak el hozzá, így gyors és olcsó marad. [Nyelvi modellek](llm.md)
 
 
 ## Összefoglalva

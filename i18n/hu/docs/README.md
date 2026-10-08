@@ -1,4 +1,4 @@
-<!-- source: c56969e779c4 -->
+<!-- source: 8860e232d858 -->
 
 # A Spam Scanner dokumentációja
 
@@ -27,7 +27,7 @@ Az ellenőrzések:
 * **Hitelesítés**: SPF, DKIM, DMARC és ARC, ha a kliens IP-címe ismert. [Hitelesítés](how-it-works.md#authentication)
 * **DNS-tiltólisták** a kliens IP-címére és a hivatkozásokban szereplő domainekre, valamint a Cloudflare szűrő DNS-feloldói az ismert kártevő- és felnőtt oldalakra. [Tiltólisták](how-it-works.md#blocklists)
 * **Szabályok** olyan mintákra, amelyeket egyetlen osztályozónak sem kell megtanulnia: a GTUBE tesztkarakterlánc, szextorziós tárgysorok, PayPal-számlás csalások, önhamisítás és MI-szűrőknek elrejtett utasítások. [Szabályok](scoring.md#rules)
-* **Egy nyelvi modell**, opcionálisan, második véleményt ad a kétes esetekben: helyi modell Ollamán vagy bármely OpenAI-kompatibilis szerveren keresztül, vagy a Claude, a ChatGPT, a Gemini és mások. [Nyelvi modellek](llm.md)
+* **Egy nyelvi modell**, opcionálisan, második véleményt ad a kétes esetekben: helyi modell Ollamán vagy bármely OpenAI-kompatibilis szerveren keresztül, egy döntési modell, például a Cloudflare Clef, vagy a Claude, a ChatGPT, a Gemini és mások. Alapértelmezetten egyetlen lépésben valószínűséget ad vissza minden ítéletre, ahelyett hogy választ írna. [Nyelvi modellek](llm.md)
 
 
 ## Hol érdemes kezdeni
@@ -37,7 +37,7 @@ Az ellenőrzések:
 * [Postfix és Sendmail](postfix.md): levelezőszerver szűrése a milterrel vagy tartalomszűrővel.
 * [Más levelezőszerverek](mail-servers.md): Exim, Haraka, Dovecot, procmail és bármi, ami HTTP API-t tud hívni.
 * [Tanítás](training.md): tanítás a saját leveleken és az eredmény mérése.
-* [Nyelvi modellek](llm.md): szolgáltatók, ajánlott nyílt modellek, adatvédelem és prompt injection.
+* [Nyelvi modellek](llm.md): döntés és szöveggenerálás, mért pontosság és sebesség, döntési modellek, szolgáltatók, ajánlott nyílt modellek, adatvédelem és prompt injection.
 * [Nyelvek](languages.md): hogyan olvassa a kínait, az arabot, a thait és minden más írásrendszert.
 * [Forward Email](forward-email.md): hogyan használja a Forward Email, és frissítés az 5-ös vagy 6-os verzióról.
 * [API-referencia](api.md) és [tesztek és pontszámok](scoring.md).

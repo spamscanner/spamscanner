@@ -1,4 +1,4 @@
-<!-- source: c56969e779c4 -->
+<!-- source: 8860e232d858 -->
 
 # Dokumentation zu Spam Scanner
 
@@ -27,7 +27,7 @@ Die Prüfungen:
 * **Authentifizierung**: SPF, DKIM, DMARC und ARC, wenn die IP-Adresse des Clients bekannt ist. [Authentifizierung](how-it-works.md#authentication)
 * **DNS-Blocklisten** für die IP-Adresse des Clients und die Domains in Links sowie die filternden Resolver von Cloudflare für bekannte Malware- und Erwachsenenseiten. [Blocklisten](how-it-works.md#blocklists)
 * **Regeln** für Muster, die kein Klassifikator lernen muss: die GTUBE-Testzeichenkette, Betreffzeilen von Sextortion-Mails, Rechnungsbetrug über PayPal, Selbst-Spoofing und für KI-Filter versteckte Anweisungen. [Regeln](scoring.md#rules)
-* **Ein Sprachmodell**, optional, liefert bei knappen Fällen eine zweite Meinung: ein lokales Modell über Ollama oder einen beliebigen OpenAI-kompatiblen Server, oder Claude, ChatGPT, Gemini und andere. [Sprachmodelle](llm.md)
+* **Ein Sprachmodell**, optional, liefert bei knappen Fällen eine zweite Meinung: ein lokales Modell über Ollama oder einen beliebigen OpenAI-kompatiblen Server, ein Entscheidungsmodell wie Clef von Cloudflare, oder Claude, ChatGPT, Gemini und andere. Standardmäßig liefert es in einem Schritt eine Wahrscheinlichkeit für jedes Urteil, statt eine Antwort zu schreiben. [Sprachmodelle](llm.md)
 
 
 ## Wo Sie anfangen
@@ -37,7 +37,7 @@ Die Prüfungen:
 * [Postfix und Sendmail](postfix.md): einen Mailserver mit dem Milter oder einem Content-Filter filtern.
 * [Andere Mailserver](mail-servers.md): Exim, Haraka, Dovecot, procmail und alles, was eine HTTP-API aufrufen kann.
 * [Training](training.md): den eigenen E-Mail-Bestand anlernen und das Ergebnis messen.
-* [Sprachmodelle](llm.md): Anbieter, empfohlene offene Modelle, Datenschutz und Prompt Injection.
+* [Sprachmodelle](llm.md): Entscheidung und Generierung, gemessene Genauigkeit und Geschwindigkeit, Entscheidungsmodelle, Anbieter, empfohlene offene Modelle, Datenschutz und Prompt Injection.
 * [Sprachen](languages.md): wie Chinesisch, Arabisch, Thai und jede andere Schrift gelesen werden.
 * [Forward Email](forward-email.md): wie Forward Email ihn nutzt und wie man von Version 5 oder 6 aktualisiert.
 * [API-Referenz](api.md) und [Tests und Scores](scoring.md).

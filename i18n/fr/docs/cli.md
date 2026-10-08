@@ -1,4 +1,4 @@
-<!-- source: a59bc5927d86 -->
+<!-- source: c061da9312ad -->
 
 # Ligne de commande
 
@@ -72,21 +72,23 @@ Codes de sortie : 0 ham, 1 spam, 2 erreur.
 
 ### Modèle de langage
 
-| Option                                                     | Signification                                                                              |
-| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| `--llm <provider>`                                         | `ollama`, `openai`, `anthropic`, `gemini` et d’autres ([liste](llm.md#providers))          |
-| `--llm-model <name>`                                       | Modèle, par exemple `qwen3.5:4b` ou `claude-haiku-4-5`                                     |
-| `--llm-url <url>`                                          | URL de base, par exemple `http://10.0.0.5:11434`                                           |
-| `--llm-host`, `--llm-port`, `--llm-path`, `--llm-protocol` | Modifie une partie de l’URL du fournisseur                                                 |
-| `--llm-api-key <key>`                                      | Clé d’API ; voir aussi les variables d’environnement ci-dessous                            |
-| `--llm-auth <type>`                                        | `bearer`, `x-api-key`, `api-key`, `basic`, `header` ou `none`                              |
-| `--llm-auth-header <name>`                                 | En-tête portant la clé, avec `--llm-auth header`                                           |
-| `--llm-username`, `--llm-password`                         | Pour `--llm-auth basic`                                                                    |
-| `--llm-header "Name: value"`                               | En-tête de requête supplémentaire ; répétable                                              |
-| `--llm-mode <mode>`                                        | `auto` (cas limites uniquement, par défaut) ou `always`                                    |
-| `--llm-timeout <ms>`                                       | 30000 par défaut                                                                           |
-| `--llm-policy <text>`                                      | Règles supplémentaires pour le modèle, par exemple « Nous n’envoyons jamais de factures »  |
-| `--llm-redact`, `--no-llm-redact`                          | Retire d’abord les données personnelles ; activé par défaut pour les fournisseurs distants |
+| Option                                                     | Signification                                                                                                                                                                   |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--llm <provider>`                                         | `ollama`, `clef-flash`, `jev`, `openai`, `anthropic` et d’autres ([liste](llm.md#providers))                                                                                    |
+| `--llm-model <name>`                                       | Modèle, par exemple `qwen3.5:4b` ou `claude-haiku-4-5`                                                                                                                          |
+| `--llm-method <method>`                                    | `decision` (une probabilité pour chaque verdict, en une seule étape ; la valeur par défaut quand elle est disponible) ou `generate` ([méthodes](llm.md#decision-or-generation)) |
+| `--llm-account <id>`                                       | Identifiant de compte Cloudflare, pour `clef` et `clef-flash`                                                                                                                   |
+| `--llm-url <url>`                                          | URL de base, par exemple `http://10.0.0.5:11434`                                                                                                                                |
+| `--llm-host`, `--llm-port`, `--llm-path`, `--llm-protocol` | Modifie une partie de l’URL du fournisseur                                                                                                                                      |
+| `--llm-api-key <key>`                                      | Clé d’API ; voir aussi les variables d’environnement ci-dessous                                                                                                                 |
+| `--llm-auth <type>`                                        | `bearer`, `x-api-key`, `api-key`, `basic`, `header` ou `none`                                                                                                                   |
+| `--llm-auth-header <name>`                                 | En-tête portant la clé, avec `--llm-auth header`                                                                                                                                |
+| `--llm-username`, `--llm-password`                         | Pour `--llm-auth basic`                                                                                                                                                         |
+| `--llm-header "Name: value"`                               | En-tête de requête supplémentaire ; répétable                                                                                                                                   |
+| `--llm-mode <mode>`                                        | `auto` (cas limites uniquement, par défaut) ou `always`                                                                                                                         |
+| `--llm-timeout <ms>`                                       | 30000 par défaut                                                                                                                                                                |
+| `--llm-policy <text>`                                      | Règles supplémentaires pour le modèle, par exemple « Nous n’envoyons jamais de factures »                                                                                       |
+| `--llm-redact`, `--no-llm-redact`                          | Retire d’abord les données personnelles ; activé par défaut pour les fournisseurs distants                                                                                      |
 
 
 ## filter
@@ -163,7 +165,7 @@ spamscanner models
 spamscanner llm-test --llm ollama --llm-model qwen3.5:4b
 ```
 
-`llm-test` envoie au modèle un message ordinaire et deux arnaques, en anglais et en italien, affiche ses verdicts et ne sort avec le code 0 que si les trois sont corrects.
+`llm-test` envoie au modèle un message ordinaire et deux arnaques, en anglais et en italien, affiche ses verdicts, le temps pris par chacun, la méthode utilisée et le matériel, et ne sort avec le code 0 que si les trois sont corrects.
 
 
 ## Fichier de configuration
@@ -185,11 +187,11 @@ spamscanner llm-test --llm ollama --llm-model qwen3.5:4b
 
 ## Variables d’environnement
 
-| Variable                                                                                                                                                                                                                                             | Signification                                         |
-| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
-| `SPAMSCANNER_CONFIG`                                                                                                                                                                                                                                 | Fichier de configuration                              |
-| `SPAMSCANNER_MODEL`                                                                                                                                                                                                                                  | Fichier de modèle utilisé à la place du modèle fourni |
-| `SPAMSCANNER_TOKEN`                                                                                                                                                                                                                                  | Jeton pour l’API HTTP                                 |
-| `SPAMSCANNER_LLM_API_KEY`                                                                                                                                                                                                                            | Clé d’API pour tout fournisseur de modèle de langage  |
-| `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `MISTRAL_API_KEY`, `GROQ_API_KEY`, `OPENROUTER_API_KEY`, `DEEPSEEK_API_KEY`, `XAI_API_KEY`, `TOGETHER_API_KEY`, `FIREWORKS_API_KEY`, `CEREBRAS_API_KEY`, `HF_TOKEN`, `AZURE_OPENAI_API_KEY` | La clé propre à chaque fournisseur                    |
-| `NODE_DEBUG=spamscanner*`                                                                                                                                                                                                                            | Journalisation de débogage                            |
+| Variable                                                                                                                                                                                                                                                                                                                    | Signification                                         |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| `SPAMSCANNER_CONFIG`                                                                                                                                                                                                                                                                                                        | Fichier de configuration                              |
+| `SPAMSCANNER_MODEL`                                                                                                                                                                                                                                                                                                         | Fichier de modèle utilisé à la place du modèle fourni |
+| `SPAMSCANNER_TOKEN`                                                                                                                                                                                                                                                                                                         | Jeton pour l’API HTTP                                 |
+| `SPAMSCANNER_LLM_API_KEY`                                                                                                                                                                                                                                                                                                   | Clé d’API pour tout fournisseur de modèle de langage  |
+| `CLOUDFLARE_API_TOKEN` et `CLOUDFLARE_ACCOUNT_ID`, `TYPESAFE_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `MISTRAL_API_KEY`, `GROQ_API_KEY`, `OPENROUTER_API_KEY`, `DEEPSEEK_API_KEY`, `XAI_API_KEY`, `TOGETHER_API_KEY`, `FIREWORKS_API_KEY`, `CEREBRAS_API_KEY`, `HF_TOKEN`, `AZURE_OPENAI_API_KEY` | La clé propre à chaque fournisseur                    |
+| `NODE_DEBUG=spamscanner*`                                                                                                                                                                                                                                                                                                   | Journalisation de débogage                            |

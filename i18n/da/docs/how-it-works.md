@@ -1,4 +1,4 @@
-<!-- source: 05a106ecd728 -->
+<!-- source: 35bf62a30cd7 -->
 
 # Sådan virker det
 
@@ -95,7 +95,7 @@ Nogle mønstre kræver ingen statistik: GTUBE-teststrengen, emnelinjer, der brug
 
 ## Sprogmodellen
 
-Når scoren ligger mellem 1 og 15 point (fra 4 under spamgrænsen op til afvisningsgrænsen), eller klassifikatoren er usikker, kan en sprogmodel give en second opinion: spam, phishing, svindel, malware eller ham med sin sikkerhed. Dens dom lægger op til 6 point til eller trækker op til 3 fra. Beskeder, der tydeligt er spam eller tydeligt er ham, når aldrig frem til den, hvilket holder den hurtig og billig. [Sprogmodeller](llm.md)
+Når scoren ligger mellem 1 og 15 point (fra 4 under spamgrænsen op til afvisningsgrænsen), eller klassifikatoren er usikker, kan en sprogmodel give en second opinion: en sandsynlighed for hver af spam, phishing, svindel, malware og ham, aflæst fra ét trin i modellen, eller en skrevet dom med en sikkerhed fra hostede chatmodeller. Dens dom lægger op til 6 point til eller trækker op til 3 fra. Beskeder, der tydeligt er spam eller tydeligt er ham, når aldrig frem til den, hvilket holder den hurtig og billig. [Sprogmodeller](llm.md)
 
 
 ## Det hele samlet

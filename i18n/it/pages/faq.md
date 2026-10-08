@@ -1,4 +1,4 @@
-<!-- source: c93fa1a3f9c7 -->
+<!-- source: 361732724f0e -->
 
 <!--
 label: Domande frequenti
@@ -42,7 +42,7 @@ No. È un secondo parere per i casi dubbi. Senza, quei messaggi vengono decisi s
 
 ## Quale modello linguistico conviene usare?
 
-`qwen3.5:4b` tramite Ollama su una CPU, oppure `qwen3.5:9b` con una GPU. Entrambi hanno licenza Apache e leggono 201 lingue. Funzionano anche i modelli in hosting di Anthropic, OpenAI, Google e altri. [Modelli consigliati](../../docs/llm.md#recommended-open-models)
+`qwen3.5:4b` tramite Ollama su una CPU, oppure `qwen3.5:9b` con una GPU. Entrambi hanno licenza Apache e leggono 201 lingue. Spam Scanner legge la probabilità di ogni verdetto da un solo passaggio del modello, che su una CPU a due core ha richiesto circa 11 secondi per messaggio invece dei 31 di una risposta scritta, con la stessa precisione. Come servizio in hosting, i modelli decisionali Cloudflare Clef e TypeSafe Jev rispondono in meno di un secondo; funzionano anche Anthropic, OpenAI, Google e altri. [Misurazioni](../../docs/llm.md#measured) e [modelli consigliati](../../docs/llm.md#recommended-open-models)
 
 
 ## Può sostituire SpamAssassin?

@@ -25,7 +25,7 @@ The checks:
 * **Authentication**: SPF, DKIM, DMARC and ARC, when the client's IP address is known. [Authentication](how-it-works.md#authentication)
 * **DNS blocklists** for the client's IP address and the domains in links, and Cloudflare's filtering resolvers for known malware and adult sites. [Blocklists](how-it-works.md#blocklists)
 * **Rules** for patterns no classifier needs to learn: the GTUBE test string, sextortion subjects, PayPal invoice scams, self-spoofing and instructions hidden for AI filters. [Rules](scoring.md#rules)
-* **A language model**, optional, gives a second opinion on close calls: a local model through Ollama or any OpenAI-compatible server, or Claude, ChatGPT, Gemini and others. [Language models](llm.md)
+* **A language model**, optional, gives a second opinion on close calls: a local model through Ollama or any OpenAI-compatible server, a decision model such as Cloudflare's Clef, or Claude, ChatGPT, Gemini and others. By default it returns a probability for each verdict in one step instead of writing an answer. [Language models](llm.md)
 
 
 ## Where to start
@@ -35,7 +35,7 @@ The checks:
 * [Postfix and Sendmail](postfix.md): filter a mail server with the milter or a content filter.
 * [Other mail servers](mail-servers.md): Exim, Haraka, Dovecot, procmail and anything that can call an HTTP API.
 * [Training](training.md): teach it your own mail and measure the result.
-* [Language models](llm.md): providers, recommended open models, privacy and prompt injection.
+* [Language models](llm.md): decisions and generation, measured accuracy and speed, decision models, providers, recommended open models, privacy and prompt injection.
 * [Languages](languages.md): how it reads Chinese, Arabic, Thai and every other script.
 * [Forward Email](forward-email.md): how Forward Email uses it, and upgrading from version 5 or 6.
 * [API reference](api.md) and [tests and scores](scoring.md).

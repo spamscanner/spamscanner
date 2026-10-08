@@ -1,4 +1,4 @@
-<!-- source: a59bc5927d86 -->
+<!-- source: c061da9312ad -->
 
 # שורת הפקודה
 
@@ -72,21 +72,23 @@ spamscanner scan message.eml --subject-tag "[SPAM]" > tagged.eml
 
 ### מודל שפה
 
-| אפשרות                                                     | משמעות                                                                       |
-| ---------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| `--llm <provider>`                                         | `ollama`, `openai`, `anthropic`, `gemini` ואחרים ([רשימה](llm.md#providers)) |
-| `--llm-model <name>`                                       | מודל, למשל `qwen3.5:4b` או `claude-haiku-4-5`                                |
-| `--llm-url <url>`                                          | כתובת URL בסיסית, למשל `http://10.0.0.5:11434`                               |
-| `--llm-host`, `--llm-port`, `--llm-path`, `--llm-protocol` | משנות חלק אחד מכתובת ה-URL של הספק                                           |
-| `--llm-api-key <key>`                                      | מפתח API; ראו גם את משתני הסביבה בהמשך                                       |
-| `--llm-auth <type>`                                        | `bearer`, `x-api-key`, `api-key`, `basic`, `header` או `none`                |
-| `--llm-auth-header <name>`                                 | הכותרת שבה נשלח המפתח, עם `--llm-auth header`                                |
-| `--llm-username`, `--llm-password`                         | עבור `--llm-auth basic`                                                      |
-| `--llm-header "Name: value"`                               | כותרת בקשה נוספת; אפשר לחזור עליה                                            |
-| `--llm-mode <mode>`                                        | `auto` (רק מקרים גבוליים, ברירת המחדל) או `always`                           |
-| `--llm-timeout <ms>`                                       | ברירת מחדל 30000                                                             |
-| `--llm-policy <text>`                                      | כללים נוספים למודל, למשל „אנחנו אף פעם לא שולחים חשבוניות”                   |
-| `--llm-redact`, `--no-llm-redact`                          | מסירות קודם מידע אישי; מופעל כברירת מחדל לספקים מרוחקים                      |
+| אפשרות                                                     | משמעות                                                                                                                     |
+| ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `--llm <provider>`                                         | `ollama`, `clef-flash`, `jev`, `openai`, `anthropic` ואחרים ([רשימה](llm.md#providers))                                    |
+| `--llm-model <name>`                                       | מודל, למשל `qwen3.5:4b` או `claude-haiku-4-5`                                                                              |
+| `--llm-method <method>`                                    | `decision` (הסתברות לכל פסק דין, בצעד אחד; ברירת המחדל כשהיא זמינה) או `generate` ([שיטות](llm.md#decision-or-generation)) |
+| `--llm-account <id>`                                       | מזהה חשבון Cloudflare, עבור `clef` ו-`clef-flash`                                                                          |
+| `--llm-url <url>`                                          | כתובת URL בסיסית, למשל `http://10.0.0.5:11434`                                                                             |
+| `--llm-host`, `--llm-port`, `--llm-path`, `--llm-protocol` | משנות חלק אחד מכתובת ה-URL של הספק                                                                                         |
+| `--llm-api-key <key>`                                      | מפתח API; ראו גם את משתני הסביבה בהמשך                                                                                     |
+| `--llm-auth <type>`                                        | `bearer`, `x-api-key`, `api-key`, `basic`, `header` או `none`                                                              |
+| `--llm-auth-header <name>`                                 | הכותרת שבה נשלח המפתח, עם `--llm-auth header`                                                                              |
+| `--llm-username`, `--llm-password`                         | עבור `--llm-auth basic`                                                                                                    |
+| `--llm-header "Name: value"`                               | כותרת בקשה נוספת; אפשר לחזור עליה                                                                                          |
+| `--llm-mode <mode>`                                        | `auto` (רק מקרים גבוליים, ברירת המחדל) או `always`                                                                         |
+| `--llm-timeout <ms>`                                       | ברירת מחדל 30000                                                                                                           |
+| `--llm-policy <text>`                                      | כללים נוספים למודל, למשל „אנחנו אף פעם לא שולחים חשבוניות”                                                                 |
+| `--llm-redact`, `--no-llm-redact`                          | מסירות קודם מידע אישי; מופעל כברירת מחדל לספקים מרוחקים                                                                    |
 
 
 ## filter
@@ -163,7 +165,7 @@ spamscanner models
 spamscanner llm-test --llm ollama --llm-model qwen3.5:4b
 ```
 
-`llm-test` שולחת למודל הודעה רגילה אחת ושתי הונאות, באנגלית ובאיטלקית, מדפיסה את פסקי הדין שלו ויוצאת עם 0 רק אם שלושתם נכונים.
+`llm-test` שולחת למודל הודעה רגילה אחת ושתי הונאות, באנגלית ובאיטלקית, מדפיסה את פסקי הדין שלו, את הזמן שכל אחד לקח, את השיטה שבה השתמשה ואת החומרה, ויוצאת עם 0 רק אם שלושתם נכונים.
 
 
 ## קובץ תצורה
@@ -185,11 +187,11 @@ spamscanner llm-test --llm ollama --llm-model qwen3.5:4b
 
 ## משתני סביבה
 
-| משתנה                                                                                                                                                                                                                                                | משמעות                             |
-| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
-| `SPAMSCANNER_CONFIG`                                                                                                                                                                                                                                 | קובץ תצורה                         |
-| `SPAMSCANNER_MODEL`                                                                                                                                                                                                                                  | קובץ מודל שמשמש במקום המודל המצורף |
-| `SPAMSCANNER_TOKEN`                                                                                                                                                                                                                                  | אסימון ל-HTTP API                  |
-| `SPAMSCANNER_LLM_API_KEY`                                                                                                                                                                                                                            | מפתח API לכל ספק של מודל שפה       |
-| `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `MISTRAL_API_KEY`, `GROQ_API_KEY`, `OPENROUTER_API_KEY`, `DEEPSEEK_API_KEY`, `XAI_API_KEY`, `TOGETHER_API_KEY`, `FIREWORKS_API_KEY`, `CEREBRAS_API_KEY`, `HF_TOKEN`, `AZURE_OPENAI_API_KEY` | המפתח של כל ספק                    |
-| `NODE_DEBUG=spamscanner*`                                                                                                                                                                                                                            | רישום ביומן לצורכי ניפוי באגים     |
+| משתנה                                                                                                                                                                                                                                                                                                                      | משמעות                             |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
+| `SPAMSCANNER_CONFIG`                                                                                                                                                                                                                                                                                                       | קובץ תצורה                         |
+| `SPAMSCANNER_MODEL`                                                                                                                                                                                                                                                                                                        | קובץ מודל שמשמש במקום המודל המצורף |
+| `SPAMSCANNER_TOKEN`                                                                                                                                                                                                                                                                                                        | אסימון ל-HTTP API                  |
+| `SPAMSCANNER_LLM_API_KEY`                                                                                                                                                                                                                                                                                                  | מפתח API לכל ספק של מודל שפה       |
+| `CLOUDFLARE_API_TOKEN` ו-`CLOUDFLARE_ACCOUNT_ID`, `TYPESAFE_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `MISTRAL_API_KEY`, `GROQ_API_KEY`, `OPENROUTER_API_KEY`, `DEEPSEEK_API_KEY`, `XAI_API_KEY`, `TOGETHER_API_KEY`, `FIREWORKS_API_KEY`, `CEREBRAS_API_KEY`, `HF_TOKEN`, `AZURE_OPENAI_API_KEY` | המפתח של כל ספק                    |
+| `NODE_DEBUG=spamscanner*`                                                                                                                                                                                                                                                                                                  | רישום ביומן לצורכי ניפוי באגים     |

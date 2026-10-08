@@ -40,7 +40,7 @@ No. It is a second opinion for close calls. Without one, those messages are deci
 
 ## Which language model should I use?
 
-`qwen3.5:4b` through Ollama on a CPU, or `qwen3.5:9b` with a GPU. Both are Apache-licensed and read 201 languages. Hosted models from Anthropic, OpenAI, Google and others work too. [Recommended models](../../docs/llm.md#recommended-open-models)
+`qwen3.5:4b` through Ollama on a CPU, or `qwen3.5:9b` with a GPU. Both are Apache-licensed and read 201 languages. Spam Scanner reads the probability of each verdict from one step of the model, which on a two-core CPU took about 11 seconds a message instead of 31 for a written answer, with the same accuracy. For a hosted service, the decision models Cloudflare Clef and TypeSafe Jev answer in under a second; Anthropic, OpenAI, Google and others work too. [Measurements](../../docs/llm.md#measured) and [recommended models](../../docs/llm.md#recommended-open-models)
 
 
 ## Can it replace SpamAssassin?

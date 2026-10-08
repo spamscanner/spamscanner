@@ -1,4 +1,4 @@
-<!-- source: c56969e779c4 -->
+<!-- source: 8860e232d858 -->
 
 # Dokumentation för Spam Scanner
 
@@ -27,7 +27,7 @@ Kontrollerna:
 * **Autentisering**: SPF, DKIM, DMARC och ARC, när klientens IP-adress är känd. [Autentisering](how-it-works.md#authentication)
 * **DNS-blocklistor** för klientens IP-adress och domänerna i länkar, samt Cloudflares filtrerande resolvrar för kända webbplatser med skadlig kod och vuxeninnehåll. [Blocklistor](how-it-works.md#blocklists)
 * **Regler** för mönster som ingen klassificerare behöver lära sig: teststrängen GTUBE, ämnesrader för sextortion, bedrägerier med PayPal-fakturor, självförfalskning och instruktioner gömda för AI-filter. [Regler](scoring.md#rules)
-* **En språkmodell**, valfri, ger en andra åsikt om gränsfall: en lokal modell via Ollama eller en OpenAI-kompatibel server, eller Claude, ChatGPT, Gemini med flera. [Språkmodeller](llm.md)
+* **En språkmodell**, valfri, ger en andra åsikt om gränsfall: en lokal modell via Ollama eller en OpenAI-kompatibel server, en beslutsmodell som Cloudflares Clef, eller Claude, ChatGPT, Gemini med flera. Som standard returnerar den en sannolikhet för varje utslag i ett steg i stället för att skriva ett svar. [Språkmodeller](llm.md)
 
 
 ## Var du ska börja
@@ -37,7 +37,7 @@ Kontrollerna:
 * [Postfix och Sendmail](postfix.md): filtrera en e-postserver med miltern eller ett innehållsfilter.
 * [Andra e-postservrar](mail-servers.md): Exim, Haraka, Dovecot, procmail och allt som kan anropa ett HTTP-API.
 * [Träning](training.md): lär den din egen e-post och mät resultatet.
-* [Språkmodeller](llm.md): leverantörer, rekommenderade öppna modeller, integritet och promptinjektion.
+* [Språkmodeller](llm.md): beslut och generering, uppmätt träffsäkerhet och hastighet, beslutsmodeller, leverantörer, rekommenderade öppna modeller, integritet och promptinjektion.
 * [Språk](languages.md): hur den läser kinesiska, arabiska, thailändska och alla andra skriftsystem.
 * [Forward Email](forward-email.md): hur Forward Email använder den, och uppgradering från version 5 eller 6.
 * [API-referens](api.md) och [tester och poäng](scoring.md).

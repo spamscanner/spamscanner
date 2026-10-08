@@ -1,4 +1,4 @@
-<!-- source: c56969e779c4 -->
+<!-- source: 8860e232d858 -->
 
 # Spam Scanner 文档
 
@@ -27,7 +27,7 @@ Spam Scanner 是适用于 Node.js 和命令行的垃圾邮件过滤器，源代�
 * **身份验证**：在已知客户端 IP 地址时检查 SPF、DKIM、DMARC 和 ARC。[身份验证](how-it-works.md#authentication)
 * **DNS 黑名单**检查客户端 IP 地址和链接中的域名，Cloudflare 的过滤解析器检查已知的恶意软件和成人网站。[黑名单](how-it-works.md#blocklists)
 * **规则**处理无需分类器学习的模式：GTUBE 测试字符串、性勒索主题、PayPal 账单诈骗、冒充自身域名，以及针对 AI 过滤器隐藏的指令。[规则](scoring.md#rules)
-* **语言模型**（可选）为难以判断的邮件提供第二意见：通过 Ollama 或任何兼容 OpenAI 的服务器使用本地模型，或使用 Claude、ChatGPT、Gemini 等。[语言模型](llm.md)
+* **语言模型**（可选）为难以判断的邮件提供第二意见：通过 Ollama 或任何兼容 OpenAI 的服务器使用本地模型，使用 Cloudflare 的 Clef 等决策模型，或使用 Claude、ChatGPT、Gemini 等。默认情况下，它在一步之内为每种判定返回一个概率，而不是写出回答。[语言模型](llm.md)
 
 
 ## 从哪里开始
@@ -37,7 +37,7 @@ Spam Scanner 是适用于 Node.js 和命令行的垃圾邮件过滤器，源代�
 * [Postfix 和 Sendmail](postfix.md)：用 milter 或内容过滤器为邮件服务器过滤邮件。
 * [其他邮件服务器](mail-servers.md)：Exim、Haraka、Dovecot、procmail，以及任何能调用 HTTP API 的程序。
 * [训练](training.md)：用你自己的邮件训练它，并测量结果。
-* [语言模型](llm.md)：服务商、推荐的开放模型、隐私和提示注入。
+* [语言模型](llm.md)：决策与生成、实测的准确率和速度、决策模型、服务商、推荐的开放模型、隐私和提示注入。
 * [语言](languages.md)：它如何读取中文、阿拉伯文、泰文及其他所有文字。
 * [Forward Email](forward-email.md)：Forward Email 如何使用它，以及如何从版本 5 或 6 升级。
 * [API 参考](api.md)和[测试与分值](scoring.md)。

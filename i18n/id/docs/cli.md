@@ -1,4 +1,4 @@
-<!-- source: a59bc5927d86 -->
+<!-- source: c061da9312ad -->
 
 # Baris perintah
 
@@ -72,21 +72,23 @@ Kode keluar: 0 ham, 1 spam, 2 galat.
 
 ### Model bahasa
 
-| Opsi                                                       | Arti                                                                                  |
-| ---------------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| `--llm <provider>`                                         | `ollama`, `openai`, `anthropic`, `gemini`, dan lainnya ([daftar](llm.md#providers))   |
-| `--llm-model <name>`                                       | Model, misalnya `qwen3.5:4b` atau `claude-haiku-4-5`                                  |
-| `--llm-url <url>`                                          | URL dasar, misalnya `http://10.0.0.5:11434`                                           |
-| `--llm-host`, `--llm-port`, `--llm-path`, `--llm-protocol` | Mengubah satu bagian dari URL penyedia                                                |
-| `--llm-api-key <key>`                                      | Kunci API; lihat juga variabel lingkungan di bawah                                    |
-| `--llm-auth <type>`                                        | `bearer`, `x-api-key`, `api-key`, `basic`, `header`, atau `none`                      |
-| `--llm-auth-header <name>`                                 | Header untuk kunci, dengan `--llm-auth header`                                        |
-| `--llm-username`, `--llm-password`                         | Untuk `--llm-auth basic`                                                              |
-| `--llm-header "Name: value"`                               | Header permintaan tambahan; dapat diulang                                             |
-| `--llm-mode <mode>`                                        | `auto` (hanya kasus yang meragukan, bawaan) atau `always`                             |
-| `--llm-timeout <ms>`                                       | Bawaan 30000                                                                          |
-| `--llm-policy <text>`                                      | Aturan tambahan untuk model, misalnya "Kami tidak pernah mengirim tagihan"            |
-| `--llm-redact`, `--no-llm-redact`                          | Menghapus data pribadi terlebih dahulu; aktif secara bawaan untuk penyedia jarak jauh |
+| Opsi                                                       | Arti                                                                                                                                             |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `--llm <provider>`                                         | `ollama`, `clef-flash`, `jev`, `openai`, `anthropic`, dan lainnya ([daftar](llm.md#providers))                                                   |
+| `--llm-model <name>`                                       | Model, misalnya `qwen3.5:4b` atau `claude-haiku-4-5`                                                                                             |
+| `--llm-method <method>`                                    | `decision` (probabilitas untuk setiap vonis, dalam satu langkah; bawaan jika tersedia) atau `generate` ([metode](llm.md#decision-or-generation)) |
+| `--llm-account <id>`                                       | ID akun Cloudflare, untuk `clef` dan `clef-flash`                                                                                                |
+| `--llm-url <url>`                                          | URL dasar, misalnya `http://10.0.0.5:11434`                                                                                                      |
+| `--llm-host`, `--llm-port`, `--llm-path`, `--llm-protocol` | Mengubah satu bagian dari URL penyedia                                                                                                           |
+| `--llm-api-key <key>`                                      | Kunci API; lihat juga variabel lingkungan di bawah                                                                                               |
+| `--llm-auth <type>`                                        | `bearer`, `x-api-key`, `api-key`, `basic`, `header`, atau `none`                                                                                 |
+| `--llm-auth-header <name>`                                 | Header untuk kunci, dengan `--llm-auth header`                                                                                                   |
+| `--llm-username`, `--llm-password`                         | Untuk `--llm-auth basic`                                                                                                                         |
+| `--llm-header "Name: value"`                               | Header permintaan tambahan; dapat diulang                                                                                                        |
+| `--llm-mode <mode>`                                        | `auto` (hanya kasus yang meragukan, bawaan) atau `always`                                                                                        |
+| `--llm-timeout <ms>`                                       | Bawaan 30000                                                                                                                                     |
+| `--llm-policy <text>`                                      | Aturan tambahan untuk model, misalnya "Kami tidak pernah mengirim tagihan"                                                                       |
+| `--llm-redact`, `--no-llm-redact`                          | Menghapus data pribadi terlebih dahulu; aktif secara bawaan untuk penyedia jarak jauh                                                            |
 
 
 ## filter
@@ -163,7 +165,7 @@ spamscanner models
 spamscanner llm-test --llm ollama --llm-model qwen3.5:4b
 ```
 
-`llm-test` mengirim satu pesan biasa dan dua penipuan, dalam bahasa Inggris dan Italia, ke model, mencetak vonisnya, dan keluar dengan kode 0 hanya jika ketiganya benar.
+`llm-test` mengirim satu pesan biasa dan dua penipuan, dalam bahasa Inggris dan Italia, ke model, mencetak vonisnya, waktu yang dibutuhkan masing-masing, metode yang digunakan, dan perangkat kerasnya, lalu keluar dengan kode 0 hanya jika ketiganya benar.
 
 
 ## File konfigurasi
@@ -185,11 +187,11 @@ spamscanner llm-test --llm ollama --llm-model qwen3.5:4b
 
 ## Variabel lingkungan
 
-| Variabel                                                                                                                                                                                                                                             | Arti                                                   |
-| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
-| `SPAMSCANNER_CONFIG`                                                                                                                                                                                                                                 | File konfigurasi                                       |
-| `SPAMSCANNER_MODEL`                                                                                                                                                                                                                                  | File model yang dipakai sebagai pengganti model bawaan |
-| `SPAMSCANNER_TOKEN`                                                                                                                                                                                                                                  | Token untuk HTTP API                                   |
-| `SPAMSCANNER_LLM_API_KEY`                                                                                                                                                                                                                            | Kunci API untuk penyedia model bahasa mana pun         |
-| `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `MISTRAL_API_KEY`, `GROQ_API_KEY`, `OPENROUTER_API_KEY`, `DEEPSEEK_API_KEY`, `XAI_API_KEY`, `TOGETHER_API_KEY`, `FIREWORKS_API_KEY`, `CEREBRAS_API_KEY`, `HF_TOKEN`, `AZURE_OPENAI_API_KEY` | Kunci milik masing-masing penyedia                     |
-| `NODE_DEBUG=spamscanner*`                                                                                                                                                                                                                            | Log debug                                              |
+| Variabel                                                                                                                                                                                                                                                                                                                     | Arti                                                   |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| `SPAMSCANNER_CONFIG`                                                                                                                                                                                                                                                                                                         | File konfigurasi                                       |
+| `SPAMSCANNER_MODEL`                                                                                                                                                                                                                                                                                                          | File model yang dipakai sebagai pengganti model bawaan |
+| `SPAMSCANNER_TOKEN`                                                                                                                                                                                                                                                                                                          | Token untuk HTTP API                                   |
+| `SPAMSCANNER_LLM_API_KEY`                                                                                                                                                                                                                                                                                                    | Kunci API untuk penyedia model bahasa mana pun         |
+| `CLOUDFLARE_API_TOKEN` dan `CLOUDFLARE_ACCOUNT_ID`, `TYPESAFE_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `MISTRAL_API_KEY`, `GROQ_API_KEY`, `OPENROUTER_API_KEY`, `DEEPSEEK_API_KEY`, `XAI_API_KEY`, `TOGETHER_API_KEY`, `FIREWORKS_API_KEY`, `CEREBRAS_API_KEY`, `HF_TOKEN`, `AZURE_OPENAI_API_KEY` | Kunci milik masing-masing penyedia                     |
+| `NODE_DEBUG=spamscanner*`                                                                                                                                                                                                                                                                                                    | Log debug                                              |

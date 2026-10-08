@@ -1,4 +1,4 @@
-<!-- source: 05a106ecd728 -->
+<!-- source: 35bf62a30cd7 -->
 
 # Hoe het werkt
 
@@ -95,7 +95,7 @@ Sommige patronen hebben geen statistiek nodig: de GTUBE-teststring, onderwerpreg
 
 ## Het taalmodel
 
-Als de score tussen 1 en 15 punten valt (van 4 onder de spamdrempel tot de weigerdrempel), of als de classifier onzeker is, kan een taalmodel een tweede mening geven: spam, phishing, oplichting, malware of ham, met zijn zekerheid. Zijn oordeel voegt tot 6 punten toe of trekt er tot 3 af. Berichten die duidelijk spam of duidelijk ham zijn, komen er nooit langs. Dat houdt het snel en goedkoop. [Taalmodellen](llm.md)
+Als de score tussen 1 en 15 punten valt (van 4 onder de spamdrempel tot de weigerdrempel), of als de classifier onzeker is, kan een taalmodel een tweede mening geven: een kans voor elk van spam, phishing, oplichting, malware en ham, afgelezen uit één stap van het model, of bij gehoste chatmodellen een geschreven oordeel met een zekerheid. Zijn oordeel voegt tot 6 punten toe of trekt er tot 3 af. Berichten die duidelijk spam of duidelijk ham zijn, komen er nooit langs. Dat houdt het snel en goedkoop. [Taalmodellen](llm.md)
 
 
 ## Alles bij elkaar

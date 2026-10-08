@@ -1,4 +1,4 @@
-<!-- source: 05a106ecd728 -->
+<!-- source: 35bf62a30cd7 -->
 
 # Cara kerja
 
@@ -95,7 +95,7 @@ Beberapa pola tidak memerlukan statistik: string tes GTUBE, subjek yang dipakai 
 
 ## Model bahasa
 
-Ketika skor berada di antara 1 dan 15 poin (dari 4 di bawah ambang spam hingga ambang tolak), atau pengklasifikasi ragu, model bahasa dapat memberi pendapat kedua: spam, phishing, penipuan, malware, atau ham, beserta tingkat keyakinannya. Vonisnya menambahkan hingga 6 poin atau mengurangi hingga 3. Pesan yang jelas spam atau jelas ham tidak pernah sampai ke model, sehingga prosesnya tetap cepat dan murah. [Model bahasa](llm.md)
+Ketika skor berada di antara 1 dan 15 poin (dari 4 di bawah ambang spam hingga ambang tolak), atau pengklasifikasi ragu, model bahasa dapat memberi pendapat kedua: probabilitas untuk masing-masing spam, phishing, penipuan, malware, dan ham, yang dibaca dari satu langkah model, atau vonis tertulis beserta tingkat keyakinan dari model obrolan yang di-hosting. Vonisnya menambahkan hingga 6 poin atau mengurangi hingga 3. Pesan yang jelas spam atau jelas ham tidak pernah sampai ke model, sehingga prosesnya tetap cepat dan murah. [Model bahasa](llm.md)
 
 
 ## Menyatukan semuanya

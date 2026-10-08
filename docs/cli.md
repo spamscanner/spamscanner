@@ -70,21 +70,23 @@ Exit codes: 0 ham, 1 spam, 2 error.
 
 ### Language model
 
-| Option                                                     | Meaning                                                                         |
-| ---------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| `--llm <provider>`                                         | `ollama`, `openai`, `anthropic`, `gemini` and others ([list](llm.md#providers)) |
-| `--llm-model <name>`                                       | Model, for example `qwen3.5:4b` or `claude-haiku-4-5`                           |
-| `--llm-url <url>`                                          | Base URL, for example `http://10.0.0.5:11434`                                   |
-| `--llm-host`, `--llm-port`, `--llm-path`, `--llm-protocol` | Change one part of the provider's URL                                           |
-| `--llm-api-key <key>`                                      | API key; see also the environment variables below                               |
-| `--llm-auth <type>`                                        | `bearer`, `x-api-key`, `api-key`, `basic`, `header` or `none`                   |
-| `--llm-auth-header <name>`                                 | Header for the key, with `--llm-auth header`                                    |
-| `--llm-username`, `--llm-password`                         | For `--llm-auth basic`                                                          |
-| `--llm-header "Name: value"`                               | Extra request header; repeatable                                                |
-| `--llm-mode <mode>`                                        | `auto` (close calls only, the default) or `always`                              |
-| `--llm-timeout <ms>`                                       | Default 30000                                                                   |
-| `--llm-policy <text>`                                      | Extra rules for the model, for example "We never send invoices"                 |
-| `--llm-redact`, `--no-llm-redact`                          | Remove personal data first; on by default for remote providers                  |
+| Option                                                     | Meaning                                                                                                                                        |
+| ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--llm <provider>`                                         | `ollama`, `clef-flash`, `jev`, `openai`, `anthropic` and others ([list](llm.md#providers))                                                     |
+| `--llm-model <name>`                                       | Model, for example `qwen3.5:4b` or `claude-haiku-4-5`                                                                                          |
+| `--llm-method <method>`                                    | `decision` (a probability for each verdict, in one step; the default where available) or `generate` ([methods](llm.md#decision-or-generation)) |
+| `--llm-account <id>`                                       | Cloudflare account ID, for `clef` and `clef-flash`                                                                                             |
+| `--llm-url <url>`                                          | Base URL, for example `http://10.0.0.5:11434`                                                                                                  |
+| `--llm-host`, `--llm-port`, `--llm-path`, `--llm-protocol` | Change one part of the provider's URL                                                                                                          |
+| `--llm-api-key <key>`                                      | API key; see also the environment variables below                                                                                              |
+| `--llm-auth <type>`                                        | `bearer`, `x-api-key`, `api-key`, `basic`, `header` or `none`                                                                                  |
+| `--llm-auth-header <name>`                                 | Header for the key, with `--llm-auth header`                                                                                                   |
+| `--llm-username`, `--llm-password`                         | For `--llm-auth basic`                                                                                                                         |
+| `--llm-header "Name: value"`                               | Extra request header; repeatable                                                                                                               |
+| `--llm-mode <mode>`                                        | `auto` (close calls only, the default) or `always`                                                                                             |
+| `--llm-timeout <ms>`                                       | Default 30000                                                                                                                                  |
+| `--llm-policy <text>`                                      | Extra rules for the model, for example "We never send invoices"                                                                                |
+| `--llm-redact`, `--no-llm-redact`                          | Remove personal data first; on by default for remote providers                                                                                 |
 
 
 ## filter
@@ -161,7 +163,7 @@ spamscanner models
 spamscanner llm-test --llm ollama --llm-model qwen3.5:4b
 ```
 
-`llm-test` sends one ordinary message and two scams, in English and Italian, to the model, prints its verdicts and exits 0 only if all three are right.
+`llm-test` sends one ordinary message and two scams, in English and Italian, to the model, prints its verdicts, the time each took, the method used and the hardware, and exits 0 only if all three are right.
 
 
 ## Configuration file
@@ -183,11 +185,11 @@ spamscanner llm-test --llm ollama --llm-model qwen3.5:4b
 
 ## Environment variables
 
-| Variable                                                                                                                                                                                                                                             | Meaning                                    |
-| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
-| `SPAMSCANNER_CONFIG`                                                                                                                                                                                                                                 | Configuration file                         |
-| `SPAMSCANNER_MODEL`                                                                                                                                                                                                                                  | Model file used instead of the bundled one |
-| `SPAMSCANNER_TOKEN`                                                                                                                                                                                                                                  | Token for the HTTP API                     |
-| `SPAMSCANNER_LLM_API_KEY`                                                                                                                                                                                                                            | API key for any language model provider    |
-| `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `MISTRAL_API_KEY`, `GROQ_API_KEY`, `OPENROUTER_API_KEY`, `DEEPSEEK_API_KEY`, `XAI_API_KEY`, `TOGETHER_API_KEY`, `FIREWORKS_API_KEY`, `CEREBRAS_API_KEY`, `HF_TOKEN`, `AZURE_OPENAI_API_KEY` | Each provider's own key                    |
-| `NODE_DEBUG=spamscanner*`                                                                                                                                                                                                                            | Debug logging                              |
+| Variable                                                                                                                                                                                                                                                                                                                     | Meaning                                    |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| `SPAMSCANNER_CONFIG`                                                                                                                                                                                                                                                                                                         | Configuration file                         |
+| `SPAMSCANNER_MODEL`                                                                                                                                                                                                                                                                                                          | Model file used instead of the bundled one |
+| `SPAMSCANNER_TOKEN`                                                                                                                                                                                                                                                                                                          | Token for the HTTP API                     |
+| `SPAMSCANNER_LLM_API_KEY`                                                                                                                                                                                                                                                                                                    | API key for any language model provider    |
+| `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`, `TYPESAFE_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `MISTRAL_API_KEY`, `GROQ_API_KEY`, `OPENROUTER_API_KEY`, `DEEPSEEK_API_KEY`, `XAI_API_KEY`, `TOGETHER_API_KEY`, `FIREWORKS_API_KEY`, `CEREBRAS_API_KEY`, `HF_TOKEN`, `AZURE_OPENAI_API_KEY` | Each provider's own key                    |
+| `NODE_DEBUG=spamscanner*`                                                                                                                                                                                                                                                                                                    | Debug logging                              |

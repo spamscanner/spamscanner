@@ -1,4 +1,4 @@
-<!-- source: 05a106ecd728 -->
+<!-- source: 35bf62a30cd7 -->
 
 # Slik virker det
 
@@ -95,7 +95,7 @@ Noen mønstre trenger ikke statistikk: GTUBE-teststrengen, emnelinjer brukt i se
 
 ## Språkmodellen
 
-Når poengsummen ligger mellom 1 og 15 poeng (fra 4 under spamterskelen opp til avvisningsterskelen), eller klassifisereren er usikker, kan en språkmodell gi en ekstra vurdering: spam, phishing, svindel, skadevare eller ham, med hvor sikker den er. Vurderingen legger til opptil 6 poeng eller trekker fra opptil 3. Meldinger som tydelig er spam eller tydelig er ham, når aldri frem til den, noe som holder den rask og billig. [Språkmodeller](llm.md)
+Når poengsummen ligger mellom 1 og 15 poeng (fra 4 under spamterskelen opp til avvisningsterskelen), eller klassifisereren er usikker, kan en språkmodell gi en ekstra vurdering: en sannsynlighet for hver av spam, phishing, svindel, skadevare og ham, lest fra ett steg i modellen, eller en skrevet vurdering med hvor sikker den er fra driftede chatmodeller. Vurderingen legger til opptil 6 poeng eller trekker fra opptil 3. Meldinger som tydelig er spam eller tydelig er ham, når aldri frem til den, noe som holder den rask og billig. [Språkmodeller](llm.md)
 
 
 ## Slik henger det sammen

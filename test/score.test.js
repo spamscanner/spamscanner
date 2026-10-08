@@ -83,6 +83,10 @@ describe('scoreResults', () => {
 		assert.match(ham.tests[0].description, /^ollama says ham/);
 		assert.equal(scoreResults({llm: {verdict: 'spam', confidence: 1, provider: 'x'}}).tests[0].description, 'x says spam (100%)');
 		assert.deepEqual(names(scoreResults({llm: {verdict: null, error: 'down'}})), []);
+		// A message that instructs AI filters gets no ham credit from the model, only the rule's points.
+		const injection = {arbitrary: {rules: [{name: 'PROMPT_INJECTION', score: 3, message: 'm'}]}};
+		assert.deepEqual(names(scoreResults({...injection, llm: {verdict: 'ham', confidence: 0.9, provider: 'x'}})), ['PROMPT_INJECTION']);
+		assert.deepEqual(names(scoreResults({...injection, llm: {verdict: 'phishing', confidence: 0.9, provider: 'x'}})), ['PROMPT_INJECTION', 'LLM_PHISHING']);
 	});
 
 	it('decides accept, tag or reject with custom scores and thresholds', () => {

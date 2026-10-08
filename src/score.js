@@ -227,7 +227,10 @@ export function scoreResults(results = {}, options = {}) {
 	}
 
 	const {llm} = results;
-	if (llm?.verdict) {
+	// A message that addresses AI filters may have talked the model into
+	// calling it ham, so it earns no ham credit from the model.
+	const injected = (results.arbitrary?.rules || []).some(rule => rule.name === 'PROMPT_INJECTION');
+	if (llm?.verdict && !(injected && llm.verdict === 'ham')) {
 		if (llm.verdict === 'ham') {
 			add('LLM_HAM', -scores.llmHam * llm.confidence, `${llm.model || llm.provider} says ham (${Math.round(llm.confidence * 100)}%)`);
 		} else {

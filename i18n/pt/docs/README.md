@@ -1,4 +1,4 @@
-<!-- source: c56969e779c4 -->
+<!-- source: 8860e232d858 -->
 
 # Documentação do Spam Scanner
 
@@ -27,7 +27,7 @@ As verificações:
 * **Autenticação**: SPF, DKIM, DMARC e ARC, quando o endereço IP do cliente é conhecido. [Autenticação](how-it-works.md#authentication)
 * **Listas de bloqueio no DNS** para o endereço IP do cliente e os domínios dos links, e os resolvedores com filtragem da Cloudflare para sites conhecidos de malware e de conteúdo adulto. [Listas de bloqueio](how-it-works.md#blocklists)
 * **Regras** para padrões que nenhum classificador precisa aprender: a sequência de teste GTUBE, assuntos de sextorsão, golpes de fatura do PayPal, autofalsificação e instruções escondidas para filtros de IA. [Regras](scoring.md#rules)
-* **Um modelo de linguagem**, opcional, dá uma segunda opinião nos casos duvidosos: um modelo local através do Ollama ou de qualquer servidor compatível com a OpenAI, ou Claude, ChatGPT, Gemini e outros. [Modelos de linguagem](llm.md)
+* **Um modelo de linguagem**, opcional, dá uma segunda opinião nos casos duvidosos: um modelo local através do Ollama ou de qualquer servidor compatível com a OpenAI, um modelo de decisão como o Clef da Cloudflare, ou Claude, ChatGPT, Gemini e outros. Por padrão, ele devolve uma probabilidade para cada veredito em um único passo, em vez de escrever uma resposta. [Modelos de linguagem](llm.md)
 
 
 ## Por onde começar
@@ -37,7 +37,7 @@ As verificações:
 * [Postfix e Sendmail](postfix.md): filtre um servidor de e-mail com o milter ou com um filtro de conteúdo.
 * [Outros servidores de e-mail](mail-servers.md): Exim, Haraka, Dovecot, procmail e qualquer coisa que consiga chamar uma API HTTP.
 * [Treinamento](training.md): ensine os seus próprios e-mails ao modelo e meça o resultado.
-* [Modelos de linguagem](llm.md): provedores, modelos abertos recomendados, privacidade e injeção de prompt.
+* [Modelos de linguagem](llm.md): decisão e geração, precisão e velocidade medidas, modelos de decisão, provedores, modelos abertos recomendados, privacidade e injeção de prompt.
 * [Idiomas](languages.md): como ele lê chinês, árabe, tailandês e todos os outros sistemas de escrita.
 * [Forward Email](forward-email.md): como o Forward Email o usa e como atualizar a partir da versão 5 ou 6.
 * [Referência da API](api.md) e [testes e pontuações](scoring.md).

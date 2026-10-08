@@ -1,4 +1,4 @@
-<!-- source: c93fa1a3f9c7 -->
+<!-- source: 361732724f0e -->
 
 <!--
 label: الأسئلة الشائعة
@@ -42,7 +42,7 @@ keywords: أسئلة Spam Scanner الشائعة, أسئلة عن فلتر ال�
 
 ## أي نموذج لغوي ينبغي أن أستخدم؟
 
-`qwen3.5:4b` عبر Ollama على CPU، أو `qwen3.5:9b` مع GPU. كلاهما بترخيص Apache ويقرأ 201 لغة. وتعمل أيضًا النماذج المستضافة من Anthropic وOpenAI وGoogle وغيرها. [النماذج الموصى بها](../../docs/llm.md#recommended-open-models)
+`qwen3.5:4b` عبر Ollama على CPU، أو `qwen3.5:9b` مع GPU. كلاهما بترخيص Apache ويقرأ 201 لغة. يقرأ Spam Scanner احتمال كل حكم من خطوة واحدة للنموذج، وقد استغرق ذلك على CPU بنواتين نحو 11 ثانية للرسالة بدل 31 لإجابة مكتوبة، بالدقة نفسها. ولخدمة مستضافة، يجيب نموذجا القرار Cloudflare Clef وTypeSafe Jev في أقل من ثانية؛ وتعمل أيضًا نماذج Anthropic وOpenAI وGoogle وغيرها. [القياسات](../../docs/llm.md#measured) و[النماذج الموصى بها](../../docs/llm.md#recommended-open-models)
 
 
 ## هل يمكن أن يحل محل SpamAssassin؟

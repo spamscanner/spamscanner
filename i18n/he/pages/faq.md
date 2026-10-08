@@ -1,4 +1,4 @@
-<!-- source: c93fa1a3f9c7 -->
+<!-- source: 361732724f0e -->
 
 <!--
 label: שאלות נפוצות
@@ -42,7 +42,7 @@ keywords: Spam Scanner שאלות נפוצות, שאלות על מסנן ספא�
 
 ## באיזה מודל שפה כדאי להשתמש?
 
-`qwen3.5:4b` דרך Ollama על מעבד, או `qwen3.5:9b` עם GPU. שניהם ברישיון Apache וקוראים 201 שפות. גם מודלים מתארחים של Anthropic,‏ OpenAI,‏ Google ואחרים עובדים. [מודלים מומלצים](../../docs/llm.md#recommended-open-models)
+`qwen3.5:4b` דרך Ollama על מעבד, או `qwen3.5:9b` עם GPU. שניהם ברישיון Apache וקוראים 201 שפות. Spam Scanner קורא את ההסתברות של כל פסק דין מצעד אחד של המודל, ועל מעבד עם שתי ליבות זה לקח כ-11 שניות להודעה במקום 31 לתשובה כתובה, באותו דיוק. לשירות מתארח, מודלי ההחלטה Cloudflare Clef ו-TypeSafe Jev עונים בפחות משנייה; גם Anthropic,‏ OpenAI,‏ Google ואחרים עובדים. [מדידות](../../docs/llm.md#measured) ו[מודלים מומלצים](../../docs/llm.md#recommended-open-models)
 
 
 ## האם הוא יכול להחליף את SpamAssassin?

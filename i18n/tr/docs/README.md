@@ -1,4 +1,4 @@
-<!-- source: c56969e779c4 -->
+<!-- source: 8860e232d858 -->
 
 # Spam Scanner belgeleri
 
@@ -27,7 +27,7 @@ Denetimler:
 * **Kimlik doğrulama**: istemcinin IP adresi biliniyorsa SPF, DKIM, DMARC ve ARC. [Kimlik doğrulama](how-it-works.md#authentication)
 * İstemcinin IP adresi ve bağlantılardaki alan adları için **DNS engelleme listeleri** ve bilinen kötü amaçlı yazılım ve yetişkin içerikli siteler için Cloudflare'in filtreleme yapan çözümleyicileri. [Engelleme listeleri](how-it-works.md#blocklists)
 * Hiçbir sınıflandırıcının öğrenmesi gerekmeyen kalıplar için **kurallar**: GTUBE test dizisi, şantaj (sextortion) konu satırları, PayPal fatura dolandırıcılıkları, kendi alan adını taklit etme ve yapay zekâ filtreleri için gizlenmiş talimatlar. [Kurallar](scoring.md#rules)
-* İsteğe bağlı **bir dil modeli**, kararsız kalınan durumlarda ikinci bir görüş verir: Ollama veya OpenAI uyumlu herhangi bir sunucu üzerinden yerel bir model ya da Claude, ChatGPT, Gemini ve diğerleri. [Dil modelleri](llm.md)
+* İsteğe bağlı **bir dil modeli**, kararsız kalınan durumlarda ikinci bir görüş verir: Ollama veya OpenAI uyumlu herhangi bir sunucu üzerinden yerel bir model, Cloudflare'in Clef'i gibi bir karar modeli ya da Claude, ChatGPT, Gemini ve diğerleri. Varsayılan olarak bir yanıt yazmak yerine tek adımda her karar için bir olasılık döndürür. [Dil modelleri](llm.md)
 
 
 ## Nereden başlamalı
@@ -37,7 +37,7 @@ Denetimler:
 * [Postfix ve Sendmail](postfix.md): bir posta sunucusunu milter veya içerik filtresiyle filtreleyin.
 * [Diğer posta sunucuları](mail-servers.md): Exim, Haraka, Dovecot, procmail ve HTTP API çağırabilen her şey.
 * [Eğitim](training.md): ona kendi postanızı öğretin ve sonucu ölçün.
-* [Dil modelleri](llm.md): sağlayıcılar, önerilen açık modeller, gizlilik ve istem enjeksiyonu.
+* [Dil modelleri](llm.md): karar ve üretim, ölçülen doğruluk ve hız, karar modelleri, sağlayıcılar, önerilen açık modeller, gizlilik ve istem enjeksiyonu.
 * [Diller](languages.md): Çince, Arapça, Tayca ve diğer tüm yazı sistemlerini nasıl okuduğu.
 * [Forward Email](forward-email.md): Forward Email'in onu nasıl kullandığı ve 5 veya 6 sürümünden yükseltme.
 * [API başvurusu](api.md) ve [testler ve puanlar](scoring.md).

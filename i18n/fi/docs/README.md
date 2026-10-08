@@ -1,4 +1,4 @@
-<!-- source: c56969e779c4 -->
+<!-- source: 8860e232d858 -->
 
 # Spam Scannerin dokumentaatio
 
@@ -27,7 +27,7 @@ Tarkistukset:
 * **Todennus**: SPF, DKIM, DMARC ja ARC, kun asiakkaan IP-osoite tiedetään. [Todennus](how-it-works.md#authentication)
 * **DNS-estolistat** asiakkaan IP-osoitteelle ja linkkien verkkotunnuksille sekä Cloudflaren suodattavat DNS-palvelut tunnetuille haittaohjelma- ja aikuissivustoille. [Estolistat](how-it-works.md#blocklists)
 * **Säännöt** malleille, joita luokittimen ei tarvitse oppia: GTUBE-testimerkkijono, seksuaalista kiristystä koskevat aiherivit, PayPal-laskuhuijaukset, oman verkkotunnuksen väärentäminen ja tekoälysuodattimille piilotetut ohjeet. [Säännöt](scoring.md#rules)
-* **Kielimalli**, valinnainen, antaa toisen mielipiteen epäselvissä tapauksissa: paikallinen malli Ollaman tai minkä tahansa OpenAI-yhteensopivan palvelimen kautta tai Claude, ChatGPT, Gemini ja muut. [Kielimallit](llm.md)
+* **Kielimalli**, valinnainen, antaa toisen mielipiteen epäselvissä tapauksissa: paikallinen malli Ollaman tai minkä tahansa OpenAI-yhteensopivan palvelimen kautta, päätösmalli kuten Cloudflaren Clef tai Claude, ChatGPT, Gemini ja muut. Oletuksena se palauttaa todennäköisyyden kullekin tuomiolle yhdellä askeleella sen sijaan, että kirjoittaisi vastauksen. [Kielimallit](llm.md)
 
 
 ## Mistä aloittaa
@@ -37,7 +37,7 @@ Tarkistukset:
 * [Postfix ja Sendmail](postfix.md): suodata postipalvelinta milterillä tai sisältösuodattimella.
 * [Muut postipalvelimet](mail-servers.md): Exim, Haraka, Dovecot, procmail ja kaikki, mikä osaa kutsua HTTP API:a.
 * [Koulutus](training.md): opeta sille oma postisi ja mittaa tulos.
-* [Kielimallit](llm.md): palveluntarjoajat, suositellut avoimet mallit, yksityisyys ja kehoteinjektio.
+* [Kielimallit](llm.md): päätökset ja generointi, mitattu tarkkuus ja nopeus, päätösmallit, palveluntarjoajat, suositellut avoimet mallit, yksityisyys ja kehoteinjektio.
 * [Kielet](languages.md): miten se lukee kiinaa, arabiaa, thaita ja kaikkia muita kirjoitusjärjestelmiä.
 * [Forward Email](forward-email.md): miten Forward Email käyttää sitä ja miten päivität versiosta 5 tai 6.
 * [API-viite](api.md) ja [testit ja pisteet](scoring.md).

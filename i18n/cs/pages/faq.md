@@ -1,4 +1,4 @@
-<!-- source: c93fa1a3f9c7 -->
+<!-- source: 361732724f0e -->
 
 <!--
 label: Časté dotazy
@@ -42,7 +42,7 @@ Ne. Je to druhý názor pro hraniční případy. Bez něj o těchto zprávách 
 
 ## Který jazykový model použít?
 
-`qwen3.5:4b` přes Ollama na CPU, nebo `qwen3.5:9b` s GPU. Oba mají licenci Apache a čtou 201 jazyků. Fungují i hostované modely od Anthropicu, OpenAI, Googlu a dalších. [Doporučené modely](../../docs/llm.md#recommended-open-models)
+`qwen3.5:4b` přes Ollama na CPU, nebo `qwen3.5:9b` s GPU. Oba mají licenci Apache a čtou 201 jazyků. Spam Scanner čte pravděpodobnost každého verdiktu z jednoho kroku modelu, což na dvoujádrovém CPU trvalo asi 11 sekund na zprávu místo 31 u napsané odpovědi, se stejnou přesností. Jako hostovaná služba odpovídají rozhodovací modely Cloudflare Clef a TypeSafe Jev za méně než sekundu; fungují i modely od Anthropicu, OpenAI, Googlu a dalších. [Měření](../../docs/llm.md#measured) a [doporučené modely](../../docs/llm.md#recommended-open-models)
 
 
 ## Může nahradit SpamAssassin?

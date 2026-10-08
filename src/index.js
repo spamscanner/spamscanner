@@ -612,5 +612,5 @@ export {train, evaluate, readExamples} from './train.js';
 export {MilterServer} from './milter.js';
 export {createHttpServer, createTcpServer} from './server.js';
 export {createSpamdServer} from './spamd.js';
-export {RECOMMENDED_MODELS, CLASSIFIER_MODELS} from './models.js';
+export {RECOMMENDED_MODELS, CLASSIFIER_MODELS, DECISION_MODELS} from './models.js';
 export {VERSION} from './version.js';

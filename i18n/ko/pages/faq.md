@@ -1,4 +1,4 @@
-<!-- source: c93fa1a3f9c7 -->
+<!-- source: 361732724f0e -->
 
 <!--
 label: FAQ
@@ -42,7 +42,7 @@ Node.js, 명령줄, 메일 서버를 위한 스팸 필터입니다. 원본 이�
 
 ## 어떤 언어 모델을 써야 합니까?
 
-CPU라면 Ollama로 `qwen3.5:4b`를, GPU가 있다면 `qwen3.5:9b`를 사용하십시오. 둘 다 Apache 라이선스이며 201개 언어를 읽습니다. Anthropic, OpenAI, Google 등의 호스팅 모델도 동작합니다. [권장 모델](../../docs/llm.md#recommended-open-models)
+CPU라면 Ollama로 `qwen3.5:4b`를, GPU가 있다면 `qwen3.5:9b`를 사용하십시오. 둘 다 Apache 라이선스이며 201개 언어를 읽습니다. Spam Scanner는 모델의 한 단계에서 각 판정의 확률을 읽습니다. 2코어 CPU에서 이 방식은 메시지당 약 11초가 걸렸고, 답을 작성하게 하면 31초가 걸렸으며, 정확도는 같았습니다. 호스팅 서비스로는 결정 모델인 Cloudflare Clef와 TypeSafe Jev가 1초 안에 답합니다. Anthropic, OpenAI, Google 등의 모델도 동작합니다. [측정 결과](../../docs/llm.md#measured)와 [권장 모델](../../docs/llm.md#recommended-open-models)
 
 
 ## SpamAssassin을 대체할 수 있습니까?

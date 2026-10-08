@@ -1,4 +1,4 @@
-<!-- source: c56969e779c4 -->
+<!-- source: 8860e232d858 -->
 
 # Dokumentacja Spam Scanner
 
@@ -27,7 +27,7 @@ Kontrole:
 * **Uwierzytelnianie**: SPF, DKIM, DMARC i ARC, gdy znany jest adres IP klienta. [Uwierzytelnianie](how-it-works.md#authentication)
 * **Czarne listy DNS** dla adresu IP klienta i domen w linkach oraz filtrujące resolvery Cloudflare dla znanych witryn ze złośliwym oprogramowaniem i treściami dla dorosłych. [Czarne listy](how-it-works.md#blocklists)
 * **Reguły** dla wzorców, których żaden klasyfikator nie musi się uczyć: ciąg testowy GTUBE, tematy sextortion, oszustwa na faktury PayPal, podszywanie się pod własną domenę i instrukcje ukryte dla filtrów AI. [Reguły](scoring.md#rules)
-* **Model językowy**, opcjonalny, daje drugą opinię w trudnych przypadkach: lokalny model przez Ollama lub dowolny serwer zgodny z OpenAI albo Claude, ChatGPT, Gemini i inne. [Modele językowe](llm.md)
+* **Model językowy**, opcjonalny, daje drugą opinię w trudnych przypadkach: lokalny model przez Ollama lub dowolny serwer zgodny z OpenAI, model decyzyjny, taki jak Clef od Cloudflare, albo Claude, ChatGPT, Gemini i inne. Domyślnie zwraca prawdopodobieństwo każdego werdyktu w jednym kroku, zamiast pisać odpowiedź. [Modele językowe](llm.md)
 
 
 ## Od czego zacząć
@@ -37,7 +37,7 @@ Kontrole:
 * [Postfix i Sendmail](postfix.md): filtrowanie serwera pocztowego przez milter lub filtr treści.
 * [Inne serwery pocztowe](mail-servers.md): Exim, Haraka, Dovecot, procmail i wszystko, co potrafi wywołać HTTP API.
 * [Trenowanie](training.md): nauka na twojej własnej poczcie i pomiar wyniku.
-* [Modele językowe](llm.md): dostawcy, zalecane otwarte modele, prywatność i prompt injection.
+* [Modele językowe](llm.md): decyzje i generowanie, zmierzona trafność i szybkość, modele decyzyjne, dostawcy, zalecane otwarte modele, prywatność i prompt injection.
 * [Języki](languages.md): jak czyta chiński, arabski, tajski i każde inne pismo.
 * [Forward Email](forward-email.md): jak korzysta z niego Forward Email i jak przejść z wersji 5 lub 6.
 * [Dokumentacja API](api.md) oraz [testy i punkty](scoring.md).

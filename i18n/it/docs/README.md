@@ -1,4 +1,4 @@
-<!-- source: c56969e779c4 -->
+<!-- source: 8860e232d858 -->
 
 # Documentazione di Spam Scanner
 
@@ -27,7 +27,7 @@ I controlli:
 * **Autenticazione**: SPF, DKIM, DMARC e ARC, quando l'indirizzo IP del client è noto. [Autenticazione](how-it-works.md#authentication)
 * **DNS blocklist** per l'indirizzo IP del client e per i domini nei link, e i resolver con filtraggio di Cloudflare per i siti noti di malware e per adulti. [Blocklist](how-it-works.md#blocklists)
 * **Regole** per gli schemi che nessun classificatore ha bisogno di imparare: la stringa di test GTUBE, gli oggetti delle sextortion, le truffe con fatture PayPal, l'auto-spoofing e le istruzioni nascoste per i filtri IA. [Regole](scoring.md#rules)
-* **Un modello linguistico**, facoltativo, dà un secondo parere sui casi dubbi: un modello locale tramite Ollama o qualsiasi server compatibile con OpenAI, oppure Claude, ChatGPT, Gemini e altri. [Modelli linguistici](llm.md)
+* **Un modello linguistico**, facoltativo, dà un secondo parere sui casi dubbi: un modello locale tramite Ollama o qualsiasi server compatibile con OpenAI, un modello decisionale come Clef di Cloudflare, oppure Claude, ChatGPT, Gemini e altri. Per impostazione predefinita restituisce una probabilità per ogni verdetto in un solo passaggio, invece di scrivere una risposta. [Modelli linguistici](llm.md)
 
 
 ## Da dove iniziare
@@ -37,7 +37,7 @@ I controlli:
 * [Postfix e Sendmail](postfix.md): filtrare un server di posta con il milter o un content filter.
 * [Altri server di posta](mail-servers.md): Exim, Haraka, Dovecot, procmail e qualsiasi cosa possa chiamare un'API HTTP.
 * [Addestramento](training.md): insegnargli la tua posta e misurare il risultato.
-* [Modelli linguistici](llm.md): provider, modelli aperti consigliati, privacy e prompt injection.
+* [Modelli linguistici](llm.md): decisioni e generazione, precisione e velocità misurate, modelli decisionali, provider, modelli aperti consigliati, privacy e prompt injection.
 * [Lingue](languages.md): come legge il cinese, l'arabo, il thailandese e ogni altro sistema di scrittura.
 * [Forward Email](forward-email.md): come lo usa Forward Email, e l'aggiornamento dalla versione 5 o 6.
 * [Riferimento API](api.md) e [test e punteggi](scoring.md).

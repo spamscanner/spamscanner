@@ -1,4 +1,4 @@
-<!-- source: 05a106ecd728 -->
+<!-- source: 35bf62a30cd7 -->
 
 # Jak to działa
 
@@ -95,7 +95,7 @@ Niektóre wzorce nie potrzebują statystyki: ciąg testowy GTUBE, tematy używan
 
 ## Model językowy
 
-Gdy wynik mieści się między 1 a 15 punktami (od 4 poniżej progu spamu do progu odrzucenia) albo klasyfikator nie jest pewny, model językowy może dać drugą opinię: spam, phishing, oszustwo, złośliwe oprogramowanie lub ham, wraz z pewnością. Jego werdykt dodaje do 6 punktów lub odejmuje do 3. Wiadomości, które są oczywistym spamem lub oczywistym hamem, nigdy do niego nie trafiają, dzięki czemu jest szybki i tani. [Modele językowe](llm.md)
+Gdy wynik mieści się między 1 a 15 punktami (od 4 poniżej progu spamu do progu odrzucenia) albo klasyfikator nie jest pewny, model językowy może dać drugą opinię: prawdopodobieństwo dla każdej z kategorii spam, phishing, oszustwo, złośliwe oprogramowanie i ham, odczytane z jednego kroku modelu, albo pisemny werdykt z pewnością od hostowanych modeli czatowych. Jego werdykt dodaje do 6 punktów lub odejmuje do 3. Wiadomości, które są oczywistym spamem lub oczywistym hamem, nigdy do niego nie trafiają, dzięki czemu jest szybki i tani. [Modele językowe](llm.md)
 
 
 ## Całość

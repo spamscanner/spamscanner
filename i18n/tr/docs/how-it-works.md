@@ -1,4 +1,4 @@
-<!-- source: 05a106ecd728 -->
+<!-- source: 35bf62a30cd7 -->
 
 # Nasıl çalışır
 
@@ -95,7 +95,7 @@ Bazı kalıplar istatistik gerektirmez: GTUBE test dizisi, şantaj (sextortion) 
 
 ## Dil modeli
 
-Puan 1 ile 15 arasında kaldığında (spam eşiğinin 4 altından reddetme eşiğine kadar) veya sınıflandırıcı emin olmadığında, bir dil modeli ikinci bir görüş verebilir: spam, kimlik avı, dolandırıcılık, kötü amaçlı yazılım veya ham, güven değeriyle birlikte. Kararı en fazla 6 puan ekler veya en fazla 3 puan düşer. Açıkça spam veya açıkça ham olan iletiler ona hiç ulaşmaz; bu da onu hızlı ve ucuz tutar. [Dil modelleri](llm.md)
+Puan 1 ile 15 arasında kaldığında (spam eşiğinin 4 altından reddetme eşiğine kadar) veya sınıflandırıcı emin olmadığında, bir dil modeli ikinci bir görüş verebilir: modelin tek adımından okunan, spam, kimlik avı, dolandırıcılık, kötü amaçlı yazılım ve hamın her biri için bir olasılık ya da barındırılan sohbet modellerinden güven değeriyle birlikte yazılı bir karar. Kararı en fazla 6 puan ekler veya en fazla 3 puan düşer. Açıkça spam veya açıkça ham olan iletiler ona hiç ulaşmaz; bu da onu hızlı ve ucuz tutar. [Dil modelleri](llm.md)
 
 
 ## Hepsi bir arada

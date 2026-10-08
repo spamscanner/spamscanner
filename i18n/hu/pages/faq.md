@@ -1,4 +1,4 @@
-<!-- source: c93fa1a3f9c7 -->
+<!-- source: 361732724f0e -->
 
 <!--
 label: GYIK
@@ -42,7 +42,7 @@ Nem. A kétes esetekben ad második véleményt. Nélküle ezekről a levelekrő
 
 ## Melyik nyelvi modellt érdemes használni?
 
-CPU-n a `qwen3.5:4b` Ollamán keresztül, GPU-val a `qwen3.5:9b`. Mindkettő Apache-licencű, és 201 nyelven olvas. Az Anthropic, az OpenAI, a Google és mások szolgáltatói modelljei is működnek. [Ajánlott modellek](../../docs/llm.md#recommended-open-models)
+CPU-n a `qwen3.5:4b` Ollamán keresztül, GPU-val a `qwen3.5:9b`. Mindkettő Apache-licencű, és 201 nyelven olvas. A Spam Scanner a modell egyetlen lépéséből olvassa ki az egyes ítéletek valószínűségét, ami egy kétmagos CPU-n levelenként körülbelül 11 másodpercig tartott az írásos válasz 31 másodperce helyett, ugyanakkora pontossággal. Szolgáltatásként a Cloudflare Clef és a TypeSafe Jev döntési modellek egy másodpercen belül válaszolnak; az Anthropic, az OpenAI, a Google és mások modelljei is működnek. [Mérések](../../docs/llm.md#measured) és [ajánlott modellek](../../docs/llm.md#recommended-open-models)
 
 
 ## Leválthatja a SpamAssassint?

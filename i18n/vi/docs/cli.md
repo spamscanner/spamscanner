@@ -1,4 +1,4 @@
-<!-- source: a59bc5927d86 -->
+<!-- source: c061da9312ad -->
 
 # Dòng lệnh
 
@@ -72,21 +72,23 @@ Mã thoát: 0 là ham, 1 là spam, 2 là lỗi.
 
 ### Mô hình ngôn ngữ
 
-| Tùy chọn                                                   | Ý nghĩa                                                                                            |
-| ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| `--llm <provider>`                                         | `ollama`, `openai`, `anthropic`, `gemini` và các nhà cung cấp khác ([danh sách](llm.md#providers)) |
-| `--llm-model <name>`                                       | Mô hình, ví dụ `qwen3.5:4b` hoặc `claude-haiku-4-5`                                                |
-| `--llm-url <url>`                                          | URL gốc, ví dụ `http://10.0.0.5:11434`                                                             |
-| `--llm-host`, `--llm-port`, `--llm-path`, `--llm-protocol` | Thay đổi một phần URL của nhà cung cấp                                                             |
-| `--llm-api-key <key>`                                      | Khóa API; xem thêm các biến môi trường bên dưới                                                    |
-| `--llm-auth <type>`                                        | `bearer`, `x-api-key`, `api-key`, `basic`, `header` hoặc `none`                                    |
-| `--llm-auth-header <name>`                                 | Header chứa khóa, dùng với `--llm-auth header`                                                     |
-| `--llm-username`, `--llm-password`                         | Dùng cho `--llm-auth basic`                                                                        |
-| `--llm-header "Name: value"`                               | Header bổ sung cho yêu cầu; có thể lặp lại                                                         |
-| `--llm-mode <mode>`                                        | `auto` (chỉ các trường hợp sát nút, mặc định) hoặc `always`                                        |
-| `--llm-timeout <ms>`                                       | Mặc định 30000                                                                                     |
-| `--llm-policy <text>`                                      | Quy tắc bổ sung cho mô hình, ví dụ “Chúng tôi không bao giờ gửi hóa đơn”                           |
-| `--llm-redact`, `--no-llm-redact`                          | Xóa dữ liệu cá nhân trước; mặc định bật với các nhà cung cấp từ xa                                 |
+| Tùy chọn                                                   | Ý nghĩa                                                                                                                                          |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `--llm <provider>`                                         | `ollama`, `clef-flash`, `jev`, `openai`, `anthropic` và các nhà cung cấp khác ([danh sách](llm.md#providers))                                    |
+| `--llm-model <name>`                                       | Mô hình, ví dụ `qwen3.5:4b` hoặc `claude-haiku-4-5`                                                                                              |
+| `--llm-method <method>`                                    | `decision` (xác suất cho từng kết luận, trong một bước; mặc định khi được hỗ trợ) hoặc `generate` ([phương thức](llm.md#decision-or-generation)) |
+| `--llm-account <id>`                                       | ID tài khoản Cloudflare, cho `clef` và `clef-flash`                                                                                              |
+| `--llm-url <url>`                                          | URL gốc, ví dụ `http://10.0.0.5:11434`                                                                                                           |
+| `--llm-host`, `--llm-port`, `--llm-path`, `--llm-protocol` | Thay đổi một phần URL của nhà cung cấp                                                                                                           |
+| `--llm-api-key <key>`                                      | Khóa API; xem thêm các biến môi trường bên dưới                                                                                                  |
+| `--llm-auth <type>`                                        | `bearer`, `x-api-key`, `api-key`, `basic`, `header` hoặc `none`                                                                                  |
+| `--llm-auth-header <name>`                                 | Header chứa khóa, dùng với `--llm-auth header`                                                                                                   |
+| `--llm-username`, `--llm-password`                         | Dùng cho `--llm-auth basic`                                                                                                                      |
+| `--llm-header "Name: value"`                               | Header bổ sung cho yêu cầu; có thể lặp lại                                                                                                       |
+| `--llm-mode <mode>`                                        | `auto` (chỉ các trường hợp sát nút, mặc định) hoặc `always`                                                                                      |
+| `--llm-timeout <ms>`                                       | Mặc định 30000                                                                                                                                   |
+| `--llm-policy <text>`                                      | Quy tắc bổ sung cho mô hình, ví dụ “Chúng tôi không bao giờ gửi hóa đơn”                                                                         |
+| `--llm-redact`, `--no-llm-redact`                          | Xóa dữ liệu cá nhân trước; mặc định bật với các nhà cung cấp từ xa                                                                               |
 
 
 ## filter
@@ -163,7 +165,7 @@ spamscanner models
 spamscanner llm-test --llm ollama --llm-model qwen3.5:4b
 ```
 
-`llm-test` gửi một thư bình thường và hai thư lừa đảo, bằng tiếng Anh và tiếng Ý, đến mô hình, in ra các kết luận và chỉ thoát với mã 0 nếu cả ba đều đúng.
+`llm-test` gửi một thư bình thường và hai thư lừa đảo, bằng tiếng Anh và tiếng Ý, đến mô hình, in ra các kết luận, thời gian của từng thư, phương thức đã dùng và phần cứng, và chỉ thoát với mã 0 nếu cả ba đều đúng.
 
 
 ## Tệp cấu hình
@@ -185,11 +187,11 @@ spamscanner llm-test --llm ollama --llm-model qwen3.5:4b
 
 ## Biến môi trường
 
-| Biến                                                                                                                                                                                                                                                 | Ý nghĩa                                        |
-| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
-| `SPAMSCANNER_CONFIG`                                                                                                                                                                                                                                 | Tệp cấu hình                                   |
-| `SPAMSCANNER_MODEL`                                                                                                                                                                                                                                  | Tệp mô hình dùng thay cho mô hình đi kèm       |
-| `SPAMSCANNER_TOKEN`                                                                                                                                                                                                                                  | Token cho HTTP API                             |
-| `SPAMSCANNER_LLM_API_KEY`                                                                                                                                                                                                                            | Khóa API cho mọi nhà cung cấp mô hình ngôn ngữ |
-| `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `MISTRAL_API_KEY`, `GROQ_API_KEY`, `OPENROUTER_API_KEY`, `DEEPSEEK_API_KEY`, `XAI_API_KEY`, `TOGETHER_API_KEY`, `FIREWORKS_API_KEY`, `CEREBRAS_API_KEY`, `HF_TOKEN`, `AZURE_OPENAI_API_KEY` | Khóa riêng của từng nhà cung cấp               |
-| `NODE_DEBUG=spamscanner*`                                                                                                                                                                                                                            | Ghi nhật ký gỡ lỗi                             |
+| Biến                                                                                                                                                                                                                                                                                                                        | Ý nghĩa                                        |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| `SPAMSCANNER_CONFIG`                                                                                                                                                                                                                                                                                                        | Tệp cấu hình                                   |
+| `SPAMSCANNER_MODEL`                                                                                                                                                                                                                                                                                                         | Tệp mô hình dùng thay cho mô hình đi kèm       |
+| `SPAMSCANNER_TOKEN`                                                                                                                                                                                                                                                                                                         | Token cho HTTP API                             |
+| `SPAMSCANNER_LLM_API_KEY`                                                                                                                                                                                                                                                                                                   | Khóa API cho mọi nhà cung cấp mô hình ngôn ngữ |
+| `CLOUDFLARE_API_TOKEN` và `CLOUDFLARE_ACCOUNT_ID`, `TYPESAFE_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `MISTRAL_API_KEY`, `GROQ_API_KEY`, `OPENROUTER_API_KEY`, `DEEPSEEK_API_KEY`, `XAI_API_KEY`, `TOGETHER_API_KEY`, `FIREWORKS_API_KEY`, `CEREBRAS_API_KEY`, `HF_TOKEN`, `AZURE_OPENAI_API_KEY` | Khóa riêng của từng nhà cung cấp               |
+| `NODE_DEBUG=spamscanner*`                                                                                                                                                                                                                                                                                                   | Ghi nhật ký gỡ lỗi                             |

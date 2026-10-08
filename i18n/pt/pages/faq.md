@@ -1,4 +1,4 @@
-<!-- source: c93fa1a3f9c7 -->
+<!-- source: 361732724f0e -->
 
 <!--
 label: Perguntas frequentes
@@ -42,7 +42,7 @@ Não. Ele é uma segunda opinião para os casos duvidosos. Sem um modelo, essas 
 
 ## Qual modelo de linguagem devo usar?
 
-O `qwen3.5:4b` via Ollama em uma CPU, ou o `qwen3.5:9b` com uma GPU. Os dois têm licença Apache e leem 201 idiomas. Modelos hospedados da Anthropic, OpenAI, Google e outros também funcionam. [Modelos recomendados](../../docs/llm.md#recommended-open-models)
+O `qwen3.5:4b` via Ollama em uma CPU, ou o `qwen3.5:9b` com uma GPU. Os dois têm licença Apache e leem 201 idiomas. O Spam Scanner lê a probabilidade de cada veredito a partir de um único passo do modelo, o que, em uma CPU de dois núcleos, levou cerca de 11 segundos por mensagem em vez de 31 para uma resposta escrita, com a mesma precisão. Para um serviço hospedado, os modelos de decisão Cloudflare Clef e TypeSafe Jev respondem em menos de um segundo; modelos da Anthropic, OpenAI, Google e outros também funcionam. [Medições](../../docs/llm.md#measured) e [modelos recomendados](../../docs/llm.md#recommended-open-models)
 
 
 ## Ele pode substituir o SpamAssassin?

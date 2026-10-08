@@ -1,4 +1,4 @@
-<!-- source: a59bc5927d86 -->
+<!-- source: c061da9312ad -->
 
 # Příkazová řádka
 
@@ -72,21 +72,23 @@ Návratové kódy: 0 ham, 1 spam, 2 chyba.
 
 ### Jazykový model
 
-| Volba                                                      | Význam                                                                               |
-| ---------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| `--llm <provider>`                                         | `ollama`, `openai`, `anthropic`, `gemini` a další ([seznam](llm.md#providers))       |
-| `--llm-model <name>`                                       | Model, například `qwen3.5:4b` nebo `claude-haiku-4-5`                                |
-| `--llm-url <url>`                                          | Základní URL, například `http://10.0.0.5:11434`                                      |
-| `--llm-host`, `--llm-port`, `--llm-path`, `--llm-protocol` | Změní jednu část URL poskytovatele                                                   |
-| `--llm-api-key <key>`                                      | Klíč API; viz také proměnné prostředí níže                                           |
-| `--llm-auth <type>`                                        | `bearer`, `x-api-key`, `api-key`, `basic`, `header` nebo `none`                      |
-| `--llm-auth-header <name>`                                 | Hlavička pro klíč, s `--llm-auth header`                                             |
-| `--llm-username`, `--llm-password`                         | Pro `--llm-auth basic`                                                               |
-| `--llm-header "Name: value"`                               | Další hlavička požadavku; lze opakovat                                               |
-| `--llm-mode <mode>`                                        | `auto` (jen hraniční případy, výchozí) nebo `always`                                 |
-| `--llm-timeout <ms>`                                       | Výchozí 30000                                                                        |
-| `--llm-policy <text>`                                      | Další pravidla pro model, například „Faktury nikdy neposíláme“                       |
-| `--llm-redact`, `--no-llm-redact`                          | Nejdřív odstranit osobní údaje; u vzdálených poskytovatelů ve výchozím stavu zapnuto |
+| Volba                                                      | Význam                                                                                                                                              |
+| ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--llm <provider>`                                         | `ollama`, `clef-flash`, `jev`, `openai`, `anthropic` a další ([seznam](llm.md#providers))                                                           |
+| `--llm-model <name>`                                       | Model, například `qwen3.5:4b` nebo `claude-haiku-4-5`                                                                                               |
+| `--llm-method <method>`                                    | `decision` (pravděpodobnost každého verdiktu v jednom kroku; výchozí, kde je k dispozici) nebo `generate` ([metody](llm.md#decision-or-generation)) |
+| `--llm-account <id>`                                       | ID účtu Cloudflare, pro `clef` a `clef-flash`                                                                                                       |
+| `--llm-url <url>`                                          | Základní URL, například `http://10.0.0.5:11434`                                                                                                     |
+| `--llm-host`, `--llm-port`, `--llm-path`, `--llm-protocol` | Změní jednu část URL poskytovatele                                                                                                                  |
+| `--llm-api-key <key>`                                      | Klíč API; viz také proměnné prostředí níže                                                                                                          |
+| `--llm-auth <type>`                                        | `bearer`, `x-api-key`, `api-key`, `basic`, `header` nebo `none`                                                                                     |
+| `--llm-auth-header <name>`                                 | Hlavička pro klíč, s `--llm-auth header`                                                                                                            |
+| `--llm-username`, `--llm-password`                         | Pro `--llm-auth basic`                                                                                                                              |
+| `--llm-header "Name: value"`                               | Další hlavička požadavku; lze opakovat                                                                                                              |
+| `--llm-mode <mode>`                                        | `auto` (jen hraniční případy, výchozí) nebo `always`                                                                                                |
+| `--llm-timeout <ms>`                                       | Výchozí 30000                                                                                                                                       |
+| `--llm-policy <text>`                                      | Další pravidla pro model, například „Faktury nikdy neposíláme“                                                                                      |
+| `--llm-redact`, `--no-llm-redact`                          | Nejdřív odstranit osobní údaje; u vzdálených poskytovatelů ve výchozím stavu zapnuto                                                                |
 
 
 ## filter
@@ -163,7 +165,7 @@ spamscanner models
 spamscanner llm-test --llm ollama --llm-model qwen3.5:4b
 ```
 
-`llm-test` pošle modelu jednu běžnou zprávu a dva podvody, v angličtině a italštině, vypíše jeho verdikty a skončí s kódem 0 jen tehdy, když jsou všechny tři správně.
+`llm-test` pošle modelu jednu běžnou zprávu a dva podvody, v angličtině a italštině, vypíše jeho verdikty, čas každého z nich, použitou metodu a hardware a skončí s kódem 0 jen tehdy, když jsou všechny tři správně.
 
 
 ## Konfigurační soubor
@@ -185,11 +187,11 @@ spamscanner llm-test --llm ollama --llm-model qwen3.5:4b
 
 ## Proměnné prostředí
 
-| Proměnná                                                                                                                                                                                                                                             | Význam                                                  |
-| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
-| `SPAMSCANNER_CONFIG`                                                                                                                                                                                                                                 | Konfigurační soubor                                     |
-| `SPAMSCANNER_MODEL`                                                                                                                                                                                                                                  | Soubor modelu použitý místo přibaleného                 |
-| `SPAMSCANNER_TOKEN`                                                                                                                                                                                                                                  | Token pro HTTP API                                      |
-| `SPAMSCANNER_LLM_API_KEY`                                                                                                                                                                                                                            | Klíč API pro jakéhokoli poskytovatele jazykového modelu |
-| `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `MISTRAL_API_KEY`, `GROQ_API_KEY`, `OPENROUTER_API_KEY`, `DEEPSEEK_API_KEY`, `XAI_API_KEY`, `TOGETHER_API_KEY`, `FIREWORKS_API_KEY`, `CEREBRAS_API_KEY`, `HF_TOKEN`, `AZURE_OPENAI_API_KEY` | Vlastní klíč každého poskytovatele                      |
-| `NODE_DEBUG=spamscanner*`                                                                                                                                                                                                                            | Ladicí výpisy                                           |
+| Proměnná                                                                                                                                                                                                                                                                                                                   | Význam                                                  |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| `SPAMSCANNER_CONFIG`                                                                                                                                                                                                                                                                                                       | Konfigurační soubor                                     |
+| `SPAMSCANNER_MODEL`                                                                                                                                                                                                                                                                                                        | Soubor modelu použitý místo přibaleného                 |
+| `SPAMSCANNER_TOKEN`                                                                                                                                                                                                                                                                                                        | Token pro HTTP API                                      |
+| `SPAMSCANNER_LLM_API_KEY`                                                                                                                                                                                                                                                                                                  | Klíč API pro jakéhokoli poskytovatele jazykového modelu |
+| `CLOUDFLARE_API_TOKEN` a `CLOUDFLARE_ACCOUNT_ID`, `TYPESAFE_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `MISTRAL_API_KEY`, `GROQ_API_KEY`, `OPENROUTER_API_KEY`, `DEEPSEEK_API_KEY`, `XAI_API_KEY`, `TOGETHER_API_KEY`, `FIREWORKS_API_KEY`, `CEREBRAS_API_KEY`, `HF_TOKEN`, `AZURE_OPENAI_API_KEY` | Vlastní klíč každého poskytovatele                      |
+| `NODE_DEBUG=spamscanner*`                                                                                                                                                                                                                                                                                                  | Ladicí výpisy                                           |

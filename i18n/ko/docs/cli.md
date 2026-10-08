@@ -1,4 +1,4 @@
-<!-- source: a59bc5927d86 -->
+<!-- source: c061da9312ad -->
 
 # 명령줄
 
@@ -72,21 +72,23 @@ spamscanner scan message.eml --subject-tag "[SPAM]" > tagged.eml
 
 ### 언어 모델
 
-| 옵션                                                         | 의미                                                                  |
-| ---------------------------------------------------------- | ------------------------------------------------------------------- |
-| `--llm <provider>`                                         | `ollama`, `openai`, `anthropic`, `gemini` 등([목록](llm.md#providers)) |
-| `--llm-model <name>`                                       | 모델. 예: `qwen3.5:4b` 또는 `claude-haiku-4-5`                           |
-| `--llm-url <url>`                                          | 기본 URL. 예: `http://10.0.0.5:11434`                                  |
-| `--llm-host`, `--llm-port`, `--llm-path`, `--llm-protocol` | 제공자 URL의 일부만 변경합니다                                                  |
-| `--llm-api-key <key>`                                      | API 키. 아래 환경 변수도 참고하십시오                                             |
-| `--llm-auth <type>`                                        | `bearer`, `x-api-key`, `api-key`, `basic`, `header` 또는 `none`       |
-| `--llm-auth-header <name>`                                 | `--llm-auth header` 사용 시 키를 담을 헤더                                   |
-| `--llm-username`, `--llm-password`                         | `--llm-auth basic`용                                                 |
-| `--llm-header "Name: value"`                               | 추가 요청 헤더. 반복 가능                                                     |
-| `--llm-mode <mode>`                                        | `auto`(애매한 메시지만, 기본값) 또는 `always`                                   |
-| `--llm-timeout <ms>`                                       | 기본값 30000                                                           |
-| `--llm-policy <text>`                                      | 모델에 줄 추가 규칙. 예: "당사는 청구서를 이메일로 보내지 않습니다"                            |
-| `--llm-redact`, `--no-llm-redact`                          | 먼저 개인 데이터를 제거합니다. 원격 제공자에게는 기본으로 켜져 있습니다                            |
+| 옵션                                                         | 의미                                                                                               |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `--llm <provider>`                                         | `ollama`, `clef-flash`, `jev`, `openai`, `anthropic` 등([목록](llm.md#providers))                   |
+| `--llm-model <name>`                                       | 모델. 예: `qwen3.5:4b` 또는 `claude-haiku-4-5`                                                        |
+| `--llm-method <method>`                                    | `decision`(한 단계로 각 판정의 확률을 얻음. 지원되는 곳에서는 기본값) 또는 `generate`([방식](llm.md#decision-or-generation)) |
+| `--llm-account <id>`                                       | `clef`와 `clef-flash`에 쓰는 Cloudflare 계정 ID                                                        |
+| `--llm-url <url>`                                          | 기본 URL. 예: `http://10.0.0.5:11434`                                                               |
+| `--llm-host`, `--llm-port`, `--llm-path`, `--llm-protocol` | 제공자 URL의 일부만 변경합니다                                                                               |
+| `--llm-api-key <key>`                                      | API 키. 아래 환경 변수도 참고하십시오                                                                          |
+| `--llm-auth <type>`                                        | `bearer`, `x-api-key`, `api-key`, `basic`, `header` 또는 `none`                                    |
+| `--llm-auth-header <name>`                                 | `--llm-auth header` 사용 시 키를 담을 헤더                                                                |
+| `--llm-username`, `--llm-password`                         | `--llm-auth basic`용                                                                              |
+| `--llm-header "Name: value"`                               | 추가 요청 헤더. 반복 가능                                                                                  |
+| `--llm-mode <mode>`                                        | `auto`(애매한 메시지만, 기본값) 또는 `always`                                                                |
+| `--llm-timeout <ms>`                                       | 기본값 30000                                                                                        |
+| `--llm-policy <text>`                                      | 모델에 줄 추가 규칙. 예: "당사는 청구서를 이메일로 보내지 않습니다"                                                         |
+| `--llm-redact`, `--no-llm-redact`                          | 먼저 개인 데이터를 제거합니다. 원격 제공자에게는 기본으로 켜져 있습니다                                                         |
 
 
 ## filter
@@ -163,7 +165,7 @@ spamscanner models
 spamscanner llm-test --llm ollama --llm-model qwen3.5:4b
 ```
 
-`llm-test`는 평범한 메시지 하나와 영어·이탈리아어 사기 메시지 두 개를 모델에 보내 판정을 출력하고, 세 판정이 모두 맞을 때만 0으로 종료합니다.
+`llm-test`는 평범한 메시지 하나와 영어·이탈리아어 사기 메시지 두 개를 모델에 보내 판정, 각각에 걸린 시간, 사용한 방식, 하드웨어를 출력하고, 세 판정이 모두 맞을 때만 0으로 종료합니다.
 
 
 ## 설정 파일
@@ -185,11 +187,11 @@ spamscanner llm-test --llm ollama --llm-model qwen3.5:4b
 
 ## 환경 변수
 
-| 변수                                                                                                                                                                                                                                                   | 의미                     |
-| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- |
-| `SPAMSCANNER_CONFIG`                                                                                                                                                                                                                                 | 설정 파일                  |
-| `SPAMSCANNER_MODEL`                                                                                                                                                                                                                                  | 번들 모델 대신 사용할 모델 파일     |
-| `SPAMSCANNER_TOKEN`                                                                                                                                                                                                                                  | HTTP API용 토큰           |
-| `SPAMSCANNER_LLM_API_KEY`                                                                                                                                                                                                                            | 모든 언어 모델 제공자에 쓰는 API 키 |
-| `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `MISTRAL_API_KEY`, `GROQ_API_KEY`, `OPENROUTER_API_KEY`, `DEEPSEEK_API_KEY`, `XAI_API_KEY`, `TOGETHER_API_KEY`, `FIREWORKS_API_KEY`, `CEREBRAS_API_KEY`, `HF_TOKEN`, `AZURE_OPENAI_API_KEY` | 각 제공자의 자체 키            |
-| `NODE_DEBUG=spamscanner*`                                                                                                                                                                                                                            | 디버그 로그                 |
+| 변수                                                                                                                                                                                                                                                                                                                        | 의미                     |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- |
+| `SPAMSCANNER_CONFIG`                                                                                                                                                                                                                                                                                                      | 설정 파일                  |
+| `SPAMSCANNER_MODEL`                                                                                                                                                                                                                                                                                                       | 번들 모델 대신 사용할 모델 파일     |
+| `SPAMSCANNER_TOKEN`                                                                                                                                                                                                                                                                                                       | HTTP API용 토큰           |
+| `SPAMSCANNER_LLM_API_KEY`                                                                                                                                                                                                                                                                                                 | 모든 언어 모델 제공자에 쓰는 API 키 |
+| `CLOUDFLARE_API_TOKEN`과 `CLOUDFLARE_ACCOUNT_ID`, `TYPESAFE_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `MISTRAL_API_KEY`, `GROQ_API_KEY`, `OPENROUTER_API_KEY`, `DEEPSEEK_API_KEY`, `XAI_API_KEY`, `TOGETHER_API_KEY`, `FIREWORKS_API_KEY`, `CEREBRAS_API_KEY`, `HF_TOKEN`, `AZURE_OPENAI_API_KEY` | 각 제공자의 자체 키            |
+| `NODE_DEBUG=spamscanner*`                                                                                                                                                                                                                                                                                                 | 디버그 로그                 |

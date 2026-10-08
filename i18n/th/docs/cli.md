@@ -1,4 +1,4 @@
-<!-- source: a59bc5927d86 -->
+<!-- source: c061da9312ad -->
 
 # บรรทัดคำสั่ง
 
@@ -72,21 +72,23 @@ spamscanner scan message.eml --subject-tag "[SPAM]" > tagged.eml
 
 ### โมเดลภาษา
 
-| ตัวเลือก                                                   | ความหมาย                                                                         |
-| ---------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| `--llm <provider>`                                         | `ollama`, `openai`, `anthropic`, `gemini` และอื่น ๆ ([รายการ](llm.md#providers)) |
-| `--llm-model <name>`                                       | โมเดล เช่น `qwen3.5:4b` หรือ `claude-haiku-4-5`                                  |
-| `--llm-url <url>`                                          | URL ฐาน เช่น `http://10.0.0.5:11434`                                             |
-| `--llm-host`, `--llm-port`, `--llm-path`, `--llm-protocol` | เปลี่ยนส่วนใดส่วนหนึ่งของ URL ของผู้ให้บริการ                                    |
-| `--llm-api-key <key>`                                      | API key ดูตัวแปรสภาพแวดล้อมด้านล่างด้วย                                          |
-| `--llm-auth <type>`                                        | `bearer`, `x-api-key`, `api-key`, `basic`, `header` หรือ `none`                  |
-| `--llm-auth-header <name>`                                 | ส่วนหัวสำหรับ key ใช้กับ `--llm-auth header`                                     |
-| `--llm-username`, `--llm-password`                         | สำหรับ `--llm-auth basic`                                                        |
-| `--llm-header "Name: value"`                               | ส่วนหัวคำขอเพิ่มเติม ระบุซ้ำได้                                                  |
-| `--llm-mode <mode>`                                        | `auto` (เฉพาะกรณีที่ตัดสินยาก เป็นค่าเริ่มต้น) หรือ `always`                     |
-| `--llm-timeout <ms>`                                       | ค่าเริ่มต้น 30000                                                                |
-| `--llm-policy <text>`                                      | กฎเพิ่มเติมสำหรับโมเดล เช่น "We never send invoices"                             |
-| `--llm-redact`, `--no-llm-redact`                          | ลบข้อมูลส่วนบุคคลออกก่อน เปิดไว้โดยค่าเริ่มต้นสำหรับผู้ให้บริการระยะไกล          |
+| ตัวเลือก                                                   | ความหมาย                                                                                                                                          |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--llm <provider>`                                         | `ollama`, `clef-flash`, `jev`, `openai`, `anthropic` และอื่น ๆ ([รายการ](llm.md#providers))                                                       |
+| `--llm-model <name>`                                       | โมเดล เช่น `qwen3.5:4b` หรือ `claude-haiku-4-5`                                                                                                   |
+| `--llm-method <method>`                                    | `decision` (ความน่าจะเป็นของผลตัดสินแต่ละแบบในขั้นตอนเดียว เป็นค่าเริ่มต้นเมื่อรองรับ) หรือ `generate` ([วิธีการ](llm.md#decision-or-generation)) |
+| `--llm-account <id>`                                       | ID บัญชี Cloudflare สำหรับ `clef` และ `clef-flash`                                                                                                |
+| `--llm-url <url>`                                          | URL ฐาน เช่น `http://10.0.0.5:11434`                                                                                                              |
+| `--llm-host`, `--llm-port`, `--llm-path`, `--llm-protocol` | เปลี่ยนส่วนใดส่วนหนึ่งของ URL ของผู้ให้บริการ                                                                                                     |
+| `--llm-api-key <key>`                                      | API key ดูตัวแปรสภาพแวดล้อมด้านล่างด้วย                                                                                                           |
+| `--llm-auth <type>`                                        | `bearer`, `x-api-key`, `api-key`, `basic`, `header` หรือ `none`                                                                                   |
+| `--llm-auth-header <name>`                                 | ส่วนหัวสำหรับ key ใช้กับ `--llm-auth header`                                                                                                      |
+| `--llm-username`, `--llm-password`                         | สำหรับ `--llm-auth basic`                                                                                                                         |
+| `--llm-header "Name: value"`                               | ส่วนหัวคำขอเพิ่มเติม ระบุซ้ำได้                                                                                                                   |
+| `--llm-mode <mode>`                                        | `auto` (เฉพาะกรณีที่ตัดสินยาก เป็นค่าเริ่มต้น) หรือ `always`                                                                                      |
+| `--llm-timeout <ms>`                                       | ค่าเริ่มต้น 30000                                                                                                                                 |
+| `--llm-policy <text>`                                      | กฎเพิ่มเติมสำหรับโมเดล เช่น "We never send invoices"                                                                                              |
+| `--llm-redact`, `--no-llm-redact`                          | ลบข้อมูลส่วนบุคคลออกก่อน เปิดไว้โดยค่าเริ่มต้นสำหรับผู้ให้บริการระยะไกล                                                                           |
 
 
 ## filter
@@ -163,7 +165,7 @@ spamscanner models
 spamscanner llm-test --llm ollama --llm-model qwen3.5:4b
 ```
 
-`llm-test` ส่งข้อความทั่วไปหนึ่งข้อความและข้อความหลอกลวงสองข้อความ เป็นภาษาอังกฤษและภาษาอิตาลี ไปให้โมเดล พิมพ์ผลตัดสิน และออกด้วยรหัส 0 เฉพาะเมื่อตอบถูกทั้งสามข้อความ
+`llm-test` ส่งข้อความทั่วไปหนึ่งข้อความและข้อความหลอกลวงสองข้อความ เป็นภาษาอังกฤษและภาษาอิตาลี ไปให้โมเดล พิมพ์ผลตัดสิน เวลาที่ใช้ในแต่ละข้อความ วิธีการที่ใช้ และฮาร์ดแวร์ แล้วออกด้วยรหัส 0 เฉพาะเมื่อตอบถูกทั้งสามข้อความ
 
 
 ## ไฟล์การตั้งค่า
@@ -185,11 +187,11 @@ spamscanner llm-test --llm ollama --llm-model qwen3.5:4b
 
 ## ตัวแปรสภาพแวดล้อม
 
-| ตัวแปร                                                                                                                                                                                                                                               | ความหมาย                                   |
-| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
-| `SPAMSCANNER_CONFIG`                                                                                                                                                                                                                                 | ไฟล์การตั้งค่า                             |
-| `SPAMSCANNER_MODEL`                                                                                                                                                                                                                                  | ไฟล์โมเดลที่ใช้แทนโมเดลที่มาพร้อมแพ็กเกจ   |
-| `SPAMSCANNER_TOKEN`                                                                                                                                                                                                                                  | โทเค็นสำหรับ HTTP API                      |
-| `SPAMSCANNER_LLM_API_KEY`                                                                                                                                                                                                                            | API key สำหรับผู้ให้บริการโมเดลภาษาใดก็ได้ |
-| `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `MISTRAL_API_KEY`, `GROQ_API_KEY`, `OPENROUTER_API_KEY`, `DEEPSEEK_API_KEY`, `XAI_API_KEY`, `TOGETHER_API_KEY`, `FIREWORKS_API_KEY`, `CEREBRAS_API_KEY`, `HF_TOKEN`, `AZURE_OPENAI_API_KEY` | key ของผู้ให้บริการแต่ละราย                |
-| `NODE_DEBUG=spamscanner*`                                                                                                                                                                                                                            | ล็อกสำหรับดีบัก                            |
+| ตัวแปร                                                                                                                                                                                                                                                                                                                       | ความหมาย                                   |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| `SPAMSCANNER_CONFIG`                                                                                                                                                                                                                                                                                                         | ไฟล์การตั้งค่า                             |
+| `SPAMSCANNER_MODEL`                                                                                                                                                                                                                                                                                                          | ไฟล์โมเดลที่ใช้แทนโมเดลที่มาพร้อมแพ็กเกจ   |
+| `SPAMSCANNER_TOKEN`                                                                                                                                                                                                                                                                                                          | โทเค็นสำหรับ HTTP API                      |
+| `SPAMSCANNER_LLM_API_KEY`                                                                                                                                                                                                                                                                                                    | API key สำหรับผู้ให้บริการโมเดลภาษาใดก็ได้ |
+| `CLOUDFLARE_API_TOKEN` และ `CLOUDFLARE_ACCOUNT_ID`, `TYPESAFE_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `MISTRAL_API_KEY`, `GROQ_API_KEY`, `OPENROUTER_API_KEY`, `DEEPSEEK_API_KEY`, `XAI_API_KEY`, `TOGETHER_API_KEY`, `FIREWORKS_API_KEY`, `CEREBRAS_API_KEY`, `HF_TOKEN`, `AZURE_OPENAI_API_KEY` | key ของผู้ให้บริการแต่ละราย                |
+| `NODE_DEBUG=spamscanner*`                                                                                                                                                                                                                                                                                                    | ล็อกสำหรับดีบัก                            |

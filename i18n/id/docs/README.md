@@ -1,4 +1,4 @@
-<!-- source: c56969e779c4 -->
+<!-- source: 8860e232d858 -->
 
 # Dokumentasi Spam Scanner
 
@@ -27,7 +27,7 @@ Pemeriksaannya:
 * **Autentikasi**: SPF, DKIM, DMARC, dan ARC, ketika alamat IP klien diketahui. [Autentikasi](how-it-works.md#authentication)
 * **Daftar blokir DNS** untuk alamat IP klien dan domain dalam tautan, serta resolver penyaring Cloudflare untuk situs malware dan dewasa yang dikenal. [Daftar blokir](how-it-works.md#blocklists)
 * **Aturan** untuk pola yang tidak perlu dipelajari pengklasifikasi: string tes GTUBE, subjek sekstorsi, penipuan tagihan PayPal, pemalsuan domain sendiri, dan instruksi yang disembunyikan untuk filter AI. [Aturan](scoring.md#rules)
-* **Model bahasa**, opsional, memberi pendapat kedua untuk kasus yang meragukan: model lokal melalui Ollama atau server apa pun yang kompatibel dengan OpenAI, atau Claude, ChatGPT, Gemini, dan lainnya. [Model bahasa](llm.md)
+* **Model bahasa**, opsional, memberi pendapat kedua untuk kasus yang meragukan: model lokal melalui Ollama atau server apa pun yang kompatibel dengan OpenAI, model keputusan seperti Clef dari Cloudflare, atau Claude, ChatGPT, Gemini, dan lainnya. Secara bawaan, model memberikan probabilitas untuk setiap vonis dalam satu langkah alih-alih menulis jawaban. [Model bahasa](llm.md)
 
 
 ## Mulai dari mana
@@ -37,7 +37,7 @@ Pemeriksaannya:
 * [Postfix dan Sendmail](postfix.md): saring server email dengan milter atau content filter.
 * [Server email lain](mail-servers.md): Exim, Haraka, Dovecot, procmail, dan apa pun yang dapat memanggil HTTP API.
 * [Pelatihan](training.md): ajari dengan email Anda sendiri dan ukur hasilnya.
-* [Model bahasa](llm.md): penyedia, model terbuka yang direkomendasikan, privasi, dan injeksi prompt.
+* [Model bahasa](llm.md): keputusan dan pembuatan teks, akurasi dan kecepatan yang terukur, model keputusan, penyedia, model terbuka yang direkomendasikan, privasi, dan injeksi prompt.
 * [Bahasa](languages.md): cara membaca bahasa Tionghoa, Arab, Thai, dan setiap aksara lainnya.
 * [Forward Email](forward-email.md): cara Forward Email menggunakannya, dan peningkatan dari versi 5 atau 6.
 * [Referensi API](api.md) dan [tes dan skor](scoring.md).

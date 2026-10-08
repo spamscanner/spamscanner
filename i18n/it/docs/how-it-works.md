@@ -1,4 +1,4 @@
-<!-- source: 05a106ecd728 -->
+<!-- source: 35bf62a30cd7 -->
 
 # Come funziona
 
@@ -95,7 +95,7 @@ Alcuni schemi non hanno bisogno di statistica: la stringa di test GTUBE, gli ogg
 
 ## Il modello linguistico
 
-Quando il punteggio cade tra 1 e 15 punti (da 4 sotto la soglia di spam fino alla soglia di rifiuto), o il classificatore è incerto, un modello linguistico può dare un secondo parere: spam, phishing, scam, malware o ham, con il suo grado di confidenza. Il suo verdetto aggiunge fino a 6 punti o ne toglie fino a 3. I messaggi chiaramente di spam o chiaramente di ham non arrivano mai al modello, il che lo mantiene veloce ed economico. [Modelli linguistici](llm.md)
+Quando il punteggio cade tra 1 e 15 punti (da 4 sotto la soglia di spam fino alla soglia di rifiuto), o il classificatore è incerto, un modello linguistico può dare un secondo parere: una probabilità per ciascuno tra spam, phishing, scam, malware e ham, letta da un solo passaggio del modello, oppure un verdetto scritto con un grado di confidenza dai modelli di chat in hosting. Il suo verdetto aggiunge fino a 6 punti o ne toglie fino a 3. I messaggi chiaramente di spam o chiaramente di ham non arrivano mai al modello, il che lo mantiene veloce ed economico. [Modelli linguistici](llm.md)
 
 
 ## Il quadro completo

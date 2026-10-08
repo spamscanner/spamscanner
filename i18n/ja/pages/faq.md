@@ -1,4 +1,4 @@
-<!-- source: c93fa1a3f9c7 -->
+<!-- source: 361732724f0e -->
 
 <!--
 label: よくある質問
@@ -42,7 +42,7 @@ Node.js、コマンドライン、メールサーバー向けのスパムフィ�
 
 ## どの言語モデルを使うべきですか
 
-CPUならOllama経由の`qwen3.5:4b`、GPUがあれば`qwen3.5:9b`です。どちらもApacheライセンスで、201言語を読みます。Anthropic、OpenAI、Googleなどのホスト型モデルも使えます。[推奨モデル](../../docs/llm.md#recommended-open-models)
+CPUならOllama経由の`qwen3.5:4b`、GPUがあれば`qwen3.5:9b`です。どちらもApacheライセンスで、201言語を読みます。Spam Scannerはモデルの1ステップから各判定の確率を読み取ります。2コアのCPUでは、文章で答えさせると1通あたり31秒かかったのに対し、この方法では約11秒で、正確さは同じでした。ホスト型サービスなら、決定モデルのCloudflare ClefとTypeSafe Jevが1秒未満で答えます。Anthropic、OpenAI、Googleなども使えます。[測定結果](../../docs/llm.md#measured)と[推奨モデル](../../docs/llm.md#recommended-open-models)
 
 
 ## SpamAssassinの代わりになりますか

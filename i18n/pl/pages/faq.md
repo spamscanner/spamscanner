@@ -1,4 +1,4 @@
-<!-- source: c93fa1a3f9c7 -->
+<!-- source: 361732724f0e -->
 
 <!--
 label: FAQ
@@ -42,7 +42,7 @@ Nie. To druga opinia w trudnych przypadkach. Bez niego o takich wiadomościach d
 
 ## Jakiego modelu językowego użyć?
 
-`qwen3.5:4b` przez Ollama na CPU lub `qwen3.5:9b` z GPU. Oba są na licencji Apache i czytają 201 języków. Działają też modele hostowane od Anthropic, OpenAI, Google i innych. [Zalecane modele](../../docs/llm.md#recommended-open-models)
+`qwen3.5:4b` przez Ollama na CPU lub `qwen3.5:9b` z GPU. Oba są na licencji Apache i czytają 201 języków. Spam Scanner odczytuje prawdopodobieństwo każdego werdyktu z jednego kroku modelu, co na dwurdzeniowym CPU zajęło około 11 sekund na wiadomość zamiast 31 dla pisemnej odpowiedzi, przy tej samej trafności. Spośród usług hostowanych modele decyzyjne Cloudflare Clef i TypeSafe Jev odpowiadają w mniej niż sekundę; działają też modele od Anthropic, OpenAI, Google i innych. [Pomiary](../../docs/llm.md#measured) i [zalecane modele](../../docs/llm.md#recommended-open-models)
 
 
 ## Czy może zastąpić SpamAssassin?

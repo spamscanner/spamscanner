@@ -1,4 +1,4 @@
-<!-- source: 05a106ecd728 -->
+<!-- source: 35bf62a30cd7 -->
 
 # Fonctionnement
 
@@ -95,7 +95,7 @@ Certains motifs n’ont pas besoin de statistiques : la chaîne de test GTUBE, 
 
 ## Le modèle de langage
 
-Quand le score se situe entre 1 et 15 points (de 4 points sous le seuil de spam jusqu’au seuil de rejet), ou que le classifieur est incertain, un modèle de langage peut donner un second avis : spam, hameçonnage, arnaque, logiciel malveillant ou ham, avec son degré de confiance. Son verdict ajoute jusqu’à 6 points ou en retire jusqu’à 3. Les messages qui sont clairement du spam ou clairement du ham ne lui parviennent jamais, ce qui le garde rapide et peu coûteux. [Modèles de langage](llm.md)
+Quand le score se situe entre 1 et 15 points (de 4 points sous le seuil de spam jusqu’au seuil de rejet), ou que le classifieur est incertain, un modèle de langage peut donner un second avis : une probabilité pour chacun des verdicts spam, hameçonnage, arnaque, logiciel malveillant et ham, lue en une seule étape du modèle, ou un verdict rédigé avec un degré de confiance pour les modèles de conversation hébergés. Son verdict ajoute jusqu’à 6 points ou en retire jusqu’à 3. Les messages qui sont clairement du spam ou clairement du ham ne lui parviennent jamais, ce qui le garde rapide et peu coûteux. [Modèles de langage](llm.md)
 
 
 ## Vue d’ensemble

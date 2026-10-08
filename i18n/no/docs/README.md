@@ -1,4 +1,4 @@
-<!-- source: c56969e779c4 -->
+<!-- source: 8860e232d858 -->
 
 # Dokumentasjon for Spam Scanner
 
@@ -27,7 +27,7 @@ Sjekkene:
 * **Autentisering**: SPF, DKIM, DMARC og ARC, når klientens IP-adresse er kjent. [Autentisering](how-it-works.md#authentication)
 * **DNS-blokkeringslister** for klientens IP-adresse og domenene i lenker, og Cloudflares filtrerende resolvere for kjent skadevare og voksennettsteder. [Blokkeringslister](how-it-works.md#blocklists)
 * **Regler** for mønstre ingen klassifiserer trenger å lære: GTUBE-teststrengen, emnelinjer for sextortion, fakturasvindel via PayPal, forfalskning av eget domene og instruksjoner skjult for KI-filtre. [Regler](scoring.md#rules)
-* **En språkmodell**, valgfri, gir en ekstra vurdering av vanskelige tilfeller: en lokal modell via Ollama eller en hvilken som helst OpenAI-kompatibel server, eller Claude, ChatGPT, Gemini og andre. [Språkmodeller](llm.md)
+* **En språkmodell**, valgfri, gir en ekstra vurdering av vanskelige tilfeller: en lokal modell via Ollama eller en hvilken som helst OpenAI-kompatibel server, en beslutningsmodell som Cloudflares Clef, eller Claude, ChatGPT, Gemini og andre. Som standard gir den en sannsynlighet for hver vurdering i ett steg i stedet for å skrive et svar. [Språkmodeller](llm.md)
 
 
 ## Hvor du begynner
@@ -37,7 +37,7 @@ Sjekkene:
 * [Postfix og Sendmail](postfix.md): filtrer en e-postserver med milteren eller et innholdsfilter.
 * [Andre e-postservere](mail-servers.md): Exim, Haraka, Dovecot, procmail og alt som kan kalle et HTTP API.
 * [Trening](training.md): lær det opp på din egen e-post og mål resultatet.
-* [Språkmodeller](llm.md): leverandører, anbefalte åpne modeller, personvern og prompt injection.
+* [Språkmodeller](llm.md): beslutning og generering, målt treffsikkerhet og hastighet, beslutningsmodeller, leverandører, anbefalte åpne modeller, personvern og prompt injection.
 * [Språk](languages.md): hvordan det leser kinesisk, arabisk, thai og alle andre skriftsystemer.
 * [Forward Email](forward-email.md): hvordan Forward Email bruker det, og oppgradering fra versjon 5 eller 6.
 * [API-referanse](api.md) og [tester og poeng](scoring.md).

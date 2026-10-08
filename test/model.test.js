@@ -7,7 +7,7 @@ import {Classifier} from '../src/classifier.js';
 import {
 	defaultModelPath, embeddedModel, loadDefaultModel, loadModel, loadSea, moduleDirectory, saveModel,
 } from '../src/model.js';
-import {CLASSIFIER_MODELS, RECOMMENDED_MODELS} from '../src/models.js';
+import {CLASSIFIER_MODELS, DECISION_MODELS, RECOMMENDED_MODELS} from '../src/models.js';
 import {PROVIDERS} from '../src/llm.js';
 import {VERSION} from '../src/version.js';
 import {temporaryDirectory} from './helpers/index.js';
@@ -112,5 +112,14 @@ describe('recommended models', () => {
 		}
 
 		assert.match(VERSION, /^\d+\.\d+\.\d+/);
+	});
+
+	it('lists hosted decision models that have a provider preset', () => {
+		for (const model of DECISION_MODELS) {
+			assert.equal(PROVIDERS[model.provider].api, 'decision', model.provider);
+			assert.equal(PROVIDERS[model.provider].name, model.name);
+			assert.ok(model.weights === null || /^[\w.-]+\/[\w.-]+$/.test(model.weights));
+			assert.ok(model.notes.length > 20);
+		}
 	});
 });

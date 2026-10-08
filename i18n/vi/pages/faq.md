@@ -1,4 +1,4 @@
-<!-- source: c93fa1a3f9c7 -->
+<!-- source: 361732724f0e -->
 
 <!--
 label: Câu hỏi thường gặp
@@ -42,7 +42,7 @@ Không. Nó là ý kiến thứ hai cho các trường hợp sát nút. Không c
 
 ## Nên dùng mô hình ngôn ngữ nào?
 
-`qwen3.5:4b` qua Ollama trên CPU, hoặc `qwen3.5:9b` với GPU. Cả hai đều theo giấy phép Apache và đọc được 201 ngôn ngữ. Các mô hình trên đám mây của Anthropic, OpenAI, Google và các bên khác cũng hoạt động. [Các mô hình được đề xuất](../../docs/llm.md#recommended-open-models)
+`qwen3.5:4b` qua Ollama trên CPU, hoặc `qwen3.5:9b` với GPU. Cả hai đều theo giấy phép Apache và đọc được 201 ngôn ngữ. Spam Scanner đọc xác suất của từng kết luận từ một bước của mô hình; trên CPU hai nhân, cách này mất khoảng 11 giây mỗi thư thay vì 31 giây cho một câu trả lời được viết ra, với cùng độ chính xác. Nếu dùng dịch vụ trên đám mây, các mô hình quyết định Cloudflare Clef và TypeSafe Jev trả lời trong chưa đầy một giây; Anthropic, OpenAI, Google và các bên khác cũng hoạt động. [Kết quả đo](../../docs/llm.md#measured) và [các mô hình được đề xuất](../../docs/llm.md#recommended-open-models)
 
 
 ## Nó có thay thế được SpamAssassin không?

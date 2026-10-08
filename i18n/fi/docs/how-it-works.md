@@ -1,4 +1,4 @@
-<!-- source: 05a106ecd728 -->
+<!-- source: 35bf62a30cd7 -->
 
 # Miten se toimii
 
@@ -95,7 +95,7 @@ Jotkin mallit eivät tarvitse tilastoja: GTUBE-testimerkkijono, seksuaalisen kir
 
 ## Kielimalli
 
-Kun pisteet ovat välillä 1–15 (4 pistettä roskapostirajan alapuolelta hylkäysrajaan asti) tai luokitin on epävarma, kielimalli voi antaa toisen mielipiteen: roskaposti, tietojenkalastelu, huijaus, haittaohjelma tai ham, sekä varmuutensa. Sen tuomio lisää enintään 6 pistettä tai vähentää enintään 3. Selvästi roskapostia tai selvästi hamia olevat viestit eivät koskaan päädy sille, mikä pitää sen nopeana ja edullisena. [Kielimallit](llm.md)
+Kun pisteet ovat välillä 1–15 (4 pistettä roskapostirajan alapuolelta hylkäysrajaan asti) tai luokitin on epävarma, kielimalli voi antaa toisen mielipiteen: todennäköisyyden kullekin vaihtoehdolle roskaposti, tietojenkalastelu, huijaus, haittaohjelma ja ham, luettuna mallin yhdestä askeleesta, tai palveluna tarjottavilta keskustelumalleilta kirjoitetun tuomion ja sen varmuuden. Sen tuomio lisää enintään 6 pistettä tai vähentää enintään 3. Selvästi roskapostia tai selvästi hamia olevat viestit eivät koskaan päädy sille, mikä pitää sen nopeana ja edullisena. [Kielimallit](llm.md)
 
 
 ## Kokonaisuus

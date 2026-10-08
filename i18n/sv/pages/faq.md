@@ -1,4 +1,4 @@
-<!-- source: c93fa1a3f9c7 -->
+<!-- source: 361732724f0e -->
 
 <!--
 label: Vanliga frågor
@@ -42,7 +42,7 @@ Nej. Den är en andra åsikt för gränsfall. Utan en avgörs de meddelandena en
 
 ## Vilken språkmodell ska jag använda?
 
-`qwen3.5:4b` via Ollama på en processor, eller `qwen3.5:9b` med en GPU. Båda är Apache-licensierade och läser 201 språk. Molnbaserade modeller från Anthropic, OpenAI, Google och andra fungerar också. [Rekommenderade modeller](../../docs/llm.md#recommended-open-models)
+`qwen3.5:4b` via Ollama på en processor, eller `qwen3.5:9b` med en GPU. Båda är Apache-licensierade och läser 201 språk. Spam Scanner läser av sannolikheten för varje utslag från ett steg av modellen, vilket på en processor med två kärnor tog omkring 11 sekunder per meddelande i stället för 31 för ett skrivet svar, med samma träffsäkerhet. För en molnbaserad tjänst svarar beslutsmodellerna Cloudflare Clef och TypeSafe Jev på under en sekund; Anthropic, OpenAI, Google och andra fungerar också. [Mätningar](../../docs/llm.md#measured) och [rekommenderade modeller](../../docs/llm.md#recommended-open-models)
 
 
 ## Kan det ersätta SpamAssassin?

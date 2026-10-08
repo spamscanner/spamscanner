@@ -1,4 +1,4 @@
-<!-- source: c56969e779c4 -->
+<!-- source: 8860e232d858 -->
 
 # Documentatie van Spam Scanner
 
@@ -27,7 +27,7 @@ De controles:
 * **Authenticatie**: SPF, DKIM, DMARC en ARC, als het IP-adres van de client bekend is. [Authenticatie](how-it-works.md#authentication)
 * **DNS-blocklists** voor het IP-adres van de client en de domeinen in links, en de filterende resolvers van Cloudflare voor bekende malware- en volwassenensites. [Blocklists](how-it-works.md#blocklists)
 * **Regels** voor patronen die een classifier niet hoeft te leren: de GTUBE-teststring, onderwerpregels van sextortion, factuuroplichting via PayPal, self-spoofing en instructies die voor AI-filters verborgen zijn. [Regels](scoring.md#rules)
-* **Een taalmodel**, optioneel, geeft een tweede mening bij twijfelgevallen: een lokaal model via Ollama of een met OpenAI compatibele server, of Claude, ChatGPT, Gemini en andere. [Taalmodellen](llm.md)
+* **Een taalmodel**, optioneel, geeft een tweede mening bij twijfelgevallen: een lokaal model via Ollama of een met OpenAI compatibele server, een beslismodel zoals Clef van Cloudflare, of Claude, ChatGPT, Gemini en andere. Standaard geeft het in één stap een kans voor elk oordeel terug in plaats van een antwoord te schrijven. [Taalmodellen](llm.md)
 
 
 ## Waar te beginnen
@@ -37,7 +37,7 @@ De controles:
 * [Postfix en Sendmail](postfix.md): filter een mailserver met de milter of een contentfilter.
 * [Andere mailservers](mail-servers.md): Exim, Haraka, Dovecot, procmail en alles wat een HTTP API kan aanroepen.
 * [Training](training.md): leer het je eigen mail en meet het resultaat.
-* [Taalmodellen](llm.md): aanbieders, aanbevolen open modellen, privacy en prompt injection.
+* [Taalmodellen](llm.md): beslissen en genereren, gemeten nauwkeurigheid en snelheid, beslismodellen, aanbieders, aanbevolen open modellen, privacy en prompt injection.
 * [Talen](languages.md): hoe het Chinees, Arabisch, Thai en elk ander schrift leest.
 * [Forward Email](forward-email.md): hoe Forward Email het gebruikt, en upgraden vanaf versie 5 of 6.
 * [API-referentie](api.md) en [tests en scores](scoring.md).

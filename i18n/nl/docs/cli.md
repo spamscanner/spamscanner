@@ -1,4 +1,4 @@
-<!-- source: a59bc5927d86 -->
+<!-- source: c061da9312ad -->
 
 # Opdrachtregel
 
@@ -72,21 +72,23 @@ Exitcodes: 0 ham, 1 spam, 2 fout.
 
 ### Taalmodel
 
-| Optie                                                      | Betekenis                                                                       |
-| ---------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| `--llm <provider>`                                         | `ollama`, `openai`, `anthropic`, `gemini` en andere ([lijst](llm.md#providers)) |
-| `--llm-model <name>`                                       | Model, bijvoorbeeld `qwen3.5:4b` of `claude-haiku-4-5`                          |
-| `--llm-url <url>`                                          | Basis-URL, bijvoorbeeld `http://10.0.0.5:11434`                                 |
-| `--llm-host`, `--llm-port`, `--llm-path`, `--llm-protocol` | Wijzigt één deel van de URL van de aanbieder                                    |
-| `--llm-api-key <key>`                                      | API-sleutel; zie ook de omgevingsvariabelen hieronder                           |
-| `--llm-auth <type>`                                        | `bearer`, `x-api-key`, `api-key`, `basic`, `header` of `none`                   |
-| `--llm-auth-header <name>`                                 | Header voor de sleutel, met `--llm-auth header`                                 |
-| `--llm-username`, `--llm-password`                         | Voor `--llm-auth basic`                                                         |
-| `--llm-header "Name: value"`                               | Extra request-header; herhaalbaar                                               |
-| `--llm-mode <mode>`                                        | `auto` (alleen twijfelgevallen, de standaard) of `always`                       |
-| `--llm-timeout <ms>`                                       | Standaard 30000                                                                 |
-| `--llm-policy <text>`                                      | Extra regels voor het model, bijvoorbeeld „We never send invoices”              |
-| `--llm-redact`, `--no-llm-redact`                          | Verwijdert eerst persoonsgegevens; standaard aan bij externe aanbieders         |
+| Optie                                                      | Betekenis                                                                                                                                    |
+| ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--llm <provider>`                                         | `ollama`, `clef-flash`, `jev`, `openai`, `anthropic` en andere ([lijst](llm.md#providers))                                                   |
+| `--llm-model <name>`                                       | Model, bijvoorbeeld `qwen3.5:4b` of `claude-haiku-4-5`                                                                                       |
+| `--llm-method <method>`                                    | `decision` (een kans voor elk oordeel, in één stap; de standaard waar beschikbaar) of `generate` ([methoden](llm.md#decision-or-generation)) |
+| `--llm-account <id>`                                       | Account-ID van Cloudflare, voor `clef` en `clef-flash`                                                                                       |
+| `--llm-url <url>`                                          | Basis-URL, bijvoorbeeld `http://10.0.0.5:11434`                                                                                              |
+| `--llm-host`, `--llm-port`, `--llm-path`, `--llm-protocol` | Wijzigt één deel van de URL van de aanbieder                                                                                                 |
+| `--llm-api-key <key>`                                      | API-sleutel; zie ook de omgevingsvariabelen hieronder                                                                                        |
+| `--llm-auth <type>`                                        | `bearer`, `x-api-key`, `api-key`, `basic`, `header` of `none`                                                                                |
+| `--llm-auth-header <name>`                                 | Header voor de sleutel, met `--llm-auth header`                                                                                              |
+| `--llm-username`, `--llm-password`                         | Voor `--llm-auth basic`                                                                                                                      |
+| `--llm-header "Name: value"`                               | Extra request-header; herhaalbaar                                                                                                            |
+| `--llm-mode <mode>`                                        | `auto` (alleen twijfelgevallen, de standaard) of `always`                                                                                    |
+| `--llm-timeout <ms>`                                       | Standaard 30000                                                                                                                              |
+| `--llm-policy <text>`                                      | Extra regels voor het model, bijvoorbeeld „We never send invoices”                                                                           |
+| `--llm-redact`, `--no-llm-redact`                          | Verwijdert eerst persoonsgegevens; standaard aan bij externe aanbieders                                                                      |
 
 
 ## filter
@@ -163,7 +165,7 @@ spamscanner models
 spamscanner llm-test --llm ollama --llm-model qwen3.5:4b
 ```
 
-`llm-test` stuurt één gewoon bericht en twee oplichtingsberichten, in het Engels en Italiaans, naar het model, toont de oordelen en eindigt alleen met 0 als alle drie kloppen.
+`llm-test` stuurt één gewoon bericht en twee oplichtingsberichten, in het Engels en Italiaans, naar het model, toont de oordelen, de tijd die elk kostte, de gebruikte methode en de hardware, en eindigt alleen met 0 als alle drie kloppen.
 
 
 ## Configuratiebestand
@@ -185,11 +187,11 @@ spamscanner llm-test --llm ollama --llm-model qwen3.5:4b
 
 ## Omgevingsvariabelen
 
-| Variabele                                                                                                                                                                                                                                            | Betekenis                                                      |
-| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| `SPAMSCANNER_CONFIG`                                                                                                                                                                                                                                 | Configuratiebestand                                            |
-| `SPAMSCANNER_MODEL`                                                                                                                                                                                                                                  | Modelbestand dat in plaats van het meegeleverde wordt gebruikt |
-| `SPAMSCANNER_TOKEN`                                                                                                                                                                                                                                  | Token voor de HTTP API                                         |
-| `SPAMSCANNER_LLM_API_KEY`                                                                                                                                                                                                                            | API-sleutel voor elke aanbieder van taalmodellen               |
-| `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `MISTRAL_API_KEY`, `GROQ_API_KEY`, `OPENROUTER_API_KEY`, `DEEPSEEK_API_KEY`, `XAI_API_KEY`, `TOGETHER_API_KEY`, `FIREWORKS_API_KEY`, `CEREBRAS_API_KEY`, `HF_TOKEN`, `AZURE_OPENAI_API_KEY` | De eigen sleutel van elke aanbieder                            |
-| `NODE_DEBUG=spamscanner*`                                                                                                                                                                                                                            | Debuglogging                                                   |
+| Variabele                                                                                                                                                                                                                                                                                                                   | Betekenis                                                      |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| `SPAMSCANNER_CONFIG`                                                                                                                                                                                                                                                                                                        | Configuratiebestand                                            |
+| `SPAMSCANNER_MODEL`                                                                                                                                                                                                                                                                                                         | Modelbestand dat in plaats van het meegeleverde wordt gebruikt |
+| `SPAMSCANNER_TOKEN`                                                                                                                                                                                                                                                                                                         | Token voor de HTTP API                                         |
+| `SPAMSCANNER_LLM_API_KEY`                                                                                                                                                                                                                                                                                                   | API-sleutel voor elke aanbieder van taalmodellen               |
+| `CLOUDFLARE_API_TOKEN` en `CLOUDFLARE_ACCOUNT_ID`, `TYPESAFE_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `MISTRAL_API_KEY`, `GROQ_API_KEY`, `OPENROUTER_API_KEY`, `DEEPSEEK_API_KEY`, `XAI_API_KEY`, `TOGETHER_API_KEY`, `FIREWORKS_API_KEY`, `CEREBRAS_API_KEY`, `HF_TOKEN`, `AZURE_OPENAI_API_KEY` | De eigen sleutel van elke aanbieder                            |
+| `NODE_DEBUG=spamscanner*`                                                                                                                                                                                                                                                                                                   | Debuglogging                                                   |

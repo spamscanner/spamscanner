@@ -1,4 +1,4 @@
-<!-- source: a59bc5927d86 -->
+<!-- source: c061da9312ad -->
 
 # Parancssor
 
@@ -72,21 +72,23 @@ Kilépési kódok: 0 ham, 1 spam, 2 hiba.
 
 ### Nyelvi modell
 
-| Kapcsoló                                                   | Jelentés                                                                                       |
-| ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| `--llm <provider>`                                         | `ollama`, `openai`, `anthropic`, `gemini` és mások ([lista](llm.md#providers))                 |
-| `--llm-model <name>`                                       | Modell, például `qwen3.5:4b` vagy `claude-haiku-4-5`                                           |
-| `--llm-url <url>`                                          | Alap-URL, például `http://10.0.0.5:11434`                                                      |
-| `--llm-host`, `--llm-port`, `--llm-path`, `--llm-protocol` | A szolgáltató URL-jének egy részét módosítja                                                   |
-| `--llm-api-key <key>`                                      | API-kulcs; lásd még az alábbi környezeti változókat                                            |
-| `--llm-auth <type>`                                        | `bearer`, `x-api-key`, `api-key`, `basic`, `header` vagy `none`                                |
-| `--llm-auth-header <name>`                                 | A kulcs fejléce, a `--llm-auth header` beállítással                                            |
-| `--llm-username`, `--llm-password`                         | A `--llm-auth basic` beállításhoz                                                              |
-| `--llm-header "Name: value"`                               | További kérésfejléc; ismételhető                                                               |
-| `--llm-mode <mode>`                                        | `auto` (csak a kétes esetek, alapértelmezés) vagy `always`                                     |
-| `--llm-timeout <ms>`                                       | Alapértelmezés: 30000                                                                          |
-| `--llm-policy <text>`                                      | További szabályok a modellnek, például „Soha nem küldünk számlát”                              |
-| `--llm-redact`, `--no-llm-redact`                          | A személyes adatok előzetes eltávolítása; távoli szolgáltatóknál alapértelmezetten bekapcsolva |
+| Kapcsoló                                                   | Jelentés                                                                                                                                                  |
+| ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--llm <provider>`                                         | `ollama`, `clef-flash`, `jev`, `openai`, `anthropic` és mások ([lista](llm.md#providers))                                                                 |
+| `--llm-model <name>`                                       | Modell, például `qwen3.5:4b` vagy `claude-haiku-4-5`                                                                                                      |
+| `--llm-method <method>`                                    | `decision` (valószínűség minden ítéletre, egy lépésben; ahol elérhető, ez az alapértelmezés) vagy `generate` ([módszerek](llm.md#decision-or-generation)) |
+| `--llm-account <id>`                                       | Cloudflare-fiókazonosító a `clef` és a `clef-flash` szolgáltatóhoz                                                                                        |
+| `--llm-url <url>`                                          | Alap-URL, például `http://10.0.0.5:11434`                                                                                                                 |
+| `--llm-host`, `--llm-port`, `--llm-path`, `--llm-protocol` | A szolgáltató URL-jének egy részét módosítja                                                                                                              |
+| `--llm-api-key <key>`                                      | API-kulcs; lásd még az alábbi környezeti változókat                                                                                                       |
+| `--llm-auth <type>`                                        | `bearer`, `x-api-key`, `api-key`, `basic`, `header` vagy `none`                                                                                           |
+| `--llm-auth-header <name>`                                 | A kulcs fejléce, a `--llm-auth header` beállítással                                                                                                       |
+| `--llm-username`, `--llm-password`                         | A `--llm-auth basic` beállításhoz                                                                                                                         |
+| `--llm-header "Name: value"`                               | További kérésfejléc; ismételhető                                                                                                                          |
+| `--llm-mode <mode>`                                        | `auto` (csak a kétes esetek, alapértelmezés) vagy `always`                                                                                                |
+| `--llm-timeout <ms>`                                       | Alapértelmezés: 30000                                                                                                                                     |
+| `--llm-policy <text>`                                      | További szabályok a modellnek, például „Soha nem küldünk számlát”                                                                                         |
+| `--llm-redact`, `--no-llm-redact`                          | A személyes adatok előzetes eltávolítása; távoli szolgáltatóknál alapértelmezetten bekapcsolva                                                            |
 
 
 ## filter
@@ -163,7 +165,7 @@ spamscanner models
 spamscanner llm-test --llm ollama --llm-model qwen3.5:4b
 ```
 
-Az `llm-test` egy hétköznapi levelet és két csalást küld a modellnek angolul és olaszul, kiírja az ítéleteit, és csak akkor lép ki 0-s kóddal, ha mindhárom helyes.
+Az `llm-test` egy hétköznapi levelet és két csalást küld a modellnek angolul és olaszul, kiírja az ítéleteit, az egyes ítéletek idejét, a használt módszert és a hardvert, és csak akkor lép ki 0-s kóddal, ha mindhárom helyes.
 
 
 ## Konfigurációs fájl
@@ -185,11 +187,11 @@ A `--config file.json` (vagy a `SPAMSCANNER_CONFIG` környezeti változó) [kön
 
 ## Környezeti változók
 
-| Változó                                                                                                                                                                                                                                              | Jelentés                                      |
-| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
-| `SPAMSCANNER_CONFIG`                                                                                                                                                                                                                                 | Konfigurációs fájl                            |
-| `SPAMSCANNER_MODEL`                                                                                                                                                                                                                                  | A beépített helyett használt modellfájl       |
-| `SPAMSCANNER_TOKEN`                                                                                                                                                                                                                                  | Token a HTTP API-hoz                          |
-| `SPAMSCANNER_LLM_API_KEY`                                                                                                                                                                                                                            | API-kulcs bármely nyelvimodell-szolgáltatóhoz |
-| `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `MISTRAL_API_KEY`, `GROQ_API_KEY`, `OPENROUTER_API_KEY`, `DEEPSEEK_API_KEY`, `XAI_API_KEY`, `TOGETHER_API_KEY`, `FIREWORKS_API_KEY`, `CEREBRAS_API_KEY`, `HF_TOKEN`, `AZURE_OPENAI_API_KEY` | Az egyes szolgáltatók saját kulcsa            |
-| `NODE_DEBUG=spamscanner*`                                                                                                                                                                                                                            | Hibakeresési naplózás                         |
+| Változó                                                                                                                                                                                                                                                                                                                     | Jelentés                                      |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| `SPAMSCANNER_CONFIG`                                                                                                                                                                                                                                                                                                        | Konfigurációs fájl                            |
+| `SPAMSCANNER_MODEL`                                                                                                                                                                                                                                                                                                         | A beépített helyett használt modellfájl       |
+| `SPAMSCANNER_TOKEN`                                                                                                                                                                                                                                                                                                         | Token a HTTP API-hoz                          |
+| `SPAMSCANNER_LLM_API_KEY`                                                                                                                                                                                                                                                                                                   | API-kulcs bármely nyelvimodell-szolgáltatóhoz |
+| `CLOUDFLARE_API_TOKEN` és `CLOUDFLARE_ACCOUNT_ID`, `TYPESAFE_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `MISTRAL_API_KEY`, `GROQ_API_KEY`, `OPENROUTER_API_KEY`, `DEEPSEEK_API_KEY`, `XAI_API_KEY`, `TOGETHER_API_KEY`, `FIREWORKS_API_KEY`, `CEREBRAS_API_KEY`, `HF_TOKEN`, `AZURE_OPENAI_API_KEY` | Az egyes szolgáltatók saját kulcsa            |
+| `NODE_DEBUG=spamscanner*`                                                                                                                                                                                                                                                                                                   | Hibakeresési naplózás                         |

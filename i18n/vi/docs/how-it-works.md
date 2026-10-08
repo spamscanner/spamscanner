@@ -1,4 +1,4 @@
-<!-- source: 05a106ecd728 -->
+<!-- source: 35bf62a30cd7 -->
 
 # Cách hoạt động
 
@@ -95,7 +95,7 @@ Một số mẫu không cần đến thống kê: chuỗi kiểm thử GTUBE, c�
 
 ## Mô hình ngôn ngữ
 
-Khi điểm nằm trong khoảng từ 1 đến 15 (từ 4 điểm dưới ngưỡng spam đến ngưỡng từ chối), hoặc bộ phân loại không chắc, một mô hình ngôn ngữ có thể đưa ra ý kiến thứ hai: spam, phishing, scam, malware hoặc ham, kèm độ tin cậy. Kết luận của nó cộng tối đa 6 điểm hoặc trừ tối đa 3 điểm. Những thư rõ ràng là spam hoặc rõ ràng là ham không bao giờ đến được nó, nhờ đó vừa nhanh vừa rẻ. [Mô hình ngôn ngữ](llm.md)
+Khi điểm nằm trong khoảng từ 1 đến 15 (từ 4 điểm dưới ngưỡng spam đến ngưỡng từ chối), hoặc bộ phân loại không chắc, một mô hình ngôn ngữ có thể đưa ra ý kiến thứ hai: xác suất cho từng loại spam, phishing, scam, malware và ham, đọc từ một bước của mô hình, hoặc một kết luận được viết ra kèm độ tin cậy từ các mô hình chat trên đám mây. Kết luận của nó cộng tối đa 6 điểm hoặc trừ tối đa 3 điểm. Những thư rõ ràng là spam hoặc rõ ràng là ham không bao giờ đến được nó, nhờ đó vừa nhanh vừa rẻ. [Mô hình ngôn ngữ](llm.md)
 
 
 ## Kết hợp lại

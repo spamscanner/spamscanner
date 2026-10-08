@@ -20,7 +20,7 @@
 * **Phishing checks.** Lookalike domains (`pаypal.com` with a Cyrillic а, `paypa1.com`, punycode), links whose text shows another address, brand names in display names, and Cloudflare's malware and adult-content resolvers.
 * **Attachment checks.** Executables found by their bytes, also when renamed to `.pdf`; double extensions; right-to-left filename tricks; executables in ZIP files; Office macros; active PDFs; and ClamAV.
 * **SPF, DKIM, DMARC and ARC**, DNS blocklists, allow and deny lists.
-* **Language models for close calls.** Ollama, LM Studio, llama.cpp, vLLM, Claude, ChatGPT, Gemini, Mistral, Groq, OpenRouter and any OpenAI-compatible server, on any URL, port and authentication. Personal data is removed before mail goes to a remote provider.
+* **Language models for close calls.** Ollama, LM Studio, llama.cpp, vLLM, Claude, ChatGPT, Gemini, Mistral, Groq, OpenRouter and any OpenAI-compatible server, on any URL, port and authentication, plus the decision models Cloudflare Clef and TypeSafe Jev. By default the model returns a probability for each verdict in one step instead of writing an answer. Personal data is removed before mail goes to a remote provider.
 * **Every way to plug in.** A Node.js library, a command line, a Postfix and Sendmail milter, a Postfix content filter, a SpamAssassin-compatible spamd server for spamc, Exim and Haraka, an HTTP API and a TCP server.
 * **Explainable.** Each result lists the tests that fired with their points, SpamAssassin-style, and adds `X-Spam-*` headers.
 * **Trainable.** Train on your own mbox files, Maildirs or datasets, measure the result, and learn from "report spam" buttons.

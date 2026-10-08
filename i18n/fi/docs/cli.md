@@ -1,4 +1,4 @@
-<!-- source: a59bc5927d86 -->
+<!-- source: c061da9312ad -->
 
 # Komentorivi
 
@@ -72,21 +72,23 @@ Paluukoodit: 0 ham, 1 roskaposti, 2 virhe.
 
 ### Kielimalli
 
-| Valitsin                                                   | Merkitys                                                                         |
-| ---------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| `--llm <provider>`                                         | `ollama`, `openai`, `anthropic`, `gemini` ja muut ([luettelo](llm.md#providers)) |
-| `--llm-model <name>`                                       | Malli, esimerkiksi `qwen3.5:4b` tai `claude-haiku-4-5`                           |
-| `--llm-url <url>`                                          | Perus-URL, esimerkiksi `http://10.0.0.5:11434`                                   |
-| `--llm-host`, `--llm-port`, `--llm-path`, `--llm-protocol` | Muuttaa yhden osan palveluntarjoajan URL-osoitteesta                             |
-| `--llm-api-key <key>`                                      | API-avain; katso myös alla olevat ympäristömuuttujat                             |
-| `--llm-auth <type>`                                        | `bearer`, `x-api-key`, `api-key`, `basic`, `header` tai `none`                   |
-| `--llm-auth-header <name>`                                 | Avaimen otsake, kun käytössä on `--llm-auth header`                              |
-| `--llm-username`, `--llm-password`                         | Valitsimelle `--llm-auth basic`                                                  |
-| `--llm-header "Name: value"`                               | Ylimääräinen pyynnön otsake; toistettavissa                                      |
-| `--llm-mode <mode>`                                        | `auto` (vain epäselvät tapaukset, oletus) tai `always`                           |
-| `--llm-timeout <ms>`                                       | Oletus 30000                                                                     |
-| `--llm-policy <text>`                                      | Lisäsääntöjä mallille, esimerkiksi "Emme koskaan lähetä laskuja"                 |
-| `--llm-redact`, `--no-llm-redact`                          | Poistaa ensin henkilötiedot; oletuksena käytössä etäpalveluntarjoajille          |
+| Valitsin                                                   | Merkitys                                                                                                                                               |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `--llm <provider>`                                         | `ollama`, `clef-flash`, `jev`, `openai`, `anthropic` ja muut ([luettelo](llm.md#providers))                                                            |
+| `--llm-model <name>`                                       | Malli, esimerkiksi `qwen3.5:4b` tai `claude-haiku-4-5`                                                                                                 |
+| `--llm-method <method>`                                    | `decision` (todennäköisyys kullekin tuomiolle yhdellä askeleella; oletus, kun saatavilla) tai `generate` ([menetelmät](llm.md#decision-or-generation)) |
+| `--llm-account <id>`                                       | Cloudflare-tilin tunnus, palveluntarjoajille `clef` ja `clef-flash`                                                                                    |
+| `--llm-url <url>`                                          | Perus-URL, esimerkiksi `http://10.0.0.5:11434`                                                                                                         |
+| `--llm-host`, `--llm-port`, `--llm-path`, `--llm-protocol` | Muuttaa yhden osan palveluntarjoajan URL-osoitteesta                                                                                                   |
+| `--llm-api-key <key>`                                      | API-avain; katso myös alla olevat ympäristömuuttujat                                                                                                   |
+| `--llm-auth <type>`                                        | `bearer`, `x-api-key`, `api-key`, `basic`, `header` tai `none`                                                                                         |
+| `--llm-auth-header <name>`                                 | Avaimen otsake, kun käytössä on `--llm-auth header`                                                                                                    |
+| `--llm-username`, `--llm-password`                         | Valitsimelle `--llm-auth basic`                                                                                                                        |
+| `--llm-header "Name: value"`                               | Ylimääräinen pyynnön otsake; toistettavissa                                                                                                            |
+| `--llm-mode <mode>`                                        | `auto` (vain epäselvät tapaukset, oletus) tai `always`                                                                                                 |
+| `--llm-timeout <ms>`                                       | Oletus 30000                                                                                                                                           |
+| `--llm-policy <text>`                                      | Lisäsääntöjä mallille, esimerkiksi "Emme koskaan lähetä laskuja"                                                                                       |
+| `--llm-redact`, `--no-llm-redact`                          | Poistaa ensin henkilötiedot; oletuksena käytössä etäpalveluntarjoajille                                                                                |
 
 
 ## filter
@@ -163,7 +165,7 @@ spamscanner models
 spamscanner llm-test --llm ollama --llm-model qwen3.5:4b
 ```
 
-`llm-test` lähettää mallille yhden tavallisen viestin ja kaksi huijausta, englanniksi ja italiaksi, tulostaa sen tuomiot ja päättyy koodiin 0 vain, jos kaikki kolme ovat oikein.
+`llm-test` lähettää mallille yhden tavallisen viestin ja kaksi huijausta, englanniksi ja italiaksi, tulostaa sen tuomiot, kunkin viemän ajan, käytetyn menetelmän ja laitteiston sekä päättyy koodiin 0 vain, jos kaikki kolme ovat oikein.
 
 
 ## Asetustiedosto
@@ -185,11 +187,11 @@ spamscanner llm-test --llm ollama --llm-model qwen3.5:4b
 
 ## Ympäristömuuttujat
 
-| Muuttuja                                                                                                                                                                                                                                             | Merkitys                                                |
-| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
-| `SPAMSCANNER_CONFIG`                                                                                                                                                                                                                                 | Asetustiedosto                                          |
-| `SPAMSCANNER_MODEL`                                                                                                                                                                                                                                  | Mallitiedosto, jota käytetään mukana tulevan sijaan     |
-| `SPAMSCANNER_TOKEN`                                                                                                                                                                                                                                  | HTTP API:n tunniste                                     |
-| `SPAMSCANNER_LLM_API_KEY`                                                                                                                                                                                                                            | API-avain mille tahansa kielimallin palveluntarjoajalle |
-| `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `MISTRAL_API_KEY`, `GROQ_API_KEY`, `OPENROUTER_API_KEY`, `DEEPSEEK_API_KEY`, `XAI_API_KEY`, `TOGETHER_API_KEY`, `FIREWORKS_API_KEY`, `CEREBRAS_API_KEY`, `HF_TOKEN`, `AZURE_OPENAI_API_KEY` | Kunkin palveluntarjoajan oma avain                      |
-| `NODE_DEBUG=spamscanner*`                                                                                                                                                                                                                            | Vianetsintäloki                                         |
+| Muuttuja                                                                                                                                                                                                                                                                                                                    | Merkitys                                                |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| `SPAMSCANNER_CONFIG`                                                                                                                                                                                                                                                                                                        | Asetustiedosto                                          |
+| `SPAMSCANNER_MODEL`                                                                                                                                                                                                                                                                                                         | Mallitiedosto, jota käytetään mukana tulevan sijaan     |
+| `SPAMSCANNER_TOKEN`                                                                                                                                                                                                                                                                                                         | HTTP API:n tunniste                                     |
+| `SPAMSCANNER_LLM_API_KEY`                                                                                                                                                                                                                                                                                                   | API-avain mille tahansa kielimallin palveluntarjoajalle |
+| `CLOUDFLARE_API_TOKEN` ja `CLOUDFLARE_ACCOUNT_ID`, `TYPESAFE_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `MISTRAL_API_KEY`, `GROQ_API_KEY`, `OPENROUTER_API_KEY`, `DEEPSEEK_API_KEY`, `XAI_API_KEY`, `TOGETHER_API_KEY`, `FIREWORKS_API_KEY`, `CEREBRAS_API_KEY`, `HF_TOKEN`, `AZURE_OPENAI_API_KEY` | Kunkin palveluntarjoajan oma avain                      |
+| `NODE_DEBUG=spamscanner*`                                                                                                                                                                                                                                                                                                   | Vianetsintäloki                                         |

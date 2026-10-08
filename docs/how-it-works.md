@@ -93,7 +93,7 @@ Some patterns do not need statistics: the GTUBE test string, subjects used by se
 
 ## The language model
 
-When the score falls between 1 and 15 points (from 4 below the spam threshold up to the reject threshold), or the classifier is unsure, a language model can give a second opinion: spam, phishing, scam, malware or ham, with its confidence. Its verdict adds up to 6 points or removes up to 3. Messages that are clearly spam or clearly ham never reach it, which keeps it fast and cheap. [Language models](llm.md)
+When the score falls between 1 and 15 points (from 4 below the spam threshold up to the reject threshold), or the classifier is unsure, a language model can give a second opinion: a probability for each of spam, phishing, scam, malware and ham, read from one step of the model, or a written verdict with a confidence from hosted chat models. Its verdict adds up to 6 points or removes up to 3. Messages that are clearly spam or clearly ham never reach it, which keeps it fast and cheap. [Language models](llm.md)
 
 
 ## Putting it together

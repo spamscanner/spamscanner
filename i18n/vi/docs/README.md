@@ -1,4 +1,4 @@
-<!-- source: c56969e779c4 -->
+<!-- source: 8860e232d858 -->
 
 # Tài liệu Spam Scanner
 
@@ -27,7 +27,7 @@ Các phép kiểm tra:
 * **Xác thực**: SPF, DKIM, DMARC và ARC, khi biết địa chỉ IP của client. [Xác thực](how-it-works.md#authentication)
 * **Danh sách chặn DNS** cho địa chỉ IP của client và các tên miền trong liên kết, cùng các resolver có lọc của Cloudflare cho các trang mã độc và người lớn đã biết. [Danh sách chặn](how-it-works.md#blocklists)
 * **Quy tắc** cho các mẫu mà không bộ phân loại nào cần học: chuỗi kiểm thử GTUBE, tiêu đề tống tiền tình dục (sextortion), lừa đảo hóa đơn PayPal, tự giả mạo tên miền và các chỉ dẫn giấu cho bộ lọc AI. [Quy tắc](scoring.md#rules)
-* **Mô hình ngôn ngữ**, tùy chọn, đưa ra ý kiến thứ hai cho các trường hợp sát nút: một mô hình cục bộ qua Ollama hoặc bất kỳ máy chủ tương thích OpenAI nào, hoặc Claude, ChatGPT, Gemini và các mô hình khác. [Mô hình ngôn ngữ](llm.md)
+* **Mô hình ngôn ngữ**, tùy chọn, đưa ra ý kiến thứ hai cho các trường hợp sát nút: một mô hình cục bộ qua Ollama hoặc bất kỳ máy chủ tương thích OpenAI nào, một mô hình quyết định như Clef của Cloudflare, hoặc Claude, ChatGPT, Gemini và các mô hình khác. Theo mặc định, nó trả về xác suất cho từng kết luận trong một bước thay vì viết câu trả lời. [Mô hình ngôn ngữ](llm.md)
 
 
 ## Bắt đầu từ đâu
@@ -37,7 +37,7 @@ Các phép kiểm tra:
 * [Postfix và Sendmail](postfix.md): lọc thư cho máy chủ thư bằng milter hoặc content filter.
 * [Các máy chủ thư khác](mail-servers.md): Exim, Haraka, Dovecot, procmail và mọi thứ có thể gọi HTTP API.
 * [Huấn luyện](training.md): dạy nó bằng thư của chính bạn và đo lường kết quả.
-* [Mô hình ngôn ngữ](llm.md): nhà cung cấp, các mô hình mở được đề xuất, quyền riêng tư và prompt injection.
+* [Mô hình ngôn ngữ](llm.md): quyết định và sinh văn bản, độ chính xác và tốc độ đo được, mô hình quyết định, nhà cung cấp, các mô hình mở được đề xuất, quyền riêng tư và prompt injection.
 * [Ngôn ngữ](languages.md): cách nó đọc tiếng Trung, tiếng Ả Rập, tiếng Thái và mọi hệ chữ viết khác.
 * [Forward Email](forward-email.md): cách Forward Email sử dụng nó, và nâng cấp từ phiên bản 5 hoặc 6.
 * [Tham chiếu API](api.md) và [các phép kiểm tra và điểm](scoring.md).

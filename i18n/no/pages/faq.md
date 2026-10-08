@@ -1,4 +1,4 @@
-<!-- source: c93fa1a3f9c7 -->
+<!-- source: 361732724f0e -->
 
 <!--
 label: Vanlige spørsmål
@@ -42,7 +42,7 @@ Nei. Den er en ekstra vurdering for vanskelige tilfeller. Uten en avgjøres diss
 
 ## Hvilken språkmodell bør jeg bruke?
 
-`qwen3.5:4b` via Ollama på en prosessor, eller `qwen3.5:9b` med en GPU. Begge har Apache-lisens og leser 201 språk. Driftede modeller fra Anthropic, OpenAI, Google og andre virker også. [Anbefalte modeller](../../docs/llm.md#recommended-open-models)
+`qwen3.5:4b` via Ollama på en prosessor, eller `qwen3.5:9b` med en GPU. Begge har Apache-lisens og leser 201 språk. Spam Scanner leser sannsynligheten for hver vurdering fra ett steg i modellen, noe som på en prosessor med to kjerner tok omtrent 11 sekunder per melding i stedet for 31 for et skrevet svar, med samme treffsikkerhet. For en driftet tjeneste svarer beslutningsmodellene Cloudflare Clef og TypeSafe Jev på under ett sekund; Anthropic, OpenAI, Google og andre virker også. [Målinger](../../docs/llm.md#measured) og [anbefalte modeller](../../docs/llm.md#recommended-open-models)
 
 
 ## Kan det erstatte SpamAssassin?

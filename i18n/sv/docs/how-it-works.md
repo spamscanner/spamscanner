@@ -1,4 +1,4 @@
-<!-- source: 05a106ecd728 -->
+<!-- source: 35bf62a30cd7 -->
 
 # Så fungerar det
 
@@ -95,7 +95,7 @@ Vissa mönster behöver ingen statistik: teststrängen GTUBE, ämnesrader som an
 
 ## Språkmodellen
 
-När poängen hamnar mellan 1 och 15 (från 4 under spamgränsen upp till gränsen för avvisning), eller klassificeraren är osäker, kan en språkmodell ge en andra åsikt: spam, nätfiske, bedrägeri, skadlig kod eller ham, med sin konfidens. Dess utslag lägger till upp till 6 poäng eller drar av upp till 3. Meddelanden som tydligt är spam eller tydligt är ham når den aldrig, vilket håller den snabb och billig. [Språkmodeller](llm.md)
+När poängen hamnar mellan 1 och 15 (från 4 under spamgränsen upp till gränsen för avvisning), eller klassificeraren är osäker, kan en språkmodell ge en andra åsikt: en sannolikhet för vart och ett av spam, nätfiske, bedrägeri, skadlig kod och ham, avläst från ett steg av modellen, eller ett skrivet utslag med en konfidens från molnbaserade chattmodeller. Dess utslag lägger till upp till 6 poäng eller drar av upp till 3. Meddelanden som tydligt är spam eller tydligt är ham når den aldrig, vilket håller den snabb och billig. [Språkmodeller](llm.md)
 
 
 ## Allt tillsammans

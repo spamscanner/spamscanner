@@ -1,4 +1,4 @@
-<!-- source: a59bc5927d86 -->
+<!-- source: c061da9312ad -->
 
 # 命令行
 
@@ -72,21 +72,23 @@ spamscanner scan message.eml --subject-tag "[SPAM]" > tagged.eml
 
 ### 语言模型
 
-| 选项                                                      | 含义                                                               |
-| ------------------------------------------------------- | ---------------------------------------------------------------- |
-| `--llm <provider>`                                      | `ollama`、`openai`、`anthropic`、`gemini` 等（[列表](llm.md#providers)） |
-| `--llm-model <name>`                                    | 模型，例如 `qwen3.5:4b` 或 `claude-haiku-4-5`                          |
-| `--llm-url <url>`                                       | 基础 URL，例如 `http://10.0.0.5:11434`                                |
-| `--llm-host`、`--llm-port`、`--llm-path`、`--llm-protocol` | 修改服务商 URL 的某一部分                                                  |
-| `--llm-api-key <key>`                                   | API 密钥；另见下文的环境变量                                                 |
-| `--llm-auth <type>`                                     | `bearer`、`x-api-key`、`api-key`、`basic`、`header` 或 `none`         |
-| `--llm-auth-header <name>`                              | 存放密钥的请求头，配合 `--llm-auth header` 使用                               |
-| `--llm-username`、`--llm-password`                       | 用于 `--llm-auth basic`                                            |
-| `--llm-header "Name: value"`                            | 额外的请求头；可重复使用                                                     |
-| `--llm-mode <mode>`                                     | `auto`（仅限难以判断的邮件，默认）或 `always`                                   |
-| `--llm-timeout <ms>`                                    | 默认 30000                                                         |
-| `--llm-policy <text>`                                   | 给模型的额外规则，例如“我们从不发送账单”                                            |
-| `--llm-redact`、`--no-llm-redact`                        | 先移除个人数据；对远程服务商默认开启                                               |
+| 选项                                                      | 含义                                                                                   |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `--llm <provider>`                                      | `ollama`、`clef-flash`、`jev`、`openai`、`anthropic` 等（[列表](llm.md#providers)）           |
+| `--llm-model <name>`                                    | 模型，例如 `qwen3.5:4b` 或 `claude-haiku-4-5`                                              |
+| `--llm-method <method>`                                 | `decision`（一步之内为每种判定给出一个概率；在支持时为默认）或 `generate`（[方法](llm.md#decision-or-generation)） |
+| `--llm-account <id>`                                    | Cloudflare 账户 ID，用于 `clef` 和 `clef-flash`                                            |
+| `--llm-url <url>`                                       | 基础 URL，例如 `http://10.0.0.5:11434`                                                    |
+| `--llm-host`、`--llm-port`、`--llm-path`、`--llm-protocol` | 修改服务商 URL 的某一部分                                                                      |
+| `--llm-api-key <key>`                                   | API 密钥；另见下文的环境变量                                                                     |
+| `--llm-auth <type>`                                     | `bearer`、`x-api-key`、`api-key`、`basic`、`header` 或 `none`                             |
+| `--llm-auth-header <name>`                              | 存放密钥的请求头，配合 `--llm-auth header` 使用                                                   |
+| `--llm-username`、`--llm-password`                       | 用于 `--llm-auth basic`                                                                |
+| `--llm-header "Name: value"`                            | 额外的请求头；可重复使用                                                                         |
+| `--llm-mode <mode>`                                     | `auto`（仅限难以判断的邮件，默认）或 `always`                                                       |
+| `--llm-timeout <ms>`                                    | 默认 30000                                                                             |
+| `--llm-policy <text>`                                   | 给模型的额外规则，例如“我们从不发送账单”                                                                |
+| `--llm-redact`、`--no-llm-redact`                        | 先移除个人数据；对远程服务商默认开启                                                                   |
 
 
 ## filter
@@ -163,7 +165,7 @@ spamscanner models
 spamscanner llm-test --llm ollama --llm-model qwen3.5:4b
 ```
 
-`llm-test` 向模型发送一封普通邮件和两封诈骗邮件，使用英语和意大利语，输出模型的判定，只有三者全部正确时才以 0 退出。
+`llm-test` 向模型发送一封普通邮件和两封诈骗邮件，使用英语和意大利语，输出模型的判定、每封邮件所用的时间、使用的方法和硬件，只有三者全部正确时才以 0 退出。
 
 
 ## 配置文件
@@ -185,11 +187,11 @@ spamscanner llm-test --llm ollama --llm-model qwen3.5:4b
 
 ## 环境变量
 
-| 变量                                                                                                                                                                                                                                       | 含义                   |
-| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------- |
-| `SPAMSCANNER_CONFIG`                                                                                                                                                                                                                     | 配置文件                 |
-| `SPAMSCANNER_MODEL`                                                                                                                                                                                                                      | 代替内置模型使用的模型文件        |
-| `SPAMSCANNER_TOKEN`                                                                                                                                                                                                                      | HTTP API 的令牌         |
-| `SPAMSCANNER_LLM_API_KEY`                                                                                                                                                                                                                | 适用于任何语言模型服务商的 API 密钥 |
-| `OPENAI_API_KEY`、`ANTHROPIC_API_KEY`、`GEMINI_API_KEY`、`MISTRAL_API_KEY`、`GROQ_API_KEY`、`OPENROUTER_API_KEY`、`DEEPSEEK_API_KEY`、`XAI_API_KEY`、`TOGETHER_API_KEY`、`FIREWORKS_API_KEY`、`CEREBRAS_API_KEY`、`HF_TOKEN`、`AZURE_OPENAI_API_KEY` | 各服务商自己的密钥            |
-| `NODE_DEBUG=spamscanner*`                                                                                                                                                                                                                | 调试日志                 |
+| 变量                                                                                                                                                                                                                                                                                                           | 含义                   |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------- |
+| `SPAMSCANNER_CONFIG`                                                                                                                                                                                                                                                                                         | 配置文件                 |
+| `SPAMSCANNER_MODEL`                                                                                                                                                                                                                                                                                          | 代替内置模型使用的模型文件        |
+| `SPAMSCANNER_TOKEN`                                                                                                                                                                                                                                                                                          | HTTP API 的令牌         |
+| `SPAMSCANNER_LLM_API_KEY`                                                                                                                                                                                                                                                                                    | 适用于任何语言模型服务商的 API 密钥 |
+| `CLOUDFLARE_API_TOKEN` 和 `CLOUDFLARE_ACCOUNT_ID`、`TYPESAFE_API_KEY`、`OPENAI_API_KEY`、`ANTHROPIC_API_KEY`、`GEMINI_API_KEY`、`MISTRAL_API_KEY`、`GROQ_API_KEY`、`OPENROUTER_API_KEY`、`DEEPSEEK_API_KEY`、`XAI_API_KEY`、`TOGETHER_API_KEY`、`FIREWORKS_API_KEY`、`CEREBRAS_API_KEY`、`HF_TOKEN`、`AZURE_OPENAI_API_KEY` | 各服务商自己的密钥            |
+| `NODE_DEBUG=spamscanner*`                                                                                                                                                                                                                                                                                    | 调试日志                 |

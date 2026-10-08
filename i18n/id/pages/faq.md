@@ -1,4 +1,4 @@
-<!-- source: c93fa1a3f9c7 -->
+<!-- source: 361732724f0e -->
 
 <!--
 label: FAQ
@@ -42,7 +42,7 @@ Tidak. Model bahasa adalah pendapat kedua untuk kasus yang meragukan. Tanpa mode
 
 ## Model bahasa mana yang sebaiknya digunakan?
 
-`qwen3.5:4b` melalui Ollama di CPU, atau `qwen3.5:9b` dengan GPU. Keduanya berlisensi Apache dan membaca 201 bahasa. Model yang di-hosting dari Anthropic, OpenAI, Google, dan lainnya juga dapat digunakan. [Model yang direkomendasikan](../../docs/llm.md#recommended-open-models)
+`qwen3.5:4b` melalui Ollama di CPU, atau `qwen3.5:9b` dengan GPU. Keduanya berlisensi Apache dan membaca 201 bahasa. Spam Scanner membaca probabilitas setiap vonis dari satu langkah model; di CPU dua inti, cara ini memakan sekitar 11 detik per pesan, dibandingkan 31 detik untuk jawaban tertulis, dengan akurasi yang sama. Untuk layanan yang di-hosting, model keputusan Cloudflare Clef dan TypeSafe Jev menjawab dalam waktu kurang dari satu detik; Anthropic, OpenAI, Google, dan lainnya juga dapat digunakan. [Pengukuran](../../docs/llm.md#measured) dan [model yang direkomendasikan](../../docs/llm.md#recommended-open-models)
 
 
 ## Dapatkah menggantikan SpamAssassin?

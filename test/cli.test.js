@@ -130,6 +130,10 @@ describe('command-line parsing', () => {
 			'--llm-header',
 			'X-B: two: parts',
 			'--llm-redact',
+			'--llm-method',
+			'decision',
+			'--llm-account',
+			'acc',
 		]).values, {});
 		assert.equal(config.threshold, 3);
 		assert.equal(config.rejectThreshold, 20);
@@ -142,7 +146,7 @@ describe('command-line parsing', () => {
 		assert.deepEqual(config.clamav, {socket: '/run/clamd.sock'});
 		assert.deepEqual(config.reputation, {apiUrl: 'https://r.example', allowlist: ['good.example'], denylist: ['bad.example']});
 		assert.deepEqual(config.llm, {
-			provider: 'ollama', headers: {'x-a': '1', 'x-b': 'two: parts'}, model: 'qwen3.5:4b', baseUrl: 'http://10.0.0.5:11434', host: 'h', path: '/p', protocol: 'https', apiKey: 'k', auth: 'header', authHeader: 'x-key', username: 'u', password: 'p', mode: 'always', policy: 'No invoices', port: 8080, timeout: 5000, redact: true,
+			provider: 'ollama', headers: {'x-a': '1', 'x-b': 'two: parts'}, model: 'qwen3.5:4b', baseUrl: 'http://10.0.0.5:11434', host: 'h', path: '/p', protocol: 'https', apiKey: 'k', auth: 'header', authHeader: 'x-key', username: 'u', password: 'p', mode: 'always', policy: 'No invoices', method: 'decision', account: 'acc', port: 8080, timeout: 5000, redact: true,
 		});
 
 		const environment = buildConfig(parseCli(['scan', '--threshold', '7', '--no-classifier', '--enable-auth', '--dnsbl', 'zen.example', '--clamav', '--allowlist', 'a.example', '--llm', 'openai', '--no-llm-redact']).values, {SPAMSCANNER_CONFIG: file});
@@ -485,10 +489,17 @@ describe('spamscanner train, eval and learn', () => {
 
 describe('spamscanner llm-test and models', () => {
 	it('checks the language model with sample messages', async () => {
+		const expected = text => (/Lunch on Thursday/.test(text) ? 'ham' : (/Congratulazioni/.test(text) ? 'scam' : 'phishing'));
+		// A server without token probabilities: Spam Scanner asks for a written verdict.
 		const llm = await httpServer((request, body) => {
-			const text = JSON.stringify(body);
-			const verdict = /Lunch on Thursday/.test(text) ? 'ham' : (/Congratulazioni/.test(text) ? 'scam' : 'phishing');
+			const verdict = expected(JSON.stringify(body));
 			return {message: {content: JSON.stringify({verdict, confidence: 0.9, reasons: verdict === 'ham' ? [] : ['asks for credentials']})}};
+		});
+		// A server with them: the verdict is read from one forward pass.
+		const decision = await httpServer((request, body) => {
+			const verdict = expected(JSON.stringify(body));
+			const top = verdict === 'ham' ? [{token: 'ham', logprob: Math.log(0.9)}, {token: 'spam', logprob: Math.log(0.1)}] : [{token: verdict, logprob: Math.log(0.95)}, {token: 'ham', logprob: Math.log(0.05)}];
+			return {message: {content: verdict}, logprobs: [{token: verdict, top_logprobs: top}]};
 		});
 		const wrong = await httpServer(() => ({message: {content: '{"verdict":"ham","confidence":0.6,"reasons":[]}'}}));
 		try {
@@ -496,19 +507,31 @@ describe('spamscanner llm-test and models', () => {
 			assert.equal(passed.code, 0);
 			assert.match(passed.stdout, /^ok {3}expected ham {2}got ham \(90%, \d+ ms\)\n/);
 			assert.match(passed.stdout, /^ok {3}expected spam got phishing \(90%, \d+ ms\): asks for credentials$/m);
-			assert.match(passed.stdout, /3 of 3 correct with Ollama test at http:\/\/127\.0\.0\.1:\d+$/m);
+			assert.match(passed.stdout, /3 of 3 correct with Ollama test at http:\/\/127\.0\.0\.1:\d+ \(method: generate\)$/m);
+			assert.match(passed.stdout, /^Hardware \(model on this machine\): .+ CPU threads, [\d.]+ GB RAM, /m);
+			const decided = await cli(['llm-test', '--llm', 'ollama', '--llm-url', decision.url, '--llm-model', 'test']);
+			assert.equal(decided.code, 0);
+			assert.match(decided.stdout, /^ok {3}expected ham {2}got ham \(90%, \d+ ms\): ham 90%, spam 10%$/m);
+			assert.match(decided.stdout, /^ok {3}expected spam got scam \(95%, \d+ ms\): scam 95%, ham 5%$/m);
+			assert.match(decided.stdout, /\(method: decision\)$/m);
 			const failed = await cli(['llm-test', '--llm', 'ollama', '--llm-url', wrong.url]);
 			assert.equal(failed.code, 1);
 			assert.match(failed.stdout, /^MISS expected spam got ham/m);
 			assert.match(failed.stdout, /1 of 3 correct with Ollama qwen3\.5:4b/);
 		} finally {
 			await llm.close();
+			await decision.close();
 			await wrong.close();
 		}
 
 		const down = await cli(['llm-test', '--llm', 'ollama', '--llm-url', 'http://127.0.0.1:1']);
 		assert.equal(down.code, 1);
 		assert.match(down.stdout, /^FAIL .*ECONNREFUSED/m);
+		const remote = await cli(['llm-test', '--llm', 'clef-flash', '--llm-account', 'acc', '--llm-api-key', 'k', '--llm-url', 'http://192.0.2.1:9/v1', '--llm-timeout', '200']);
+		assert.equal(remote.code, 1);
+		assert.match(remote.stdout, /^FAIL /m);
+		assert.match(remote.stdout, /0 of 3 correct with Cloudflare Clef Flash clef-flash at http:\/\/192\.0\.2\.1:9\/v1 \(method: decision\)$/m);
+		assert.match(remote.stdout, /^Times include the round trip to 192\.0\.2\.1:9$/m);
 		const unnamed = await cli(['llm-test', '--llm', 'lmstudio', '--llm-url', 'http://127.0.0.1:1/v1']);
 		assert.equal(unnamed.code, 2);
 		assert.match(unnamed.stderr, /"lmstudio" needs a model name/);
@@ -522,6 +545,8 @@ describe('spamscanner llm-test and models', () => {
 		assert.equal(code, 0);
 		assert.match(stdout, /^ {2}qwen3\.5:4b +small +Apache-2\.0 +3\.3 GB +hf\.co\/Qwen\/Qwen3\.5-4B$/m);
 		assert.match(stdout, /cybersectony\/phishing-email-detection-distilbert_v2\.4\.1 {2}\(Apache-2\.0\)/);
+		assert.match(stdout, /^ {2}--llm clef-flash +Cloudflare Clef Flash +Apache-2\.0 +hf\.co\/Cloudflare\/clef-flash$/m);
+		assert.match(stdout, /^ {2}--llm jev +TypeSafe Jev +proprietary closed weights$/m);
 	});
 });
 

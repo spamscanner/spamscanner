@@ -1,4 +1,4 @@
-<!-- source: a59bc5927d86 -->
+<!-- source: c061da9312ad -->
 
 # Komut satırı
 
@@ -72,21 +72,23 @@ spamscanner scan message.eml --subject-tag "[SPAM]" > tagged.eml
 
 ### Dil modeli
 
-| Seçenek                                                    | Anlamı                                                                             |
-| ---------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| `--llm <provider>`                                         | `ollama`, `openai`, `anthropic`, `gemini` ve diğerleri ([liste](llm.md#providers)) |
-| `--llm-model <name>`                                       | Model, örneğin `qwen3.5:4b` veya `claude-haiku-4-5`                                |
-| `--llm-url <url>`                                          | Temel URL, örneğin `http://10.0.0.5:11434`                                         |
-| `--llm-host`, `--llm-port`, `--llm-path`, `--llm-protocol` | Sağlayıcı URL'sinin bir parçasını değiştirir                                       |
-| `--llm-api-key <key>`                                      | API anahtarı; aşağıdaki ortam değişkenlerine de bakın                              |
-| `--llm-auth <type>`                                        | `bearer`, `x-api-key`, `api-key`, `basic`, `header` veya `none`                    |
-| `--llm-auth-header <name>`                                 | `--llm-auth header` ile birlikte anahtar için üst bilgi                            |
-| `--llm-username`, `--llm-password`                         | `--llm-auth basic` için                                                            |
-| `--llm-header "Name: value"`                               | Ek istek üst bilgisi; tekrarlanabilir                                              |
-| `--llm-mode <mode>`                                        | `auto` (yalnızca sınırdaki durumlar, varsayılan) veya `always`                     |
-| `--llm-timeout <ms>`                                       | Varsayılan 30000                                                                   |
-| `--llm-policy <text>`                                      | Model için ek kurallar, örneğin "Asla e-postayla fatura göndermeyiz"               |
-| `--llm-redact`, `--no-llm-redact`                          | Önce kişisel verileri çıkarır; uzak sağlayıcılar için varsayılan olarak açık       |
+| Seçenek                                                    | Anlamı                                                                                                                                              |
+| ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--llm <provider>`                                         | `ollama`, `clef-flash`, `jev`, `openai`, `anthropic` ve diğerleri ([liste](llm.md#providers))                                                       |
+| `--llm-model <name>`                                       | Model, örneğin `qwen3.5:4b` veya `claude-haiku-4-5`                                                                                                 |
+| `--llm-method <method>`                                    | `decision` (tek adımda her karar için bir olasılık; kullanılabildiği yerde varsayılan) veya `generate` ([yöntemler](llm.md#decision-or-generation)) |
+| `--llm-account <id>`                                       | `clef` ve `clef-flash` için Cloudflare hesap kimliği                                                                                                |
+| `--llm-url <url>`                                          | Temel URL, örneğin `http://10.0.0.5:11434`                                                                                                          |
+| `--llm-host`, `--llm-port`, `--llm-path`, `--llm-protocol` | Sağlayıcı URL'sinin bir parçasını değiştirir                                                                                                        |
+| `--llm-api-key <key>`                                      | API anahtarı; aşağıdaki ortam değişkenlerine de bakın                                                                                               |
+| `--llm-auth <type>`                                        | `bearer`, `x-api-key`, `api-key`, `basic`, `header` veya `none`                                                                                     |
+| `--llm-auth-header <name>`                                 | `--llm-auth header` ile birlikte anahtar için üst bilgi                                                                                             |
+| `--llm-username`, `--llm-password`                         | `--llm-auth basic` için                                                                                                                             |
+| `--llm-header "Name: value"`                               | Ek istek üst bilgisi; tekrarlanabilir                                                                                                               |
+| `--llm-mode <mode>`                                        | `auto` (yalnızca sınırdaki durumlar, varsayılan) veya `always`                                                                                      |
+| `--llm-timeout <ms>`                                       | Varsayılan 30000                                                                                                                                    |
+| `--llm-policy <text>`                                      | Model için ek kurallar, örneğin "Asla e-postayla fatura göndermeyiz"                                                                                |
+| `--llm-redact`, `--no-llm-redact`                          | Önce kişisel verileri çıkarır; uzak sağlayıcılar için varsayılan olarak açık                                                                        |
 
 
 ## filter
@@ -163,7 +165,7 @@ spamscanner models
 spamscanner llm-test --llm ollama --llm-model qwen3.5:4b
 ```
 
-`llm-test` modele İngilizce ve İtalyanca olarak bir sıradan ileti ve iki dolandırıcılık iletisi gönderir, kararlarını yazdırır ve yalnızca üçü de doğruysa 0 koduyla çıkar.
+`llm-test` modele İngilizce ve İtalyanca olarak bir sıradan ileti ve iki dolandırıcılık iletisi gönderir, kararlarını, her birinin ne kadar sürdüğünü, kullanılan yöntemi ve donanımı yazdırır ve yalnızca üçü de doğruysa 0 koduyla çıkar.
 
 
 ## Yapılandırma dosyası
@@ -185,11 +187,11 @@ spamscanner llm-test --llm ollama --llm-model qwen3.5:4b
 
 ## Ortam değişkenleri
 
-| Değişken                                                                                                                                                                                                                                             | Anlamı                                                |
-| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
-| `SPAMSCANNER_CONFIG`                                                                                                                                                                                                                                 | Yapılandırma dosyası                                  |
-| `SPAMSCANNER_MODEL`                                                                                                                                                                                                                                  | Paketle gelen model yerine kullanılan model dosyası   |
-| `SPAMSCANNER_TOKEN`                                                                                                                                                                                                                                  | HTTP API için belirteç                                |
-| `SPAMSCANNER_LLM_API_KEY`                                                                                                                                                                                                                            | Herhangi bir dil modeli sağlayıcısı için API anahtarı |
-| `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `MISTRAL_API_KEY`, `GROQ_API_KEY`, `OPENROUTER_API_KEY`, `DEEPSEEK_API_KEY`, `XAI_API_KEY`, `TOGETHER_API_KEY`, `FIREWORKS_API_KEY`, `CEREBRAS_API_KEY`, `HF_TOKEN`, `AZURE_OPENAI_API_KEY` | Her sağlayıcının kendi anahtarı                       |
-| `NODE_DEBUG=spamscanner*`                                                                                                                                                                                                                            | Hata ayıklama günlüğü                                 |
+| Değişken                                                                                                                                                                                                                                                                                                                    | Anlamı                                                |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| `SPAMSCANNER_CONFIG`                                                                                                                                                                                                                                                                                                        | Yapılandırma dosyası                                  |
+| `SPAMSCANNER_MODEL`                                                                                                                                                                                                                                                                                                         | Paketle gelen model yerine kullanılan model dosyası   |
+| `SPAMSCANNER_TOKEN`                                                                                                                                                                                                                                                                                                         | HTTP API için belirteç                                |
+| `SPAMSCANNER_LLM_API_KEY`                                                                                                                                                                                                                                                                                                   | Herhangi bir dil modeli sağlayıcısı için API anahtarı |
+| `CLOUDFLARE_API_TOKEN` ve `CLOUDFLARE_ACCOUNT_ID`, `TYPESAFE_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `MISTRAL_API_KEY`, `GROQ_API_KEY`, `OPENROUTER_API_KEY`, `DEEPSEEK_API_KEY`, `XAI_API_KEY`, `TOGETHER_API_KEY`, `FIREWORKS_API_KEY`, `CEREBRAS_API_KEY`, `HF_TOKEN`, `AZURE_OPENAI_API_KEY` | Her sağlayıcının kendi anahtarı                       |
+| `NODE_DEBUG=spamscanner*`                                                                                                                                                                                                                                                                                                   | Hata ayıklama günlüğü                                 |

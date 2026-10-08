@@ -1,4 +1,4 @@
-<!-- source: a59bc5927d86 -->
+<!-- source: c061da9312ad -->
 
 # Kommandorad
 
@@ -72,21 +72,23 @@ Slutkoder: 0 ham, 1 spam, 2 fel.
 
 ### Språkmodell
 
-| Alternativ                                                 | Betydelse                                                                       |
-| ---------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| `--llm <provider>`                                         | `ollama`, `openai`, `anthropic`, `gemini` med flera ([lista](llm.md#providers)) |
-| `--llm-model <name>`                                       | Modell, till exempel `qwen3.5:4b` eller `claude-haiku-4-5`                      |
-| `--llm-url <url>`                                          | Bas-URL, till exempel `http://10.0.0.5:11434`                                   |
-| `--llm-host`, `--llm-port`, `--llm-path`, `--llm-protocol` | Ändra en del av leverantörens URL                                               |
-| `--llm-api-key <key>`                                      | API-nyckel; se även miljövariablerna nedan                                      |
-| `--llm-auth <type>`                                        | `bearer`, `x-api-key`, `api-key`, `basic`, `header` eller `none`                |
-| `--llm-auth-header <name>`                                 | Huvud för nyckeln, med `--llm-auth header`                                      |
-| `--llm-username`, `--llm-password`                         | För `--llm-auth basic`                                                          |
-| `--llm-header "Name: value"`                               | Extra huvud i förfrågan; kan upprepas                                           |
-| `--llm-mode <mode>`                                        | `auto` (bara gränsfall, standard) eller `always`                                |
-| `--llm-timeout <ms>`                                       | Standard 30000                                                                  |
-| `--llm-policy <text>`                                      | Extra regler för modellen, till exempel ”Vi skickar aldrig fakturor”            |
-| `--llm-redact`, `--no-llm-redact`                          | Ta bort personuppgifter först; påslaget som standard för externa leverantörer   |
+| Alternativ                                                 | Betydelse                                                                                                                                    |
+| ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--llm <provider>`                                         | `ollama`, `clef-flash`, `jev`, `openai`, `anthropic` med flera ([lista](llm.md#providers))                                                   |
+| `--llm-model <name>`                                       | Modell, till exempel `qwen3.5:4b` eller `claude-haiku-4-5`                                                                                   |
+| `--llm-method <method>`                                    | `decision` (en sannolikhet för varje utslag, i ett steg; standard där det finns) eller `generate` ([metoder](llm.md#decision-or-generation)) |
+| `--llm-account <id>`                                       | Cloudflare-konto-ID, för `clef` och `clef-flash`                                                                                             |
+| `--llm-url <url>`                                          | Bas-URL, till exempel `http://10.0.0.5:11434`                                                                                                |
+| `--llm-host`, `--llm-port`, `--llm-path`, `--llm-protocol` | Ändra en del av leverantörens URL                                                                                                            |
+| `--llm-api-key <key>`                                      | API-nyckel; se även miljövariablerna nedan                                                                                                   |
+| `--llm-auth <type>`                                        | `bearer`, `x-api-key`, `api-key`, `basic`, `header` eller `none`                                                                             |
+| `--llm-auth-header <name>`                                 | Huvud för nyckeln, med `--llm-auth header`                                                                                                   |
+| `--llm-username`, `--llm-password`                         | För `--llm-auth basic`                                                                                                                       |
+| `--llm-header "Name: value"`                               | Extra huvud i förfrågan; kan upprepas                                                                                                        |
+| `--llm-mode <mode>`                                        | `auto` (bara gränsfall, standard) eller `always`                                                                                             |
+| `--llm-timeout <ms>`                                       | Standard 30000                                                                                                                               |
+| `--llm-policy <text>`                                      | Extra regler för modellen, till exempel ”Vi skickar aldrig fakturor”                                                                         |
+| `--llm-redact`, `--no-llm-redact`                          | Ta bort personuppgifter först; påslaget som standard för externa leverantörer                                                                |
 
 
 ## filter
@@ -163,7 +165,7 @@ spamscanner models
 spamscanner llm-test --llm ollama --llm-model qwen3.5:4b
 ```
 
-`llm-test` skickar ett vanligt meddelande och två bedrägerier, på engelska och italienska, till modellen, skriver ut dess utslag och avslutas med 0 bara om alla tre är rätt.
+`llm-test` skickar ett vanligt meddelande och två bedrägerier, på engelska och italienska, till modellen, skriver ut dess utslag, tiden varje tog, metoden som användes och hårdvaran, och avslutas med 0 bara om alla tre är rätt.
 
 
 ## Konfigurationsfil
@@ -185,11 +187,11 @@ spamscanner llm-test --llm ollama --llm-model qwen3.5:4b
 
 ## Miljövariabler
 
-| Variabel                                                                                                                                                                                                                                             | Betydelse                                           |
-| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
-| `SPAMSCANNER_CONFIG`                                                                                                                                                                                                                                 | Konfigurationsfil                                   |
-| `SPAMSCANNER_MODEL`                                                                                                                                                                                                                                  | Modellfil som används i stället för den medföljande |
-| `SPAMSCANNER_TOKEN`                                                                                                                                                                                                                                  | Token för HTTP-API:t                                |
-| `SPAMSCANNER_LLM_API_KEY`                                                                                                                                                                                                                            | API-nyckel för alla leverantörer av språkmodeller   |
-| `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `MISTRAL_API_KEY`, `GROQ_API_KEY`, `OPENROUTER_API_KEY`, `DEEPSEEK_API_KEY`, `XAI_API_KEY`, `TOGETHER_API_KEY`, `FIREWORKS_API_KEY`, `CEREBRAS_API_KEY`, `HF_TOKEN`, `AZURE_OPENAI_API_KEY` | Varje leverantörs egen nyckel                       |
-| `NODE_DEBUG=spamscanner*`                                                                                                                                                                                                                            | Felsökningsloggning                                 |
+| Variabel                                                                                                                                                                                                                                                                                                                     | Betydelse                                           |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| `SPAMSCANNER_CONFIG`                                                                                                                                                                                                                                                                                                         | Konfigurationsfil                                   |
+| `SPAMSCANNER_MODEL`                                                                                                                                                                                                                                                                                                          | Modellfil som används i stället för den medföljande |
+| `SPAMSCANNER_TOKEN`                                                                                                                                                                                                                                                                                                          | Token för HTTP-API:t                                |
+| `SPAMSCANNER_LLM_API_KEY`                                                                                                                                                                                                                                                                                                    | API-nyckel för alla leverantörer av språkmodeller   |
+| `CLOUDFLARE_API_TOKEN` och `CLOUDFLARE_ACCOUNT_ID`, `TYPESAFE_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `MISTRAL_API_KEY`, `GROQ_API_KEY`, `OPENROUTER_API_KEY`, `DEEPSEEK_API_KEY`, `XAI_API_KEY`, `TOGETHER_API_KEY`, `FIREWORKS_API_KEY`, `CEREBRAS_API_KEY`, `HF_TOKEN`, `AZURE_OPENAI_API_KEY` | Varje leverantörs egen nyckel                       |
+| `NODE_DEBUG=spamscanner*`                                                                                                                                                                                                                                                                                                    | Felsökningsloggning                                 |

@@ -1,4 +1,4 @@
-<!-- source: 05a106ecd728 -->
+<!-- source: 35bf62a30cd7 -->
 
 # Cómo funciona
 
@@ -95,7 +95,7 @@ Algunos patrones no necesitan estadística: la cadena de prueba GTUBE, los asunt
 
 ## El modelo de lenguaje
 
-Cuando la puntuación queda entre 1 y 15 puntos (desde 4 por debajo del umbral de spam hasta el umbral de rechazo), o el clasificador tiene dudas, un modelo de lenguaje puede dar una segunda opinión: spam, phishing, estafa, malware o ham, con su nivel de confianza. Su veredicto suma hasta 6 puntos o resta hasta 3. Los mensajes que son claramente spam o claramente ham nunca llegan a él, lo que lo mantiene rápido y barato. [Modelos de lenguaje](llm.md)
+Cuando la puntuación queda entre 1 y 15 puntos (desde 4 por debajo del umbral de spam hasta el umbral de rechazo), o el clasificador tiene dudas, un modelo de lenguaje puede dar una segunda opinión: una probabilidad para cada una de las categorías spam, phishing, estafa, malware y ham, leída de un solo paso del modelo, o un veredicto escrito con un nivel de confianza en el caso de los modelos de chat alojados. Su veredicto suma hasta 6 puntos o resta hasta 3. Los mensajes que son claramente spam o claramente ham nunca llegan a él, lo que lo mantiene rápido y barato. [Modelos de lenguaje](llm.md)
 
 
 ## Todo junto

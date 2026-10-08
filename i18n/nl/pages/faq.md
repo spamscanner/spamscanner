@@ -1,4 +1,4 @@
-<!-- source: c93fa1a3f9c7 -->
+<!-- source: 361732724f0e -->
 
 <!--
 label: Veelgestelde vragen
@@ -42,7 +42,7 @@ Nee. Het is een tweede mening voor twijfelgevallen. Zonder model worden die beri
 
 ## Welk taalmodel moet ik gebruiken?
 
-`qwen3.5:4b` via Ollama op een CPU, of `qwen3.5:9b` met een GPU. Beide hebben een Apache-licentie en lezen 201 talen. Gehoste modellen van Anthropic, OpenAI, Google en andere werken ook. [Aanbevolen modellen](../../docs/llm.md#recommended-open-models)
+`qwen3.5:4b` via Ollama op een CPU, of `qwen3.5:9b` met een GPU. Beide hebben een Apache-licentie en lezen 201 talen. Spam Scanner leest de kans op elk oordeel af uit één stap van het model; op een CPU met twee cores kostte dat ongeveer 11 seconden per bericht in plaats van 31 voor een geschreven antwoord, met dezelfde nauwkeurigheid. Voor een gehoste dienst antwoorden de beslismodellen Cloudflare Clef en TypeSafe Jev in minder dan een seconde; Anthropic, OpenAI, Google en andere werken ook. [Metingen](../../docs/llm.md#measured) en [aanbevolen modellen](../../docs/llm.md#recommended-open-models)
 
 
 ## Kan het SpamAssassin vervangen?

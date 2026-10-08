@@ -1,13 +1,13 @@
 {
-	"docs/README.md": "c56969e779c4",
+	"docs/README.md": "8860e232d858",
 	"docs/api.md": "b3cc9f949acd",
-	"docs/cli.md": "a59bc5927d86",
+	"docs/cli.md": "c061da9312ad",
 	"docs/forward-email.md": "dc9016edd59e",
 	"docs/getting-started.md": "8263c06f1dab",
-	"docs/how-it-works.md": "05a106ecd728",
+	"docs/how-it-works.md": "35bf62a30cd7",
 	"docs/http-api.md": "faf44f093f8b",
 	"docs/languages.md": "9537a0e62eb0",
-	"docs/llm.md": "9f90464a3ab1",
+	"docs/llm.md": "dacf4c9ca2eb",
 	"docs/mail-servers.md": "1151282f29d3",
 	"docs/postfix.md": "f1043eb5fc58",
 	"docs/scoring.md": "6f6b765c5fc1",
@@ -15,9 +15,9 @@
 	"docs/training.md": "7cc30ff4ad91",
 	"pages/postfix-spam-filter.md": "f33722183f00",
 	"pages/spamassassin-alternative.md": "1562b843d858",
-	"pages/ai-spam-filter.md": "8d433903a7ad",
+	"pages/ai-spam-filter.md": "20d3823ab446",
 	"pages/multilingual-spam-filter.md": "0ad167ddd34e",
 	"pages/phishing-detection.md": "0378a5e0f12b",
 	"pages/nodejs-spam-filter.md": "ff63d002c5fd",
-	"pages/faq.md": "c93fa1a3f9c7"
+	"pages/faq.md": "361732724f0e"
 }

@@ -1,4 +1,4 @@
-<!-- source: a59bc5927d86 -->
+<!-- source: c061da9312ad -->
 
 # سطر الأوامر
 
@@ -72,21 +72,23 @@ spamscanner scan message.eml --subject-tag "[SPAM]" > tagged.eml
 
 ### النموذج اللغوي
 
-| الخيار                                                     | المعنى                                                                         |
-| ---------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| `--llm <provider>`                                         | `ollama` و`openai` و`anthropic` و`gemini` وغيرها ([القائمة](llm.md#providers)) |
-| `--llm-model <name>`                                       | النموذج، مثل `qwen3.5:4b` أو `claude-haiku-4-5`                                |
-| `--llm-url <url>`                                          | عنوان URL الأساسي، مثل `http://10.0.0.5:11434`                                 |
-| `--llm-host`، `--llm-port`، `--llm-path`، `--llm-protocol` | تغيير جزء واحد من عنوان URL للمزوّد                                            |
-| `--llm-api-key <key>`                                      | مفتاح API؛ انظر أيضًا متغيرات البيئة أدناه                                     |
-| `--llm-auth <type>`                                        | `bearer` أو `x-api-key` أو `api-key` أو `basic` أو `header` أو `none`          |
-| `--llm-auth-header <name>`                                 | الترويسة التي تحمل المفتاح، مع `--llm-auth header`                             |
-| `--llm-username`، `--llm-password`                         | لـ `--llm-auth basic`                                                          |
-| `--llm-header "Name: value"`                               | ترويسة طلب إضافية؛ قابل للتكرار                                                |
-| `--llm-mode <mode>`                                        | `auto` (الحالات المتقاربة فقط، وهو الافتراضي) أو `always`                      |
-| `--llm-timeout <ms>`                                       | الافتراضي 30000                                                                |
-| `--llm-policy <text>`                                      | قواعد إضافية للنموذج، مثل «لا نرسل فواتير أبدًا»                               |
-| `--llm-redact`، `--no-llm-redact`                          | حذف البيانات الشخصية أولًا؛ مفعَّل افتراضيًا للمزوّدين البعيدين                |
+| الخيار                                                     | المعنى                                                                                                                     |
+| ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `--llm <provider>`                                         | `ollama` و`clef-flash` و`jev` و`openai` و`anthropic` وغيرها ([القائمة](llm.md#providers))                                  |
+| `--llm-model <name>`                                       | النموذج، مثل `qwen3.5:4b` أو `claude-haiku-4-5`                                                                            |
+| `--llm-method <method>`                                    | `decision` (احتمال لكل حكم، في خطوة واحدة؛ الافتراضي حيث يتوفر) أو `generate` ([الطريقتان](llm.md#decision-or-generation)) |
+| `--llm-account <id>`                                       | معرّف حساب Cloudflare، لـ `clef` و`clef-flash`                                                                             |
+| `--llm-url <url>`                                          | عنوان URL الأساسي، مثل `http://10.0.0.5:11434`                                                                             |
+| `--llm-host`، `--llm-port`، `--llm-path`، `--llm-protocol` | تغيير جزء واحد من عنوان URL للمزوّد                                                                                        |
+| `--llm-api-key <key>`                                      | مفتاح API؛ انظر أيضًا متغيرات البيئة أدناه                                                                                 |
+| `--llm-auth <type>`                                        | `bearer` أو `x-api-key` أو `api-key` أو `basic` أو `header` أو `none`                                                      |
+| `--llm-auth-header <name>`                                 | الترويسة التي تحمل المفتاح، مع `--llm-auth header`                                                                         |
+| `--llm-username`، `--llm-password`                         | لـ `--llm-auth basic`                                                                                                      |
+| `--llm-header "Name: value"`                               | ترويسة طلب إضافية؛ قابل للتكرار                                                                                            |
+| `--llm-mode <mode>`                                        | `auto` (الحالات المتقاربة فقط، وهو الافتراضي) أو `always`                                                                  |
+| `--llm-timeout <ms>`                                       | الافتراضي 30000                                                                                                            |
+| `--llm-policy <text>`                                      | قواعد إضافية للنموذج، مثل «لا نرسل فواتير أبدًا»                                                                           |
+| `--llm-redact`، `--no-llm-redact`                          | حذف البيانات الشخصية أولًا؛ مفعَّل افتراضيًا للمزوّدين البعيدين                                                            |
 
 
 ## filter
@@ -163,7 +165,7 @@ spamscanner models
 spamscanner llm-test --llm ollama --llm-model qwen3.5:4b
 ```
 
-يرسل `llm-test` رسالة عادية واحدة ورسالتي احتيال، بالإنجليزية والإيطالية، إلى النموذج، ويطبع أحكامه، ولا يخرج بالرمز 0 إلا إذا كانت الأحكام الثلاثة صحيحة.
+يرسل `llm-test` رسالة عادية واحدة ورسالتي احتيال، بالإنجليزية والإيطالية، إلى النموذج، ويطبع أحكامه، والوقت الذي استغرقه كل منها، والطريقة المستخدمة، والعتاد، ولا يخرج بالرمز 0 إلا إذا كانت الأحكام الثلاثة صحيحة.
 
 
 ## ملف الإعدادات
@@ -185,11 +187,11 @@ spamscanner llm-test --llm ollama --llm-model qwen3.5:4b
 
 ## متغيرات البيئة
 
-| المتغير                                                                                                                                                                                                                                              | المعنى                                  |
-| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
-| `SPAMSCANNER_CONFIG`                                                                                                                                                                                                                                 | ملف الإعدادات                           |
-| `SPAMSCANNER_MODEL`                                                                                                                                                                                                                                  | ملف النموذج المستخدم بدل النموذج المرفق |
-| `SPAMSCANNER_TOKEN`                                                                                                                                                                                                                                  | الرمز المميز لواجهة HTTP API            |
-| `SPAMSCANNER_LLM_API_KEY`                                                                                                                                                                                                                            | مفتاح API لأي مزوّد نماذج لغوية         |
-| `OPENAI_API_KEY`، `ANTHROPIC_API_KEY`، `GEMINI_API_KEY`، `MISTRAL_API_KEY`، `GROQ_API_KEY`، `OPENROUTER_API_KEY`، `DEEPSEEK_API_KEY`، `XAI_API_KEY`، `TOGETHER_API_KEY`، `FIREWORKS_API_KEY`، `CEREBRAS_API_KEY`، `HF_TOKEN`، `AZURE_OPENAI_API_KEY` | المفتاح الخاص بكل مزوّد                 |
-| `NODE_DEBUG=spamscanner*`                                                                                                                                                                                                                            | سجلات التصحيح                           |
+| المتغير                                                                                                                                                                                                                                                                                                                   | المعنى                                  |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
+| `SPAMSCANNER_CONFIG`                                                                                                                                                                                                                                                                                                      | ملف الإعدادات                           |
+| `SPAMSCANNER_MODEL`                                                                                                                                                                                                                                                                                                       | ملف النموذج المستخدم بدل النموذج المرفق |
+| `SPAMSCANNER_TOKEN`                                                                                                                                                                                                                                                                                                       | الرمز المميز لواجهة HTTP API            |
+| `SPAMSCANNER_LLM_API_KEY`                                                                                                                                                                                                                                                                                                 | مفتاح API لأي مزوّد نماذج لغوية         |
+| `CLOUDFLARE_API_TOKEN` و`CLOUDFLARE_ACCOUNT_ID`، `TYPESAFE_API_KEY`، `OPENAI_API_KEY`، `ANTHROPIC_API_KEY`، `GEMINI_API_KEY`، `MISTRAL_API_KEY`، `GROQ_API_KEY`، `OPENROUTER_API_KEY`، `DEEPSEEK_API_KEY`، `XAI_API_KEY`، `TOGETHER_API_KEY`، `FIREWORKS_API_KEY`، `CEREBRAS_API_KEY`، `HF_TOKEN`، `AZURE_OPENAI_API_KEY` | المفتاح الخاص بكل مزوّد                 |
+| `NODE_DEBUG=spamscanner*`                                                                                                                                                                                                                                                                                                 | سجلات التصحيح                           |

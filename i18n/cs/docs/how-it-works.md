@@ -1,4 +1,4 @@
-<!-- source: 05a106ecd728 -->
+<!-- source: 35bf62a30cd7 -->
 
 # Jak to funguje
 
@@ -95,7 +95,7 @@ Některé vzory statistiku nepotřebují: testovací řetězec GTUBE, předměty
 
 ## Jazykový model
 
-Když skóre padne mezi 1 a 15 bodů (od 4 bodů pod prahem spamu až po práh odmítnutí) nebo si klasifikátor není jistý, může jazykový model dát druhý názor: spam, phishing, podvod, malware nebo ham, i se svou jistotou. Jeho verdikt přidá až 6 bodů nebo až 3 ubere. Zprávy, které jsou jasně spam nebo jasně ham, se k němu nikdy nedostanou, takže zůstává rychlý a levný. [Jazykové modely](llm.md)
+Když skóre padne mezi 1 a 15 bodů (od 4 bodů pod prahem spamu až po práh odmítnutí) nebo si klasifikátor není jistý, může jazykový model dát druhý názor: pravděpodobnost pro spam, phishing, podvod, malware i ham, přečtenou z jednoho kroku modelu, nebo u hostovaných chatových modelů napsaný verdikt s jistotou. Jeho verdikt přidá až 6 bodů nebo až 3 ubere. Zprávy, které jsou jasně spam nebo jasně ham, se k němu nikdy nedostanou, takže zůstává rychlý a levný. [Jazykové modely](llm.md)
 
 
 ## Jak to do sebe zapadá

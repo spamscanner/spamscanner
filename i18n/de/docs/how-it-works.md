@@ -1,4 +1,4 @@
-<!-- source: 05a106ecd728 -->
+<!-- source: 35bf62a30cd7 -->
 
 # Funktionsweise
 
@@ -95,7 +95,7 @@ Manche Muster brauchen keine Statistik: die GTUBE-Testzeichenkette, Betreffzeile
 
 ## Das Sprachmodell
 
-Liegt der Score zwischen 1 und 15 Punkten (von 4 unter dem Spam-Schwellenwert bis zum Ablehnungsschwellenwert) oder ist der Klassifikator unsicher, kann ein Sprachmodell eine zweite Meinung abgeben: Spam, Phishing, Betrug, Malware oder Ham, mit seiner Konfidenz. Sein Urteil fügt bis zu 6 Punkte hinzu oder zieht bis zu 3 ab. Eindeutiger Spam und eindeutiger Ham erreichen es nie. Das hält es schnell und günstig. [Sprachmodelle](llm.md)
+Liegt der Score zwischen 1 und 15 Punkten (von 4 unter dem Spam-Schwellenwert bis zum Ablehnungsschwellenwert) oder ist der Klassifikator unsicher, kann ein Sprachmodell eine zweite Meinung abgeben: eine Wahrscheinlichkeit für Spam, Phishing, Betrug, Malware und Ham, aus einem einzigen Schritt des Modells gelesen, oder bei gehosteten Chat-Modellen ein geschriebenes Urteil mit einer Konfidenz. Sein Urteil fügt bis zu 6 Punkte hinzu oder zieht bis zu 3 ab. Eindeutiger Spam und eindeutiger Ham erreichen es nie. Das hält es schnell und günstig. [Sprachmodelle](llm.md)
 
 
 ## Das Zusammenspiel

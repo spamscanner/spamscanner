@@ -1,4 +1,4 @@
-<!-- source: c93fa1a3f9c7 -->
+<!-- source: 361732724f0e -->
 
 <!--
 label: 常见问题
@@ -42,7 +42,7 @@ keywords: Spam Scanner 常见问题, 垃圾邮件过滤器问题, 垃圾邮件�
 
 ## 我应该使用哪个语言模型？
 
-在 CPU 上通过 Ollama 使用 `qwen3.5:4b`，有 GPU 时使用 `qwen3.5:9b`。两者都采用 Apache 许可证，能读 201 种语言。Anthropic、OpenAI、Google 等提供的托管模型也可以使用。[推荐的模型](../../docs/llm.md#recommended-open-models)
+在 CPU 上通过 Ollama 使用 `qwen3.5:4b`，有 GPU 时使用 `qwen3.5:9b`。两者都采用 Apache 许可证，能读 201 种语言。Spam Scanner 从模型的一步计算中读出每种判定的概率，在双核 CPU 上每封邮件约需 11 秒，而写出回答需要 31 秒，准确率相同。如需托管服务，决策模型 Cloudflare Clef 和 TypeSafe Jev 在一秒内即可作答；Anthropic、OpenAI、Google 等也可以使用。[实测结果](../../docs/llm.md#measured)和[推荐的模型](../../docs/llm.md#recommended-open-models)
 
 
 ## 它能替代 SpamAssassin 吗？

@@ -1,4 +1,4 @@
-<!-- source: c93fa1a3f9c7 -->
+<!-- source: 361732724f0e -->
 
 <!--
 label: FAQ
@@ -42,7 +42,7 @@ Non. C’est un second avis pour les cas limites. Sans modèle, ces messages son
 
 ## Quel modèle de langage utiliser ?
 
-`qwen3.5:4b` via Ollama sur un processeur, ou `qwen3.5:9b` avec un GPU. Les deux sont sous licence Apache et lisent 201 langues. Les modèles hébergés d’Anthropic, d’OpenAI, de Google et d’autres fonctionnent aussi. [Modèles recommandés](../../docs/llm.md#recommended-open-models)
+`qwen3.5:4b` via Ollama sur un processeur, ou `qwen3.5:9b` avec un GPU. Les deux sont sous licence Apache et lisent 201 langues. Spam Scanner lit la probabilité de chaque verdict en une seule étape du modèle, ce qui, sur un processeur à deux cœurs, a pris environ 11 secondes par message au lieu de 31 pour une réponse rédigée, avec la même précision. Pour un service hébergé, les modèles de décision Cloudflare Clef et TypeSafe Jev répondent en moins d’une seconde ; Anthropic, OpenAI, Google et d’autres fonctionnent aussi. [Mesures](../../docs/llm.md#measured) et [modèles recommandés](../../docs/llm.md#recommended-open-models)
 
 
 ## Peut-il remplacer SpamAssassin ?

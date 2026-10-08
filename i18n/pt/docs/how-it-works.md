@@ -1,4 +1,4 @@
-<!-- source: 05a106ecd728 -->
+<!-- source: 35bf62a30cd7 -->
 
 # Como funciona
 
@@ -95,7 +95,7 @@ Alguns padrões não precisam de estatística: a sequência de teste GTUBE, assu
 
 ## O modelo de linguagem
 
-Quando a pontuação fica entre 1 e 15 pontos (de 4 abaixo do limite de spam até o limite de rejeição), ou o classificador está incerto, um modelo de linguagem pode dar uma segunda opinião: spam, phishing, golpe, malware ou ham, com o seu grau de confiança. O veredito dele adiciona até 6 pontos ou remove até 3. As mensagens que são claramente spam ou claramente ham nunca chegam a ele, o que o mantém rápido e barato. [Modelos de linguagem](llm.md)
+Quando a pontuação fica entre 1 e 15 pontos (de 4 abaixo do limite de spam até o limite de rejeição), ou o classificador está incerto, um modelo de linguagem pode dar uma segunda opinião: uma probabilidade para cada opção entre spam, phishing, golpe, malware e ham, lida de um único passo do modelo, ou um veredito escrito com um grau de confiança, no caso dos modelos de chat hospedados. O veredito dele adiciona até 6 pontos ou remove até 3. As mensagens que são claramente spam ou claramente ham nunca chegam a ele, o que o mantém rápido e barato. [Modelos de linguagem](llm.md)
 
 
 ## Juntando tudo

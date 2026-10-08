@@ -1,4 +1,4 @@
-<!-- source: c93fa1a3f9c7 -->
+<!-- source: 361732724f0e -->
 
 <!--
 label: UKK
@@ -42,7 +42,7 @@ Et. Se on toinen mielipide epäselviin tapauksiin. Ilman sitä nämä viestit ra
 
 ## Mitä kielimallia minun kannattaa käyttää?
 
-`qwen3.5:4b` Ollaman kautta suorittimella tai `qwen3.5:9b` näytönohjaimella. Molemmat ovat Apache-lisensoituja ja lukevat 201 kieltä. Myös Anthropicin, OpenAI:n, Googlen ja muiden palveluna tarjoamat mallit toimivat. [Suositellut mallit](../../docs/llm.md#recommended-open-models)
+`qwen3.5:4b` Ollaman kautta suorittimella tai `qwen3.5:9b` näytönohjaimella. Molemmat ovat Apache-lisensoituja ja lukevat 201 kieltä. Spam Scanner lukee kunkin tuomion todennäköisyyden mallin yhdestä askeleesta, mikä kaksiytimisellä suorittimella vei noin 11 sekuntia viestiä kohden kirjoitetun vastauksen 31 sekunnin sijaan, samalla tarkkuudella. Palveluna toimivista vaihtoehdoista päätösmallit Cloudflare Clef ja TypeSafe Jev vastaavat alle sekunnissa; myös Anthropicin, OpenAI:n, Googlen ja muiden mallit toimivat. [Mittaukset](../../docs/llm.md#measured) ja [suositellut mallit](../../docs/llm.md#recommended-open-models)
 
 
 ## Voiko se korvata SpamAssassinin?

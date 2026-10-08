@@ -1,4 +1,4 @@
-<!-- source: a59bc5927d86 -->
+<!-- source: c061da9312ad -->
 
 # コマンドライン
 
@@ -72,21 +72,23 @@ spamscanner scan message.eml --subject-tag "[SPAM]" > tagged.eml
 
 ### 言語モデル
 
-| オプション                                                   | 意味                                                               |
-| ------------------------------------------------------- | ---------------------------------------------------------------- |
-| `--llm <provider>`                                      | `ollama`、`openai`、`anthropic`、`gemini`など（[一覧](llm.md#providers)） |
-| `--llm-model <name>`                                    | モデル。例：`qwen3.5:4b`、`claude-haiku-4-5`                            |
-| `--llm-url <url>`                                       | ベースURL。例：`http://10.0.0.5:11434`                                 |
-| `--llm-host`、`--llm-port`、`--llm-path`、`--llm-protocol` | プロバイダーのURLの一部を変更する                                               |
-| `--llm-api-key <key>`                                   | APIキー。下記の環境変数も参照                                                 |
-| `--llm-auth <type>`                                     | `bearer`、`x-api-key`、`api-key`、`basic`、`header`、`none`のいずれか      |
-| `--llm-auth-header <name>`                              | キーを入れるヘッダー。`--llm-auth header`と併用                                |
-| `--llm-username`、`--llm-password`                       | `--llm-auth basic`用                                              |
-| `--llm-header "Name: value"`                            | 追加のリクエストヘッダー。繰り返し指定可                                             |
-| `--llm-mode <mode>`                                     | `auto`（際どい判定のみ、デフォルト）または`always`                                 |
-| `--llm-timeout <ms>`                                    | デフォルトは30000                                                      |
-| `--llm-policy <text>`                                   | モデル向けの追加ルール。例：「請求書をメールで送ることはない」                                  |
-| `--llm-redact`、`--no-llm-redact`                        | 先に個人データを削除する。リモートのプロバイダーではデフォルトで有効                               |
+| オプション                                                   | 意味                                                                                        |
+| ------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `--llm <provider>`                                      | `ollama`、`clef-flash`、`jev`、`openai`、`anthropic`など（[一覧](llm.md#providers)）                |
+| `--llm-model <name>`                                    | モデル。例：`qwen3.5:4b`、`claude-haiku-4-5`                                                     |
+| `--llm-method <method>`                                 | `decision`（1ステップで各判定の確率を出す。使える場合はデフォルト）または`generate`（[方式](llm.md#decision-or-generation)） |
+| `--llm-account <id>`                                    | CloudflareのアカウントID。`clef`と`clef-flash`用                                                   |
+| `--llm-url <url>`                                       | ベースURL。例：`http://10.0.0.5:11434`                                                          |
+| `--llm-host`、`--llm-port`、`--llm-path`、`--llm-protocol` | プロバイダーのURLの一部を変更する                                                                        |
+| `--llm-api-key <key>`                                   | APIキー。下記の環境変数も参照                                                                          |
+| `--llm-auth <type>`                                     | `bearer`、`x-api-key`、`api-key`、`basic`、`header`、`none`のいずれか                               |
+| `--llm-auth-header <name>`                              | キーを入れるヘッダー。`--llm-auth header`と併用                                                         |
+| `--llm-username`、`--llm-password`                       | `--llm-auth basic`用                                                                       |
+| `--llm-header "Name: value"`                            | 追加のリクエストヘッダー。繰り返し指定可                                                                      |
+| `--llm-mode <mode>`                                     | `auto`（際どい判定のみ、デフォルト）または`always`                                                          |
+| `--llm-timeout <ms>`                                    | デフォルトは30000                                                                               |
+| `--llm-policy <text>`                                   | モデル向けの追加ルール。例：「請求書をメールで送ることはない」                                                           |
+| `--llm-redact`、`--no-llm-redact`                        | 先に個人データを削除する。リモートのプロバイダーではデフォルトで有効                                                        |
 
 
 ## filter
@@ -163,7 +165,7 @@ spamscanner models
 spamscanner llm-test --llm ollama --llm-model qwen3.5:4b
 ```
 
-`llm-test`は、英語とイタリア語で、普通のメッセージ1通と詐欺のメッセージ2通をモデルに送り、その判定を表示します。3通すべてが正しい場合にだけ0で終了します。
+`llm-test`は、英語とイタリア語で、普通のメッセージ1通と詐欺のメッセージ2通をモデルに送り、その判定、それぞれにかかった時間、使った方式、ハードウェアを表示します。3通すべてが正しい場合にだけ0で終了します。
 
 
 ## 設定ファイル
@@ -185,11 +187,11 @@ spamscanner llm-test --llm ollama --llm-model qwen3.5:4b
 
 ## 環境変数
 
-| 変数                                                                                                                                                                                                                                       | 意味                    |
-| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
-| `SPAMSCANNER_CONFIG`                                                                                                                                                                                                                     | 設定ファイル                |
-| `SPAMSCANNER_MODEL`                                                                                                                                                                                                                      | 同梱モデルの代わりに使うモデルファイル   |
-| `SPAMSCANNER_TOKEN`                                                                                                                                                                                                                      | HTTP API用のトークン        |
-| `SPAMSCANNER_LLM_API_KEY`                                                                                                                                                                                                                | 任意の言語モデルプロバイダー用のAPIキー |
-| `OPENAI_API_KEY`、`ANTHROPIC_API_KEY`、`GEMINI_API_KEY`、`MISTRAL_API_KEY`、`GROQ_API_KEY`、`OPENROUTER_API_KEY`、`DEEPSEEK_API_KEY`、`XAI_API_KEY`、`TOGETHER_API_KEY`、`FIREWORKS_API_KEY`、`CEREBRAS_API_KEY`、`HF_TOKEN`、`AZURE_OPENAI_API_KEY` | 各プロバイダー固有のキー          |
-| `NODE_DEBUG=spamscanner*`                                                                                                                                                                                                                | デバッグログ                |
+| 変数                                                                                                                                                                                                                                                                                                         | 意味                    |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
+| `SPAMSCANNER_CONFIG`                                                                                                                                                                                                                                                                                       | 設定ファイル                |
+| `SPAMSCANNER_MODEL`                                                                                                                                                                                                                                                                                        | 同梱モデルの代わりに使うモデルファイル   |
+| `SPAMSCANNER_TOKEN`                                                                                                                                                                                                                                                                                        | HTTP API用のトークン        |
+| `SPAMSCANNER_LLM_API_KEY`                                                                                                                                                                                                                                                                                  | 任意の言語モデルプロバイダー用のAPIキー |
+| `CLOUDFLARE_API_TOKEN`と`CLOUDFLARE_ACCOUNT_ID`、`TYPESAFE_API_KEY`、`OPENAI_API_KEY`、`ANTHROPIC_API_KEY`、`GEMINI_API_KEY`、`MISTRAL_API_KEY`、`GROQ_API_KEY`、`OPENROUTER_API_KEY`、`DEEPSEEK_API_KEY`、`XAI_API_KEY`、`TOGETHER_API_KEY`、`FIREWORKS_API_KEY`、`CEREBRAS_API_KEY`、`HF_TOKEN`、`AZURE_OPENAI_API_KEY` | 各プロバイダー固有のキー          |
+| `NODE_DEBUG=spamscanner*`                                                                                                                                                                                                                                                                                  | デバッグログ                |

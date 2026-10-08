@@ -1,4 +1,4 @@
-<!-- source: c56969e779c4 -->
+<!-- source: 8860e232d858 -->
 
 # Spam Scannerドキュメント
 
@@ -27,7 +27,7 @@ Spam Scannerは、Node.jsとコマンドライン向けのスパムフィルタ�
 * **認証**：クライアントのIPアドレスがわかっている場合のSPF、DKIM、DMARC、ARC。[認証](how-it-works.md#authentication)
 * **DNSブロックリスト**：クライアントのIPアドレスとリンク内のドメインが対象です。既知のマルウェアサイトとアダルトサイトにはCloudflareのフィルタリング用リゾルバーを使います。[ブロックリスト](how-it-works.md#blocklists)
 * **ルール**：分類器が学習するまでもないパターン向けです。GTUBEのテスト文字列、セクストーションの件名、PayPalの請求書詐欺、自己なりすまし、AIフィルター向けに隠された指示。[ルール](scoring.md#rules)
-* **言語モデル**（オプション）：際どい判定についてセカンドオピニオンを出します。Ollamaや任意のOpenAI互換サーバーを使ったローカルモデル、またはClaude、ChatGPT、Geminiなど。[言語モデル](llm.md)
+* **言語モデル**（オプション）：際どい判定についてセカンドオピニオンを出します。Ollamaや任意のOpenAI互換サーバーを使ったローカルモデル、CloudflareのClefなどの決定モデル、またはClaude、ChatGPT、Geminiなど。デフォルトでは、回答を書かせるのではなく、1ステップで各判定の確率を返します。[言語モデル](llm.md)
 
 
 ## どこから始めるか
@@ -37,7 +37,7 @@ Spam Scannerは、Node.jsとコマンドライン向けのスパムフィルタ�
 * [PostfixとSendmail](postfix.md)：milterまたはコンテンツフィルターでメールサーバーをフィルタリングします。
 * [その他のメールサーバー](mail-servers.md)：Exim、Haraka、Dovecot、procmail、そしてHTTP APIを呼び出せるあらゆるもの。
 * [学習](training.md)：自分のメールを学習させ、結果を計測します。
-* [言語モデル](llm.md)：プロバイダー、推奨のオープンモデル、プライバシー、プロンプトインジェクション。
+* [言語モデル](llm.md)：決定と生成、測定した正確さと速度、決定モデル、プロバイダー、推奨のオープンモデル、プライバシー、プロンプトインジェクション。
 * [言語](languages.md)：中国語、アラビア語、タイ語をはじめ、あらゆる文字体系の読み方。
 * [Forward Email](forward-email.md)：Forward Emailでの使い方と、バージョン5または6からのアップグレード。
 * [APIリファレンス](api.md)と[テストとスコア](scoring.md)。

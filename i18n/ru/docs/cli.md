@@ -1,4 +1,4 @@
-<!-- source: a59bc5927d86 -->
+<!-- source: c061da9312ad -->
 
 # Командная строка
 
@@ -72,21 +72,23 @@ spamscanner scan message.eml --subject-tag "[SPAM]" > tagged.eml
 
 ### Языковая модель
 
-| Параметр                                                   | Значение                                                                             |
-| ---------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| `--llm <provider>`                                         | `ollama`, `openai`, `anthropic`, `gemini` и другие ([список](llm.md#providers))      |
-| `--llm-model <name>`                                       | Модель, например `qwen3.5:4b` или `claude-haiku-4-5`                                 |
-| `--llm-url <url>`                                          | Базовый URL, например `http://10.0.0.5:11434`                                        |
-| `--llm-host`, `--llm-port`, `--llm-path`, `--llm-protocol` | Изменить одну часть URL провайдера                                                   |
-| `--llm-api-key <key>`                                      | Ключ API; см. также переменные окружения ниже                                        |
-| `--llm-auth <type>`                                        | `bearer`, `x-api-key`, `api-key`, `basic`, `header` или `none`                       |
-| `--llm-auth-header <name>`                                 | Заголовок для ключа, вместе с `--llm-auth header`                                    |
-| `--llm-username`, `--llm-password`                         | Для `--llm-auth basic`                                                               |
-| `--llm-header "Name: value"`                               | Дополнительный заголовок запроса; можно повторять                                    |
-| `--llm-mode <mode>`                                        | `auto` (только спорные случаи, по умолчанию) или `always`                            |
-| `--llm-timeout <ms>`                                       | По умолчанию 30000                                                                   |
-| `--llm-policy <text>`                                      | Дополнительные правила для модели, например «Мы никогда не отправляем счета»         |
-| `--llm-redact`, `--no-llm-redact`                          | Сначала удалять персональные данные; по умолчанию включено для удалённых провайдеров |
+| Параметр                                                   | Значение                                                                                                                                   |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `--llm <provider>`                                         | `ollama`, `clef-flash`, `jev`, `openai`, `anthropic` и другие ([список](llm.md#providers))                                                 |
+| `--llm-model <name>`                                       | Модель, например `qwen3.5:4b` или `claude-haiku-4-5`                                                                                       |
+| `--llm-method <method>`                                    | `decision` (вероятность каждого вердикта за один шаг; по умолчанию, где доступно) или `generate` ([методы](llm.md#decision-or-generation)) |
+| `--llm-account <id>`                                       | ID аккаунта Cloudflare, для `clef` и `clef-flash`                                                                                          |
+| `--llm-url <url>`                                          | Базовый URL, например `http://10.0.0.5:11434`                                                                                              |
+| `--llm-host`, `--llm-port`, `--llm-path`, `--llm-protocol` | Изменить одну часть URL провайдера                                                                                                         |
+| `--llm-api-key <key>`                                      | Ключ API; см. также переменные окружения ниже                                                                                              |
+| `--llm-auth <type>`                                        | `bearer`, `x-api-key`, `api-key`, `basic`, `header` или `none`                                                                             |
+| `--llm-auth-header <name>`                                 | Заголовок для ключа, вместе с `--llm-auth header`                                                                                          |
+| `--llm-username`, `--llm-password`                         | Для `--llm-auth basic`                                                                                                                     |
+| `--llm-header "Name: value"`                               | Дополнительный заголовок запроса; можно повторять                                                                                          |
+| `--llm-mode <mode>`                                        | `auto` (только спорные случаи, по умолчанию) или `always`                                                                                  |
+| `--llm-timeout <ms>`                                       | По умолчанию 30000                                                                                                                         |
+| `--llm-policy <text>`                                      | Дополнительные правила для модели, например «Мы никогда не отправляем счета»                                                               |
+| `--llm-redact`, `--no-llm-redact`                          | Сначала удалять персональные данные; по умолчанию включено для удалённых провайдеров                                                       |
 
 
 ## filter
@@ -163,7 +165,7 @@ spamscanner models
 spamscanner llm-test --llm ollama --llm-model qwen3.5:4b
 ```
 
-`llm-test` отправляет модели одно обычное письмо и два мошеннических, на английском и итальянском, выводит её вердикты и завершается с кодом 0, только если все три верны.
+`llm-test` отправляет модели одно обычное письмо и два мошеннических, на английском и итальянском, выводит её вердикты, время на каждый, использованный метод и оборудование, и завершается с кодом 0, только если все три верны.
 
 
 ## Файл конфигурации
@@ -185,11 +187,11 @@ spamscanner llm-test --llm ollama --llm-model qwen3.5:4b
 
 ## Переменные окружения
 
-| Переменная                                                                                                                                                                                                                                           | Значение                                        |
-| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
-| `SPAMSCANNER_CONFIG`                                                                                                                                                                                                                                 | Файл конфигурации                               |
-| `SPAMSCANNER_MODEL`                                                                                                                                                                                                                                  | Файл модели, используемый вместо встроенной     |
-| `SPAMSCANNER_TOKEN`                                                                                                                                                                                                                                  | Токен для HTTP API                              |
-| `SPAMSCANNER_LLM_API_KEY`                                                                                                                                                                                                                            | Ключ API для любого провайдера языковых моделей |
-| `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `MISTRAL_API_KEY`, `GROQ_API_KEY`, `OPENROUTER_API_KEY`, `DEEPSEEK_API_KEY`, `XAI_API_KEY`, `TOGETHER_API_KEY`, `FIREWORKS_API_KEY`, `CEREBRAS_API_KEY`, `HF_TOKEN`, `AZURE_OPENAI_API_KEY` | Собственный ключ каждого провайдера             |
-| `NODE_DEBUG=spamscanner*`                                                                                                                                                                                                                            | Отладочный журнал                               |
+| Переменная                                                                                                                                                                                                                                                                                                                 | Значение                                        |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| `SPAMSCANNER_CONFIG`                                                                                                                                                                                                                                                                                                       | Файл конфигурации                               |
+| `SPAMSCANNER_MODEL`                                                                                                                                                                                                                                                                                                        | Файл модели, используемый вместо встроенной     |
+| `SPAMSCANNER_TOKEN`                                                                                                                                                                                                                                                                                                        | Токен для HTTP API                              |
+| `SPAMSCANNER_LLM_API_KEY`                                                                                                                                                                                                                                                                                                  | Ключ API для любого провайдера языковых моделей |
+| `CLOUDFLARE_API_TOKEN` и `CLOUDFLARE_ACCOUNT_ID`, `TYPESAFE_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `MISTRAL_API_KEY`, `GROQ_API_KEY`, `OPENROUTER_API_KEY`, `DEEPSEEK_API_KEY`, `XAI_API_KEY`, `TOGETHER_API_KEY`, `FIREWORKS_API_KEY`, `CEREBRAS_API_KEY`, `HF_TOKEN`, `AZURE_OPENAI_API_KEY` | Собственный ключ каждого провайдера             |
+| `NODE_DEBUG=spamscanner*`                                                                                                                                                                                                                                                                                                  | Отладочный журнал                               |
