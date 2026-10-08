@@ -1,1429 +1,673 @@
-/***
- * SpamScanner CLI
- *
- * Command-line interface for scanning emails for spam, phishing, and malware.
- * Can be used standalone or integrated with mail servers like Postfix and Dovecot.
- *
- * Exit codes:
- *   0 - Clean (not spam)
- *   1 - Spam detected
- *   2 - Error occurred
- */
-
 import {Buffer} from 'node:buffer';
-import {
-	createReadStream, readFileSync, writeFileSync, existsSync, mkdirSync,
-} from 'node:fs';
-import {createServer} from 'node:net';
-import {homedir} from 'node:os';
-import path from 'node:path';
+import {spawn} from 'node:child_process';
+import {existsSync, readFileSync} from 'node:fs';
 import process from 'node:process';
-import {fileURLToPath} from 'node:url';
-import SpamScanner from './index.js';
+import {parseArgs} from 'node:util';
+import {Classifier} from './classifier.js';
+import {rewriteMessage, spamHeaders} from './headers.js';
+import {PROVIDERS} from './llm.js';
+import {MilterServer} from './milter.js';
+import {loadDefaultModel, loadModel, saveModel} from './model.js';
+import {CLASSIFIER_MODELS, RECOMMENDED_MODELS} from './models.js';
+import {createHttpServer, createTcpServer, serializeResult} from './server.js';
+import {createSpamdServer} from './spamd.js';
+import {evaluate, readExamples, train} from './train.js';
+import {VERSION} from './version.js';
+import {SpamScanner} from './index.js';
 
-// Get version from package.json
-// Handle both ESM (import.meta.url) and CJS/bundled contexts
-let __filename;
-let __dirname;
-try {
-	__filename = fileURLToPath(import.meta.url);
-	__dirname = path.dirname(__filename);
-} catch {
-	// In bundled CJS context, use process.cwd() as fallback
-	__filename = '';
-	__dirname = process.cwd();
-}
+export const HELP = `Spam Scanner ${VERSION}
 
-/**
- * Supported languages with their ISO 639-1 codes
- */
-const SUPPORTED_LANGUAGES = {
-	en: 'English',
-	fr: 'French',
-	es: 'Spanish',
-	de: 'German',
-	it: 'Italian',
-	pt: 'Portuguese',
-	ru: 'Russian',
-	ja: 'Japanese',
-	ko: 'Korean',
-	zh: 'Chinese',
-	ar: 'Arabic',
-	hi: 'Hindi',
-	bn: 'Bengali',
-	ur: 'Urdu',
-	tr: 'Turkish',
-	pl: 'Polish',
-	nl: 'Dutch',
-	sv: 'Swedish',
-	no: 'Norwegian',
-	da: 'Danish',
-	fi: 'Finnish',
-	hu: 'Hungarian',
-	cs: 'Czech',
-	sk: 'Slovak',
-	sl: 'Slovenian',
-	hr: 'Croatian',
-	sr: 'Serbian',
-	bg: 'Bulgarian',
-	ro: 'Romanian',
-	el: 'Greek',
-	he: 'Hebrew',
-	th: 'Thai',
-	vi: 'Vietnamese',
-	id: 'Indonesian',
-	ms: 'Malay',
-	tl: 'Tagalog',
-	uk: 'Ukrainian',
-	be: 'Belarusian',
-	lt: 'Lithuanian',
-	lv: 'Latvian',
-	et: 'Estonian',
-	ca: 'Catalan',
-	eu: 'Basque',
-	gl: 'Galician',
-	ga: 'Irish',
-	gd: 'Scottish Gaelic',
-	cy: 'Welsh',
-	is: 'Icelandic',
-	mt: 'Maltese',
-	af: 'Afrikaans',
-	sw: 'Swahili',
-	am: 'Amharic',
-	ha: 'Hausa',
-	yo: 'Yoruba',
-	ig: 'Igbo',
-	so: 'Somali',
-	om: 'Oromo',
-	ti: 'Tigrinya',
-	mg: 'Malagasy',
-	ny: 'Chichewa',
-	sn: 'Shona',
-	xh: 'Xhosa',
-	zu: 'Zulu',
-	st: 'Southern Sotho',
-	tn: 'Tswana',
-};
-
-/**
- * Default score weights for different detection types
- */
-const DEFAULT_SCORES = {
-	classifier: 5, // Base score when classifier says spam
-	phishing: 5, // Per phishing issue detected
-	executable: 10, // Per dangerous executable detected
-	macro: 5, // Per macro detected
-	virus: 100, // Per virus detected
-	nsfw: 3, // Per NSFW content detected
-	toxicity: 3, // Per toxic content detected
-};
-
-/**
- * Update check cache file location
- */
-const UPDATE_CACHE_DIR = path.join(homedir(), '.spamscanner');
-const UPDATE_CACHE_FILE = path.join(UPDATE_CACHE_DIR, 'update-check.json');
-const UPDATE_CHECK_INTERVAL = 24 * 60 * 60 * 1000; // 24 hours
-
-/* global __SPAMSCANNER_VERSION__ */
-
-/**
- * Find the package.json by traversing up from current directory
- * @returns {string} Version string
- */
-function getVersion() {
-	// For bundled binaries, use build-time version
-	// This is replaced during build by esbuild define
-	// Using a global variable pattern that esbuild can reliably replace
-	if (typeof __SPAMSCANNER_VERSION__ !== 'undefined') {
-		return __SPAMSCANNER_VERSION__;
-	}
-
-	// Try multiple possible locations
-	const possiblePaths = [
-		path.join(__dirname, '..', 'package.json'),
-		path.join(__dirname, '..', '..', 'package.json'),
-		path.join(__dirname, '..', '..', '..', 'package.json'),
-		path.join(process.cwd(), 'package.json'),
-	];
-
-	for (const pkgPath of possiblePaths) {
-		try {
-			const content = readFileSync(pkgPath, 'utf8');
-			const pkg = JSON.parse(content);
-			if (pkg.name === 'spamscanner' && pkg.version) {
-				return pkg.version;
-			}
-		} catch {
-			// Continue to next path
-		}
-	}
-
-	return 'unknown';
-}
-
-const VERSION = getVersion();
-
-/**
- * Compare two semver versions
- * @param {string} v1 - First version
- * @param {string} v2 - Second version
- * @returns {number} -1 if v1 < v2, 0 if equal, 1 if v1 > v2
- */
-function compareVersions(v1, v2) {
-	const parts1 = v1.replace(/^v/, '').split('.').map(Number);
-	const parts2 = v2.replace(/^v/, '').split('.').map(Number);
-
-	for (let i = 0; i < Math.max(parts1.length, parts2.length); i++) {
-		const p1 = parts1[i] || 0;
-		const p2 = parts2[i] || 0;
-		if (p1 < p2) {
-			return -1;
-		}
-
-		if (p1 > p2) {
-			return 1;
-		}
-	}
-
-	return 0;
-}
-
-/**
- * Get the platform-specific binary name
- * @returns {string} Binary name for current platform
- */
-function getBinaryName() {
-	const {platform} = process;
-	const {arch} = process;
-
-	if (platform === 'win32') {
-		return 'spamscanner-win-x64.exe';
-	}
-
-	if (platform === 'darwin') {
-		return arch === 'arm64' ? 'spamscanner-darwin-arm64' : 'spamscanner-darwin-x64';
-	}
-
-	return 'spamscanner-linux-x64';
-}
-
-/**
- * Check for updates from GitHub releases
- * @param {boolean} force - Force check even if recently checked
- * @returns {Promise<object|null>} Update info or null if up to date
- */
-async function checkForUpdates(force = false) {
-	try {
-		// Check cache first (unless forced)
-		if (!force && existsSync(UPDATE_CACHE_FILE)) {
-			const cache = JSON.parse(readFileSync(UPDATE_CACHE_FILE, 'utf8'));
-			const age = Date.now() - cache.timestamp;
-			if (age < UPDATE_CHECK_INTERVAL) {
-				// Return cached result
-				if (cache.latestVersion && compareVersions(cache.latestVersion, VERSION) > 0) {
-					return {
-						currentVersion: VERSION,
-						latestVersion: cache.latestVersion,
-						releaseUrl: cache.releaseUrl,
-						downloadUrl: cache.downloadUrl,
-						cached: true,
-					};
-				}
-
-				return null;
-			}
-		}
-
-		// Fetch latest release from GitHub API
-		const response = await fetch('https://api.github.com/repos/spamscanner/spamscanner/releases/latest', {
-			headers: {
-				Accept: 'application/vnd.github.v3+json',
-				'User-Agent': `spamscanner-cli/${VERSION}`,
-			},
-		});
-
-		if (!response.ok) {
-			return null;
-		}
-
-		const release = await response.json();
-		const latestVersion = release.tag_name.replace(/^v/, '');
-
-		// Find the download URL for current platform
-		const binaryName = getBinaryName();
-		const asset = release.assets.find(a => a.name === binaryName);
-		const downloadUrl = asset?.browser_download_url;
-
-		// Cache the result
-		const cacheData = {
-			timestamp: Date.now(),
-			latestVersion,
-			releaseUrl: release.html_url,
-			downloadUrl,
-		};
-
-		try {
-			if (!existsSync(UPDATE_CACHE_DIR)) {
-				mkdirSync(UPDATE_CACHE_DIR, {recursive: true});
-			}
-
-			writeFileSync(UPDATE_CACHE_FILE, JSON.stringify(cacheData, null, 2));
-		} catch {
-			// Ignore cache write errors
-		}
-
-		// Check if update is available
-		if (compareVersions(latestVersion, VERSION) > 0) {
-			return {
-				currentVersion: VERSION,
-				latestVersion,
-				releaseUrl: release.html_url,
-				downloadUrl,
-				cached: false,
-			};
-		}
-
-		return null;
-	} catch {
-		return null;
-	}
-}
-
-/**
- * Print update notification if available
- * @param {boolean} force - Force check even if recently checked
- */
-async function printUpdateNotification(force = false) {
-	const update = await checkForUpdates(force);
-	if (update) {
-		const {platform} = process;
-		console.error('');
-		console.error('╭─────────────────────────────────────────────────────────────╮');
-		console.error(`│  Update available: ${update.currentVersion} → ${update.latestVersion.padEnd(37)}│`);
-		console.error('│                                                             │');
-		if (update.downloadUrl) {
-			console.error('│  To update, run one of:                                     │');
-			if (platform === 'darwin') {
-				console.error('│    curl -fsSL https://github.com/spamscanner/spamscanner/releases/latest/download/install.sh | bash │');
-			} else if (platform === 'win32') {
-				console.error('│    irm https://github.com/spamscanner/spamscanner/releases/latest/download/install.ps1 | iex │');
-			} else {
-				console.error('│    curl -fsSL https://github.com/spamscanner/spamscanner/releases/latest/download/install.sh | bash │');
-			}
-
-			console.error('│                                                             │');
-			console.error('│  Or download manually from:                                 │');
-		} else {
-			console.error('│  Download from:                                             │');
-		}
-
-		console.error('│    https://github.com/spamscanner/spamscanner/releases      │');
-		console.error('╰─────────────────────────────────────────────────────────────╯');
-		console.error('');
-	}
-}
-
-/**
- * Format the list of supported languages for help text
- * @returns {string} Formatted language list
- */
-function formatLanguageList() {
-	const entries = Object.entries(SUPPORTED_LANGUAGES);
-	const lines = [];
-	for (let i = 0; i < entries.length; i += 4) {
-		const chunk = entries.slice(i, i + 4);
-		const formatted = chunk.map(([code, name]) => `${code} (${name})`).join(', ');
-		lines.push(`    ${formatted}`);
-	}
-
-	return lines.join('\n');
-}
-
-const HELP_TEXT = `
-SpamScanner CLI v${VERSION}
-
-Usage:
-  spamscanner <command> [options]
+Usage: spamscanner <command> [options]
 
 Commands:
-  scan <file>     Scan an email file for spam
-  scan -          Scan email from stdin
-  server          Start TCP server mode
-  update          Check for updates
-  help            Show this help message
-  version         Show version number
+  scan [file|-]        Scan a message (a file, or standard input with "-")
+  filter -f <sender> -- <recipients...>
+                       Postfix content filter: scan standard input, add headers,
+                       and pass the message on to sendmail
+  milter               Run a milter for Postfix or Sendmail (port 7831)
+  http                 Run an HTTP API (port 7832)
+  server               Run a plain TCP server (port 7830)
+  spamd                Run a SpamAssassin-compatible spamd server (port 783),
+                       for spamc, Exim's spam condition and Haraka
+  train                Train a classifier model from your mail
+  eval                 Measure a model on labelled mail
+  learn spam|ham [file|-] --model <file>
+                       Teach a model one message (for "report spam" buttons)
+  llm-test             Check the language model settings with sample messages
+  models               List recommended open models
+  version, help
 
-General Options:
-  -h, --help      Show help
-  -v, --version   Show version
-  -j, --json      Output results as JSON
-  --verbose       Show detailed output
-  --debug         Enable debug mode
-  --timeout <ms>  Scan timeout in milliseconds (default: 30000)
-  --no-update-check  Disable automatic update check
+Scanning:
+  --json               Print the full result as JSON
+  --headers            Print the message with X-Spam headers added
+  --subject-tag <tag>  Prefix the subject of spam, e.g. "[SPAM]"
+  --verbose            Show every test and the classifier's strongest clues
+  --threshold <n>      Score at which mail is spam (default 5)
+  --reject-threshold <n>  Score at which mail is rejected (default 15)
+  --model <file>       Classifier model (default: the bundled model)
+  --no-classifier      Do not use the classifier
+  --config <file>      JSON file with scanner settings (see the API docs)
+  --allow-language <codes>  Accepted languages, e.g. en,de,fr
 
-Spam Detection Options:
-  --threshold <score>     Spam score threshold (default: 5.0)
-  --check-classifier      Include Bayesian classifier in scoring (default: true)
-  --check-phishing        Include phishing detection in scoring (default: true)
-  --check-executables     Include executable detection in scoring (default: true)
-  --check-macros          Include macro detection in scoring (default: true)
-  --check-virus           Include virus detection in scoring (default: true)
-  --check-nsfw            Include NSFW detection in scoring (default: false)
-  --check-toxicity        Include toxicity detection in scoring (default: false)
-  --no-classifier         Disable Bayesian classifier scoring
-  --no-phishing           Disable phishing scoring
-  --no-executables        Disable executable scoring
-  --no-macros             Disable macro scoring
-  --no-virus              Disable virus scoring
+SMTP session (improves accuracy):
+  --ip <address>       IP address of the client that sent the message
+  --hostname <name>    Its verified reverse DNS name
+  --helo <name>        The name it gave in HELO/EHLO
+  --from <address>     Envelope sender (MAIL FROM)
+  --to <address>       Envelope recipient (repeatable)
 
-Score Weights (customize scoring):
-  --score-classifier <n>  Classifier spam score weight (default: 5.0)
-  --score-phishing <n>    Phishing score per issue (default: 5.0)
-  --score-executable <n>  Executable score per file (default: 10.0)
-  --score-macro <n>       Macro score per detection (default: 5.0)
-  --score-virus <n>       Virus score per detection (default: 100.0)
-  --score-nsfw <n>        NSFW score per detection (default: 3.0)
-  --score-toxicity <n>    Toxicity score per detection (default: 3.0)
+Checks:
+  --auth               Check SPF, DKIM, DMARC and ARC (needs --ip)
+  --dnsbl <zone>       IP blocklist, e.g. zen.spamhaus.org (repeatable)
+  --uribl <zone>       Domain blocklist for links, e.g. dbl.spamhaus.org (repeatable)
+  --dns-server <ip>    Name server for DNS checks (repeatable)
+  --no-cloudflare      Do not ask Cloudflare's filtering resolvers about links
+  --clamav [socket]    Scan attachments with clamd (default socket if none given)
+  --allowlist <value>  Always accept this IP, domain or address (repeatable)
+  --denylist <value>   Always reject this IP, domain or address (repeatable)
 
-Scanner Configuration Options:
-  --languages <list>      Comma-separated list of supported language codes (default: all)
-                          Use empty string or 'all' for all languages
-  --mixed-language        Enable mixed language detection in emails
-  --no-macro-detection    Disable macro detection in attachments
-  --no-pattern-recognition  Disable advanced pattern recognition
-  --strict-idn            Enable strict IDN/homograph detection
-  --nsfw-threshold <n>    NSFW detection threshold 0.0-1.0 (default: 0.6)
-  --toxicity-threshold <n>  Toxicity detection threshold 0.0-1.0 (default: 0.7)
-  --clamscan-path <path>  Path to clamscan binary (default: /usr/bin/clamscan)
-  --clamdscan-path <path> Path to clamdscan binary (default: /usr/bin/clamdscan)
+Language model (a second opinion; see "spamscanner models"):
+  --llm <provider>     ${Object.keys(PROVIDERS).join(', ')}
+  --llm-model <name>   Model name, e.g. qwen3.5:4b or claude-haiku-4-5
+  --llm-url <url>      Base URL, e.g. http://10.0.0.5:11434 or https://host/v1
+  --llm-host <host>  --llm-port <port>  --llm-path <path>  --llm-protocol <http|https>
+                       Change parts of the provider's URL
+  --llm-api-key <key>  API key (or SPAMSCANNER_LLM_API_KEY, or the provider's
+                       variable: OPENAI_API_KEY, ANTHROPIC_API_KEY, ...)
+  --llm-auth <type>    bearer, x-api-key, api-key, basic, header or none
+  --llm-auth-header <name>  Header that carries the key, with --llm-auth header
+  --llm-username <u>  --llm-password <p>  For --llm-auth basic
+  --llm-header "Name: value"  Extra request header (repeatable)
+  --llm-mode <mode>    auto (when the score is close; default) or always
+  --llm-timeout <ms>   Default 30000
+  --llm-policy <text>  Extra rules for the model, e.g. "We never send invoices"
+  --llm-redact / --no-llm-redact  Remove personal data first (default: on for remote providers)
 
-Authentication Options (mailauth):
-  --enable-auth           Enable DKIM/SPF/ARC/DMARC/BIMI authentication
-  --sender-ip <ip>        Remote IP address of the sender (required for auth)
-  --sender-hostname <host>  Resolved hostname of the sender (from reverse DNS)
-  --helo <hostname>       HELO/EHLO hostname
-  --sender <email>        Envelope sender (MAIL FROM)
-  --mta <hostname>        MTA hostname for auth headers (default: spamscanner)
-  --auth-timeout <ms>     DNS lookup timeout for auth (default: 10000)
+Filter (Postfix pipe):
+  --sendmail <path>    Default /usr/sbin/sendmail
+  --reject             Bounce mail at the reject threshold instead of passing it on
+  --discard            Drop mail at the reject threshold instead of passing it on
 
-Reputation Options (Forward Email API):
-  --enable-reputation     Enable Forward Email reputation checking
-  --reputation-url <url>  Custom reputation API URL
-  --reputation-timeout <ms>  Reputation API timeout (default: 10000)
-  --only-aligned          Only check aligned/authenticated attributes for reputation (default: true)
-  --no-only-aligned       Check all attributes regardless of alignment
+Servers:
+  --port <n>  --host <ip>  --socket <path>
+  --reject             Milter: refuse mail at the reject threshold
+  --reject-code <n>    Milter: 451 (try later; default) or 550
+  --name <hostname>    Milter: this server's name in Authentication-Results
+  --quarantine         Milter: hold spam in the mail server's quarantine
+  --token <secret>     HTTP: require "Authorization: Bearer <secret>"
+  --allow-tell         spamd: accept TELL (learning) requests; saves to --out
 
-Header Options:
-  --add-headers           Add X-Spam-* headers to output (for mail server integration)
-  --add-auth-headers      Add Authentication-Results header to output
-  --prepend-subject       Prepend [SPAM] to subject if spam detected
-  --subject-tag <tag>     Custom subject tag (default: [SPAM])
+Training:
+  --spam <path>        Spam: an mbox file, a Maildir or a folder of .eml files (repeatable)
+  --ham <path>         Ham, likewise (repeatable)
+  --dataset <file>     A CSV or JSON Lines file with text and label columns (repeatable)
+  --text-column <name>  --label-column <name>  Column names in datasets
+  --out <file>         Where to write the model (train, learn)
+  --merge              Start from the bundled model instead of an empty one
 
-Server Options:
-  --port <port>   TCP server port (default: 7830)
-  --host <host>   TCP server host (default: 127.0.0.1)
-
-Supported Languages (use ISO 639-1 codes with --languages):
-${formatLanguageList()}
-
-Examples:
-  # Scan a file
-  spamscanner scan email.eml
-
-  # Scan from stdin (for Postfix integration)
-  cat email.eml | spamscanner scan -
-
-  # Scan with JSON output
-  spamscanner scan email.eml --json
-
-  # Scan with custom threshold
-  spamscanner scan email.eml --threshold 3.0
-
-  # Scan with only classifier and phishing checks
-  spamscanner scan email.eml --no-executables --no-macros --no-virus
-
-  # Scan and add spam headers (for mail server integration)
-  spamscanner scan email.eml --add-headers --prepend-subject
-
-  # Scan with specific language support
-  spamscanner scan email.eml --languages en,es,fr
-
-  # Scan with mixed language detection
-  spamscanner scan email.eml --mixed-language
-
-  # Start TCP server
-  spamscanner server --port 7830
-
-  # Scan with authentication (DKIM/SPF/DMARC)
-  spamscanner scan email.eml --enable-auth --sender-ip 192.168.1.1 --sender user@example.com
-
-  # Scan with reputation checking
-  spamscanner scan email.eml --enable-reputation
-
-  # Full mail server integration
-  spamscanner scan email.eml --enable-auth --enable-reputation --sender-ip 192.168.1.1 --add-headers --add-auth-headers
-
-  # Check for updates
-  spamscanner update
-
-Exit Codes:
-  0 - Clean (not spam)
-  1 - Spam detected
-  2 - Error occurred
-
-X-Spam Headers (when --add-headers is used):
-  X-Spam-Status: Yes/No, score=X.X required=Y.Y tests=TEST1,TEST2,...
-  X-Spam-Score: X.X
-  X-Spam-Flag: YES/NO
-  X-Spam-Tests: Comma-separated list of triggered tests
+Exit codes for scan: 0 ham, 1 spam, 2 error.
+Documentation: https://spamscanner.net
 `;
 
-/**
- * Parse command line arguments
- * @param {string[]} args - Command line arguments
- * @returns {object} Parsed arguments
- */
-function parseArgs(args) {
-	const result = {
-		command: null,
-		file: null,
-		json: false,
-		verbose: false,
-		debug: false,
-		port: 7830,
-		host: '127.0.0.1',
-		timeout: 30_000,
-		help: false,
-		version: false,
-		noUpdateCheck: false,
-		// Spam detection options
-		threshold: 5,
-		checkClassifier: true,
-		checkPhishing: true,
-		checkExecutables: true,
-		checkMacros: true,
-		checkVirus: true,
-		checkNsfw: false,
-		checkToxicity: false,
-		// Score weights
-		scores: {...DEFAULT_SCORES},
-		// Header options
-		addHeaders: false,
-		prependSubject: false,
-		subjectTag: '[SPAM]',
-		// Scanner configuration options
-		supportedLanguages: [], // Empty = all languages
-		enableMixedLanguageDetection: false,
-		enableMacroDetection: true,
-		enableAdvancedPatternRecognition: true,
-		strictIdnDetection: false,
-		nsfwThreshold: 0.6,
-		toxicityThreshold: 0.7,
-		clamscanPath: '/usr/bin/clamscan',
-		clamdscanPath: '/usr/bin/clamdscan',
-		// Authentication options
-		enableAuth: false,
-		senderIp: null,
-		senderHostname: null,
-		helo: null,
-		sender: null,
-		mta: 'spamscanner',
-		authTimeout: 10_000,
-		// Reputation options
-		enableReputation: false,
-		reputationUrl: 'https://api.forwardemail.net/v1/reputation',
-		reputationTimeout: 10_000,
-		onlyAligned: true,
-		// Additional header options
-		addAuthHeaders: false,
-	};
+const OPTIONS = {
+	help: {type: 'boolean', short: 'h'},
+	version: {type: 'boolean', short: 'v'},
+	json: {type: 'boolean', short: 'j'},
+	headers: {type: 'boolean'},
+	'add-headers': {type: 'boolean'},
+	'subject-tag': {type: 'string'},
+	'prepend-subject': {type: 'boolean'},
+	verbose: {type: 'boolean'},
+	debug: {type: 'boolean'},
+	threshold: {type: 'string'},
+	'reject-threshold': {type: 'string'},
+	model: {type: 'string'},
+	'no-classifier': {type: 'boolean'},
+	config: {type: 'string'},
+	'allow-language': {type: 'string'},
+	ip: {type: 'string'},
+	'sender-ip': {type: 'string'},
+	hostname: {type: 'string'},
+	'sender-hostname': {type: 'string'},
+	helo: {type: 'string'},
+	from: {type: 'string', short: 'f'},
+	sender: {type: 'string'},
+	to: {type: 'string', multiple: true},
+	auth: {type: 'boolean'},
+	'enable-auth': {type: 'boolean'},
+	dnsbl: {type: 'string', multiple: true},
+	uribl: {type: 'string', multiple: true},
+	'dns-server': {type: 'string', multiple: true},
+	'no-cloudflare': {type: 'boolean'},
+	clamav: {type: 'string'},
+	allowlist: {type: 'string', multiple: true},
+	denylist: {type: 'string', multiple: true},
+	llm: {type: 'string'},
+	'llm-model': {type: 'string'},
+	'llm-url': {type: 'string'},
+	'llm-host': {type: 'string'},
+	'llm-port': {type: 'string'},
+	'llm-path': {type: 'string'},
+	'llm-protocol': {type: 'string'},
+	'llm-api-key': {type: 'string'},
+	'llm-auth': {type: 'string'},
+	'llm-auth-header': {type: 'string'},
+	'llm-username': {type: 'string'},
+	'llm-password': {type: 'string'},
+	'llm-header': {type: 'string', multiple: true},
+	'llm-mode': {type: 'string'},
+	'llm-timeout': {type: 'string'},
+	'llm-policy': {type: 'string'},
+	'llm-redact': {type: 'boolean'},
+	'no-llm-redact': {type: 'boolean'},
+	sendmail: {type: 'string', default: '/usr/sbin/sendmail'},
+	reject: {type: 'boolean'},
+	discard: {type: 'boolean'},
+	port: {type: 'string'},
+	host: {type: 'string'},
+	socket: {type: 'string'},
+	'reject-code': {type: 'string'},
+	name: {type: 'string'},
+	quarantine: {type: 'boolean'},
+	token: {type: 'string'},
+	'allow-tell': {type: 'boolean'},
+	spam: {type: 'string', multiple: true},
+	ham: {type: 'string', multiple: true},
+	dataset: {type: 'string', multiple: true},
+	'text-column': {type: 'string'},
+	'label-column': {type: 'string'},
+	out: {type: 'string'},
+	merge: {type: 'boolean'},
+};
 
-	for (let index = 0; index < args.length; index++) {
-		const arg = args[index];
+const COMMANDS = new Set(['scan', 'filter', 'milter', 'http', 'server', 'spamd', 'train', 'eval', 'learn', 'llm-test', 'models', 'version', 'help']);
 
-		switch (arg) {
-			case 'scan':
-			case 'server':
-			case 'help':
-			case 'version':
-			case 'update': {
-				result.command = arg;
-				break;
-			}
-
-			case '-h':
-			case '--help': {
-				result.help = true;
-				break;
-			}
-
-			case '-v':
-			case '--version': {
-				result.version = true;
-				break;
-			}
-
-			case '-j':
-			case '--json': {
-				result.json = true;
-				break;
-			}
-
-			case '--verbose': {
-				result.verbose = true;
-				break;
-			}
-
-			case '--debug': {
-				result.debug = true;
-				break;
-			}
-
-			case '--no-update-check': {
-				result.noUpdateCheck = true;
-				break;
-			}
-
-			case '--port': {
-				result.port = Number.parseInt(args[++index], 10);
-				break;
-			}
-
-			case '--host': {
-				result.host = args[++index];
-				break;
-			}
-
-			case '--timeout': {
-				result.timeout = Number.parseInt(args[++index], 10);
-				break;
-			}
-
-			// Spam detection options
-			case '--threshold': {
-				result.threshold = Number.parseFloat(args[++index]);
-				break;
-			}
-
-			case '--check-classifier': {
-				result.checkClassifier = true;
-				break;
-			}
-
-			case '--check-phishing': {
-				result.checkPhishing = true;
-				break;
-			}
-
-			case '--check-executables': {
-				result.checkExecutables = true;
-				break;
-			}
-
-			case '--check-macros': {
-				result.checkMacros = true;
-				break;
-			}
-
-			case '--check-virus': {
-				result.checkVirus = true;
-				break;
-			}
-
-			case '--check-nsfw': {
-				result.checkNsfw = true;
-				break;
-			}
-
-			case '--check-toxicity': {
-				result.checkToxicity = true;
-				break;
-			}
-
-			case '--no-classifier': {
-				result.checkClassifier = false;
-				break;
-			}
-
-			case '--no-phishing': {
-				result.checkPhishing = false;
-				break;
-			}
-
-			case '--no-executables': {
-				result.checkExecutables = false;
-				break;
-			}
-
-			case '--no-macros': {
-				result.checkMacros = false;
-				break;
-			}
-
-			case '--no-virus': {
-				result.checkVirus = false;
-				break;
-			}
-
-			// Score weights
-			case '--score-classifier': {
-				result.scores.classifier = Number.parseFloat(args[++index]);
-				break;
-			}
-
-			case '--score-phishing': {
-				result.scores.phishing = Number.parseFloat(args[++index]);
-				break;
-			}
-
-			case '--score-executable': {
-				result.scores.executable = Number.parseFloat(args[++index]);
-				break;
-			}
-
-			case '--score-macro': {
-				result.scores.macro = Number.parseFloat(args[++index]);
-				break;
-			}
-
-			case '--score-virus': {
-				result.scores.virus = Number.parseFloat(args[++index]);
-				break;
-			}
-
-			case '--score-nsfw': {
-				result.scores.nsfw = Number.parseFloat(args[++index]);
-				break;
-			}
-
-			case '--score-toxicity': {
-				result.scores.toxicity = Number.parseFloat(args[++index]);
-				break;
-			}
-
-			// Header options
-			case '--add-headers': {
-				result.addHeaders = true;
-				break;
-			}
-
-			case '--prepend-subject': {
-				result.prependSubject = true;
-				break;
-			}
-
-			case '--subject-tag': {
-				result.subjectTag = args[++index];
-				break;
-			}
-
-			// Scanner configuration options
-			case '--languages': {
-				const langArg = args[++index];
-				result.supportedLanguages = langArg && langArg !== 'all' && langArg !== '' ? langArg.split(',').map(l => l.trim().toLowerCase()) : [];
-
-				break;
-			}
-
-			case '--mixed-language': {
-				result.enableMixedLanguageDetection = true;
-				break;
-			}
-
-			case '--no-macro-detection': {
-				result.enableMacroDetection = false;
-				break;
-			}
-
-			case '--no-pattern-recognition': {
-				result.enableAdvancedPatternRecognition = false;
-				break;
-			}
-
-			case '--strict-idn': {
-				result.strictIdnDetection = true;
-				break;
-			}
-
-			case '--nsfw-threshold': {
-				result.nsfwThreshold = Number.parseFloat(args[++index]);
-				break;
-			}
-
-			case '--toxicity-threshold': {
-				result.toxicityThreshold = Number.parseFloat(args[++index]);
-				break;
-			}
-
-			case '--clamscan-path': {
-				result.clamscanPath = args[++index];
-				break;
-			}
-
-			case '--clamdscan-path': {
-				result.clamdscanPath = args[++index];
-				break;
-			}
-
-			// Authentication options
-			case '--enable-auth': {
-				result.enableAuth = true;
-				break;
-			}
-
-			case '--sender-ip': {
-				result.senderIp = args[++index];
-				break;
-			}
-
-			case '--sender-hostname': {
-				result.senderHostname = args[++index];
-				break;
-			}
-
-			case '--helo': {
-				result.helo = args[++index];
-				break;
-			}
-
-			case '--sender': {
-				result.sender = args[++index];
-				break;
-			}
-
-			case '--mta': {
-				result.mta = args[++index];
-				break;
-			}
-
-			case '--auth-timeout': {
-				result.authTimeout = Number.parseInt(args[++index], 10);
-				break;
-			}
-
-			// Reputation options
-			case '--enable-reputation': {
-				result.enableReputation = true;
-				break;
-			}
-
-			case '--reputation-url': {
-				result.reputationUrl = args[++index];
-				break;
-			}
-
-			case '--reputation-timeout': {
-				result.reputationTimeout = Number.parseInt(args[++index], 10);
-				break;
-			}
-
-			case '--only-aligned': {
-				result.onlyAligned = true;
-				break;
-			}
-
-			case '--no-only-aligned': {
-				result.onlyAligned = false;
-				break;
-			}
-
-			// Additional header options
-			case '--add-auth-headers': {
-				result.addAuthHeaders = true;
-				break;
-			}
-
-			default: {
-				if (!result.file && result.command === 'scan'
-					&& (arg === '-' || !arg.startsWith('-'))) {
-					result.file = arg;
-				}
-			}
-		}
+function number(value, name) {
+	const parsed = Number(value);
+	if (!Number.isFinite(parsed)) {
+		throw new TypeError(`${name} must be a number, not "${value}"`);
 	}
 
-	return result;
+	return parsed;
 }
 
 /**
- * Read email content from file or stdin
- * @param {string} file - File path or '-' for stdin
- * @returns {Promise<Buffer>} Email content
+ * The --clamav option is optional-valued: "--clamav" alone uses the default
+ * socket. parseArgs needs a value, so a bare flag is given an empty one first.
+ * @param {string[]} argv
+ * @returns {string[]}
  */
-async function readEmail(file) {
-	if (file === '-') {
-		// Read from stdin
+function normalizeArgv(argv) {
+	const out = [];
+	for (let i = 0; i < argv.length; i++) {
+		out.push(argv[i]);
+		if (argv[i] === '--clamav' && (i + 1 >= argv.length || argv[i + 1].startsWith('-'))) {
+			out.push('');
+		}
+	}
+
+	return out;
+}
+
+/**
+ * Parse command-line arguments.
+ * @param {string[]} argv
+ * @returns {{command: string|null, positionals: string[], values: object}}
+ */
+export function parseCli(argv) {
+	const {values, positionals} = parseArgs({
+		args: normalizeArgv(argv), options: OPTIONS, allowPositionals: true, strict: true,
+	});
+	const command = positionals.length > 0 && COMMANDS.has(positionals[0]) ? positionals[0] : null;
+	return {command, positionals: command ? positionals.slice(1) : positionals, values};
+}
+
+/**
+ * Scanner settings from command-line values, on top of a --config file.
+ * @param {object} values
+ * @param {NodeJS.ProcessEnv} [env]
+ * @returns {object}
+ */
+export function buildConfig(values, env = process.env) {
+	const file = values.config || env.SPAMSCANNER_CONFIG;
+	const config = file ? JSON.parse(readFileSync(file, 'utf8')) : {};
+	if (values.threshold !== undefined) {
+		config.threshold = number(values.threshold, '--threshold');
+	}
+
+	if (values['reject-threshold'] !== undefined) {
+		config.rejectThreshold = number(values['reject-threshold'], '--reject-threshold');
+	}
+
+	if (values.model) {
+		config.classifier = values.model;
+	}
+
+	if (values['no-classifier']) {
+		config.classifier = false;
+	}
+
+	if (values['allow-language']) {
+		config.allowedLanguages = values['allow-language'].split(',').map(code => code.trim()).filter(Boolean);
+	}
+
+	if (values.auth || values['enable-auth']) {
+		config.authentication ||= true;
+	}
+
+	if (values.dnsbl || values.uribl) {
+		config.dnsbl = {...config.dnsbl, ...(values.dnsbl ? {ip: values.dnsbl} : {}), ...(values.uribl ? {domain: values.uribl} : {})};
+	}
+
+	if (values['dns-server']) {
+		config.dns = {...config.dns, servers: values['dns-server']};
+	}
+
+	if (values['no-cloudflare']) {
+		config.phishing = {...config.phishing, cloudflare: false};
+	}
+
+	if (values.clamav !== undefined) {
+		config.clamav = values.clamav ? {socket: values.clamav} : true;
+	}
+
+	if (values.allowlist || values.denylist) {
+		config.reputation = {
+			...config.reputation, ...(values.allowlist ? {allowlist: values.allowlist} : {}), ...(values.denylist ? {denylist: values.denylist} : {}),
+		};
+	}
+
+	const llm = {...config.llm};
+	const map = {
+		llm: 'provider', 'llm-model': 'model', 'llm-url': 'baseUrl', 'llm-host': 'host', 'llm-path': 'path', 'llm-protocol': 'protocol', 'llm-api-key': 'apiKey', 'llm-auth': 'auth', 'llm-auth-header': 'authHeader', 'llm-username': 'username', 'llm-password': 'password', 'llm-mode': 'mode', 'llm-policy': 'policy',
+	};
+	for (const [flag, key] of Object.entries(map)) {
+		if (values[flag] !== undefined) {
+			llm[key] = values[flag];
+		}
+	}
+
+	if (values['llm-port'] !== undefined) {
+		llm.port = number(values['llm-port'], '--llm-port');
+	}
+
+	if (values['llm-timeout'] !== undefined) {
+		llm.timeout = number(values['llm-timeout'], '--llm-timeout');
+	}
+
+	if (values['llm-header']) {
+		llm.headers = {...llm.headers};
+		for (const header of values['llm-header']) {
+			const colon = header.indexOf(':');
+			if (colon < 1) {
+				throw new TypeError(`--llm-header must look like "Name: value", not "${header}"`);
+			}
+
+			llm.headers[header.slice(0, colon).trim().toLowerCase()] = header.slice(colon + 1).trim();
+		}
+	}
+
+	if (values['llm-redact']) {
+		llm.redact = true;
+	}
+
+	if (values['no-llm-redact']) {
+		llm.redact = false;
+	}
+
+	if (Object.keys(llm).length > 0) {
+		config.llm = llm;
+	}
+
+	return config;
+}
+
+/**
+ * SMTP session details from command-line values.
+ * @param {object} values
+ * @returns {object}
+ */
+export function buildSession(values) {
+	const session = {};
+	const ip = values.ip || values['sender-ip'];
+	if (ip) {
+		session.remoteAddress = ip;
+	}
+
+	const hostname = values.hostname || values['sender-hostname'];
+	if (hostname) {
+		session.resolvedClientHostname = hostname;
+	}
+
+	if (values.helo) {
+		session.helo = values.helo;
+	}
+
+	const from = values.from ?? values.sender;
+	if (from !== undefined || values.to) {
+		session.envelope = {mailFrom: {address: from || ''}, rcptTo: (values.to || []).map(address => ({address}))};
+	}
+
+	return session;
+}
+
+async function readInput(file, stdin) {
+	if (!file || file === '-') {
 		const chunks = [];
-		for await (const chunk of process.stdin) {
-			chunks.push(chunk);
+		for await (const chunk of stdin) {
+			chunks.push(Buffer.from(chunk));
 		}
 
 		return Buffer.concat(chunks);
 	}
 
-	// Read from file
-	const chunks = [];
-	const stream = createReadStream(file);
-	for await (const chunk of stream) {
-		chunks.push(chunk);
-	}
-
-	return Buffer.concat(chunks);
+	return readFileSync(file);
 }
 
-/**
- * Calculate spam score based on scan results and options
- * @param {object} result - Scan result from SpamScanner
- * @param {object} options - CLI options
- * @returns {object} Score details
- */
-function calculateScore(result, options) {
-	const {scores} = options;
-	const tests = [];
-	let totalScore = 0;
-
-	// Classifier score
-	if (options.checkClassifier && result.results?.classification) {
-		const {category, probability} = result.results.classification;
-		if (category === 'spam') {
-			// Scale score by probability (0.5-1.0 maps to 0-full score)
-			const scaledScore = scores.classifier * Math.max(0, (probability - 0.5) * 2);
-			totalScore += scaledScore;
-			tests.push(`BAYES_SPAM(${scaledScore.toFixed(1)})`);
-		} else if (category === 'ham' && probability > 0.8) {
-			// Give negative score for confident ham
-			const hamBonus = -1 * (probability - 0.8) * 5;
-			totalScore += hamBonus;
-			tests.push(`BAYES_HAM(${hamBonus.toFixed(1)})`);
-		}
+function formatResult(result, verbose) {
+	const lines = [`${result.isSpam ? 'SPAM' : 'HAM'}  score ${result.score.toFixed(1)} (spam at ${result.threshold.toFixed(1)}, reject at ${result.rejectThreshold.toFixed(1)})  action: ${result.action}${result.language ? `  language: ${result.language}` : ''}`];
+	const tests = verbose ? result.tests : result.tests.filter(test => test.score !== 0);
+	for (const test of [...tests].sort((a, b) => Math.abs(b.score) - Math.abs(a.score))) {
+		lines.push(`  ${`${test.score > 0 ? '+' : ''}${test.score.toFixed(1)}`.padStart(7)}  ${test.name.padEnd(28)} ${test.description}`);
 	}
 
-	// Phishing score
-	if (options.checkPhishing && result.results?.phishing?.length > 0) {
-		const phishingScore = result.results.phishing.length * scores.phishing;
-		totalScore += phishingScore;
-		tests.push(`PHISHING_DETECTED(${phishingScore.toFixed(1)})`);
+	if (verbose && result.results.classification.clues?.length > 0) {
+		lines.push('  Strongest clues:', ...result.results.classification.clues.slice(0, 10).map(clue => `    ${clue.probability.toFixed(3)}  ${clue.feature}`));
 	}
 
-	// Executable score
-	if (options.checkExecutables && result.results?.executables?.length > 0) {
-		const execScore = result.results.executables.length * scores.executable;
-		totalScore += execScore;
-		tests.push(`EXECUTABLE_ATTACHMENT(${execScore.toFixed(1)})`);
-	}
-
-	// Macro score
-	if (options.checkMacros && result.results?.macros?.length > 0) {
-		const macroScore = result.results.macros.length * scores.macro;
-		totalScore += macroScore;
-		tests.push(`MACRO_DETECTED(${macroScore.toFixed(1)})`);
-	}
-
-	// Virus score
-	if (options.checkVirus && result.results?.viruses?.length > 0) {
-		const virusScore = result.results.viruses.length * scores.virus;
-		totalScore += virusScore;
-		tests.push(`VIRUS_DETECTED(${virusScore.toFixed(1)})`);
-	}
-
-	// NSFW score
-	if (options.checkNsfw && result.results?.nsfw?.length > 0) {
-		const nsfwScore = result.results.nsfw.length * scores.nsfw;
-		totalScore += nsfwScore;
-		tests.push(`NSFW_CONTENT(${nsfwScore.toFixed(1)})`);
-	}
-
-	// Toxicity score
-	if (options.checkToxicity && result.results?.toxicity?.length > 0) {
-		const toxicScore = result.results.toxicity.length * scores.toxicity;
-		totalScore += toxicScore;
-		tests.push(`TOXIC_CONTENT(${toxicScore.toFixed(1)})`);
-	}
-
-	// Authentication score (from mailauth)
-	if (result.results?.authentication?.score) {
-		const authScore = result.results.authentication.score;
-		totalScore += authScore.score;
-		tests.push(...authScore.tests);
-	}
-
-	// Reputation score
-	if (result.results?.reputation) {
-		const rep = result.results.reputation;
-		if (rep.isDenylisted) {
-			totalScore += 10;
-			tests.push('DENYLISTED(10.0)');
-		}
-
-		if (rep.isTruthSource) {
-			totalScore -= 5;
-			tests.push('TRUTH_SOURCE(-5.0)');
-		} else if (rep.isAllowlisted) {
-			totalScore -= 3;
-			tests.push('ALLOWLISTED(-3.0)');
-		}
-	}
-
-	let isSpam = totalScore >= options.threshold;
-
-	// Override spam status based on reputation
-	if (result.results?.reputation) {
-		const rep = result.results.reputation;
-		if (rep.isDenylisted) {
-			isSpam = true;
-		} else if ((rep.isTruthSource || rep.isAllowlisted) && !result.results?.viruses?.length && !result.results?.executables?.length) {
-			isSpam = false;
-		}
-	}
-
-	return {
-		score: totalScore,
-		threshold: options.threshold,
-		isSpam,
-		tests,
-	};
-}
-
-/**
- * Generate X-Spam headers based on scan results
- * @param {object} scoreDetails - Score calculation details
- * @returns {object} Headers object
- */
-function generateSpamHeaders(scoreDetails) {
-	const {score, threshold, isSpam, tests} = scoreDetails;
-	const status = isSpam ? 'Yes' : 'No';
-	const flag = isSpam ? 'YES' : 'NO';
-
-	return {
-		'X-Spam-Status': `${status}, score=${score.toFixed(1)} required=${threshold.toFixed(1)} tests=${tests.join(',')} version=${VERSION}`,
-		'X-Spam-Score': score.toFixed(1),
-		'X-Spam-Flag': flag,
-		'X-Spam-Tests': tests.join(', '),
-	};
-}
-
-/**
- * Modify email content with spam headers and subject tag
- * @param {Buffer} emailContent - Original email content
- * @param {object} options - CLI options
- * @param {object} scoreDetails - Score calculation details
- * @returns {string} Modified email content
- */
-function modifyEmail(emailContent, options, scoreDetails, authResultsHeader = null) {
-	const emailString = emailContent.toString('utf8');
-	const headers = generateSpamHeaders(scoreDetails);
-
-	// Add Authentication-Results header if available
-	if (options.addAuthHeaders && authResultsHeader) {
-		headers['Authentication-Results'] = authResultsHeader;
-	}
-
-	// Find the header/body boundary
-	const headerEndMatch = emailString.match(/\r?\n\r?\n/);
-	if (!headerEndMatch) {
-		// No body, just append headers
-		return emailString + '\r\n' + Object.entries(headers)
-			.map(([key, value]) => `${key}: ${value}`)
-			.join('\r\n');
-	}
-
-	const headerEndIndex = headerEndMatch.index;
-	const lineEnding = headerEndMatch[0].startsWith('\r\n') ? '\r\n' : '\n';
-	const headerPart = emailString.slice(0, headerEndIndex);
-	const bodyPart = emailString.slice(headerEndIndex);
-
-	// Add X-Spam headers
-	let newHeaders = headerPart;
-	if (options.addHeaders) {
-		const headerLines = Object.entries(headers)
-			.map(([key, value]) => `${key}: ${value}`)
-			.join(lineEnding);
-		newHeaders = headerPart + lineEnding + headerLines;
-	}
-
-	// Prepend subject tag if spam
-	if (options.prependSubject && scoreDetails.isSpam) {
-		const subjectMatch = newHeaders.match(/^(subject:\s*)(.*)$/im);
-		if (subjectMatch) {
-			const [fullMatch, prefix, subject] = subjectMatch;
-			// Only prepend if not already tagged
-			if (!subject.startsWith(options.subjectTag)) {
-				const newSubject = `${prefix}${options.subjectTag} ${subject}`;
-				newHeaders = newHeaders.replace(fullMatch, newSubject);
-			}
-		}
-	}
-
-	return newHeaders + bodyPart;
-}
-
-/**
- * Format scan results for human-readable output
- * @param {object} result - Scan result
- * @param {object} scoreDetails - Score calculation details
- * @param {boolean} verbose - Show verbose output
- * @returns {string} Formatted output
- */
-function formatResult(result, scoreDetails, verbose) {
-	const lines = [];
-	const {score, threshold, isSpam, tests} = scoreDetails;
-
-	if (isSpam) {
-		lines.push(`SPAM DETECTED (score: ${score.toFixed(1)}, threshold: ${threshold.toFixed(1)})`);
-	} else {
-		lines.push(`Clean (score: ${score.toFixed(1)}, threshold: ${threshold.toFixed(1)})`);
-	}
-
-	if (tests.length > 0) {
-		lines.push(`Tests: ${tests.join(', ')}`);
-	}
-
-	if (verbose) {
-		lines.push('', 'Details:');
-
-		if (result.results?.classification) {
-			const prob = (result.results.classification.probability * 100).toFixed(1);
-			lines.push(`  Classification: ${result.results.classification.category} (${prob}%)`);
-		}
-
-		if (result.results?.phishing?.length > 0) {
-			lines.push(`  Phishing: ${result.results.phishing.length} issue(s) detected`);
-			for (const issue of result.results.phishing) {
-				lines.push(`    - ${issue.type}: ${issue.description || issue.message || 'N/A'}`);
-			}
-		}
-
-		if (result.results?.executables?.length > 0) {
-			lines.push(`  Executables: ${result.results.executables.length} dangerous file(s) detected`);
-			for (const exec of result.results.executables) {
-				lines.push(`    - ${exec.filename || exec.extension || 'Unknown'}`);
-			}
-		}
-
-		if (result.results?.viruses?.length > 0) {
-			lines.push(`  Viruses: ${result.results.viruses.length} virus(es) detected`);
-			for (const virus of result.results.viruses) {
-				lines.push(`    - ${virus.name || virus.message || 'Unknown'}`);
-			}
-		}
-
-		if (result.results?.macros?.length > 0) {
-			lines.push(`  Macros: ${result.results.macros.length} macro(s) detected`);
-		}
-
-		if (result.results?.toxicity?.length > 0) {
-			lines.push(`  Toxicity: ${result.results.toxicity.length} toxic content detected`);
-		}
-
-		if (result.results?.nsfw?.length > 0) {
-			lines.push(`  NSFW: ${result.results.nsfw.length} NSFW content detected`);
-		}
-
-		// Authentication results
-		if (result.results?.authentication) {
-			const auth = result.results.authentication;
-			lines.push('', '  Authentication:');
-			if (auth.dkim?.status?.result) {
-				lines.push(`    DKIM: ${auth.dkim.status.result}`);
-			}
-
-			if (auth.spf?.status?.result) {
-				lines.push(`    SPF: ${auth.spf.status.result}`);
-			}
-
-			if (auth.dmarc?.status?.result) {
-				lines.push(`    DMARC: ${auth.dmarc.status.result}`);
-			}
-
-			if (auth.arc?.status?.result) {
-				lines.push(`    ARC: ${auth.arc.status.result}`);
-			}
-		}
-
-		// Reputation results
-		if (result.results?.reputation) {
-			const rep = result.results.reputation;
-			lines.push('', '  Reputation:');
-			if (rep.isTruthSource) {
-				lines.push('    Status: Truth Source');
-			} else if (rep.isAllowlisted) {
-				lines.push(`    Status: Allowlisted (${rep.allowlistValue || 'N/A'})`);
-			} else if (rep.isDenylisted) {
-				lines.push(`    Status: DENYLISTED (${rep.denylistValue || 'N/A'})`);
-			} else {
-				lines.push('    Status: Unknown');
-			}
-
-			if (rep.checkedValues?.length > 0) {
-				lines.push(`    Checked: ${rep.checkedValues.join(', ')}`);
-			}
-		}
+	if (result.results.llm?.error) {
+		lines.push(`  Language model failed: ${result.results.llm.error}`);
 	}
 
 	return lines.join('\n');
 }
 
-/**
- * Build SpamScanner configuration from CLI options
- * @param {object} options - CLI options
- * @returns {object} SpamScanner configuration
- */
-function buildScannerConfig(options) {
-	return {
-		debug: options.debug,
-		timeout: options.timeout,
-		supportedLanguages: options.supportedLanguages,
-		enableMixedLanguageDetection: options.enableMixedLanguageDetection,
-		enableMacroDetection: options.enableMacroDetection,
-		enableAdvancedPatternRecognition: options.enableAdvancedPatternRecognition,
-		strictIDNDetection: options.strictIdnDetection,
-		nsfwThreshold: options.nsfwThreshold,
-		toxicityThreshold: options.toxicityThreshold,
-		clamscan: {
-			clamscanPath: options.clamscanPath,
-			clamdscanPath: options.clamdscanPath,
-		},
-		// Authentication options
-		enableAuthentication: options.enableAuth,
-		authOptions: {
-			ip: options.senderIp,
-			hostname: options.senderHostname,
-			helo: options.helo,
-			mta: options.mta,
-			sender: options.sender,
-			timeout: options.authTimeout,
-		},
-		// Reputation options
-		enableReputation: options.enableReputation,
-		reputationOptions: {
-			apiUrl: options.reputationUrl,
-			timeout: options.reputationTimeout,
-			onlyAligned: options.onlyAligned,
-		},
-	};
+function listen(server, values, defaultPort, io) {
+	return new Promise((resolve, reject) => {
+		server.once('error', reject);
+		const ready = () => {
+			const address = server.address();
+			io.stderr.write(`Listening on ${typeof address === 'string' ? address : `${address.address}:${address.port}`}\n`);
+			resolve(server);
+		};
+
+		if (values.socket) {
+			server.listen(values.socket, ready);
+		} else {
+			server.listen(Number(values.port ?? defaultPort), values.host || '127.0.0.1', ready);
+		}
+	});
 }
 
 /**
- * Scan an email and output results
- * @param {object} options - Scan options
+ * Pipe a message to sendmail and wait for it to exit.
+ * @param {string} sendmail
+ * @param {string[]} args
+ * @param {Buffer} message
+ * @returns {Promise<number|string>} sendmail's exit code, or "a signal" if it was killed
  */
-async function scanCommand(options) {
-	const {file, json, verbose, addHeaders, prependSubject} = options;
+export function deliver(sendmail, args, message) {
+	return new Promise((resolve, reject) => {
+		const child = spawn(sendmail, args, {stdio: ['pipe', 'ignore', 'inherit']});
+		child.on('error', reject);
+		child.on('close', code => resolve(code ?? 'a signal'));
+		child.stdin.on('error', () => {});
+		child.stdin.end(message);
+	});
+}
 
-	if (!file) {
-		console.error('Error: No file specified. Use "spamscanner scan <file>" or "spamscanner scan -" for stdin.');
-		process.exit(2);
+const SAMPLES = [
+	['ham', 'From: Alice <alice@example.org>\r\nTo: bob@example.net\r\nSubject: Lunch on Thursday?\r\n\r\nHi Bob, are we still on for lunch on Thursday at noon? I can book the usual place. Alice\r\n'],
+	['spam', 'From: "Account Security" <security@account-verify.example>\r\nTo: bob@example.net\r\nSubject: Your mailbox will be closed today\r\n\r\nWe detected unusual sign-in activity. Confirm your password within 24 hours or your mailbox will be deleted: http://account-verify.example/login\r\n'],
+	['spam', 'From: Lotteria <premio@lotteria.example>\r\nTo: bob@example.net\r\nSubject: Congratulazioni, hai vinto 1.000.000 EUR\r\nContent-Type: text/plain; charset=utf-8\r\n\r\nSei stato selezionato come vincitore. Per ricevere il premio inviaci i tuoi dati bancari e una tassa di 50 EUR.\r\n'],
+];
+
+function datasetsFrom(values) {
+	return (values.dataset || []).map(file => ({file, textColumn: values['text-column'], labelColumn: values['label-column']}));
+}
+
+function waitForClose(server) {
+	return new Promise(resolve => {
+		server.on('close', () => resolve(0));
+	});
+}
+
+// One function per command. Each gets the parsed arguments, the scanner
+// settings and the streams, and returns the exit code.
+const HANDLERS = {
+	async scan({positionals, values, config, session, stdin, stdout, out}) {
+		const raw = await readInput(positionals[0], stdin);
+		const scanner = new SpamScanner(config);
+		const result = await scanner.scan(raw, {session});
+		const tag = values['subject-tag'] ?? (values['prepend-subject'] ? '[SPAM]' : null);
+		if (values.json) {
+			out(JSON.stringify(serializeResult(result, {verbose: values.verbose}), null, 2));
+		} else if (values.headers || values['add-headers'] || tag) {
+			stdout.write(rewriteMessage(raw, spamHeaders(result, {version: VERSION}), {subjectTag: result.isSpam ? tag : null}));
+		} else {
+			out(formatResult(result, values.verbose));
+		}
+
+		return result.isSpam ? 1 : 0;
+	},
+
+	// Postfix: argv=spamscanner filter -f ${sender} -- ${recipient}
+	async filter({positionals: recipients, values, config, session, stdin, stderr}) {
+		const raw = await readInput('-', stdin);
+		if (recipients.length === 0) {
+			stderr.write('filter: no recipients given (use: spamscanner filter -f sender -- recipient...)\n');
+			return 64;
+		}
+
+		let message;
+		let result;
+		try {
+			const scanner = new SpamScanner(config);
+			result = await scanner.scan(raw, {session});
+			message = rewriteMessage(raw, spamHeaders(result, {version: VERSION}), {subjectTag: result.isSpam ? (values['subject-tag'] ?? null) : null});
+		} catch (error) {
+			// Defer: Postfix keeps the message and tries again later.
+			stderr.write(`filter: scan failed, deferring: ${error.message}\n`);
+			return 75;
+		}
+
+		if (result.action === 'reject' && values.reject) {
+			stderr.write(`5.7.1 Message rejected as spam (score ${result.score.toFixed(1)})\n`);
+			return 69;
+		}
+
+		if (result.action === 'reject' && values.discard) {
+			return 0;
+		}
+
+		const code = await deliver(values.sendmail, ['-G', '-i', '-f', values.from ?? values.sender ?? '', '--', ...recipients], message);
+		if (code !== 0) {
+			stderr.write(`filter: sendmail exited with ${code}, deferring\n`);
+			return 75;
+		}
+
+		return 0;
+	},
+
+	async milter({values, config, stderr, io}) {
+		const scanner = new SpamScanner(config);
+		const milter = new MilterServer(scanner, {
+			reject: Boolean(values.reject), rejectCode: values['reject-code'] ? number(values['reject-code'], '--reject-code') : 451, quarantine: Boolean(values.quarantine), subjectTag: values['subject-tag'] ?? null, hostname: values.name || 'spamscanner',
+		});
+		milter.on('error', error => stderr.write(`milter: ${error.message}\n`));
+		if (values.verbose) {
+			milter.on('scan', ({session, result}) => stderr.write(`${session.remoteAddress || '-'} ${session.envelope?.mailFrom?.address || '<>'} ${result.score.toFixed(1)} ${result.action} ${result.tests.map(test => test.name).join(',')}\n`));
+		}
+
+		await listen(milter.server, values, 7831, {stderr});
+		io.onListening?.(milter.server);
+		return waitForClose(milter.server);
+	},
+
+	async http({values, config, env, stderr, io}) {
+		const server = createHttpServer(new SpamScanner(config), {token: values.token || env.SPAMSCANNER_TOKEN || null, modelPath: values.out || null});
+		await listen(server, values, 7832, {stderr});
+		io.onListening?.(server);
+		return waitForClose(server);
+	},
+
+	async server({values, config, stderr, io}) {
+		const server = createTcpServer(new SpamScanner(config), {json: !values.verbose});
+		await listen(server, values, 7830, {stderr});
+		io.onListening?.(server);
+		return waitForClose(server);
+	},
+
+	async spamd({values, config, stderr, io}) {
+		const server = createSpamdServer(new SpamScanner(config), {allowTell: Boolean(values['allow-tell']), modelPath: values.out || null, subjectTag: values['subject-tag'] ?? null});
+		await listen(server, values, 783, {stderr});
+		io.onListening?.(server);
+		return waitForClose(server);
+	},
+
+	async train({values, stderr, out}) {
+		const datasets = datasetsFrom(values);
+		if (!values.spam && !values.ham && datasets.length === 0) {
+			stderr.write('train: give --spam, --ham or --dataset\n');
+			return 2;
+		}
+
+		const base = values.merge ? (values.model ? loadModel(values.model) : loadDefaultModel()) : new Classifier();
+		const {classifier, spam, ham} = await train({spam: values.spam, ham: values.ham, datasets}, {
+			classifier: base,
+			onProgress: count => stderr.write(`\r${count} messages`),
+		});
+		const file = values.out || 'spamscanner-model.json';
+		saveModel(classifier, file, {
+			metadata: {
+				trainedWith: `spamscanner ${VERSION}`, spam, ham, merged: Boolean(values.merge),
+			},
+		});
+		out(`Learned ${spam} spam and ${ham} ham messages; wrote ${file} (${classifier.size} features)`);
+		return 0;
+	},
+
+	async eval({values, out}) {
+		const classifier = values.model ? loadModel(values.model) : loadDefaultModel();
+		const metrics = await evaluate(classifier, readExamples({spam: values.spam, ham: values.ham, datasets: datasetsFrom(values)}));
+		if (values.json) {
+			out(JSON.stringify(metrics, null, 2));
+			return 0;
+		}
+
+		const pct = n => `${(n * 100).toFixed(2)}%`;
+		out([
+			`Messages: ${metrics.spam} spam, ${metrics.ham} ham`,
+			`Precision: ${pct(metrics.precision)}   Recall: ${pct(metrics.recall)}   F1: ${pct(metrics.f1)}`,
+			`False positives: ${metrics.falsePositive} (${pct(metrics.falsePositiveRate)} of ham)   False negatives: ${metrics.falseNegative}`,
+			`Unsure: ${metrics.unsureSpam + metrics.unsureHam} (${pct(metrics.unsureRate)})`,
+		].join('\n'));
+		return 0;
+	},
+
+	async learn({positionals, values, config, stdin, stderr, out}) {
+		const [category, source] = positionals;
+		if (category !== 'spam' && category !== 'ham') {
+			stderr.write('learn: say "learn spam" or "learn ham", then the message file (or - for standard input)\n');
+			return 2;
+		}
+
+		const file = values.out || values.model;
+		if (!file) {
+			stderr.write('learn: give --model, the model file to update (it is created from the bundled model if missing)\n');
+			return 2;
+		}
+
+		const raw = await readInput(source, stdin);
+		const scanner = new SpamScanner({...config, classifier: existsSync(file) ? file : undefined});
+		await scanner.learn(raw, category);
+		scanner.saveModel(file);
+		out(`Learned one ${category} message; saved ${file}`);
+		return 0;
+	},
+
+	async 'llm-test'({config, stderr, out}) {
+		if (!config.llm) {
+			stderr.write('llm-test: choose a provider with --llm (and --llm-model)\n');
+			return 2;
+		}
+
+		const scanner = new SpamScanner({...config, llm: {...config.llm, mode: 'always'}, phishing: {cloudflare: false}});
+		let correct = 0;
+		for (const [expected, raw] of SAMPLES) {
+			// eslint-disable-next-line no-await-in-loop
+			const {results: {llm}} = await scanner.scan(raw);
+			if (llm.verdict) {
+				const ok = (llm.verdict === 'ham') === (expected === 'ham');
+				correct += ok ? 1 : 0;
+				out(`${ok ? 'ok  ' : 'MISS'} expected ${expected.padEnd(4)} got ${llm.verdict} (${Math.round(llm.confidence * 100)}%, ${llm.time} ms)${llm.reasons.length > 0 ? `: ${llm.reasons[0]}` : ''}`);
+			} else {
+				out(`FAIL ${llm.error}`);
+			}
+		}
+
+		out(`${correct} of ${SAMPLES.length} correct with ${scanner.llm.config.name} ${scanner.llm.config.model} at ${scanner.llm.config.baseUrl}`);
+		return correct === SAMPLES.length ? 0 : 1;
+	},
+
+	async models({out}) {
+		out('Open models for --llm ollama (and any server that runs GGUF files):\n');
+		for (const model of RECOMMENDED_MODELS) {
+			out(`  ${model.ollama.padEnd(24)} ${model.tier.padEnd(7)} ${model.license.padEnd(11)} ${model.size.padEnd(7)} hf.co/${model.huggingface}\n      ${model.notes}`);
+		}
+
+		out('\nText classification models for --llm tei or --llm huggingface-classifier (English):\n');
+		for (const model of CLASSIFIER_MODELS) {
+			out(`  ${model.huggingface}  (${model.license})\n      ${model.notes}`);
+		}
+
+		return 0;
+	},
+};
+
+/**
+ * Run the command-line interface.
+ * @param {string[]} argv - arguments after the program name
+ * @param {object} [io] - stdin, stdout, stderr, env and onListening, for tests
+ * @returns {Promise<number>} the exit code (servers resolve when they stop)
+ */
+export async function main(argv = process.argv.slice(2), io = {}) {
+	const stdin = io.stdin || process.stdin;
+	const stdout = io.stdout || process.stdout;
+	const stderr = io.stderr || process.stderr;
+	const env = io.env || process.env;
+	const out = text => stdout.write(text.endsWith('\n') ? text : `${text}\n`);
+	let parsed;
+	try {
+		parsed = parseCli(argv);
+	} catch (error) {
+		stderr.write(`${error.message}\nRun "spamscanner help" for usage.\n`);
+		return 2;
+	}
+
+	const {command, positionals, values} = parsed;
+	if (values.version || command === 'version') {
+		out(`spamscanner ${VERSION}`);
+		return 0;
+	}
+
+	if (values.help || command === 'help' || !command) {
+		(command || values.help ? stdout : stderr).write(HELP);
+		return command || values.help ? 0 : 2;
 	}
 
 	try {
-		// Check if file exists (unless reading from stdin)
-		if (file !== '-') {
-			try {
-				readFileSync(file);
-			} catch {
-				console.error(`Error: File not found: ${file}`);
-				process.exit(2);
-			}
-		}
-
-		const scannerConfig = buildScannerConfig(options);
-		const scanner = new SpamScanner(scannerConfig);
-
-		const emailContent = await readEmail(file);
-		const result = await scanner.scan(emailContent);
-
-		// Calculate score based on options
-		const scoreDetails = calculateScore(result, options);
-
-		// Generate output
-		const output = {
-			isSpam: scoreDetails.isSpam,
-			score: scoreDetails.score,
-			threshold: scoreDetails.threshold,
-			tests: scoreDetails.tests,
-			message: result.message,
-			results: result.results,
-			links: result.links,
-			tokens: result.tokens,
-			mail: result.mail,
-		};
-
-		// Add headers if requested
-		if (addHeaders || prependSubject || options.addAuthHeaders) {
-			output.headers = generateSpamHeaders(scoreDetails);
-			const authResultsHeader = result.results?.authentication?.authResultsHeader || null;
-			output.modifiedEmail = modifyEmail(emailContent, options, scoreDetails, authResultsHeader);
-		}
-
-		if (json) {
-			console.log(JSON.stringify(output, null, 2));
-		} else if (addHeaders || prependSubject || options.addAuthHeaders) {
-			// Output modified email for piping to mail server
-			console.log(output.modifiedEmail);
-		} else {
-			console.log(formatResult(result, scoreDetails, verbose));
-		}
-
-		process.exit(scoreDetails.isSpam ? 1 : 0);
+		return await HANDLERS[command]({
+			positionals, values, config: buildConfig(values, env), session: buildSession(values), stdin, stdout, stderr, env, out, io,
+		});
 	} catch (error) {
-		console.error(`Error scanning email: ${error.message}`);
-		if (options.debug) {
-			console.error(error.stack);
+		stderr.write(`spamscanner: ${error.message}\n`);
+		if (values.debug) {
+			stderr.write(`${error.stack}\n`);
 		}
 
-		process.exit(2);
+		// A content filter that fails must defer (EX_TEMPFAIL), so Postfix keeps
+		// the message and tries again rather than bouncing it.
+		return command === 'filter' ? 75 : 2;
 	}
 }
-
-/**
- * Start TCP server for high-volume scanning
- * @param {object} options - Server options
- */
-async function serverCommand(options) {
-	const {port, host, json, verbose, debug} = options;
-
-	const scannerConfig = buildScannerConfig(options);
-	const scanner = new SpamScanner(scannerConfig);
-
-	const server = createServer(socket => {
-		const chunks = [];
-
-		socket.on('data', chunk => {
-			chunks.push(chunk);
-		});
-
-		socket.on('end', async () => {
-			try {
-				const emailContent = Buffer.concat(chunks);
-				const result = await scanner.scan(emailContent);
-				const scoreDetails = calculateScore(result, options);
-
-				const output = {
-					isSpam: scoreDetails.isSpam,
-					score: scoreDetails.score,
-					threshold: scoreDetails.threshold,
-					tests: scoreDetails.tests,
-					message: result.message,
-				};
-
-				if (options.addHeaders) {
-					output.headers = generateSpamHeaders(scoreDetails);
-				}
-
-				if (json) {
-					socket.write(JSON.stringify(output));
-				} else {
-					socket.write(formatResult(result, scoreDetails, verbose));
-				}
-			} catch (error) {
-				const errorResponse = json
-					? JSON.stringify({error: error.message})
-					: `Error: ${error.message}`;
-				socket.write(errorResponse);
-				if (debug) {
-					console.error(error.stack);
-				}
-			}
-
-			socket.end();
-		});
-
-		socket.on('error', error => {
-			console.error(`Socket error: ${error.message}`);
-		});
-	});
-
-	server.listen(port, host, () => {
-		console.log(`SpamScanner TCP server listening on ${host}:${port}`);
-		console.log('Send email content to scan, close connection to receive results.');
-		console.log('Press Ctrl+C to stop.');
-	});
-
-	server.on('error', error => {
-		console.error(`Server error: ${error.message}`);
-		process.exit(2);
-	});
-}
-
-/**
- * Main entry point
- */
-async function main() {
-	const args = process.argv.slice(2);
-	const options = parseArgs(args);
-
-	// Handle help and version flags first
-	if (options.help) {
-		console.log(HELP_TEXT);
-		process.exit(0);
-	}
-
-	if (options.version) {
-		console.log(`SpamScanner v${VERSION}`);
-		process.exit(0);
-	}
-
-	// Check for updates (unless disabled)
-	if (!options.noUpdateCheck && options.command !== 'update') {
-		// Run update check in background, don't block
-		// eslint-disable-next-line promise/prefer-await-to-then, no-void
-		void printUpdateNotification().catch(() => {
-			// Ignore errors
-		});
-	}
-
-	// Handle commands
-	switch (options.command) {
-		case 'scan': {
-			await scanCommand(options);
-			break;
-		}
-
-		case 'server': {
-			await serverCommand(options);
-			break;
-		}
-
-		case 'update': {
-			console.log(`SpamScanner v${VERSION}`);
-			console.log('Checking for updates...');
-			const update = await checkForUpdates(true);
-			if (update) {
-				console.log(`New version available: ${update.latestVersion}`);
-				console.log(`Download from: ${update.releaseUrl}`);
-				if (update.downloadUrl) {
-					console.log(`Direct download: ${update.downloadUrl}`);
-				}
-			} else {
-				console.log('You are running the latest version.');
-			}
-
-			process.exit(0);
-			break;
-		}
-
-		case 'help': {
-			console.log(HELP_TEXT);
-			process.exit(0);
-			break;
-		}
-
-		case 'version': {
-			console.log(`SpamScanner v${VERSION}`);
-			process.exit(0);
-			break;
-		}
-
-		default: {
-			console.error('Unknown command. Use "spamscanner help" for usage information.');
-			process.exit(2);
-		}
-	}
-}
-
-main().catch(error => {
-	console.error(`Fatal error: ${error.message}`);
-	process.exit(2);
-});

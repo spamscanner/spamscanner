@@ -1,0 +1,72 @@
+name: Lighthouse
+
+# Builds the site and requires a score of 100 in every Lighthouse category on
+# each page type, on mobile and desktop. A page below 100 is run twice more and
+# passes only if most of its runs score 100.
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lighthouse-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lighthouse:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      # Lighthouse 13 needs Node.js 22.19 or later; on older versions it silently scores SEO as 0.
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+      - run: npm install
+      - run: npm run site:build
+      - name: Serve the site
+        run: |
+          node scripts/serve.js > serve.log 2>&1 &
+          for _ in $(seq 1 30); do
+            if curl -fsS -o /dev/null http://127.0.0.1:8080/; then exit 0; fi
+            sleep 1
+          done
+          cat serve.log
+          echo "::error::The preview server did not start"
+          exit 1
+      - name: Run Lighthouse
+        run: |
+          mkdir -p reports
+          audit() {
+            extra=()
+            if [ "$2" = desktop ]; then extra=(--preset=desktop); fi
+            npx --yes lighthouse@13.5.0 "http://localhost:8080$1" "${extra[@]}" --quiet \
+              --chrome-flags="--headless=new --no-sandbox" \
+              --output=json --output-path="$3"
+          }
+          # The first audit on a fresh runner pays for starting Chrome and cold caches. Discard it.
+          audit / mobile warmup.json
+          # English, plus translations in a Latin, a right-to-left and two CJK scripts.
+          pages="/ /docs/ /docs/getting-started/ /docs/llm/ /docs/scoring/ /postfix-spam-filter/ /faq/ /de/ /ar/ /ja/docs/scoring/ /zh/faq/"
+          i=0
+          for p in $pages; do
+            for preset in mobile desktop; do
+              i=$((i+1))
+              audit "$p" "$preset" "reports/$i.json"
+              # Scores vary a little between runs: a report below 100 gets two more runs,
+              # and the page passes only if most of its runs score 100.
+              if ! node scripts/lighthouse-check.js "reports/$i.json" > /dev/null; then
+                audit "$p" "$preset" "reports/$i-2.json"
+                audit "$p" "$preset" "reports/$i-3.json"
+              fi
+            done
+          done
+      - run: node scripts/lighthouse-check.js reports/*.json

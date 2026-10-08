@@ -1,44 +1,144 @@
 name: CI
 
+# Lint, build and test on every supported Node.js version with 100% coverage,
+# then end-to-end tests against real Postfix, ClamAV, spamc and Ollama.
+
 on:
   push:
-    branches:
-      - master
-      - main
+    branches: [master, main]
   pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  build:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os:
-          - ubuntu-latest
-        node_version:
-          - 20
-          - 22
-          - 24
-    name: Node ${{ matrix.node_version }} on ${{ matrix.os }}
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - name: Setup node
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
-          node-version: ${{ matrix.node_version }}
-      - name: Install ClamAV
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+      - run: npm install
+      - run: npm run lint
+      # The linters fix what they can; anything they changed was not committed.
+      - run: git diff --exit-code
+
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [18, 20, 22, 24]
+    name: Node.js ${{ matrix.node }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: ${{ matrix.node }}
+      - run: npm install
+      - run: npm run build
+      # Every test, with 100% line, branch, function and statement coverage (see "c8" in package.json).
+      - run: npx c8 node --test test/*.test.js
+
+  site:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+      - run: npm install
+      - run: npm run site:build
+      # The interface strings and English page hashes the build writes are committed.
+      - run: git diff --exit-code -- i18n/source
+      - run: npm run i18n:check
+      - run: npm run site:check
+
+  e2e:
+    name: End to end (Postfix, ClamAV, spamc)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+      - name: Install Postfix, ClamAV and spamc
         run: |
           sudo apt-get update -qq
-          sudo apt-get install clamav-daemon clamav-freshclam -qq &&
-          sudo service clamav-freshclam restart &&
-          sleep 30 &&
-          sudo service clamav-daemon start &&
-          sleep 30 &&
-          sudo service clamav-daemon status -l
-      - name: Install dependencies
-        run: npm install
-      - name: Build
-        run: npm run build
-      - name: Lint
-        run: npm run lint
-      - name: Run tests
-        run: npm run test --ignore-scripts
+          echo "postfix postfix/main_mailer_type select Local only" | sudo debconf-set-selections
+          echo "postfix postfix/mailname string mx.test" | sudo debconf-set-selections
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq postfix clamav-daemon spamc
+      # clamd needs a signature database. A one-line signature for the EICAR test
+      # file is enough, and avoids downloading the official database.
+      - name: Start clamd
+        run: |
+          sudo systemctl stop clamav-freshclam || true
+          echo "44d88612fea8a8f36de82e1278abb02f:68:Spamscanner.Test.EICAR" | sudo tee /var/lib/clamav/spamscanner-test.hdb
+          sudo systemctl restart clamav-daemon
+          for _ in $(seq 1 60); do [ -S /var/run/clamav/clamd.ctl ] && exit 0; sleep 1; done
+          sudo journalctl -u clamav-daemon --no-pager | tail -20
+          exit 1
+      - run: npm install
+      - run: npm run build
+      # Postfix's pipe runs the filter as an unprivileged user, so the package is installed where it can read it.
+      - name: Install the package and configure Postfix
+        run: |
+          npm pack
+          sudo npm install --global --prefix /usr/local ./spamscanner-*.tgz
+          sudo scripts/e2e-postfix.sh "$(command -v node)" /usr/local/lib/node_modules/spamscanner/dist/esm/cli.js
+      - run: npm run test:e2e
+        env:
+          SPAMSCANNER_E2E_POSTFIX: '1'
+          SPAMSCANNER_E2E_CLAMAV: '1'
+          SPAMSCANNER_E2E_SPAMC: '1'
+      - if: failure()
+        run: sudo tail -50 /var/log/mail.log /var/log/postfix.log 2>/dev/null || true
+
+  ollama:
+    name: End to end (Ollama)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      OLLAMA_MODELS: ${{ github.workspace }}/.ollama
+      OLLAMA_MODEL: qwen3.5:4b
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: .ollama
+          key: ollama-qwen3.5-4b
+      - name: Install Ollama and the model
+        run: |
+          curl -fsSL https://ollama.com/install.sh | sh
+          sudo systemctl stop ollama || true
+          ollama serve > ollama.log 2>&1 &
+          for _ in $(seq 1 30); do curl -fsS http://127.0.0.1:11434/api/tags > /dev/null && break; sleep 1; done
+          ollama pull "$OLLAMA_MODEL"
+      - run: npm install
+      - run: node --test test/e2e/ollama.test.js
+        env:
+          SPAMSCANNER_E2E_OLLAMA: '1'

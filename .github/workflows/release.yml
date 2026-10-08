@@ -1,12 +1,20 @@
-name: Release Binaries
+name: Release binaries
+
+# Builds a standalone binary for each platform (a Node.js single executable
+# application with the classifier model embedded) and attaches it, with the
+# install script, to the GitHub release.
 
 on:
   release:
     types: [published]
 
+permissions:
+  contents: read
+
 jobs:
-  build-binaries:
+  build:
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     permissions:
       contents: write
     strategy:
@@ -14,125 +22,86 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            target: linux-x64
             artifact: spamscanner-linux-x64
-          - os: macos-13
-            target: darwin-x64
+          - os: ubuntu-24.04-arm
+            artifact: spamscanner-linux-arm64
+          - os: macos-15-intel
             artifact: spamscanner-darwin-x64
-          - os: macos-14
-            target: darwin-arm64
+          - os: macos-15
             artifact: spamscanner-darwin-arm64
           - os: windows-latest
-            target: win-x64
-            artifact: spamscanner-win-x64
-
+            artifact: spamscanner-win-x64.exe
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 24
-
-      - name: Install dependencies
-        run: npm install
-
-      - name: Build standalone CLI
-        run: npm run build
-
-      - name: Verify standalone CLI works before SEA
-        run: |
-          echo "Testing standalone CLI..."
-          node dist/standalone/cli.cjs --version
-          node dist/standalone/cli.cjs --help | head -10
-          echo "From: test@example.com" | node dist/standalone/cli.cjs scan - --json | head -5 || true
+      - run: npm install
+      - run: npm run build
+      - name: Build the SEA blob with the model as an asset
         shell: bash
-
-      - name: Create SEA config
         run: |
-          cat > sea-config.json << 'EOF'
+          cat > sea-config.json << 'JSON'
           {
             "main": "dist/standalone/cli.cjs",
             "output": "sea-prep.blob",
             "disableExperimentalSEAWarning": true,
             "useSnapshot": false,
-            "useCodeCache": true
+            "useCodeCache": true,
+            "assets": {"classifier.json": "model/classifier.json"}
           }
-          EOF
-        shell: bash
-
-      - name: Build SEA blob
-        run: node --experimental-sea-config sea-config.json
-
-      - name: Create SEA binary (Linux)
+          JSON
+          node --experimental-sea-config sea-config.json
+      - name: Create the binary (Linux)
         if: runner.os == 'Linux'
         run: |
-          cp $(which node) ${{ matrix.artifact }}
-          npx postject ${{ matrix.artifact }} NODE_SEA_BLOB sea-prep.blob \
-            --sentinel-fuse NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2
-          chmod +x ${{ matrix.artifact }}
-
-      - name: Create SEA binary (macOS)
+          cp "$(command -v node)" "${{ matrix.artifact }}"
+          npx --yes postject "${{ matrix.artifact }}" NODE_SEA_BLOB sea-prep.blob --sentinel-fuse NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2
+          chmod +x "${{ matrix.artifact }}"
+      - name: Create the binary (macOS)
         if: runner.os == 'macOS'
         run: |
-          cp $(which node) ${{ matrix.artifact }}
-          codesign --remove-signature ${{ matrix.artifact }} || true
-          npx postject ${{ matrix.artifact }} NODE_SEA_BLOB sea-prep.blob \
-            --sentinel-fuse NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2 \
-            --macho-segment-name NODE_SEA
-          codesign --sign - ${{ matrix.artifact }} || true
-          chmod +x ${{ matrix.artifact }}
-
-      - name: Create SEA binary (Windows)
+          cp "$(command -v node)" "${{ matrix.artifact }}"
+          codesign --remove-signature "${{ matrix.artifact }}"
+          npx --yes postject "${{ matrix.artifact }}" NODE_SEA_BLOB sea-prep.blob --sentinel-fuse NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2 --macho-segment-name NODE_SEA
+          codesign --sign - "${{ matrix.artifact }}"
+          chmod +x "${{ matrix.artifact }}"
+      - name: Create the binary (Windows)
         if: runner.os == 'Windows'
-        run: |
-          Copy-Item (Get-Command node).Source -Destination "${{ matrix.artifact }}.exe"
-          npx postject "${{ matrix.artifact }}.exe" NODE_SEA_BLOB sea-prep.blob `
-            --sentinel-fuse NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2
         shell: pwsh
-
-      - name: Test SEA binary (Linux/macOS)
-        if: runner.os != 'Windows'
         run: |
-          echo "Testing SEA binary..."
-          ./${{ matrix.artifact }} --version
-          ./${{ matrix.artifact }} --help | head -10
-          echo "From: test@example.com" | ./${{ matrix.artifact }} scan - --json | head -5 || echo "Scan test completed"
+          Copy-Item (Get-Command node).Source -Destination "${{ matrix.artifact }}"
+          npx --yes postject "${{ matrix.artifact }}" NODE_SEA_BLOB sea-prep.blob --sentinel-fuse NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2
+      # The binary must run, find its embedded model and catch the GTUBE test string.
+      - name: Test the binary
         shell: bash
-
-      - name: Test SEA binary (Windows)
-        if: runner.os == 'Windows'
         run: |
-          Write-Host "Testing SEA binary..."
-          & ".\${{ matrix.artifact }}.exe" --version
-          & ".\${{ matrix.artifact }}.exe" --help | Select-Object -First 10
-        shell: pwsh
-
-      - name: Upload binary to release (Linux/macOS)
-        if: runner.os != 'Windows'
-        uses: softprops/action-gh-release@v1
-        with:
-          files: ${{ matrix.artifact }}
+          ./${{ matrix.artifact }} version
+          printf 'From: a@example.com\r\nSubject: Test\r\n\r\nXJS*C4JDBQADN1.NSBN3*2IDNEN*GTUBE-STANDARD-ANTI-UBE-TEST-EMAIL*C.34X\r\n' > gtube.eml
+          set +e
+          ./${{ matrix.artifact }} scan gtube.eml --no-cloudflare
+          code=$?
+          set -e
+          test "$code" = 1
+          ./${{ matrix.artifact }} scan gtube.eml --no-cloudflare --json | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const r=JSON.parse(s);if(!r.tests.some(t=>t.name.startsWith('BAYES_')))process.exit(1)})"
+      - name: Attach to the release
+        shell: bash
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ github.event.release.tag_name }}" "${{ matrix.artifact }}" --clobber
 
-      - name: Upload binary to release (Windows)
-        if: runner.os == 'Windows'
-        uses: softprops/action-gh-release@v1
-        with:
-          files: ${{ matrix.artifact }}.exe
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  upload-install-script:
+  install-script:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Upload install script
-        uses: softprops/action-gh-release@v1
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
-          files: scripts/install.sh
+          persist-credentials: false
+      - name: Attach install.sh to the release
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ github.event.release.tag_name }}" scripts/install.sh --clobber --repo "${{ github.repository }}"

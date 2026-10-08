@@ -1,40 +1,40 @@
 /** @type {import('xo').FlatXoConfig} */
 const xoConfig = [
 	{
-		ignores: ['**/*.d.ts'],
+		ignores: ['**/*.d.ts', 'dist/**', 'coverage/**', '_site/**', 'data/**', 'model/**'],
 	},
 	{
-		// CLI needs to use async main() pattern for CJS compatibility
-		// and process.exit() for proper exit codes
-		files: ['src/cli.js'],
 		rules: {
-			'unicorn/prefer-top-level-await': 'off',
-			'unicorn/no-process-exit': 'off',
-			complexity: 'off',
+			// Parsers and protocol code are long by nature; warnings only.
+			// Rule tables (scoring, settings) branch once per rule.
+			complexity: ['warn', 70],
+			'max-depth': ['warn', 6],
+			'@stylistic/max-len': 'off',
+			// Node.js servers and sockets are EventEmitters.
+			'unicorn/prefer-event-target': 'off',
 		},
 	},
 	{
-		// Main index.js has complex methods that are necessary
-		files: ['src/index.js'],
+		// Hashing and the milter protocol work on bits.
+		files: ['src/classifier.js', 'src/milter.js', 'src/attachments.js', 'test/**/*.js'],
 		rules: {
-			complexity: 'off',
-			'max-lines': 'off',
-			'max-depth': 'off',
+			'no-bitwise': 'off',
 		},
 	},
 	{
-		// Helper modules have complex extraction logic
-		files: ['src/is-arbitrary.js', 'src/get-attributes.js'],
+		// Reading sources and messages one at a time is the point.
+		files: ['src/train.js', 'src/sources.js', 'scripts/**/*.js', 'test/**/*.js'],
 		rules: {
-			complexity: 'off',
-			'max-depth': 'off',
+			'no-await-in-loop': 'off',
 		},
 	},
 	{
-		// Test files can have long lines for test data
 		files: ['test/**/*.js'],
 		rules: {
-			'@stylistic/max-len': 'off',
+			// Assertions read best as assert.equal((await x()).y, z).
+			'unicorn/no-await-expression-member': 'off',
+			// Test data mirrors outside formats (ARF fields, dataset columns).
+			camelcase: 'off',
 		},
 	},
 ];

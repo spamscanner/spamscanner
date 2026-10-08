@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 104" role="img" aria-labelledby="t"><title id="t">Spam Scanner</title>
+<defs>
+<linearGradient id="ss-doc" x1="0" x2="1" y1="0" y2="0"><stop offset="0" stop-color="#4a3656"/><stop offset="1" stop-color="#33344a"/></linearGradient>
+<linearGradient id="ss-scan" x1="0" x2="1" y1="0" y2="0"><stop offset="0" stop-color="#55c0dd"/><stop offset="1" stop-color="#2fb07a"/></linearGradient>
+</defs>
+<path d="M20 4h44l20 20v29H12V12a8 8 0 0 1 8-8z" fill="url(#ss-doc)"/>
+<path d="M64 4l20 20H64z" fill="#1b1726"/>
+<circle cx="47" cy="28" r="5" fill="none" stroke="#c9ccd4" stroke-width="3.6"/>
+<path d="M52 28v2.6a3.6 3.6 0 0 0 7.2 0V28a12.2 12.2 0 1 0-4.8 9.7" fill="none" stroke="#c9ccd4" stroke-width="3.6" stroke-linecap="round"/>
+<rect x="4" y="53" width="88" height="6" rx="3" fill="url(#ss-scan)"/>
+<path class="ss-frame" d="M14.5 61v26a10 10 0 0 0 10 10h45a10 10 0 0 0 10-10V61" fill="none" stroke="#3a3149" stroke-width="5"/>
+<circle cx="47" cy="78" r="10" fill="#55c0dd"/>
+<path d="M42 78.4l3.6 3.6 6.6-7" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

@@ -1,6 +1,6 @@
 module.exports = {
-  '*.{js,mjs,ts,tsx,json,md,yml,yaml}': ['xo --fix'],
-  '*.{js,mjs,ts,tsx}': ['xo --fix'],
-  '*.md': filenames => filenames.map(filename => `remark ${filename} -qfo`),
-  'package.json': ['fixpack']
+	'*.{js,mjs,cjs}': ['xo --fix'],
+	// One remark run for all staged files; starting one per file takes minutes.
+	'*.md': ['remark -qfo --silently-ignore'],
+	'package.json': ['fixpack'],
 };

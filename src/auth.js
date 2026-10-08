@@ -1,463 +1,249 @@
-/**
- * Email Authentication Module
- * Integrates mailauth for DKIM, SPF, ARC, DMARC, BIMI checking
- */
-
-import {Buffer} from 'node:buffer';
-import {debuglog} from 'node:util';
+import {Buffer, File} from 'node:buffer';
 import dns from 'node:dns';
+import {debuglog} from 'node:util';
 
 const debug = debuglog('spamscanner:auth');
 
-// Lazy load mailauth to avoid issues if not installed
 let mailauth;
-const getMailauth = async () => {
+async function getMailauth() {
+	// Undici, which mailauth loads, needs the File global of Node.js 20 and
+	// later; Node.js 18 has the same class in node:buffer.
+	globalThis.File ||= File;
 	mailauth ||= await import('mailauth');
-
 	return mailauth;
-};
+}
+
+const RECORD_TYPES = new Set(['A', 'AAAA', 'MX', 'TXT', 'PTR', 'CNAME', 'NS', 'SOA', 'SRV']);
 
 /**
- * @typedef {Object} AuthResult
- * @property {Object} dkim - DKIM verification results
- * @property {Object} spf - SPF verification results
- * @property {Object} dmarc - DMARC verification results
- * @property {Object} arc - ARC verification results
- * @property {Object} bimi - BIMI verification results
- * @property {Array} receivedChain - Received header chain analysis
- * @property {Object} headers - Parsed authentication headers
+ * A DNS resolver for mailauth: `resolver(name, type)` with the same results
+ * as dns.promises.resolve (TXT records as arrays of strings, as mailauth
+ * expects). Uses the system's name servers unless `servers` is given, and
+ * gives up on a lookup after `timeout` milliseconds.
+ * @param {number} [timeout]
+ * @param {string[]} [servers]
+ * @returns {(name: string, type: string) => Promise<any[]>}
  */
+export function createResolver(timeout = 10_000, servers) {
+	const resolver = new dns.promises.Resolver({timeout: Math.max(1, Math.floor(timeout / 2)), tries: 2});
+	if (Array.isArray(servers) && servers.length > 0) {
+		resolver.setServers(servers);
+	}
 
-/**
- * @typedef {Object} AuthOptions
- * @property {string} ip - Remote IP address of the sender
- * @property {string} [helo] - HELO/EHLO hostname
- * @property {string} [mta] - MTA hostname (for ARC sealing)
- * @property {string} [sender] - Envelope sender (MAIL FROM)
- * @property {Function} [resolver] - Custom DNS resolver function
- * @property {number} [timeout] - DNS lookup timeout in ms
- */
-
-/**
- * Default DNS resolver with timeout support
- */
-const createResolver = (timeout = 10_000) => {
-	const resolver = new dns.promises.Resolver();
-	resolver.setServers(['8.8.8.8', '1.1.1.1']);
-
-	return async (name, type) => {
-		try {
-			const controller = new AbortController();
-			const timeoutId = setTimeout(() => controller.abort(), timeout);
-
-			let result;
-			switch (type) {
-				case 'TXT': {
-					result = await resolver.resolveTxt(name);
-					// Flatten TXT records (they come as arrays of strings)
-					result = result.map(r => (Array.isArray(r) ? r.join('') : r));
-					break;
-				}
-
-				case 'MX': {
-					result = await resolver.resolveMx(name);
-					break;
-				}
-
-				case 'A': {
-					result = await resolver.resolve4(name);
-					break;
-				}
-
-				case 'AAAA': {
-					result = await resolver.resolve6(name);
-					break;
-				}
-
-				case 'PTR': {
-					result = await resolver.resolvePtr(name);
-					break;
-				}
-
-				case 'CNAME': {
-					result = await resolver.resolveCname(name);
-					break;
-				}
-
-				default: {
-					result = await resolver.resolve(name, type);
-				}
-			}
-
-			clearTimeout(timeoutId);
-			return result;
-		} catch (error) {
-			debug('DNS lookup failed for %s %s: %s', type, name, error.message);
+	return async (name, type = 'A') => {
+		const rrtype = String(type).toUpperCase();
+		if (!RECORD_TYPES.has(rrtype)) {
+			const error = new Error(`Unsupported DNS record type ${type}`);
+			error.code = 'ENOTIMP';
 			throw error;
 		}
+
+		let timer;
+		try {
+			return await Promise.race([
+				resolver.resolve(name, rrtype),
+				new Promise((_resolve, reject) => {
+					timer = setTimeout(() => {
+						const error = new Error(`DNS lookup of ${name} ${rrtype} timed out`);
+						error.code = 'ETIMEOUT';
+						reject(error);
+					}, timeout);
+				}),
+			]);
+		} finally {
+			clearTimeout(timer);
+		}
 	};
-};
+}
 
-/**
- * Authenticate an email message
- * @param {Buffer|string} message - Raw email message
- * @param {AuthOptions} options - Authentication options
- * @returns {Promise<AuthResult>}
- */
-async function authenticate(message, options = {}) {
-	const {
-		ip,
-		helo,
-		mta,
-		sender,
-		resolver = createResolver(options.timeout || 10_000),
-	} = options;
-
-	// Default result structure
-	const defaultResult = {
-		dkim: {
-			results: [],
-			status: {result: 'none', comment: 'No DKIM signature found'},
-		},
-		spf: {
-			status: {result: 'none', comment: 'SPF check not performed'},
-			domain: null,
-		},
+function emptyResult() {
+	return {
+		dkim: {status: {result: 'none', comment: 'not checked'}, results: [], aligned: null},
+		spf: {status: {result: 'none', comment: 'not checked'}, domain: null},
 		dmarc: {
-			status: {result: 'none', comment: 'DMARC check not performed'},
-			policy: null,
-			domain: null,
+			status: {result: 'none', comment: 'not checked'}, policy: null, domain: null, p: null,
 		},
-		arc: {
-			status: {result: 'none', comment: 'No ARC chain found'},
-			chain: [],
-		},
-		bimi: {
-			status: {result: 'none', comment: 'No BIMI record found'},
-			location: null,
-			authority: null,
-		},
+		arc: {status: {result: 'none', comment: 'not checked'}},
+		bimi: {status: {result: 'none', comment: 'not checked'}, location: null},
 		receivedChain: [],
-		headers: {},
+		headers: '',
+		error: null,
 	};
-
-	if (!ip) {
-		debug('No IP address provided, skipping authentication');
-		return defaultResult;
-	}
-
-	try {
-		const {authenticate: mailauthAuthenticate} = await getMailauth();
-
-		// Convert string to Buffer if needed
-		const messageBuffer = Buffer.isBuffer(message) ? message : Buffer.from(message);
-
-		const authResult = await mailauthAuthenticate(messageBuffer, {
-			ip,
-			helo: helo || 'unknown',
-			mta: mta || 'spamscanner',
-			sender,
-			resolver,
-		});
-
-		debug('Authentication result: %o', authResult);
-
-		// Normalize the result
-		return {
-			dkim: normalizeResult(authResult.dkim, 'dkim'),
-			spf: normalizeResult(authResult.spf, 'spf'),
-			dmarc: normalizeResult(authResult.dmarc, 'dmarc'),
-			arc: normalizeResult(authResult.arc, 'arc'),
-			bimi: normalizeResult(authResult.bimi, 'bimi'),
-			receivedChain: authResult.receivedChain || [],
-			headers: authResult.headers || {},
-		};
-	} catch (error) {
-		debug('Authentication failed: %s', error.message);
-		return defaultResult;
-	}
 }
 
 /**
- * Perform SPF check only
- * @param {string} ip - Remote IP address
- * @param {string} sender - Envelope sender (MAIL FROM)
- * @param {string} [helo] - HELO/EHLO hostname
- * @param {Object} [options] - Additional options
- * @returns {Promise<Object>}
+ * Overall DKIM result from mailauth's per-signature results: "pass" when any
+ * signature passes, "fail" when signatures exist and none passes, "none"
+ * without signatures. `aligned` is the From domain a passing signature is
+ * aligned with, if any.
+ * @param {object} dkim
+ * @returns {{status: {result: string, comment: string}, results: object[], aligned: string|null}}
  */
-async function checkSpf(ip, sender, helo, options = {}) {
-	const {
-		resolver = createResolver(options.timeout || 10_000),
-		mta = 'spamscanner',
-	} = options;
+export function summarizeDkim(dkim) {
+	// Mailauth reports an unsigned message as one result with status "none".
+	const results = (Array.isArray(dkim?.results) ? dkim.results : []).filter(entry => entry?.status?.result !== 'none');
+	const passing = results.filter(entry => entry?.status?.result === 'pass');
+	if (passing.length > 0) {
+		const aligned = passing.find(entry => entry.status.aligned)?.status.aligned || null;
+		return {status: {result: 'pass', comment: passing.map(entry => entry.signingDomain).join(', ')}, results, aligned};
+	}
 
-	const defaultResult = {
-		status: {result: 'none', comment: 'SPF check not performed'},
-		domain: null,
+	if (results.length === 0) {
+		return {status: {result: 'none', comment: 'no signature'}, results, aligned: null};
+	}
+
+	const temporary = results.some(entry => entry?.status?.result === 'temperror');
+	const neutral = results.every(entry => ['neutral', 'policy', 'none'].includes(entry?.status?.result));
+	let result = 'fail';
+	if (temporary) {
+		result = 'temperror';
+	} else if (neutral) {
+		result = 'neutral';
+	}
+
+	return {status: {result, comment: results.map(entry => `${entry.signingDomain || '?'}: ${entry?.status?.comment || entry?.status?.result || 'invalid'}`).join('; ')}, results, aligned: null};
+}
+
+/**
+ * Turn mailauth's output into this module's result shape, filling in "none"
+ * for anything mailauth left out.
+ * @param {object} output
+ * @returns {object}
+ */
+export function normalizeAuthOutput(output = {}) {
+	const empty = emptyResult();
+	return {
+		dkim: summarizeDkim(output.dkim),
+		spf: {status: output.spf?.status || empty.spf.status, domain: output.spf?.domain || null},
+		dmarc: {
+			status: output.dmarc?.status || empty.dmarc.status, policy: output.dmarc?.policy || null, domain: output.dmarc?.domain || null, p: output.dmarc?.p || null,
+		},
+		arc: {status: output.arc?.status || empty.arc.status},
+		bimi: {status: output.bimi?.status || empty.bimi.status, location: output.bimi?.location || null},
+		receivedChain: output.receivedChain || [],
+		headers: typeof output.headers === 'string' ? output.headers : '',
 	};
+}
 
-	if (!ip || !sender) {
-		return defaultResult;
+/**
+ * Check SPF, DKIM, DMARC, ARC and BIMI for a message, using mailauth.
+ *
+ * Needs the connecting client's IP address: without it nothing is checked and
+ * every result is "none". DNS errors give "temperror" results, never a pass.
+ *
+ * @param {Buffer|string} message - the raw message
+ * @param {object} options
+ * @param {string} options.ip - IP address of the client that sent the message
+ * @param {string} [options.helo] - hostname the client gave in HELO/EHLO
+ * @param {string} [options.sender] - envelope sender (MAIL FROM)
+ * @param {string} [options.mta] - this server's hostname, for the headers
+ * @param {Function} [options.resolver] - custom DNS resolver (name, type)
+ * @param {number} [options.timeout] - DNS timeout in milliseconds
+ * @param {string[]} [options.dnsServers] - name servers to use
+ * @returns {Promise<object>} dkim, spf, dmarc, arc, bimi, receivedChain and
+ *   headers (Received-SPF and Authentication-Results, ready to prepend)
+ */
+export async function authenticate(message, options = {}) {
+	const result = emptyResult();
+	const {
+		ip, helo, sender, mta = 'spamscanner', timeout = 10_000,
+	} = options;
+	if (!ip) {
+		result.error = 'No client IP address given';
+		return result;
 	}
 
 	try {
-		const {spf} = await getMailauth();
-
-		const result = await spf({
+		const {authenticate: run} = await getMailauth();
+		const resolver = options.resolver || createResolver(timeout, options.dnsServers);
+		const raw = Buffer.isBuffer(message) ? message : Buffer.from(String(message));
+		const output = await run(raw, {
 			ip,
-			sender,
-			helo: helo || 'unknown',
+			helo: helo || undefined,
+			sender: sender ?? undefined,
 			mta,
 			resolver,
 		});
-
-		return normalizeResult(result, 'spf');
+		Object.assign(result, normalizeAuthOutput(output));
 	} catch (error) {
-		debug('SPF check failed: %s', error.message);
-		return defaultResult;
+		debug('authentication failed: %s', error.message);
+		result.error = error.message;
 	}
+
+	return result;
 }
 
-/**
- * Verify DKIM signature
- * @param {Buffer|string} message - Raw email message
- * @param {Object} [options] - Additional options
- * @returns {Promise<Object>}
- */
-async function verifyDkim(message, options = {}) {
-	const {
-		resolver = createResolver(options.timeout || 10_000),
-	} = options;
-
-	const defaultResult = {
-		results: [],
-		status: {result: 'none', comment: 'No DKIM signature found'},
-	};
-
-	try {
-		const {dkimVerify} = await getMailauth();
-
-		const messageBuffer = Buffer.isBuffer(message) ? message : Buffer.from(message);
-
-		const result = await dkimVerify(messageBuffer, {
-			resolver,
-		});
-
-		return normalizeResult(result, 'dkim');
-	} catch (error) {
-		debug('DKIM verification failed: %s', error.message);
-		return defaultResult;
-	}
-}
+export const DEFAULT_AUTH_WEIGHTS = {
+	dkimPass: -0.5,
+	dkimFail: 1,
+	spfPass: -0.5,
+	spfFail: 2,
+	spfSoftfail: 1,
+	dmarcPass: -1.5,
+	dmarcFail: 3.5,
+	arcPass: -0.5,
+	arcFail: 1,
+};
 
 /**
- * Normalize authentication result to consistent structure
- * @param {Object} result - Raw result from mailauth
- * @param {string} type - Type of authentication (dkim, spf, dmarc, arc, bimi)
- * @returns {Object}
+ * Score authentication results: failures add points, passes take some away.
+ * @param {object} auth - from authenticate
+ * @param {object} [weights] - overrides for DEFAULT_AUTH_WEIGHTS
+ * @returns {{score: number, tests: Array<{name: string, score: number}>}}
  */
-function normalizeResult(result, type) {
-	if (!result) {
-		return {
-			status: {result: 'none', comment: `No ${type.toUpperCase()} result`},
-		};
-	}
-
-	switch (type) {
-		case 'dkim': {
-			return {
-				results: result.results || [],
-				status: result.status || {result: 'none', comment: 'No DKIM signature found'},
-			};
-		}
-
-		case 'spf': {
-			return {
-				status: result.status || {result: 'none', comment: 'SPF check not performed'},
-				domain: result.domain || null,
-				explanation: result.explanation || null,
-			};
-		}
-
-		case 'dmarc': {
-			return {
-				status: result.status || {result: 'none', comment: 'DMARC check not performed'},
-				policy: result.policy || null,
-				domain: result.domain || null,
-				p: result.p || null,
-				sp: result.sp || null,
-				pct: result.pct || null,
-			};
-		}
-
-		case 'arc': {
-			return {
-				status: result.status || {result: 'none', comment: 'No ARC chain found'},
-				chain: result.chain || [],
-				i: result.i || null,
-			};
-		}
-
-		case 'bimi': {
-			return {
-				status: result.status || {result: 'none', comment: 'No BIMI record found'},
-				location: result.location || null,
-				authority: result.authority || null,
-				selector: result.selector || null,
-			};
-		}
-
-		default: {
-			return result;
-		}
-	}
-}
-
-/**
- * Calculate authentication score based on results
- * @param {AuthResult} authResult - Authentication results
- * @param {Object} weights - Score weights for each check
- * @returns {Object} Score breakdown
- */
-function calculateAuthScore(authResult, weights = {}) {
-	const defaultWeights = {
-		dkimPass: -2, // Reduce spam score if DKIM passes
-		dkimFail: 3, // Increase spam score if DKIM fails
-		spfPass: -1,
-		spfFail: 2,
-		spfSoftfail: 1,
-		dmarcPass: -2,
-		dmarcFail: 4,
-		arcPass: -1,
-		arcFail: 1,
-		...weights,
-	};
-
-	let score = 0;
+export function calculateAuthScore(auth, weights = {}) {
+	const w = {...DEFAULT_AUTH_WEIGHTS, ...weights};
 	const tests = [];
-
-	// DKIM scoring
-	const dkimResult = authResult.dkim?.status?.result;
-	if (dkimResult === 'pass') {
-		score += defaultWeights.dkimPass;
-		tests.push(`DKIM_PASS(${defaultWeights.dkimPass})`);
-	} else if (dkimResult === 'fail') {
-		score += defaultWeights.dkimFail;
-		tests.push(`DKIM_FAIL(${defaultWeights.dkimFail})`);
-	}
-
-	// SPF scoring
-	const spfResult = authResult.spf?.status?.result;
-	switch (spfResult) {
-		case 'pass': {
-			score += defaultWeights.spfPass;
-			tests.push(`SPF_PASS(${defaultWeights.spfPass})`);
-
-			break;
+	const add = (name, score) => {
+		if (score !== 0) {
+			tests.push({name, score});
 		}
-
-		case 'fail': {
-			score += defaultWeights.spfFail;
-			tests.push(`SPF_FAIL(${defaultWeights.spfFail})`);
-
-			break;
-		}
-
-		case 'softfail': {
-			score += defaultWeights.spfSoftfail;
-			tests.push(`SPF_SOFTFAIL(${defaultWeights.spfSoftfail})`);
-
-			break;
-		}
-	// No default
-	}
-
-	// DMARC scoring
-	const dmarcResult = authResult.dmarc?.status?.result;
-	if (dmarcResult === 'pass') {
-		score += defaultWeights.dmarcPass;
-		tests.push(`DMARC_PASS(${defaultWeights.dmarcPass})`);
-	} else if (dmarcResult === 'fail') {
-		score += defaultWeights.dmarcFail;
-		tests.push(`DMARC_FAIL(${defaultWeights.dmarcFail})`);
-	}
-
-	// ARC scoring
-	const arcResult = authResult.arc?.status?.result;
-	if (arcResult === 'pass') {
-		score += defaultWeights.arcPass;
-		tests.push(`ARC_PASS(${defaultWeights.arcPass})`);
-	} else if (arcResult === 'fail') {
-		score += defaultWeights.arcFail;
-		tests.push(`ARC_FAIL(${defaultWeights.arcFail})`);
-	}
-
-	return {
-		score,
-		tests,
-		details: {
-			dkim: dkimResult || 'none',
-			spf: spfResult || 'none',
-			dmarc: dmarcResult || 'none',
-			arc: arcResult || 'none',
-		},
 	};
+
+	const rules = [
+		['DKIM', auth?.dkim?.status?.result, {pass: w.dkimPass, fail: w.dkimFail}],
+		['SPF', auth?.spf?.status?.result, {pass: w.spfPass, fail: w.spfFail, softfail: w.spfSoftfail}],
+		['DMARC', auth?.dmarc?.status?.result, {pass: w.dmarcPass, fail: w.dmarcFail}],
+		['ARC', auth?.arc?.status?.result, {pass: w.arcPass, fail: w.arcFail}],
+	];
+	for (const [name, value, scores] of rules) {
+		if (value && Object.hasOwn(scores, value)) {
+			add(`${name}_${value.toUpperCase()}`, scores[value]);
+		}
+	}
+
+	return {score: tests.reduce((sum, test) => sum + test.score, 0), tests};
 }
 
 /**
- * Format authentication results as Authentication-Results header
- * @param {AuthResult} authResult - Authentication results
- * @param {string} hostname - MTA hostname
+ * The Authentication-Results header (RFC 8601) for a result, without the
+ * header name. mailauth's own headers are used when present.
+ * @param {object} auth
+ * @param {string} [hostname]
  * @returns {string}
  */
-function formatAuthResultsHeader(authResult, hostname = 'spamscanner') {
-	const parts = [hostname];
-
-	// DKIM
-	if (authResult.dkim?.status?.result) {
-		const dkimResult = authResult.dkim.status.result;
-		let dkimPart = `dkim=${dkimResult}`;
-		if (authResult.dkim.results?.[0]?.signingDomain) {
-			dkimPart += ` header.d=${authResult.dkim.results[0].signingDomain}`;
+export function formatAuthResultsHeader(auth, hostname) {
+	if (typeof auth?.headers === 'string') {
+		const match = auth.headers.match(/^authentication-results:[ \t]*([\s\S]*?)(?=\r?\n\S|(?![\s\S]))/im);
+		if (match) {
+			const value = match[1].replaceAll(/\r?\n/g, '\r\n').trim();
+			// The first word is the name of the server that checked the message.
+			return hostname ? value.replace(/^[^;\s]+/, hostname) : value;
 		}
-
-		parts.push(dkimPart);
 	}
 
-	// SPF
-	if (authResult.spf?.status?.result) {
-		let spfPart = `spf=${authResult.spf.status.result}`;
-		if (authResult.spf.domain) {
-			spfPart += ` smtp.mailfrom=${authResult.spf.domain}`;
-		}
-
-		parts.push(spfPart);
-	}
-
-	// DMARC
-	if (authResult.dmarc?.status?.result) {
-		let dmarcPart = `dmarc=${authResult.dmarc.status.result}`;
-		if (authResult.dmarc.domain) {
-			dmarcPart += ` header.from=${authResult.dmarc.domain}`;
-		}
-
-		parts.push(dmarcPart);
-	}
-
-	// ARC
-	if (authResult.arc?.status?.result) {
-		parts.push(`arc=${authResult.arc.status.result}`);
-	}
-
-	return parts.join(';\n\t');
+	const parts = [hostname || 'spamscanner'];
+	const dkim = auth?.dkim?.status?.result || 'none';
+	const signer = auth?.dkim?.results?.find(entry => entry?.status?.result === dkim)?.signingDomain;
+	parts.push(`dkim=${dkim}${signer ? ` header.d=${signer}` : ''}`, `spf=${auth?.spf?.status?.result || 'none'}${auth?.spf?.domain ? ` smtp.mailfrom=${auth.spf.domain}` : ''}`, `dmarc=${auth?.dmarc?.status?.result || 'none'}${auth?.dmarc?.domain ? ` header.from=${auth.dmarc.domain}` : ''}`, `arc=${auth?.arc?.status?.result || 'none'}`);
+	return parts.join(';\r\n\t');
 }
 
-export {
-	authenticate,
-	checkSpf,
-	verifyDkim,
-	calculateAuthScore,
-	formatAuthResultsHeader,
-	createResolver,
-};
+/**
+ * One line summarizing authentication results, for logs and LLM prompts.
+ * @param {object} auth
+ * @returns {string}
+ */
+export function summarizeAuth(auth) {
+	return ['spf', 'dkim', 'dmarc', 'arc'].map(name => `${name}=${auth?.[name]?.status?.result || 'none'}`).join(' ');
+}

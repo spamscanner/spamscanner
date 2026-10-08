@@ -1,3 +1,5 @@
-test/snapshots/**/*.md
+_site
+dist
+coverage
 data
-reference/
+reports

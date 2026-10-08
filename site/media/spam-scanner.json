@@ -1,0 +1,5 @@
+{
+  "seconds": 118.26,
+  "uploadDate": "2026-10-07",
+  "description": "How Spam Scanner scores a message, reads every language, uses language models for close calls and plugs into Postfix, Exim, Haraka and Node.js."
+}

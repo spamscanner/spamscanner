@@ -57,7 +57,10 @@ cat > sea-config.json << 'EOF'
   "output": "sea-prep.blob",
   "disableExperimentalSEAWarning": true,
   "useSnapshot": false,
-  "useCodeCache": true
+  "useCodeCache": true,
+  "assets": {
+    "classifier.json": "model/classifier.json"
+  }
 }
 EOF
 
@@ -88,7 +91,7 @@ chmod +x "$BINARY_NAME"
 echo ""
 echo "=== Testing SEA Binary ==="
 echo "Version:"
-./"$BINARY_NAME" --version
+./"$BINARY_NAME" version
 
 echo ""
 echo "Help (first 10 lines):"
@@ -102,7 +105,7 @@ Subject: Test Email
 Date: Thu, 1 Jan 2024 00:00:00 +0000
 Message-ID: <test@example.com>
 
-This is a test email." | ./"$BINARY_NAME" scan - --json --no-update-check | head -20 || echo "Scan completed"
+This is a test email." | ./"$BINARY_NAME" scan - --no-cloudflare || echo "Scan completed"
 
 # Cleanup
 rm -f sea-config.json sea-prep.blob

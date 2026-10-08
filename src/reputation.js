@@ -1,193 +1,216 @@
-/**
- * Forward Email Reputation API Client
- * Checks IP addresses, domains, and emails against Forward Email's reputation database
- */
+import {isIP} from 'node:net';
+import {requestJson} from './http.js';
+import {registrableDomain} from './tokenizer.js';
 
-import {debuglog} from 'node:util';
-
-const debug = debuglog('spamscanner:reputation');
-
-// Default Forward Email API URL
-const DEFAULT_API_URL = 'https://api.forwardemail.net/v1/reputation';
-
-// Cache for reputation results (TTL: 5 minutes)
-const cache = new Map();
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+const EMPTY = Object.freeze({
+	isTruthSource: false,
+	truthSourceValue: null,
+	isAllowlisted: false,
+	allowlistValue: null,
+	isDenylisted: false,
+	denylistValue: null,
+});
 
 /**
- * @typedef {Object} ReputationResult
- * @property {boolean} isTruthSource - Whether the sender is a known truth source
- * @property {string|null} truthSourceValue - The truth source entry that matched
- * @property {boolean} isAllowlisted - Whether the sender is allowlisted
- * @property {string|null} allowlistValue - The allowlist entry that matched
- * @property {boolean} isDenylisted - Whether the sender is denylisted
- * @property {string|null} denylistValue - The denylist entry that matched
+ * Normalize an allowlist or denylist entry: an IP address, a domain (which
+ * also covers its subdomains), or an email address.
+ * @param {string} value
+ * @returns {string}
  */
+function normalizeEntry(value) {
+	return String(value).trim().toLowerCase().replace(/\.$/, '');
+}
 
 /**
- * Check reputation for a single value (IP, domain, or email)
- * @param {string} value - The value to check
- * @param {Object} options - Options
- * @param {string} [options.apiUrl] - Custom API URL
- * @param {number} [options.timeout] - Request timeout in ms
- * @returns {Promise<ReputationResult>}
+ * Whether a value (IP, hostname or email address) matches a list entry. A
+ * domain entry matches the domain, its subdomains and addresses at either.
+ * @param {string} value
+ * @param {Set<string>} list
+ * @returns {string|null} the entry that matched
  */
-async function checkReputation(value, options = {}) {
-	const {
-		apiUrl = DEFAULT_API_URL,
-		timeout = 10_000,
-	} = options;
-
-	if (!value || typeof value !== 'string') {
-		return {
-			isTruthSource: false,
-			truthSourceValue: null,
-			isAllowlisted: false,
-			allowlistValue: null,
-			isDenylisted: false,
-			denylistValue: null,
-		};
+export function matchList(value, list) {
+	if (!value || list.size === 0) {
+		return null;
 	}
 
-	// Check cache first
-	const cacheKey = `${apiUrl}:${value}`;
-	const cached = cache.get(cacheKey);
-	if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-		debug('Cache hit for %s', value);
-		return cached.result;
+	const normalized = normalizeEntry(value);
+	if (list.has(normalized)) {
+		return normalized;
 	}
 
-	try {
-		const url = new URL(apiUrl);
-		url.searchParams.set('q', value);
+	if (isIP(normalized)) {
+		return null;
+	}
 
-		const controller = new AbortController();
-		const timeoutId = setTimeout(() => controller.abort(), timeout);
+	const host = normalized.includes('@') ? normalized.slice(normalized.lastIndexOf('@') + 1) : normalized;
+	const labels = host.split('.');
+	for (let i = 0; i < labels.length - 1; i++) {
+		const candidate = labels.slice(i).join('.');
+		if (list.has(candidate)) {
+			return candidate;
+		}
+	}
 
-		const response = await fetch(url.toString(), {
-			method: 'GET',
-			headers: {
-				Accept: 'application/json',
-				'User-Agent': 'SpamScanner/6.0',
-			},
-			signal: controller.signal,
-		});
+	return null;
+}
 
-		clearTimeout(timeoutId);
+/**
+ * Reputation lookups: local allowlists and denylists, and optionally an HTTP
+ * reputation service.
+ *
+ * The service is any URL answering `GET <url>?q=<value>` with JSON
+ * `{ "isTruthSource": bool, "isAllowlisted": bool, "isDenylisted": bool }`
+ * (and optional `truthSourceValue`, `allowlistValue`, `denylistValue`).
+ * Values looked up: the client IP and hostname, the From, envelope sender and
+ * Reply-To addresses and their domains.
+ */
+export class ReputationChecker {
+	/**
+	 * @param {object} [options]
+	 * @param {string[]} [options.allowlist] - IPs, domains and addresses always accepted
+	 * @param {string[]} [options.denylist] - IPs, domains and addresses always rejected
+	 * @param {string} [options.apiUrl] - reputation service URL
+	 * @param {Record<string, string>} [options.headers] - for the service, e.g. authorization
+	 * @param {number} [options.timeout]
+	 * @param {number} [options.concurrency] - parallel service requests
+	 * @param {number} [options.cacheTtl] - milliseconds answers are kept
+	 * @param {number} [options.cacheSize]
+	 */
+	constructor(options = {}) {
+		this.allowlist = new Set((options.allowlist || []).map(entry => normalizeEntry(entry)));
+		this.denylist = new Set((options.denylist || []).map(entry => normalizeEntry(entry)));
+		this.apiUrl = options.apiUrl || null;
+		this.headers = options.headers || {};
+		this.timeout = options.timeout ?? 5000;
+		this.concurrency = Math.max(1, options.concurrency ?? 8);
+		this.cacheTtl = options.cacheTtl ?? 300_000;
+		this.cacheSize = options.cacheSize ?? 10_000;
+		this.cache = new Map();
+	}
 
-		if (!response.ok) {
-			debug('API returned status %d for %s', response.status, value);
-			// Return default values on error
-			return {
-				isTruthSource: false,
-				truthSourceValue: null,
-				isAllowlisted: false,
-				allowlistValue: null,
-				isDenylisted: false,
-				denylistValue: null,
-			};
+	/**
+	 * Ask the reputation service about one value. Failures count as unknown
+	 * and are remembered for a minute, so an outage does not slow every scan.
+	 * @param {string} value
+	 * @returns {Promise<object>}
+	 */
+	async lookup(value) {
+		const key = normalizeEntry(value);
+		const hit = this.cache.get(key);
+		if (hit && hit.expires > Date.now()) {
+			return hit.result;
 		}
 
-		const result = await response.json();
+		let result = EMPTY;
+		let ttl = this.cacheTtl;
+		try {
+			const url = new URL(this.apiUrl);
+			url.searchParams.set('q', key);
+			const body = await requestJson('GET', url.href, null, {headers: this.headers, timeout: this.timeout, maxResponseBytes: 65_536});
+			result = {
+				isTruthSource: body?.isTruthSource === true,
+				truthSourceValue: body?.isTruthSource === true ? (body.truthSourceValue || key) : null,
+				isAllowlisted: body?.isAllowlisted === true,
+				allowlistValue: body?.isAllowlisted === true ? (body.allowlistValue || key) : null,
+				isDenylisted: body?.isDenylisted === true,
+				denylistValue: body?.isDenylisted === true ? (body.denylistValue || key) : null,
+			};
+		} catch (error) {
+			result = {...EMPTY, error: error.message};
+			ttl = Math.min(ttl, 60_000);
+		}
 
-		// Normalize the result
-		const normalizedResult = {
-			isTruthSource: Boolean(result.isTruthSource),
-			truthSourceValue: result.truthSourceValue || null,
-			isAllowlisted: Boolean(result.isAllowlisted),
-			allowlistValue: result.allowlistValue || null,
-			isDenylisted: Boolean(result.isDenylisted),
-			denylistValue: result.denylistValue || null,
-		};
+		this.cache.set(key, {result, expires: Date.now() + ttl});
+		if (this.cache.size > this.cacheSize) {
+			this.cache.delete(this.cache.keys().next().value);
+		}
 
-		// Cache the result
-		cache.set(cacheKey, {
-			result: normalizedResult,
-			timestamp: Date.now(),
-		});
+		return result;
+	}
 
-		debug('Reputation check for %s: %o', value, normalizedResult);
-		return normalizedResult;
-	} catch (error) {
-		debug('Reputation check failed for %s: %s', value, error.message);
-		// Return default values on error
-		return {
-			isTruthSource: false,
-			truthSourceValue: null,
-			isAllowlisted: false,
-			allowlistValue: null,
-			isDenylisted: false,
-			denylistValue: null,
-		};
+	/**
+	 * Check a message's sender values against the lists and the service.
+	 * @param {string[]} values - IPs, hostnames, addresses
+	 * @returns {Promise<object>} isTruthSource, isAllowlisted, isDenylisted with
+	 *   the matching values, plus checkedValues and per-value details
+	 */
+	async check(values) {
+		const unique = [...new Set(values.filter(Boolean).map(value => normalizeEntry(value)))];
+		const aggregated = {...EMPTY, checkedValues: unique, details: {}};
+		for (const value of unique) {
+			const denied = matchList(value, this.denylist);
+			if (denied && !aggregated.isDenylisted) {
+				aggregated.isDenylisted = true;
+				aggregated.denylistValue = denied;
+			}
+
+			const allowed = matchList(value, this.allowlist);
+			if (allowed && !aggregated.isAllowlisted) {
+				aggregated.isAllowlisted = true;
+				aggregated.allowlistValue = allowed;
+			}
+		}
+
+		if (this.apiUrl) {
+			const queue = [...unique];
+			const worker = async () => {
+				while (queue.length > 0) {
+					const value = queue.shift();
+					// eslint-disable-next-line no-await-in-loop
+					const result = await this.lookup(value);
+					aggregated.details[value] = result;
+					for (const [flag, field] of [['isTruthSource', 'truthSourceValue'], ['isAllowlisted', 'allowlistValue'], ['isDenylisted', 'denylistValue']]) {
+						if (result[flag] && !aggregated[flag]) {
+							aggregated[flag] = true;
+							aggregated[field] = result[field];
+						}
+					}
+				}
+			};
+
+			await Promise.all(Array.from({length: Math.min(this.concurrency, unique.length)}, () => worker()));
+		}
+
+		return aggregated;
 	}
 }
 
 /**
- * Check reputation for multiple values in parallel
- * @param {string[]} values - Array of values to check (IPs, domains, emails)
- * @param {Object} options - Options
- * @returns {Promise<Map<string, ReputationResult>>}
+ * The values a message's reputation is checked by: the client IP address and
+ * hostname, and the From, envelope sender and Reply-To addresses with their
+ * domains and registrable domains.
+ * @param {object} mail - parsed message
+ * @param {object} [session] - remoteAddress, resolvedClientHostname, envelope
+ * @returns {string[]}
  */
-async function checkReputationBatch(values, options = {}) {
-	const uniqueValues = [...new Set(values.filter(Boolean))];
+export function reputationValues(mail = {}, session = {}) {
+	const values = [];
+	const addAddress = address => {
+		if (typeof address !== 'string' || !address.includes('@')) {
+			return;
+		}
 
-	const results = await Promise.all(uniqueValues.map(async value => {
-		const result = await checkReputation(value, options);
-		return [value, result];
-	}));
-
-	return new Map(results);
-}
-
-/**
- * Aggregate reputation results from multiple checks
- * @param {ReputationResult[]} results - Array of reputation results
- * @returns {ReputationResult}
- */
-function aggregateReputationResults(results) {
-	const aggregated = {
-		isTruthSource: false,
-		truthSourceValue: null,
-		isAllowlisted: false,
-		allowlistValue: null,
-		isDenylisted: false,
-		denylistValue: null,
+		const lower = address.toLowerCase();
+		const domain = lower.slice(lower.lastIndexOf('@') + 1);
+		values.push(lower, domain, registrableDomain(domain));
 	};
 
-	for (const result of results) {
-		// Any truth source match is a truth source
-		if (result.isTruthSource) {
-			aggregated.isTruthSource = true;
-			aggregated.truthSourceValue ||= result.truthSourceValue;
-		}
-
-		// Any allowlist match is allowlisted
-		if (result.isAllowlisted) {
-			aggregated.isAllowlisted = true;
-			aggregated.allowlistValue ||= result.allowlistValue;
-		}
-
-		// Any denylist match is denylisted (takes precedence)
-		if (result.isDenylisted) {
-			aggregated.isDenylisted = true;
-			aggregated.denylistValue ||= result.denylistValue;
-		}
+	if (session.remoteAddress) {
+		values.push(session.remoteAddress);
 	}
 
-	return aggregated;
-}
+	if (session.resolvedClientHostname) {
+		values.push(session.resolvedClientHostname, registrableDomain(session.resolvedClientHostname));
+	}
 
-/**
- * Clear the reputation cache
- */
-function clearCache() {
-	cache.clear();
-}
+	for (const entry of mail.from?.value || []) {
+		addAddress(entry.address);
+	}
 
-export {
-	checkReputation,
-	checkReputationBatch,
-	aggregateReputationResults,
-	clearCache,
-	DEFAULT_API_URL,
-};
+	addAddress(session.envelope?.mailFrom?.address);
+	for (const entry of mail.replyTo?.value || []) {
+		addAddress(entry.address);
+	}
+
+	return [...new Set(values.filter(Boolean))];
+}

@@ -16,3 +16,12 @@ temp/
 data
 dist
 pnpm-lock.yaml
+_site
+reports
+*.tgz
+sea-config.json
+sea-prep.blob
+spamscanner-linux-*
+spamscanner-darwin-*
+spamscanner-win-*
+spamscanner-model.json
