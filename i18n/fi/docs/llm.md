@@ -1,4 +1,4 @@
-<!-- source: dacf4c9ca2eb -->
+<!-- source: 79e50e309869 -->
 
 # Kielimallit
 
@@ -257,7 +257,7 @@ spamscanner milter --llm ollama --llm-policy "We never send invoices by email. A
 
 ## Yksityisyys
 
-Malli näkee tiivistelmän otsakkeista (From, Reply-To, To ja Subject), linkit, liitteiden nimet ja tyypit, todennuksen tulokset sekä leipätekstin 6 000 merkkiin lyhennettynä (`maxInputChars`).
+Malli näkee tiivistelmän otsakkeista (From, Reply-To, To ja Subject), linkit (ensin ne, jotka näyttävät yhden osoitteen ja vievät toiseen), liitteiden nimet ja tyypit, todennuksen tulokset, kuinka paljon tekstiä HTML piilottaa, kun se piilottaa enemmän kuin esikatselutekstin, sekä leipätekstin sellaisena kuin sähköpostiohjelma sen näyttää (HTML:stä, jos sellainen on, ilman piilotettua tekstiä, näkymättömiä merkkejä tai tyyliteltyjä kirjaimia) 6 000 merkkiin lyhennettynä (`maxInputChars`).
 
 Verkkosi ulkopuolisille palveluntarjoajille henkilötiedot poistetaan ensin: sähköpostiosoitteiden paikallinen osa (verkkotunnus säilyy, koska sillä on merkitystä tietojenkalastelun kannalta), korttien ja tilien numerot, puhelinnumerot sekä linkkien kyselyparametrien arvot, joissa on usein kirjautumistunnisteita. Tämä on oletuksena käytössä etäpalveluntarjoajille, päätösmallit mukaan lukien, ja pois käytöstä paikallisille (Ollama, LM Studio, llama.cpp, vLLM, LocalAI, Jan, TEI ja mikä tahansa localhostissa toimiva palvelin). `redact: true` tai `false` (`--llm-redact`, `--no-llm-redact`) ohittaa oletuksen.
 

@@ -1,4 +1,4 @@
-<!-- source: dacf4c9ca2eb -->
+<!-- source: 79e50e309869 -->
 
 # 언어 모델
 
@@ -257,7 +257,7 @@ spamscanner milter --llm ollama --llm-policy "We never send invoices by email. A
 
 ## 개인정보 보호
 
-모델은 헤더 요약(From, Reply-To, To, Subject), 링크, 첨부 파일 이름과 형식, 인증 결과, 그리고 6,000자(`maxInputChars`)로 자른 본문을 봅니다.
+모델은 헤더 요약(From, Reply-To, To, Subject), 링크(한 주소를 표시하고 다른 주소로 가는 링크가 먼저), 첨부 파일 이름과 형식, 인증 결과, HTML이 미리보기 텍스트보다 많은 텍스트를 숨길 때 숨긴 텍스트의 양, 그리고 메일 클라이언트가 보여 주는 대로의 본문(HTML이 있으면 HTML의 본문이며, 숨긴 텍스트, 보이지 않는 문자, 꾸민 글자는 제외)을 6,000자(`maxInputChars`)로 잘라서 봅니다.
 
 네트워크 밖의 제공자에게 보낼 때는 먼저 개인 데이터를 제거합니다. 이메일 주소의 로컬 부분(도메인은 피싱 판단에 중요하므로 남깁니다), 카드 번호와 계좌 번호, 전화번호, 그리고 흔히 로그인 토큰을 담고 있는 링크의 쿼리 매개변수 값이 그 대상입니다. 결정 모델을 포함한 원격 제공자에게는 기본으로 켜져 있고, 로컬 제공자(Ollama, LM Studio, llama.cpp, vLLM, LocalAI, Jan, TEI, 그리고 localhost의 모든 서버)에는 꺼져 있습니다. `redact: true` 또는 `false`(`--llm-redact`, `--no-llm-redact`)로 이 기본값을 바꿀 수 있습니다.
 

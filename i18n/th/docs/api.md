@@ -1,4 +1,4 @@
-<!-- source: b3cc9f949acd -->
+<!-- source: 632106ec8af9 -->
 
 # เอกสารอ้างอิง API
 
@@ -61,22 +61,33 @@ await scanner.scan(raw, {
 });
 ```
 
+เซิร์ฟเวอร์ที่ตรวจ SPF, DKIM, DMARC และ ARC ไปแล้ว (ด้วย [mailauth](https://github.com/postalsys/mailauth)) ส่งผลลัพธ์มาเป็น `authenticationResults` ได้ แล้วผลเหล่านั้นจะถูกนำไปคิดคะแนนแทนการตรวจซ้ำ:
+
+```js
+import {authenticate} from 'mailauth';
+
+const auth = await authenticate(raw, {ip, helo, sender, mta});
+await scanner.scan(raw, {authenticationResults: auth});
+```
+
 
 ## เมธอด
 
-| เมธอด                                | ค่าที่คืน                                                                     |
-| ------------------------------------ | ----------------------------------------------------------------------------- |
-| `scan(source, options)`              | ผลลัพธ์ `source` เป็น Buffer สตริง Uint8Array หรือ readable stream            |
-| `scanFile(path, options)`            | ผลลัพธ์สำหรับไฟล์ข้อความ                                                      |
-| `learn(source, 'spam' \| 'ham')`     | สอนตัวจำแนกด้วยข้อความหนึ่งข้อความ                                            |
-| `unlearn(source, 'spam' \| 'ham')`   | ยกเลิกผลของ `learn`                                                           |
-| `saveModel(path, options)`           | เขียนตัวจำแนกลงไฟล์ (`options`: `minCount`, `maxFeatures`, `metadata`)        |
-| `getClassifier()`                    | `Classifier` ที่ใช้อยู่ หรือ `null`                                           |
-| `getClassification(features)`        | ผลตัดสินของตัวจำแนกสำหรับคุณลักษณะจาก `getFeatures`                           |
-| `getFeatures(mail)`                  | `{features, words, language, script, links}` สำหรับข้อความที่แยกวิเคราะห์แล้ว |
-| `getTokens(text, locale)`            | คำในข้อความ                                                                   |
-| `getTokensAndMailFromSource(source)` | `{tokens, features, mail}`                                                    |
-| `parse(source)`                      | `{raw, mail}` โดย `mail` มาจาก mailparser                                     |
+| เมธอด                                | ค่าที่คืน                                                                    |
+| ------------------------------------ | ---------------------------------------------------------------------------- |
+| `scan(source, options)`              | ผลลัพธ์ `source` เป็น Buffer สตริง Uint8Array หรือ readable stream           |
+| `scanFile(path, options)`            | ผลลัพธ์สำหรับไฟล์ข้อความ                                                     |
+| `learn(source, 'spam' \| 'ham')`     | สอนตัวจำแนกด้วยข้อความหนึ่งข้อความ                                           |
+| `unlearn(source, 'spam' \| 'ham')`   | ยกเลิกผลของ `learn`                                                          |
+| `saveModel(path, options)`           | เขียนตัวจำแนกลงไฟล์ (`options`: `minCount`, `maxFeatures`, `metadata`)       |
+| `getClassifier()`                    | `Classifier` ที่ใช้อยู่ หรือ `null`                                          |
+| `getClassification(features)`        | ผลตัดสินของตัวจำแนกสำหรับคุณลักษณะจาก `getFeatures`                          |
+| `getFeatures(mail)`                  | `{features, words, language, script, links, hosts, text, hidden}` ของข้อความ |
+| `getTokens(text, locale)`            | คำในข้อความ                                                                  |
+| `getTokensAndMailFromSource(source)` | `{tokens, features, mail}`                                                   |
+| `parse(source)`                      | `{raw, mail}` โดย `mail` มาจาก mailparser                                    |
+
+ใน `getFeatures` นั้น `text` คือข้อความที่โปรแกรมอีเมลแสดง ซึ่งเป็นที่มาของคำที่อ่าน และ `hidden` คือจำนวนอักขระของข้อความที่ HTML ซ่อนไว้
 
 `scanner.metrics` เก็บ `totalScans`, `averageTime` และ `lastScanTime`
 

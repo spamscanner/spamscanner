@@ -1,4 +1,4 @@
-<!-- source: 35bf62a30cd7 -->
+<!-- source: 8a788c19971e -->
 
 # Så fungerar det
 
@@ -19,6 +19,8 @@ Spam Scanner behåller det som fungerar i ordräkning, statistiken, och ändrar 
 
 ### Vad det räknar
 
+Texten som läses är den som ett e-postprogram visar: HTML-delens när det finns en (en textdel bredvid den visas bara där HTML inte kan visas, så en harmlös textdel kan inte tala för HTML-delen), utan taggar, kommentarer, skript och stilar, med inline-taggar som fogar ihop ett ord så som en webbläsare gör (`Free Sp<span>ins</span>`), och med text som HTML-koden döljer utelämnad och räknad: dold av ett element som döljer det som det innehåller (display, opacity, attributet hidden, en beskuren ruta utan storlek, text flyttad utanför sidan), eller osynlig, genomskinlig eller i ett typsnitt på en pixel eller mindre där den står (vilket ett element inuti kan ställa tillbaka, som responsiva mallar gör). Stilar läses som webbläsare läser dem (den sista deklarationen vinner, kommentarer, teckenreferenser); färger mot en bakgrund och klasser i stilmallar läses inte, så sådan text läses som den visas. HTML som visar färre än 20 ord, till exempel en bild av meddelandet, läses tillsammans med sin textdel. Länkar och värdnamn läses från båda delarna och från dold text.
+
 Texten normaliseras först: Unicode NFKC viker stiliserade bokstäver och fullbreddsbokstäver till vanliga, osynliga tecken tas bort och räknas, förväxlingsbara bokstäver i annars latinska eller kyrilliska ord förs tillbaka och siffror som används som bokstäver (`v1agra`) viks ihop. Orden segmenteras sedan med `Intl.Segmenter`, Unicode-reglerna för ordgränser med ordlistor för kinesiska, japanska, thailändska, laotiska, khmer och burmesiska.
 
 Ur det extraheras:
@@ -33,6 +35,7 @@ Ur det extraheras:
 | Länkar           | `url:shortener`, `url:deceptive`, `url:punycode`      | Länkförkortare, råa IP-adresser, länktext som inte stämmer, länkade domäner och deras toppdomäner              |
 | Avsändare        | `from:freemail`, `fn:support`, `replyto:other_domain` | Avsändarens domän, ord i visningsnamnet och Reply-To                                                           |
 | HTML             | `html:only`, `html:hidden`, `html:form`               | HTML utan textdel, dold text, formulär, spårningspixlar                                                        |
+| Delar            | `html:hidden_text`, `html:text_mismatch`              | Text som HTML-koden döljer; en textdel som har få ord gemensamma med HTML-delen bredvid                        |
 | Bilagor          | `att:ext:zip`, `att:count:1`                          | Typer och antal bilagor                                                                                        |
 | Huvuden          | `hdr:list_unsubscribe`, `hdr:priority_high`           | Huvuden för e-postlistor, prioritetsflaggor, e-postprogram, Received-hopp                                      |
 

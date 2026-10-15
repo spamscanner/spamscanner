@@ -1,4 +1,4 @@
-<!-- source: 6f6b765c5fc1 -->
+<!-- source: e4110e4fd51c -->
 
 # Tester och poäng
 
@@ -26,6 +26,8 @@ Ett meddelande är spam vid 5 poäng och avvisas vid 15. Varje test nedan lägge
 | `MALICIOUS_DOMAIN`          |     6 | `maliciousDomain`   | Cloudflares resolver mot skadlig kod blockerar en länkad domän                 |
 | `ADULT_DOMAIN`              |     2 | `adultDomain`       | Cloudflares familjeresolver blockerar en länkad domän                          |
 | `URIBL_<LIST>`              |     5 | `uriblListed`       | En länkad domän finns på en domänblocklista, till exempel `URIBL_DBL`          |
+
+Domäner som bara nämns i texten, utan länk, kontrolleras också för förväxlingsbarhet, men räknas bara när de tydligt imiterar ett varumärke: förväxlingsbara bokstäver, eller utbytta tecken för ett varumärke på fem bokstäver eller fler. Ett svar eller en signatur kan nämna vilken webbplats som helst, och ett företag kan ha ett kort namn som ligger ett tecken ifrån ett varumärkes.
 
 
 ## Bilagor

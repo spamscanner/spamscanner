@@ -1,4 +1,4 @@
-<!-- source: dacf4c9ca2eb -->
+<!-- source: 79e50e309869 -->
 
 # Nyelvi modellek
 
@@ -257,7 +257,7 @@ spamscanner milter --llm ollama --llm-policy "We never send invoices by email. A
 
 ## Adatvédelem
 
-A modell a fejlécek összefoglalóját (From, Reply-To, To és Subject), a hivatkozásokat, a mellékletek nevét és típusát, a hitelesítési eredményeket és a levéltörzset látja, 6000 karakterre vágva (`maxInputChars`).
+A modell a fejlécek összefoglalóját (From, Reply-To, To és Subject), a hivatkozásokat (elöl azokat, amelyek egy címet mutatnak, de egy másikra visznek), a mellékletek nevét és típusát, a hitelesítési eredményeket, azt, hogy a HTML mennyi szöveget rejt el, ha többet rejt el az előnézeti szövegnél, valamint a levéltörzset látja úgy, ahogy egy levelezőprogram megjeleníti (a HTML-ét, ha van, rejtett szöveg, láthatatlan karakterek és díszített betűk nélkül), 6000 karakterre vágva (`maxInputChars`).
 
 A saját hálózaton kívüli szolgáltatóknál előbb eltávolítja a személyes adatokat: az e-mail-címek helyi részét (a domain megmarad, mert az adathalászat szempontjából fontos), a kártya- és számlaszámokat, a telefonszámokat és a hivatkozások lekérdezési paramétereinek értékét, amelyek gyakran bejelentkezési tokeneket hordoznak. Ez távoli szolgáltatóknál alapértelmezetten be van kapcsolva, a döntési modelleket is beleértve, helyieknél (Ollama, LM Studio, llama.cpp, vLLM, LocalAI, Jan, TEI és bármely localhoston futó szerver) ki. A `redact: true` vagy `false` (`--llm-redact`, `--no-llm-redact`) felülírja ezt.
 

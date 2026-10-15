@@ -1,4 +1,4 @@
-<!-- source: 35bf62a30cd7 -->
+<!-- source: 8a788c19971e -->
 
 # Hoe het werkt
 
@@ -19,6 +19,8 @@ Spam Scanner houdt wat werkt aan het tellen van woorden, de statistiek, en veran
 
 ### Wat het telt
 
+De gelezen tekst is wat een mailclient toont: die van het HTML-deel als dat er is (een tekstdeel ernaast wordt alleen getoond waar HTML dat niet kan, zodat een onschuldig tekstdeel niet namens de HTML kan spreken), zonder tags, commentaar, scripts en stijlen, met inline tags die een woord samenvoegen zoals een browser dat doet (`Free Sp<span>ins</span>`), en met tekst die de HTML verbergt weggelaten en geteld: door een element dat verbergt wat het bevat (display, opacity, het hidden-attribuut, een bijgesneden vak zonder afmeting, tekst die buiten de pagina is geschoven), of onzichtbaar, transparant of in een lettertype van een pixel of kleiner waar het staat (wat een element erbinnen weer kan terugzetten, zoals responsive templates doen). Stijlen worden gelezen zoals browsers ze lezen (de laatste declaratie wint, commentaar, tekenreferenties); kleuren op een achtergrond en klassen uit stylesheets niet, dus zulke tekst wordt gelezen zoals getoond. HTML die minder dan 20 woorden toont, zoals een afbeelding van het bericht, wordt samen met het tekstdeel gelezen. Links en hostnamen worden uit beide delen en uit verborgen tekst gelezen.
+
 Eerst wordt de tekst genormaliseerd: Unicode NFKC zet opgemaakte letters en letters met volle breedte om naar gewone, onzichtbare tekens worden verwijderd en geteld, lookalike-letters in verder Latijnse of Cyrillische woorden worden teruggezet, en cijfers die als letters worden gebruikt (`v1agra`) worden omgezet. Daarna worden woorden gesegmenteerd met `Intl.Segmenter`, de Unicode-regels voor woordgrenzen met woordenboeken voor Chinees, Japans, Thai, Lao, Khmer en Birmaans.
 
 Daaruit haalt het:
@@ -33,6 +35,7 @@ Daaruit haalt het:
 | Links            | `url:shortener`, `url:deceptive`, `url:punycode`      | Linkverkorters, kale IP-adressen, linkteksten die niet kloppen, gelinkte domeinen en hun TLD's                |
 | Afzender         | `from:freemail`, `fn:support`, `replyto:other_domain` | Het domein van de afzender, woorden in de weergavenaam en Reply-To                                            |
 | HTML             | `html:only`, `html:hidden`, `html:form`               | HTML zonder tekstdeel, verborgen tekst, formulieren, trackingpixels                                           |
+| Delen            | `html:hidden_text`, `html:text_mismatch`              | Tekst die de HTML verbergt; een tekstdeel dat weinig woorden deelt met de HTML ernaast                        |
 | Bijlagen         | `att:ext:zip`, `att:count:1`                          | Soorten en aantallen bijlagen                                                                                 |
 | Headers          | `hdr:list_unsubscribe`, `hdr:priority_high`           | Mailinglijstheaders, prioriteitsvlaggen, mailers, Received-hops                                               |
 

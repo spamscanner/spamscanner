@@ -1,4 +1,4 @@
-<!-- source: dacf4c9ca2eb -->
+<!-- source: 79e50e309869 -->
 
 # Taalmodellen
 
@@ -257,7 +257,7 @@ spamscanner milter --llm ollama --llm-policy "We never send invoices by email. A
 
 ## Privacy
 
-Het model ziet een samenvatting van de headers (From, Reply-To, To en Subject), de links, de namen en typen van bijlagen, de authenticatieresultaten en de body, ingekort tot 6.000 tekens (`maxInputChars`).
+Het model ziet een samenvatting van de headers (From, Reply-To, To en Subject), de links (eerst die welke het ene adres tonen en naar een ander gaan), de namen en typen van bijlagen, de authenticatieresultaten, hoeveel tekst de HTML verbergt als die meer verbergt dan previewtekst, en de body zoals een mailclient die toont (van de HTML als die er is, zonder verborgen tekst, onzichtbare tekens of opgemaakte letters), ingekort tot 6.000 tekens (`maxInputChars`).
 
 Bij aanbieders buiten je netwerk worden persoonsgegevens eerst verwijderd: het lokale deel van e-mailadressen (het domein blijft, omdat dat voor phishing ertoe doet), kaart- en rekeningnummers, telefoonnummers en de waarden van queryparameters in links, die vaak inlogtokens bevatten. Dit staat standaard aan voor externe aanbieders, beslismodellen inbegrepen, en uit voor lokale (Ollama, LM Studio, llama.cpp, vLLM, LocalAI, Jan, TEI en elke server op localhost). `redact: true` of `false` (`--llm-redact`, `--no-llm-redact`) overschrijft dit.
 

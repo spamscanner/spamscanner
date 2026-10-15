@@ -1,4 +1,4 @@
-<!-- source: 6f6b765c5fc1 -->
+<!-- source: e4110e4fd51c -->
 
 # Các phép kiểm tra và điểm
 
@@ -26,6 +26,8 @@ Thay đổi ngưỡng bằng `threshold` và `rejectThreshold`. Thay đổi đi�
 | `MALICIOUS_DOMAIN`          |    6 | `maliciousDomain`   | Resolver chặn mã độc của Cloudflare chặn một tên miền được liên kết                 |
 | `ADULT_DOMAIN`              |    2 | `adultDomain`       | Resolver gia đình của Cloudflare chặn một tên miền được liên kết                    |
 | `URIBL_<LIST>`              |    5 | `uriblListed`       | Một tên miền được liên kết nằm trong danh sách chặn tên miền, ví dụ `URIBL_DBL`     |
+
+Các tên miền chỉ được nhắc tới trong văn bản, không được liên kết, cũng được kiểm tra xem có giả mạo không, nhưng chỉ được tính khi rõ ràng bắt chước một thương hiệu: chữ cái trông giống, hoặc ký tự bị tráo với thương hiệu có từ năm chữ cái trở lên. Một thư trả lời hay chữ ký có thể nhắc tới bất kỳ trang web nào, và một công ty có thể có tên ngắn chỉ khác tên thương hiệu một ký tự.
 
 
 ## Tệp đính kèm

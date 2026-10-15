@@ -1,4 +1,4 @@
-<!-- source: 6f6b765c5fc1 -->
+<!-- source: e4110e4fd51c -->
 
 # Testy i punkty
 
@@ -26,6 +26,8 @@ Progi zmienisz przez `threshold` i `rejectThreshold`. Punkty zmienisz przez `sco
 | `MALICIOUS_DOMAIN`          |      6 | `maliciousDomain`   | Resolver Cloudflare blokujący złośliwe oprogramowanie blokuje linkowaną domenę |
 | `ADULT_DOMAIN`              |      2 | `adultDomain`       | Rodzinny resolver Cloudflare blokuje linkowaną domenę                          |
 | `URIBL_<LIST>`              |      5 | `uriblListed`       | Linkowana domena jest na czarnej liście domen, na przykład `URIBL_DBL`         |
+
+Domeny jedynie wymienione w tekście, bez linku, też są sprawdzane pod kątem podobieństwa do marek, ale liczą się tylko wtedy, gdy wyraźnie udają markę: podobne litery albo zamienione znaki w przypadku marki o nazwie z pięciu lub więcej liter. Odpowiedź lub podpis może wymieniać dowolną witrynę, a firma może mieć krótką nazwę różniącą się jednym znakiem od nazwy marki.
 
 
 ## Załączniki

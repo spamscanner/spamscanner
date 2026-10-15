@@ -1,4 +1,4 @@
-<!-- source: b3cc9f949acd -->
+<!-- source: 632106ec8af9 -->
 
 # API-Referenz
 
@@ -61,6 +61,15 @@ await scanner.scan(raw, {
 });
 ```
 
+Ein Server, der SPF, DKIM, DMARC und ARC bereits geprüft hat (mit [mailauth](https://github.com/postalsys/mailauth)), kann seine Ergebnisse als `authenticationResults` übergeben, und sie werden bewertet statt erneut geprüft:
+
+```js
+import {authenticate} from 'mailauth';
+
+const auth = await authenticate(raw, {ip, helo, sender, mta});
+await scanner.scan(raw, {authenticationResults: auth});
+```
+
 
 ## Methoden
 
@@ -73,10 +82,12 @@ await scanner.scan(raw, {
 | `saveModel(path, options)`           | Schreibt den Klassifikator in eine Datei (`options`: `minCount`, `maxFeatures`, `metadata`) |
 | `getClassifier()`                    | Der verwendete `Classifier` oder `null`                                                     |
 | `getClassification(features)`        | Das Urteil des Klassifikators für Merkmale aus `getFeatures`                                |
-| `getFeatures(mail)`                  | `{features, words, language, script, links}` für eine geparste Nachricht                    |
+| `getFeatures(mail)`                  | `{features, words, language, script, links, hosts, text, hidden}` einer Nachricht           |
 | `getTokens(text, locale)`            | Die Wörter eines Texts                                                                      |
 | `getTokensAndMailFromSource(source)` | `{tokens, features, mail}`                                                                  |
 | `parse(source)`                      | `{raw, mail}`, mit `mail` aus mailparser                                                    |
+
+In `getFeatures` ist `text` der Text, den ein Mailprogramm anzeigt und aus dem die Wörter gelesen werden, und `hidden` die Anzahl der Textzeichen, die das HTML versteckt.
 
 `scanner.metrics` enthält `totalScans`, `averageTime` und `lastScanTime`.
 

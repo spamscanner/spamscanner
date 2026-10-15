@@ -1,4 +1,4 @@
-<!-- source: 6f6b765c5fc1 -->
+<!-- source: e4110e4fd51c -->
 
 # Tester og poeng
 
@@ -26,6 +26,8 @@ Endre tersklene med `threshold` og `rejectThreshold`. Endre poeng med `scores`, 
 | `MALICIOUS_DOMAIN`          |     6 | `maliciousDomain`   | Cloudflares resolver mot skadevare blokkerer et lenket domene                     |
 | `ADULT_DOMAIN`              |     2 | `adultDomain`       | Cloudflares familieresolver blokkerer et lenket domene                            |
 | `URIBL_<LIST>`              |     5 | `uriblListed`       | Et lenket domene står på en domeneblokkeringsliste, for eksempel `URIBL_DBL`      |
+
+Domener som bare nevnes i teksten, uten å være lenket, sjekkes også for forvekslbare tegn, men teller bare når de tydelig etterligner et merkenavn: forvekslbare bokstaver, eller ombyttede tegn for et merkenavn på fem bokstaver eller mer. Et svar eller en signatur kan nevne hvilket som helst nettsted, og et firma kan ha et kort navn som er ett tegn unna et merkenavns.
 
 
 ## Vedlegg

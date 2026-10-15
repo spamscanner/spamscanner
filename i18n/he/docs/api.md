@@ -1,4 +1,4 @@
-<!-- source: b3cc9f949acd -->
+<!-- source: 632106ec8af9 -->
 
 # תיעוד API
 
@@ -61,22 +61,33 @@ await scanner.scan(raw, {
 });
 ```
 
+שרת שכבר בדק SPF,‏ DKIM,‏ DMARC ו-ARC (בעזרת [mailauth](https://github.com/postalsys/mailauth)) יכול להעביר את התוצאות שלו כ-`authenticationResults`, והן מקבלות ניקוד במקום להיבדק שוב:
+
+```js
+import {authenticate} from 'mailauth';
+
+const auth = await authenticate(raw, {ip, helo, sender, mta});
+await scanner.scan(raw, {authenticationResults: auth});
+```
+
 
 ## מתודות
 
-| מתודה                                | מחזירה                                                                   |
-| ------------------------------------ | ------------------------------------------------------------------------ |
-| `scan(source, options)`              | את התוצאה. `source` הוא Buffer, מחרוזת, Uint8Array או זרם קריא           |
-| `scanFile(path, options)`            | את התוצאה עבור קובץ הודעה                                                |
-| `learn(source, 'spam' \| 'ham')`     | מלמדת את המסווג הודעה אחת                                                |
-| `unlearn(source, 'spam' \| 'ham')`   | מבטלת `learn`                                                            |
-| `saveModel(path, options)`           | כותבת את המסווג לקובץ (`options`: `minCount`, `maxFeatures`, `metadata`) |
-| `getClassifier()`                    | את ה-`Classifier` שבשימוש, או `null`                                     |
-| `getClassification(features)`        | את פסק הדין של המסווג עבור מאפיינים מ-`getFeatures`                      |
-| `getFeatures(mail)`                  | `{features, words, language, script, links}` עבור הודעה מפוענחת          |
-| `getTokens(text, locale)`            | את המילים של טקסט                                                        |
-| `getTokensAndMailFromSource(source)` | `{tokens, features, mail}`                                               |
-| `parse(source)`                      | `{raw, mail}`, כש-`mail` מגיע מ-mailparser                               |
+| מתודה                                | מחזירה                                                                     |
+| ------------------------------------ | -------------------------------------------------------------------------- |
+| `scan(source, options)`              | את התוצאה. `source` הוא Buffer, מחרוזת, Uint8Array או זרם קריא             |
+| `scanFile(path, options)`            | את התוצאה עבור קובץ הודעה                                                  |
+| `learn(source, 'spam' \| 'ham')`     | מלמדת את המסווג הודעה אחת                                                  |
+| `unlearn(source, 'spam' \| 'ham')`   | מבטלת `learn`                                                              |
+| `saveModel(path, options)`           | כותבת את המסווג לקובץ (`options`: `minCount`, `maxFeatures`, `metadata`)   |
+| `getClassifier()`                    | את ה-`Classifier` שבשימוש, או `null`                                       |
+| `getClassification(features)`        | את פסק הדין של המסווג עבור מאפיינים מ-`getFeatures`                        |
+| `getFeatures(mail)`                  | `{features, words, language, script, links, hosts, text, hidden}` של הודעה |
+| `getTokens(text, locale)`            | את המילים של טקסט                                                          |
+| `getTokensAndMailFromSource(source)` | `{tokens, features, mail}`                                                 |
+| `parse(source)`                      | `{raw, mail}`, כש-`mail` מגיע מ-mailparser                                 |
+
+ב-`getFeatures`, ‏`text` הוא הטקסט שתוכנת דואר מציגה, שממנו נקראות המילים, ו-`hidden` הוא מספר התווים של טקסט שה-HTML מסתיר.
 
 `scanner.metrics` מכיל את `totalScans`, ‏`averageTime` ו-`lastScanTime`.
 

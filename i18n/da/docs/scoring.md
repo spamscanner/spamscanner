@@ -1,4 +1,4 @@
-<!-- source: 6f6b765c5fc1 -->
+<!-- source: e4110e4fd51c -->
 
 # Test og scorer
 
@@ -26,6 +26,8 @@ En besked er spam ved 5 point og afvises ved 15. Hver test nedenfor lægger poin
 | `MALICIOUS_DOMAIN`          |     6 | `maliciousDomain`   | Cloudflares malware-resolver blokerer et linket domæne                          |
 | `ADULT_DOMAIN`              |     2 | `adultDomain`       | Cloudflares familieresolver blokerer et linket domæne                           |
 | `URIBL_<LIST>`              |     5 | `uriblListed`       | Et linket domæne står på en domæneblokeringsliste, for eksempel `URIBL_DBL`     |
+
+Domæner, der kun nævnes i teksten uden at være linket, tjekkes også for efterligninger, men tæller kun, når de tydeligt efterligner et varemærke: forvekslelige bogstaver eller ombyttede tegn for et varemærke på fem bogstaver eller flere. Et svar eller en signatur kan nævne et hvilket som helst websted, og en virksomhed kan have et kort navn, der kun er ét tegn fra et varemærkes.
 
 
 ## Vedhæftede filer

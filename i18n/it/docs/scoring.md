@@ -1,4 +1,4 @@
-<!-- source: 6f6b765c5fc1 -->
+<!-- source: e4110e4fd51c -->
 
 # Test e punteggi
 
@@ -26,6 +26,8 @@ Modifica le soglie con `threshold` e `rejectThreshold`. Modifica i punti con `sc
 | `MALICIOUS_DOMAIN`          |     6 | `maliciousDomain`      | Il resolver antimalware di Cloudflare blocca un dominio collegato         |
 | `ADULT_DOMAIN`              |     2 | `adultDomain`          | Il resolver per famiglie di Cloudflare blocca un dominio collegato        |
 | `URIBL_<LIST>`              |     5 | `uriblListed`          | Un dominio collegato è in una blocklist di domini, ad esempio `URIBL_DBL` |
+
+Anche i domini solo nominati nel testo, non collegati, vengono controllati per individuare i sosia, ma contano solo quando imitano chiaramente un marchio: lettere sosia, o caratteri scambiati per un marchio di cinque lettere o più. Una risposta o una firma può nominare qualsiasi sito, e un'azienda può avere un nome breve a un carattere di distanza da quello di un marchio.
 
 
 ## Allegati

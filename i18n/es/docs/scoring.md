@@ -1,4 +1,4 @@
-<!-- source: 6f6b765c5fc1 -->
+<!-- source: e4110e4fd51c -->
 
 # Pruebas y puntuaciones
 
@@ -26,6 +26,8 @@ Cambia los umbrales con `threshold` y `rejectThreshold`. Cambia los puntos con `
 | `MALICIOUS_DOMAIN`          |      6 | `maliciousDomain`      | El resolutor de malware de Cloudflare bloquea un dominio enlazado                     |
 | `ADULT_DOMAIN`              |      2 | `adultDomain`          | El resolutor familiar de Cloudflare bloquea un dominio enlazado                       |
 | `URIBL_<LIST>`              |      5 | `uriblListed`          | Un dominio enlazado está en una lista de bloqueo de dominios, por ejemplo `URIBL_DBL` |
+
+Los dominios que solo se nombran en el texto, sin enlazar, también se comprueban en busca de imitaciones, pero solo cuentan cuando imitan claramente una marca: letras parecidas, o caracteres cambiados en una marca de cinco letras o más. Una respuesta o una firma puede nombrar cualquier sitio, y una empresa puede tener un nombre corto a un carácter del de una marca.
 
 
 ## Adjuntos

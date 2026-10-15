@@ -1,4 +1,4 @@
-<!-- source: 6f6b765c5fc1 -->
+<!-- source: e4110e4fd51c -->
 
 # Testit ja pisteet
 
@@ -26,6 +26,8 @@ Muuta rajoja valinnoilla `threshold` ja `rejectThreshold`. Muuta pisteitä valin
 | `MALICIOUS_DOMAIN`          |       6 | `maliciousDomain`   | Cloudflaren haittaohjelmia estävä DNS-palvelu estää linkitetyn verkkotunnuksen          |
 | `ADULT_DOMAIN`              |       2 | `adultDomain`       | Cloudflaren perhepalvelu estää linkitetyn verkkotunnuksen                               |
 | `URIBL_<LIST>`              |       5 | `uriblListed`       | Linkitetty verkkotunnus on verkkotunnusten estolistalla, esimerkiksi `URIBL_DBL`        |
+
+Myös vain tekstissä mainitut, linkittämättömät verkkotunnukset tarkistetaan samannäköisyyden varalta, mutta ne lasketaan vain, kun ne selvästi jäljittelevät tuotemerkkiä: samannäköiset kirjaimet tai vähintään viisikirjaimisen tuotemerkin kohdalla vaihdetut merkit. Vastaus tai allekirjoitus voi mainita minkä tahansa sivuston, ja yrityksellä voi olla lyhyt nimi, joka eroaa tuotemerkin nimestä yhdellä merkillä.
 
 
 ## Liitteet

@@ -1,4 +1,4 @@
-<!-- source: dacf4c9ca2eb -->
+<!-- source: 79e50e309869 -->
 
 # Model bahasa
 
@@ -257,7 +257,7 @@ spamscanner milter --llm ollama --llm-policy "We never send invoices by email. A
 
 ## Privasi
 
-Model melihat ringkasan header (From, Reply-To, To, dan Subject), tautan, nama dan jenis lampiran, hasil autentikasi, dan isi pesan, dipotong hingga 6.000 karakter (`maxInputChars`).
+Model melihat ringkasan header (From, Reply-To, To, dan Subject), tautan (yang menampilkan satu alamat tetapi menuju alamat lain didahulukan), nama dan jenis lampiran, hasil autentikasi, seberapa banyak teks yang disembunyikan HTML jika lebih dari teks pratinjau, dan isi pesan sebagaimana ditampilkan klien email (dari HTML jika ada, tanpa teks tersembunyi, karakter tak terlihat, atau huruf bergaya), dipotong hingga 6.000 karakter (`maxInputChars`).
 
 Untuk penyedia di luar jaringan Anda, data pribadi dihapus terlebih dahulu: bagian lokal alamat email (domainnya tetap, karena penting untuk phishing), nomor kartu dan rekening, nomor telepon, serta nilai parameter kueri dalam tautan, yang sering membawa token login. Penghapusan ini aktif secara bawaan untuk penyedia jarak jauh, termasuk model keputusan, dan nonaktif untuk penyedia lokal (Ollama, LM Studio, llama.cpp, vLLM, LocalAI, Jan, TEI, dan server apa pun di localhost). `redact: true` atau `false` (`--llm-redact`, `--no-llm-redact`) menimpa pengaturan ini.
 

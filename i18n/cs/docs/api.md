@@ -1,4 +1,4 @@
-<!-- source: b3cc9f949acd -->
+<!-- source: 632106ec8af9 -->
 
 # Reference API
 
@@ -61,6 +61,15 @@ await scanner.scan(raw, {
 });
 ```
 
+Server, který už SPF, DKIM, DMARC a ARC ověřil (pomocí [mailauth](https://github.com/postalsys/mailauth)), může své výsledky předat jako `authenticationResults` a ty se pak bodují, místo aby se ověřovaly znovu:
+
+```js
+import {authenticate} from 'mailauth';
+
+const auth = await authenticate(raw, {ip, helo, sender, mta});
+await scanner.scan(raw, {authenticationResults: auth});
+```
+
 
 ## Metody
 
@@ -73,10 +82,12 @@ await scanner.scan(raw, {
 | `saveModel(path, options)`           | Zapíše klasifikátor do souboru (`options`: `minCount`, `maxFeatures`, `metadata`) |
 | `getClassifier()`                    | Používaný `Classifier` nebo `null`                                                |
 | `getClassification(features)`        | Verdikt klasifikátoru pro příznaky z `getFeatures`                                |
-| `getFeatures(mail)`                  | `{features, words, language, script, links}` pro rozebranou zprávu                |
+| `getFeatures(mail)`                  | `{features, words, language, script, links, hosts, text, hidden}` zprávy          |
 | `getTokens(text, locale)`            | Slova textu                                                                       |
 | `getTokensAndMailFromSource(source)` | `{tokens, features, mail}`                                                        |
 | `parse(source)`                      | `{raw, mail}`, kde `mail` pochází z mailparseru                                   |
+
+V `getFeatures` je `text` text, který zobrazí poštovní klient a ze kterého se čtou slova, a `hidden` počet znaků textu, které HTML skrývá.
 
 `scanner.metrics` obsahuje `totalScans`, `averageTime` a `lastScanTime`.
 

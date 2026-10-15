@@ -1,4 +1,4 @@
-<!-- source: 6f6b765c5fc1 -->
+<!-- source: e4110e4fd51c -->
 
 # Tesztek és pontszámok
 
@@ -26,6 +26,8 @@ A küszöbök a `threshold` és a `rejectThreshold` beállítással módosíthat
 | `MALICIOUS_DOMAIN`          |    6 | `maliciousDomain`   | A Cloudflare kártevőszűrő DNS-feloldója blokkol egy hivatkozott domaint          |
 | `ADULT_DOMAIN`              |    2 | `adultDomain`       | A Cloudflare családi DNS-feloldója blokkol egy hivatkozott domaint               |
 | `URIBL_<LIST>`              |    5 | `uriblListed`       | Egy hivatkozott domain szerepel egy domain-tiltólistán, például `URIBL_DBL`      |
+
+A csak a szövegben említett, nem hivatkozott domaineket is ellenőrzi hasonmásokra, de ezek csak akkor számítanak, ha egyértelműen egy márkát utánoznak: hasonmás betűkkel, vagy legalább ötbetűs márka esetén felcserélt karakterekkel. Egy válasz vagy aláírás bármilyen webhelyet említhet, és egy cégnek lehet olyan rövid neve, amely egy karakterben tér el egy márkáétól.
 
 
 ## Mellékletek

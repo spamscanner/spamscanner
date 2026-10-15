@@ -1,4 +1,4 @@
-<!-- source: 6f6b765c5fc1 -->
+<!-- source: e4110e4fd51c -->
 
 # Tests et scores
 
@@ -26,6 +26,8 @@ Modifiez les seuils avec `threshold` et `rejectThreshold`. Modifiez les points a
 | `MALICIOUS_DOMAIN`          |      6 | `maliciousDomain`   | Le résolveur anti-malware de Cloudflare bloque un domaine lié                       |
 | `ADULT_DOMAIN`              |      2 | `adultDomain`       | Le résolveur familial de Cloudflare bloque un domaine lié                           |
 | `URIBL_<LIST>`              |      5 | `uriblListed`       | Un domaine lié figure sur une liste de blocage de domaines, par exemple `URIBL_DBL` |
+
+Les domaines seulement cités dans le texte, sans lien, sont aussi vérifiés pour les sosies, mais ne comptent que s’ils imitent clairement une marque : lettres sosies, ou caractères intervertis pour une marque de cinq lettres ou plus. Une réponse ou une signature peut citer n’importe quel site, et une entreprise peut avoir un nom court à un caractère de celui d’une marque.
 
 
 ## Pièces jointes

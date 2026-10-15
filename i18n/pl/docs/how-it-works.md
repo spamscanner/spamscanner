@@ -1,4 +1,4 @@
-<!-- source: 35bf62a30cd7 -->
+<!-- source: 8a788c19971e -->
 
 # Jak to działa
 
@@ -19,6 +19,8 @@ Spam Scanner zachowuje to, co działa w liczeniu słów, czyli statystykę, i zm
 
 ### Co liczy
 
+Czytany jest tekst, który pokazuje program pocztowy: z części HTML, jeśli istnieje (część tekstowa obok niej jest wyświetlana tylko tam, gdzie HTML wyświetlić się nie da, więc niegroźna część tekstowa nie może przemawiać za HTML), bez znaczników, komentarzy, skryptów i stylów, ze znacznikami wewnątrzwierszowymi łączącymi słowo tak, jak łączy je przeglądarka (`Free Sp<span>ins</span>`), a tekst ukryty przez HTML jest pomijany i liczony: ukryty przez element, który ukrywa swoją zawartość (display, opacity, atrybut hidden, przycięte pole o zerowym rozmiarze, tekst przesunięty poza stronę), albo niewidoczny, przezroczysty lub zapisany czcionką o wielkości piksela lub mniejszej w miejscu, w którym się znajduje (co element wewnątrz może ustawić z powrotem, jak robią to szablony responsywne). Style są odczytywane tak, jak odczytują je przeglądarki (wygrywa ostatnia deklaracja, komentarze, odwołania znakowe); kolory na tle i klasy arkuszy stylów już nie, więc taki tekst jest czytany tak, jak jest wyświetlany. HTML pokazujący mniej niż 20 słów, na przykład obraz wiadomości, jest czytany razem ze swoją częścią tekstową. Linki i nazwy hostów są odczytywane z obu części oraz z ukrytego tekstu.
+
 Najpierw tekst jest normalizowany: Unicode NFKC sprowadza litery stylizowane i pełnej szerokości do zwykłych, niewidoczne znaki są usuwane i liczone, podobnie wyglądające litery wewnątrz słów skądinąd łacińskich lub cyrylickich są mapowane z powrotem, a cyfry użyte jako litery (`v1agra`) są zamieniane. Następnie słowa są wyznaczane przez `Intl.Segmenter`, czyli reguły granic słów Unicode ze słownikami dla chińskiego, japońskiego, tajskiego, laotańskiego, khmerskiego i birmańskiego.
 
 Na tej podstawie wyodrębnia:
@@ -33,6 +35,7 @@ Na tej podstawie wyodrębnia:
 | Linki        | `url:shortener`, `url:deceptive`, `url:punycode`      | Skracacze linków, surowe adresy IP, niezgodny tekst linku, linkowane domeny i ich TLD           |
 | Nadawca      | `from:freemail`, `fn:support`, `replyto:other_domain` | Domena nadawcy, słowa z nazwy wyświetlanej i Reply-To                                           |
 | HTML         | `html:only`, `html:hidden`, `html:form`               | HTML bez części tekstowej, ukryty tekst, formularze, piksele śledzące                           |
+| Części       | `html:hidden_text`, `html:text_mismatch`              | Tekst ukryty przez HTML; część tekstowa, która ma niewiele wspólnych słów z HTML obok niej      |
 | Załączniki   | `att:ext:zip`, `att:count:1`                          | Typy i liczba załączników                                                                       |
 | Nagłówki     | `hdr:list_unsubscribe`, `hdr:priority_high`           | Nagłówki list mailingowych, flagi priorytetu, programy pocztowe, przeskoki Received             |
 

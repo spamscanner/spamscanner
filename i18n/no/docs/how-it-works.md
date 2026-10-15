@@ -1,4 +1,4 @@
-<!-- source: 35bf62a30cd7 -->
+<!-- source: 8a788c19971e -->
 
 # Slik virker det
 
@@ -19,6 +19,8 @@ Spam Scanner beholder det som virker i ordtelling, statistikken, og endrer hva s
 
 ### Hva det teller
 
+Teksten som leses, er det en e-postklient viser: fra HTML-delen når det finnes en (en tekstdel ved siden av vises bare der HTML ikke kan vises, så en harmløs tekstdel kan ikke tale for HTML-en), uten tagger, kommentarer, skript og stiler, med inline-tagger som setter sammen et ord slik en nettleser gjør (`Free Sp<span>ins</span>`), og med tekst som HTML-en skjuler, utelatt og talt: av et element som skjuler det det inneholder (display, opacity, hidden-attributtet, en beskåret boks uten størrelse, tekst flyttet ut av siden), eller usynlig, gjennomsiktig eller i en skrift på én piksel eller mindre der den står (noe et element inni kan sette tilbake, slik responsive maler gjør). Stiler leses slik nettlesere leser dem (den siste deklarasjonen vinner, kommentarer, tegnreferanser); farger på en bakgrunn og klasser i stilark gjør ikke det, så slik tekst leses slik den vises. HTML som viser færre enn 20 ord, for eksempel et bilde av meldingen, leses sammen med tekstdelen. Lenker og vertsnavn leses fra begge delene og fra skjult tekst.
+
 Teksten normaliseres først: Unicode NFKC gjør stiliserte bokstaver og bokstaver i full bredde om til vanlige bokstaver, usynlige tegn fjernes og telles, forvekslbare bokstaver i ellers latinske eller kyrilliske ord føres tilbake, og sifre brukt som bokstaver (`v1agra`) gjøres om. Deretter segmenteres ordene med `Intl.Segmenter`, Unicode-reglene for ordgrenser med ordbøker for kinesisk, japansk, thai, lao, khmer og burmesisk.
 
 Ut fra dette hentes:
@@ -33,6 +35,7 @@ Ut fra dette hentes:
 | Lenker     | `url:shortener`, `url:deceptive`, `url:punycode`      | Lenkeforkortere, rå IP-adresser, lenketekst som ikke stemmer, lenkede domener og toppdomenene deres    |
 | Avsender   | `from:freemail`, `fn:support`, `replyto:other_domain` | Avsenderens domene, ord i visningsnavnet og Reply-To                                                   |
 | HTML       | `html:only`, `html:hidden`, `html:form`               | HTML uten en tekstdel, skjult tekst, skjemaer, sporingspiksler                                         |
+| Deler      | `html:hidden_text`, `html:text_mismatch`              | Tekst som HTML-en skjuler; en tekstdel som har få ord felles med HTML-en ved siden av                  |
 | Vedlegg    | `att:ext:zip`, `att:count:1`                          | Typer og antall vedlegg                                                                                |
 | Hoder      | `hdr:list_unsubscribe`, `hdr:priority_high`           | Hoder for e-postlister, prioritetsflagg, e-postprogrammer, Received-ledd                               |
 

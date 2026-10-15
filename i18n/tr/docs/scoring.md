@@ -1,4 +1,4 @@
-<!-- source: 6f6b765c5fc1 -->
+<!-- source: e4110e4fd51c -->
 
 # Testler ve puanlar
 
@@ -26,6 +26,8 @@ Eşikleri `threshold` ve `rejectThreshold` ile değiştirin. Puanları `scores` 
 | `MALICIOUS_DOMAIN`          |    6 | `maliciousDomain`   | Cloudflare'in kötü amaçlı yazılım çözümleyicisi bağlantı verilen bir alan adını engelliyor              |
 | `ADULT_DOMAIN`              |    2 | `adultDomain`       | Cloudflare'in aile çözümleyicisi bağlantı verilen bir alan adını engelliyor                             |
 | `URIBL_<LIST>`              |    5 | `uriblListed`       | Bağlantı verilen bir alan adı bir alan adı engelleme listesinde, örneğin `URIBL_DBL`                    |
+
+Metinde yalnızca adı geçen, bağlantı verilmemiş alan adları da benzerlik açısından denetlenir, ancak yalnızca bir markayı açıkça taklit ettiklerinde sayılır: benzer görünümlü harfler ya da beş veya daha fazla harfli bir marka için yer değiştirmiş karakterler. Bir yanıt veya imza herhangi bir siteyi anabilir ve bir şirketin kısa adı bir markanınkinden tek karakterle ayrılabilir.
 
 
 ## Ekler

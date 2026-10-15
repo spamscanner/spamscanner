@@ -1,4 +1,4 @@
-<!-- source: 35bf62a30cd7 -->
+<!-- source: 8a788c19971e -->
 
 # Nasıl çalışır
 
@@ -19,6 +19,8 @@ Spam Scanner sözcük saymanın işe yarayan kısmını, yani istatistiği korur
 
 ### Neleri sayar
 
+Okunan metin, bir e-posta istemcisinin gösterdiği metindir: varsa HTML bölümünün metni (yanındaki düz metin bölümü yalnızca HTML'nin gösterilemediği yerde gösterilir, bu yüzden zararsız bir düz metin bölümü HTML'nin yerine konuşamaz); etiketler, yorumlar, betikler ve stiller dışarıda bırakılır, satır içi etiketler bir sözcüğü tarayıcının birleştirdiği gibi birleştirir (`Free Sp<span>ins</span>`), HTML'nin gizlediği metin ise dışarıda bırakılır ve sayılır: içindekini gizleyen bir öğeyle (display, opacity, hidden özniteliği, boyutsuz kırpılmış bir kutu, sayfanın dışına taşınmış metin) ya da bulunduğu yerde görünmez, saydam veya bir piksel ya da daha küçük yazı tipinde olarak (içerideki bir öğe bunu, duyarlı şablonların yaptığı gibi, yeniden ayarlayabilir). Stiller tarayıcıların okuduğu gibi okunur (son bildirim geçerlidir, yorumlar, karakter başvuruları); arka plan üzerindeki renkler ve stil sayfası sınıfları okunmaz, bu yüzden böyle bir metin gösterildiği gibi okunur. 20 sözcükten az gösteren HTML, örneğin iletinin bir görüntüsü, düz metin bölümüyle birlikte okunur. Bağlantılar ve ana bilgisayar adları her iki bölümden ve gizli metinden okunur.
+
 Metin önce normalleştirilir: Unicode NFKC süslü ve tam genişlikli harfleri düz harflere dönüştürür, görünmez karakterler kaldırılır ve sayılır, aslında Latin veya Kiril olan sözcüklerin içindeki benzer görünümlü harfler geri eşlenir ve harf yerine kullanılan rakamlar (`v1agra`) dönüştürülür. Ardından sözcükler, Çince, Japonca, Tayca, Laoca, Kmerce ve Birmanca için sözlükler içeren Unicode sözcük sınırı kuralları olan `Intl.Segmenter` ile bölütlenir.
 
 Bundan şunları çıkarır:
@@ -33,6 +35,7 @@ Bundan şunları çıkarır:
 | Bağlantılar     | `url:shortener`, `url:deceptive`, `url:punycode`      | Kısaltıcılar, ham IP adresleri, uyuşmayan bağlantı metni, bağlantı verilen alan adları ve bunların TLD'leri                |
 | Gönderici       | `from:freemail`, `fn:support`, `replyto:other_domain` | Göndericinin alan adı, görünen addaki sözcükler ve Reply-To                                                                |
 | HTML            | `html:only`, `html:hidden`, `html:form`               | Metin bölümü olmayan HTML, gizli metin, formlar, izleme pikselleri                                                         |
+| Bölümler        | `html:hidden_text`, `html:text_mismatch`              | HTML'nin gizlediği metin; yanındaki HTML ile az sözcük paylaşan bir düz metin bölümü                                       |
 | Ekler           | `att:ext:zip`, `att:count:1`                          | Ek türleri ve sayıları                                                                                                     |
 | Üst bilgiler    | `hdr:list_unsubscribe`, `hdr:priority_high`           | Posta listesi üst bilgileri, öncelik işaretleri, posta programları, Received atlamaları                                    |
 

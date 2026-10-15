@@ -1,4 +1,4 @@
-<!-- source: b3cc9f949acd -->
+<!-- source: 632106ec8af9 -->
 
 # API-referencia
 
@@ -61,6 +61,15 @@ await scanner.scan(raw, {
 });
 ```
 
+Az a szerver, amely már ellenőrizte az SPF-et, a DKIM-et, a DMARC-ot és az ARC-ot (a [mailauth](https://github.com/postalsys/mailauth) segítségével), átadhatja az eredményeit az `authenticationResults` beállításban, és ilyenkor ezeket nem ellenőrzi újra, hanem pontozza őket:
+
+```js
+import {authenticate} from 'mailauth';
+
+const auth = await authenticate(raw, {ip, helo, sender, mta});
+await scanner.scan(raw, {authenticationResults: auth});
+```
+
 
 ## Metódusok
 
@@ -73,10 +82,12 @@ await scanner.scan(raw, {
 | `saveModel(path, options)`           | Fájlba írja az osztályozót (`options`: `minCount`, `maxFeatures`, `metadata`)  |
 | `getClassifier()`                    | A használt `Classifier` vagy `null`                                            |
 | `getClassification(features)`        | Az osztályozó ítélete a `getFeatures` által adott jellemzőkre                  |
-| `getFeatures(mail)`                  | `{features, words, language, script, links}` egy feldolgozott levélhez         |
+| `getFeatures(mail)`                  | `{features, words, language, script, links, hosts, text, hidden}` egy levélből |
 | `getTokens(text, locale)`            | Egy szöveg szavai                                                              |
 | `getTokensAndMailFromSource(source)` | `{tokens, features, mail}`                                                     |
 | `parse(source)`                      | `{raw, mail}`, ahol a `mail` a mailparsertől származik                         |
+
+A `getFeatures` eredményében a `text` a levelezőprogram által megjelenített szöveg, amelyből a szavakat olvassa, a `hidden` pedig az, hogy a HTML hány karakternyi szöveget rejt el.
 
 A `scanner.metrics` a `totalScans`, az `averageTime` és a `lastScanTime` értékeket tartalmazza.
 

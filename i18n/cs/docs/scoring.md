@@ -1,4 +1,4 @@
-<!-- source: 6f6b765c5fc1 -->
+<!-- source: e4110e4fd51c -->
 
 # Testy a skóre
 
@@ -26,6 +26,8 @@ Prahy změníte pomocí `threshold` a `rejectThreshold`. Body změníte pomocí 
 | `MALICIOUS_DOMAIN`          |    6 | `maliciousDomain`   | Resolver Cloudflare proti malwaru blokuje odkazovanou doménu                |
 | `ADULT_DOMAIN`              |    2 | `adultDomain`       | Rodinný resolver Cloudflare blokuje odkazovanou doménu                      |
 | `URIBL_<LIST>`              |    5 | `uriblListed`       | Odkazovaná doména je na blocklistu domén, například `URIBL_DBL`             |
+
+Domény, které jsou v textu jen zmíněné, ne odkazované, se také kontrolují na napodobeniny, ale počítají se, jen když zjevně napodobují značku: podobně vypadajícími písmeny, nebo prohozenými znaky u značky o pěti a více písmenech. Odpověď nebo podpis může zmínit jakýkoli web a firma může mít krátký název, který se od názvu značky liší jedním znakem.
 
 
 ## Přílohy

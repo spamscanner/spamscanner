@@ -1,4 +1,4 @@
-<!-- source: b3cc9f949acd -->
+<!-- source: 632106ec8af9 -->
 
 # API başvurusu
 
@@ -61,6 +61,15 @@ await scanner.scan(raw, {
 });
 ```
 
+SPF, DKIM, DMARC ve ARC denetimlerini ([mailauth](https://github.com/postalsys/mailauth) ile) zaten yapmış bir sunucu, sonuçlarını `authenticationResults` olarak iletebilir; bu sonuçlar yeniden denetlenmek yerine puanlanır:
+
+```js
+import {authenticate} from 'mailauth';
+
+const auth = await authenticate(raw, {ip, helo, sender, mta});
+await scanner.scan(raw, {authenticationResults: auth});
+```
+
 
 ## Yöntemler
 
@@ -73,10 +82,12 @@ await scanner.scan(raw, {
 | `saveModel(path, options)`           | Sınıflandırıcıyı bir dosyaya yazar (`options`: `minCount`, `maxFeatures`, `metadata`) |
 | `getClassifier()`                    | Kullanımdaki `Classifier` veya `null`                                                 |
 | `getClassification(features)`        | `getFeatures` ile elde edilen özellikler için sınıflandırıcının kararı                |
-| `getFeatures(mail)`                  | Ayrıştırılmış bir ileti için `{features, words, language, script, links}`             |
+| `getFeatures(mail)`                  | Bir ileti için `{features, words, language, script, links, hosts, text, hidden}`      |
 | `getTokens(text, locale)`            | Bir metnin sözcükleri                                                                 |
 | `getTokensAndMailFromSource(source)` | `{tokens, features, mail}`                                                            |
 | `parse(source)`                      | mailparser'dan gelen `mail` ile birlikte `{raw, mail}`                                |
+
+`getFeatures` içinde `text`, bir e-posta istemcisinin gösterdiği ve sözcüklerin okunduğu metindir; `hidden` ise HTML'nin gizlediği metnin kaç karakter olduğudur.
 
 `scanner.metrics`, `totalScans`, `averageTime` ve `lastScanTime` değerlerini tutar.
 

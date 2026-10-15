@@ -1,4 +1,4 @@
-<!-- source: b3cc9f949acd -->
+<!-- source: 632106ec8af9 -->
 
 # Referensi API
 
@@ -61,6 +61,15 @@ await scanner.scan(raw, {
 });
 ```
 
+Server yang sudah memeriksa SPF, DKIM, DMARC, dan ARC (dengan [mailauth](https://github.com/postalsys/mailauth)) dapat meneruskan hasilnya sebagai `authenticationResults`, dan hasil itu diberi skor alih-alih diperiksa ulang:
+
+```js
+import {authenticate} from 'mailauth';
+
+const auth = await authenticate(raw, {ip, helo, sender, mta});
+await scanner.scan(raw, {authenticationResults: auth});
+```
+
 
 ## Metode
 
@@ -73,10 +82,12 @@ await scanner.scan(raw, {
 | `saveModel(path, options)`           | Menulis pengklasifikasi ke file (`options`: `minCount`, `maxFeatures`, `metadata`) |
 | `getClassifier()`                    | `Classifier` yang sedang dipakai, atau `null`                                      |
 | `getClassification(features)`        | Vonis pengklasifikasi untuk fitur dari `getFeatures`                               |
-| `getFeatures(mail)`                  | `{features, words, language, script, links}` untuk pesan yang sudah diurai         |
+| `getFeatures(mail)`                  | `{features, words, language, script, links, hosts, text, hidden}` dari pesan       |
 | `getTokens(text, locale)`            | Kata-kata dari sebuah teks                                                         |
 | `getTokensAndMailFromSource(source)` | `{tokens, features, mail}`                                                         |
 | `parse(source)`                      | `{raw, mail}`, dengan `mail` dari mailparser                                       |
+
+Pada `getFeatures`, `text` adalah teks yang ditampilkan klien email, tempat kata-kata dibaca, dan `hidden` adalah jumlah karakter teks yang disembunyikan HTML.
 
 `scanner.metrics` berisi `totalScans`, `averageTime`, dan `lastScanTime`.
 

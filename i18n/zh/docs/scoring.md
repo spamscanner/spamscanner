@@ -1,4 +1,4 @@
-<!-- source: 6f6b765c5fc1 -->
+<!-- source: e4110e4fd51c -->
 
 # 测试与分值
 
@@ -26,6 +26,8 @@
 | `MALICIOUS_DOMAIN`          |   6 | `maliciousDomain`   | Cloudflare 的恶意软件解析器拦截了链接的域名 |
 | `ADULT_DOMAIN`              |   2 | `adultDomain`       | Cloudflare 的家庭解析器拦截了链接的域名   |
 | `URIBL_<LIST>`              |   5 | `uriblListed`       | 链接的域名在域名黑名单上，例如 `URIBL_DBL` |
+
+只在文本中提及、没有链接的域名也会检查是否为形似域名，但只有明显模仿某个品牌时才计分：使用形似字母，或对五个字母及以上的品牌调换字符。回复或签名可能提及任何网站，公司的简称也可能与某个品牌只差一个字符。
 
 
 ## 附件

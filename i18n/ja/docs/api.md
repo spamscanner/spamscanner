@@ -1,4 +1,4 @@
-<!-- source: b3cc9f949acd -->
+<!-- source: 632106ec8af9 -->
 
 # APIリファレンス
 
@@ -61,22 +61,33 @@ await scanner.scan(raw, {
 });
 ```
 
+SPF、DKIM、DMARC、ARCをすでに（[mailauth](https://github.com/postalsys/mailauth)で）検査したサーバーは、その結果を`authenticationResults`として渡せます。その場合、結果は再検査されずにスコアに反映されます。
+
+```js
+import {authenticate} from 'mailauth';
+
+const auth = await authenticate(raw, {ip, helo, sender, mta});
+await scanner.scan(raw, {authenticationResults: auth});
+```
+
 
 ## メソッド
 
-| メソッド                                 | 戻り値                                                          |
-| ------------------------------------ | ------------------------------------------------------------ |
-| `scan(source, options)`              | 結果。`source`はBuffer、文字列、Uint8Array、読み取り可能なストリームのいずれか          |
-| `scanFile(path, options)`            | メッセージファイルの結果                                                 |
-| `learn(source, 'spam' \| 'ham')`     | 分類器にメッセージを1通学習させる                                            |
-| `unlearn(source, 'spam' \| 'ham')`   | `learn`を取り消す                                                 |
-| `saveModel(path, options)`           | 分類器をファイルに書き込む（`options`：`minCount`、`maxFeatures`、`metadata`） |
-| `getClassifier()`                    | 使用中の`Classifier`、または`null`                                   |
-| `getClassification(features)`        | `getFeatures`で得た特徴に対する分類器の判定                                 |
-| `getFeatures(mail)`                  | 解析済みメッセージの`{features, words, language, script, links}`       |
-| `getTokens(text, locale)`            | テキストの単語                                                      |
-| `getTokensAndMailFromSource(source)` | `{tokens, features, mail}`                                   |
-| `parse(source)`                      | `{raw, mail}`。`mail`はmailparserによるもの                         |
+| メソッド                                 | 戻り値                                                                     |
+| ------------------------------------ | ----------------------------------------------------------------------- |
+| `scan(source, options)`              | 結果。`source`はBuffer、文字列、Uint8Array、読み取り可能なストリームのいずれか                     |
+| `scanFile(path, options)`            | メッセージファイルの結果                                                            |
+| `learn(source, 'spam' \| 'ham')`     | 分類器にメッセージを1通学習させる                                                       |
+| `unlearn(source, 'spam' \| 'ham')`   | `learn`を取り消す                                                            |
+| `saveModel(path, options)`           | 分類器をファイルに書き込む（`options`：`minCount`、`maxFeatures`、`metadata`）            |
+| `getClassifier()`                    | 使用中の`Classifier`、または`null`                                              |
+| `getClassification(features)`        | `getFeatures`で得た特徴に対する分類器の判定                                            |
+| `getFeatures(mail)`                  | メッセージの`{features, words, language, script, links, hosts, text, hidden}` |
+| `getTokens(text, locale)`            | テキストの単語                                                                 |
+| `getTokensAndMailFromSource(source)` | `{tokens, features, mail}`                                              |
+| `parse(source)`                      | `{raw, mail}`。`mail`はmailparserによるもの                                    |
+
+`getFeatures`では、`text`はメールクライアントが表示するテキストで、単語はここから読み取られます。`hidden`はHTMLが隠しているテキストの文字数です。
 
 `scanner.metrics`には`totalScans`、`averageTime`、`lastScanTime`が入っています。
 

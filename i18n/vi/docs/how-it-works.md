@@ -1,4 +1,4 @@
-<!-- source: 35bf62a30cd7 -->
+<!-- source: 8a788c19971e -->
 
 # Cách hoạt động
 
@@ -19,6 +19,8 @@ Spam Scanner giữ lại phần hiệu quả của việc đếm từ, tức ph�
 
 ### Những gì nó đếm
 
+Văn bản được đọc là những gì ứng dụng thư hiển thị: của phần HTML nếu có (phần văn bản thuần đi kèm chỉ được hiển thị ở nơi không thể hiển thị HTML, nên một phần văn bản thuần vô hại không thể nói thay cho HTML), bỏ qua thẻ, chú thích, script và style, các thẻ nội dòng nối một từ như trình duyệt nối nó (`Free Sp<span>ins</span>`), và văn bản mà HTML ẩn đi bị bỏ qua và được đếm: do một phần tử ẩn những gì nó chứa (display, opacity, thuộc tính hidden, một hộp bị cắt không có kích thước, văn bản bị đẩy ra khỏi trang), hoặc vô hình, trong suốt hay có cỡ chữ từ một pixel trở xuống ngay tại chỗ (một phần tử bên trong có thể đặt lại, như các mẫu responsive vẫn làm). Style được đọc như trình duyệt đọc (khai báo cuối cùng được áp dụng, chú thích, tham chiếu ký tự); màu trên nền và các class của style sheet thì không, nên văn bản như vậy được đọc như khi hiển thị. HTML hiển thị ít hơn 20 từ, chẳng hạn một hình ảnh của thư, được đọc cùng phần văn bản thuần. Liên kết và tên máy chủ được đọc từ cả hai phần và từ văn bản ẩn.
+
 Văn bản được chuẩn hóa trước: Unicode NFKC quy đổi chữ cái cách điệu và toàn độ rộng về chữ thường gặp, ký tự vô hình bị xóa và được đếm, chữ cái trông giống nhau bên trong các từ vốn là Latin hoặc Kirin được ánh xạ lại, và chữ số dùng thay chữ cái (`v1agra`) được quy đổi. Sau đó từ được tách bằng `Intl.Segmenter`, tức các quy tắc ranh giới từ của Unicode kèm từ điển cho tiếng Trung, tiếng Nhật, tiếng Thái, tiếng Lào, tiếng Khmer và tiếng Miến Điện.
 
 Từ đó nó trích xuất:
@@ -33,6 +35,7 @@ Từ đó nó trích xuất:
 | Liên kết         | `url:shortener`, `url:deceptive`, `url:punycode`      | Dịch vụ rút gọn liên kết, địa chỉ IP trần, văn bản liên kết không khớp, các tên miền được liên kết và TLD của chúng |
 | Người gửi        | `from:freemail`, `fn:support`, `replyto:other_domain` | Tên miền của người gửi, các từ trong tên hiển thị và Reply-To                                                       |
 | HTML             | `html:only`, `html:hidden`, `html:form`               | HTML không có phần văn bản thuần, văn bản ẩn, biểu mẫu, pixel theo dõi                                              |
+| Các phần         | `html:hidden_text`, `html:text_mismatch`              | Văn bản mà HTML ẩn đi; phần văn bản thuần có ít từ chung với HTML đi kèm                                            |
 | Tệp đính kèm     | `att:ext:zip`, `att:count:1`                          | Loại và số lượng tệp đính kèm                                                                                       |
 | Header           | `hdr:list_unsubscribe`, `hdr:priority_high`           | Header của danh sách thư, cờ ưu tiên, chương trình gửi thư, các chặng Received                                      |
 

@@ -1,4 +1,4 @@
-<!-- source: 35bf62a30cd7 -->
+<!-- source: 8a788c19971e -->
 
 # Funktionsweise
 
@@ -19,6 +19,8 @@ Spam Scanner behält, was am Wörterzählen funktioniert, die Statistik, und än
 
 ### Was gezählt wird
 
+Gelesen wird der Text, den ein Mailprogramm anzeigt: der des HTML-Teils, wenn es einen gibt (ein reiner Textteil daneben wird nur angezeigt, wo HTML nicht angezeigt werden kann, also kann ein harmloser nicht für das HTML sprechen), ohne Tags, Kommentare, Skripte und Styles, wobei Inline-Tags ein Wort so zusammenfügen, wie ein Browser es tut (`Free Sp<span>ins</span>`), und ohne Text, den das HTML versteckt, der aber gezählt wird: durch ein Element, das seinen Inhalt versteckt (display, opacity, das hidden-Attribut, ein beschnittener Kasten ohne Größe, aus der Seite geschobener Text), oder an Ort und Stelle unsichtbar, transparent oder in einer Schrift von einem Pixel oder weniger (was ein Element darin wieder aufheben kann, wie es responsive Vorlagen tun). Styles werden gelesen, wie Browser sie lesen (die letzte Deklaration gewinnt, Kommentare, Zeichenreferenzen); Farben auf einem Hintergrund und Stylesheet-Klassen nicht, also wird solcher Text so gelesen, wie er angezeigt wird. HTML, das weniger als 20 Wörter zeigt, etwa ein Bild der Nachricht, wird zusammen mit seinem reinen Textteil gelesen. Links und Hostnamen werden aus beiden Teilen und aus verstecktem Text gelesen.
+
 Zuerst wird der Text normalisiert: Unicode NFKC führt Zier- und Vollbreitenbuchstaben auf einfache zurück, unsichtbare Zeichen werden entfernt und gezählt, Doppelgänger-Buchstaben in ansonsten lateinischen oder kyrillischen Wörtern werden zurückgeführt, und als Buchstaben verwendete Ziffern (`v1agra`) werden umgewandelt. Danach werden die Wörter mit `Intl.Segmenter` segmentiert, also nach den Unicode-Regeln für Wortgrenzen mit Wörterbüchern für Chinesisch, Japanisch, Thai, Laotisch, Khmer und Birmanisch.
 
 Daraus werden extrahiert:
@@ -33,6 +35,7 @@ Daraus werden extrahiert:
 | Links          | `url:shortener`, `url:deceptive`, `url:punycode`      | URL-Kürzer, rohe IP-Adressen, unpassender Linktext, verlinkte Domains und ihre TLDs                                 |
 | Absender       | `from:freemail`, `fn:support`, `replyto:other_domain` | Die Domain des Absenders, Wörter im Anzeigenamen und Reply-To                                                       |
 | HTML           | `html:only`, `html:hidden`, `html:form`               | HTML ohne Textteil, versteckter Text, Formulare, Tracking-Pixel                                                     |
+| Teile          | `html:hidden_text`, `html:text_mismatch`              | Vom HTML versteckter Text; ein reiner Textteil, der mit dem HTML daneben wenige Wörter gemeinsam hat                |
 | Anhänge        | `att:ext:zip`, `att:count:1`                          | Arten und Anzahl der Anhänge                                                                                        |
 | Header         | `hdr:list_unsubscribe`, `hdr:priority_high`           | Mailinglisten-Header, Prioritätskennzeichen, Mailer, Received-Hops                                                  |
 

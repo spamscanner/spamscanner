@@ -1,4 +1,4 @@
-<!-- source: dacf4c9ca2eb -->
+<!-- source: 79e50e309869 -->
 
 # Dil modelleri
 
@@ -257,7 +257,7 @@ spamscanner milter --llm ollama --llm-policy "We never send invoices by email. A
 
 ## Gizlilik
 
-Model üst bilgilerin bir özetini (From, Reply-To, To ve Subject), bağlantıları, ek adlarını ve türlerini, kimlik doğrulama sonuçlarını ve 6.000 karaktere (`maxInputChars`) kısaltılmış gövdeyi görür.
+Model üst bilgilerin bir özetini (From, Reply-To, To ve Subject), bağlantıları (bir adres gösterip başka bir adrese gidenler önce gelir), ek adlarını ve türlerini, kimlik doğrulama sonuçlarını, HTML önizleme metninden fazlasını gizlediğinde ne kadar metin gizlediğini ve bir e-posta istemcisinin gösterdiği biçimde (varsa HTML'den; gizli metin, görünmez karakterler ve süslü harfler olmadan) 6.000 karaktere (`maxInputChars`) kısaltılmış gövdeyi görür.
 
 Ağınızın dışındaki sağlayıcılar için kişisel veriler önce çıkarılır: e-posta adreslerinin yerel kısmı (alan adı kalır, çünkü kimlik avı için önemlidir), kart ve hesap numaraları, telefon numaraları ve bağlantılardaki, çoğu zaman oturum açma belirteçleri taşıyan sorgu parametrelerinin değerleri. Bu, karar modelleri dahil uzak sağlayıcılar için varsayılan olarak açık, yerel olanlar (Ollama, LM Studio, llama.cpp, vLLM, LocalAI, Jan, TEI ve localhost üzerindeki her sunucu) için kapalıdır. `redact: true` veya `false` (`--llm-redact`, `--no-llm-redact`) bunu geçersiz kılar.
 

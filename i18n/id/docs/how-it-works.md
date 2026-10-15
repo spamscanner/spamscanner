@@ -1,4 +1,4 @@
-<!-- source: 35bf62a30cd7 -->
+<!-- source: 8a788c19971e -->
 
 # Cara kerja
 
@@ -19,6 +19,8 @@ Spam Scanner mempertahankan bagian penghitungan kata yang berhasil, yaitu statis
 
 ### Apa yang dihitung
 
+Teks yang dibaca adalah yang ditampilkan klien email: teks bagian HTML jika ada (bagian teks biasa di sampingnya hanya ditampilkan jika HTML tidak dapat ditampilkan, sehingga bagian teks yang tidak berbahaya tidak dapat mewakili HTML), tanpa tag, komentar, skrip, dan gaya, dengan tag inline menyambung kata seperti yang dilakukan browser (`Free Sp<span>ins</span>`), dan teks yang disembunyikan HTML tidak dibaca tetapi dihitung: oleh elemen yang menyembunyikan isinya (display, opacity, atribut hidden, kotak terpotong tanpa ukuran, teks yang dipindahkan keluar halaman), atau teks yang tak terlihat, transparan, atau berukuran font satu piksel atau kurang di tempatnya (yang dapat diatur ulang oleh elemen di dalamnya, seperti yang dilakukan template responsif). Gaya dibaca seperti browser membacanya (deklarasi terakhir yang berlaku, komentar, referensi karakter); warna di atas latar dan kelas lembar gaya tidak, sehingga teks seperti itu dibaca sebagaimana ditampilkan. HTML yang menampilkan kurang dari 20 kata, seperti gambar pesan, dibaca bersama bagian teks biasanya. Tautan dan nama host dibaca dari kedua bagian dan dari teks tersembunyi.
+
 Teks dinormalisasi terlebih dahulu: Unicode NFKC menyeragamkan huruf bergaya dan huruf lebar penuh menjadi huruf biasa, karakter tak terlihat dihapus dan dihitung, huruf tiruan di dalam kata yang selebihnya Latin atau Sirilik dipetakan kembali, dan angka yang dipakai sebagai huruf (`v1agra`) diseragamkan. Kata-kata kemudian disegmentasi dengan `Intl.Segmenter`, yaitu aturan batas kata Unicode dengan kamus untuk bahasa Tionghoa, Jepang, Thai, Laos, Khmer, dan Burma.
 
 Dari situ diekstrak:
@@ -33,6 +35,7 @@ Dari situ diekstrak:
 | Tautan        | `url:shortener`, `url:deceptive`, `url:punycode`      | Pemendek URL, alamat IP mentah, teks tautan yang tidak cocok, domain yang ditautkan dan TLD-nya          |
 | Pengirim      | `from:freemail`, `fn:support`, `replyto:other_domain` | Domain pengirim, kata-kata nama tampilan, dan Reply-To                                                   |
 | HTML          | `html:only`, `html:hidden`, `html:form`               | HTML tanpa bagian teks, teks tersembunyi, formulir, piksel pelacak                                       |
+| Bagian        | `html:hidden_text`, `html:text_mismatch`              | Teks yang disembunyikan HTML; bagian teks biasa yang berbagi sedikit kata dengan HTML di sampingnya      |
 | Lampiran      | `att:ext:zip`, `att:count:1`                          | Jenis dan jumlah lampiran                                                                                |
 | Header        | `hdr:list_unsubscribe`, `hdr:priority_high`           | Header milis, tanda prioritas, program pengirim, hop Received                                            |
 

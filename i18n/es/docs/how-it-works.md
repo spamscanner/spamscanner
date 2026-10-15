@@ -1,4 +1,4 @@
-<!-- source: 35bf62a30cd7 -->
+<!-- source: 8a788c19971e -->
 
 # Cómo funciona
 
@@ -19,6 +19,8 @@ Spam Scanner conserva lo que funciona del recuento de palabras, la estadística,
 
 ### Qué cuenta
 
+El texto leído es el que muestra un cliente de correo: el de la parte HTML cuando la hay (una parte de texto plano junto a ella solo se muestra donde no se puede mostrar HTML, así que una inofensiva no puede hablar por el HTML), sin etiquetas, comentarios, scripts ni estilos, con las etiquetas en línea uniendo una palabra como la une un navegador (`Free Sp<span>ins</span>`), y sin el texto que el HTML oculta, que se cuenta: por un elemento que oculta lo que contiene (display, opacity, el atributo hidden, una caja recortada sin tamaño, texto desplazado fuera de la página), o invisible, transparente o en una fuente de un píxel o menos allí donde está (algo que un elemento interior puede restablecer, como hacen las plantillas adaptables). Los estilos se leen como los leen los navegadores (gana la última declaración, comentarios, referencias de caracteres); los colores sobre un fondo y las clases de hojas de estilo no, así que ese texto se lee tal como se muestra. El HTML que muestra menos de 20 palabras, como una imagen del mensaje, se lee junto con su parte de texto plano. Los enlaces y nombres de host se leen de ambas partes y del texto oculto.
+
 Primero se normaliza el texto: Unicode NFKC convierte las letras estilizadas y de ancho completo en letras simples, los caracteres invisibles se eliminan y se cuentan, las letras parecidas dentro de palabras por lo demás latinas o cirílicas se devuelven a su forma original, y los dígitos usados como letras (`v1agra`) se convierten. Después, las palabras se segmentan con `Intl.Segmenter`, las reglas de límites de palabra de Unicode con diccionarios para chino, japonés, tailandés, lao, jemer y birmano.
 
 A partir de ahí extrae:
@@ -33,6 +35,7 @@ A partir de ahí extrae:
 | Enlaces             | `url:shortener`, `url:deceptive`, `url:punycode`      | Acortadores, direcciones IP sin nombre, texto de enlace que no coincide, dominios enlazados y sus TLD                                |
 | Remitente           | `from:freemail`, `fn:support`, `replyto:other_domain` | El dominio del remitente, las palabras del nombre visible y Reply-To                                                                 |
 | HTML                | `html:only`, `html:hidden`, `html:form`               | HTML sin parte de texto, texto oculto, formularios, píxeles de seguimiento                                                           |
+| Partes              | `html:hidden_text`, `html:text_mismatch`              | Texto que oculta el HTML; una parte de texto plano que comparte pocas palabras con el HTML que la acompaña                           |
 | Adjuntos            | `att:ext:zip`, `att:count:1`                          | Tipos y cantidad de adjuntos                                                                                                         |
 | Encabezados         | `hdr:list_unsubscribe`, `hdr:priority_high`           | Encabezados de listas de correo, indicadores de prioridad, programas de correo, saltos Received                                      |
 

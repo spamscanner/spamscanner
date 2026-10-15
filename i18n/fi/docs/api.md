@@ -1,4 +1,4 @@
-<!-- source: b3cc9f949acd -->
+<!-- source: 632106ec8af9 -->
 
 # API-viite
 
@@ -61,6 +61,15 @@ await scanner.scan(raw, {
 });
 ```
 
+Palvelin, joka on jo tarkistanut SPF:n, DKIM:n, DMARCin ja ARC:n (kirjastolla [mailauth](https://github.com/postalsys/mailauth)), voi välittää tuloksensa valintana `authenticationResults`, jolloin ne pisteytetään tarkistamatta niitä uudelleen:
+
+```js
+import {authenticate} from 'mailauth';
+
+const auth = await authenticate(raw, {ip, helo, sender, mta});
+await scanner.scan(raw, {authenticationResults: auth});
+```
+
 
 ## Metodit
 
@@ -73,10 +82,12 @@ await scanner.scan(raw, {
 | `saveModel(path, options)`           | Kirjoittaa luokittimen tiedostoon (`options`: `minCount`, `maxFeatures`, `metadata`) |
 | `getClassifier()`                    | Käytössä olevan `Classifier`-olion tai `null`                                        |
 | `getClassification(features)`        | Luokittimen tuomion metodin `getFeatures` piirteille                                 |
-| `getFeatures(mail)`                  | `{features, words, language, script, links}` jäsennetylle viestille                  |
+| `getFeatures(mail)`                  | `{features, words, language, script, links, hosts, text, hidden}` viestistä          |
 | `getTokens(text, locale)`            | Tekstin sanat                                                                        |
 | `getTokensAndMailFromSource(source)` | `{tokens, features, mail}`                                                           |
 | `parse(source)`                      | `{raw, mail}`, jossa `mail` tulee mailparserilta                                     |
+
+Metodin `getFeatures` tuloksessa `text` on teksti, jonka sähköpostiohjelma näyttää ja josta sanat luetaan, ja `hidden` kertoo, kuinka monta merkkiä tekstiä HTML piilottaa.
 
 `scanner.metrics` sisältää arvot `totalScans`, `averageTime` ja `lastScanTime`.
 

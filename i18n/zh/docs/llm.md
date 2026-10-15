@@ -1,4 +1,4 @@
-<!-- source: dacf4c9ca2eb -->
+<!-- source: 79e50e309869 -->
 
 # 语言模型
 
@@ -257,7 +257,7 @@ spamscanner milter --llm ollama --llm-policy "We never send invoices by email. A
 
 ## 隐私
 
-模型看到的是邮件头摘要（From、Reply-To、To 和 Subject）、链接、附件名称和类型、身份验证结果以及正文，正文截断为 6,000 个字符（`maxInputChars`）。
+模型看到的是邮件头摘要（From、Reply-To、To 和 Subject）、链接（显示一个地址却指向另一个地址的链接排在前面）、附件名称和类型、身份验证结果、HTML 隐藏的文字多于预览文字时所隐藏的文字量，以及邮件客户端所显示的正文（有 HTML 时取 HTML，不含隐藏文字、不可见字符和花式字母），正文截断为 6,000 个字符（`maxInputChars`）。
 
 对于你的网络之外的服务商，会先移除个人数据：电子邮件地址的本地部分（域名保留，因为它对钓鱼判断很重要）、银行卡号和账号、电话号码，以及链接中查询参数的值，这些值常常携带登录令牌。对远程服务商（包括决策模型）默认开启，对本地服务商（Ollama、LM Studio、llama.cpp、vLLM、LocalAI、Jan、TEI，以及 localhost 上的任何服务器）默认关闭。`redact: true` 或 `false`（`--llm-redact`、`--no-llm-redact`）可以覆盖默认设置。
 

@@ -1,4 +1,4 @@
-<!-- source: dacf4c9ca2eb -->
+<!-- source: 79e50e309869 -->
 
 # Mô hình ngôn ngữ
 
@@ -257,7 +257,7 @@ spamscanner milter --llm ollama --llm-policy "We never send invoices by email. A
 
 ## Quyền riêng tư
 
-Mô hình thấy bản tóm tắt các header (From, Reply-To, To và Subject), các liên kết, tên và loại tệp đính kèm, kết quả xác thực và nội dung thư, được cắt còn 6.000 ký tự (`maxInputChars`).
+Mô hình thấy bản tóm tắt các header (From, Reply-To, To và Subject), các liên kết (những liên kết hiển thị một địa chỉ nhưng dẫn tới địa chỉ khác được xếp trước), tên và loại tệp đính kèm, kết quả xác thực, lượng văn bản mà HTML ẩn đi khi nó ẩn nhiều hơn văn bản xem trước, và nội dung thư như ứng dụng thư hiển thị (của HTML nếu có, không có văn bản ẩn, ký tự vô hình hay chữ cái cách điệu), được cắt còn 6.000 ký tự (`maxInputChars`).
 
 Với các nhà cung cấp nằm ngoài mạng của bạn, dữ liệu cá nhân được xóa trước: phần cục bộ của địa chỉ email (tên miền được giữ lại, vì nó quan trọng với phishing), số thẻ và số tài khoản, số điện thoại và giá trị của các tham số truy vấn trong liên kết, vốn thường chứa token đăng nhập. Tính năng này mặc định bật với các nhà cung cấp từ xa, kể cả mô hình quyết định, và tắt với các nhà cung cấp cục bộ (Ollama, LM Studio, llama.cpp, vLLM, LocalAI, Jan, TEI, và mọi máy chủ trên localhost). `redact: true` hoặc `false` (`--llm-redact`, `--no-llm-redact`) ghi đè thiết lập này.
 

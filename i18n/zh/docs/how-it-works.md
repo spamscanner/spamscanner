@@ -1,4 +1,4 @@
-<!-- source: 35bf62a30cd7 -->
+<!-- source: 8a788c19971e -->
 
 # 工作原理
 
@@ -19,6 +19,8 @@ Spam Scanner 保留了词语计数中有效的部分，即统计方法，而改�
 
 ### 统计什么
 
+读取的文本就是邮件客户端显示的内容：有 HTML 部分时取 HTML 部分（旁边的纯文本部分只在无法显示 HTML 的地方才会显示，因此无害的纯文本部分不能代替 HTML 说话），略去标签、注释、脚本和样式，行内标签像浏览器那样把词语连在一起（`Free Sp<span>ins</span>`），HTML 隐藏的文字则略去并计数：由隐藏其内容的元素隐藏（display、opacity、hidden 属性、尺寸为零的裁剪框、移出页面的文字），或在所在位置不可见、透明或字号不超过一个像素（内部元素可以重新设置这些，响应式模板就是这样做的）。样式按浏览器的方式读取（最后的声明生效、注释、字符引用）；背景上的颜色和样式表类不读取，因此这类文字按显示内容读取。显示不足 20 个词的 HTML（例如邮件内容只是一张图片）会与其纯文本部分一起读取。链接和主机名从两个部分以及隐藏文字中读取。
+
 首先规范化文本：Unicode NFKC 把花式字母和全角字母折叠为普通字母，移除并统计不可见字符，把原本是拉丁字母或西里尔字母词语中的形似字母映射回来，并折叠用作字母的数字（`v1agra`）。然后用 `Intl.Segmenter` 切分词语，即 Unicode 词边界规则，并为中文、日文、泰文、老挝文、高棉文和缅甸文配有词典。
 
 据此提取：
@@ -33,6 +35,7 @@ Spam Scanner 保留了词语计数中有效的部分，即统计方法，而改�
 | 链接   | `url:shortener`、`url:deceptive`、`url:punycode`      | 短链接服务、裸 IP 地址、不匹配的链接文字、链接的域名及其顶级域名    |
 | 发件人  | `from:freemail`、`fn:support`、`replyto:other_domain` | 发件人的域名、显示名称中的词语和 Reply-To             |
 | HTML | `html:only`、`html:hidden`、`html:form`               | 没有纯文本部分的 HTML、隐藏文字、表单、跟踪像素            |
+| 部分   | `html:hidden_text`、`html:text_mismatch`             | HTML 隐藏的文字；与旁边 HTML 共有词语很少的纯文本部分      |
 | 附件   | `att:ext:zip`、`att:count:1`                         | 附件类型和数量                               |
 | 邮件头  | `hdr:list_unsubscribe`、`hdr:priority_high`          | 邮件列表邮件头、优先级标志、邮件程序、Received 跳数        |
 

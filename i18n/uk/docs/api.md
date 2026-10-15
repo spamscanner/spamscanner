@@ -1,4 +1,4 @@
-<!-- source: b3cc9f949acd -->
+<!-- source: 632106ec8af9 -->
 
 # Довідник API
 
@@ -61,6 +61,15 @@ await scanner.scan(raw, {
 });
 ```
 
+Сервер, який уже перевірив SPF, DKIM, DMARC і ARC (за допомогою [mailauth](https://github.com/postalsys/mailauth)), може передати свої результати як `authenticationResults`, і їх буде оцінено без повторної перевірки:
+
+```js
+import {authenticate} from 'mailauth';
+
+const auth = await authenticate(raw, {ip, helo, sender, mta});
+await scanner.scan(raw, {authenticationResults: auth});
+```
+
 
 ## Методи
 
@@ -73,10 +82,12 @@ await scanner.scan(raw, {
 | `saveModel(path, options)`           | Записує класифікатор у файл (`options`: `minCount`, `maxFeatures`, `metadata`) |
 | `getClassifier()`                    | `Classifier`, що використовується, або `null`                                  |
 | `getClassification(features)`        | Вердикт класифікатора для ознак із `getFeatures`                               |
-| `getFeatures(mail)`                  | `{features, words, language, script, links}` для розібраного листа             |
+| `getFeatures(mail)`                  | `{features, words, language, script, links, hosts, text, hidden}` листа        |
 | `getTokens(text, locale)`            | Слова тексту                                                                   |
 | `getTokensAndMailFromSource(source)` | `{tokens, features, mail}`                                                     |
 | `parse(source)`                      | `{raw, mail}`, де `mail` отримано з mailparser                                 |
+
+У `getFeatures` `text` — це текст, який показує поштовий клієнт і з якого беруться слова, а `hidden` — скільки символів тексту приховує HTML.
 
 `scanner.metrics` містить `totalScans`, `averageTime` і `lastScanTime`.
 

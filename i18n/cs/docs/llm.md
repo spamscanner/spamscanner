@@ -1,4 +1,4 @@
-<!-- source: dacf4c9ca2eb -->
+<!-- source: 79e50e309869 -->
 
 # Jazykové modely
 
@@ -257,7 +257,7 @@ spamscanner milter --llm ollama --llm-policy "We never send invoices by email. A
 
 ## Soukromí
 
-Model vidí souhrn hlaviček (From, Reply-To, To a Subject), odkazy, názvy a typy příloh, výsledky ověření a tělo zkrácené na 6 000 znaků (`maxInputChars`).
+Model vidí souhrn hlaviček (From, Reply-To, To a Subject), odkazy (nejdřív ty, které ukazují jednu adresu a vedou na jinou), názvy a typy příloh, výsledky ověření, kolik textu HTML skrývá, když skrývá víc než text náhledu, a tělo tak, jak ho zobrazí poštovní klient (z HTML, pokud existuje, bez skrytého textu, neviditelných znaků a stylizovaných písmen), zkrácené na 6 000 znaků (`maxInputChars`).
 
 U poskytovatelů mimo vaši síť se nejprve odstraní osobní údaje: lokální část e-mailových adres (doména zůstává, protože pro phishing je důležitá), čísla karet a účtů, telefonní čísla a hodnoty parametrů dotazu v odkazech, které často nesou přihlašovací tokeny. U vzdálených poskytovatelů, včetně rozhodovacích modelů, je to ve výchozím stavu zapnuté a u lokálních vypnuté (Ollama, LM Studio, llama.cpp, vLLM, LocalAI, Jan, TEI a jakýkoli server na localhost). `redact: true` nebo `false` (`--llm-redact`, `--no-llm-redact`) to přepíše.
 

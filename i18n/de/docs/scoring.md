@@ -1,4 +1,4 @@
-<!-- source: 6f6b765c5fc1 -->
+<!-- source: e4110e4fd51c -->
 
 # Tests und Scores
 
@@ -26,6 +26,8 @@ Die Schwellenwerte ändern Sie mit `threshold` und `rejectThreshold`. Punkte än
 | `MALICIOUS_DOMAIN`          |      6 | `maliciousDomain`     | Der Malware-Resolver von Cloudflare blockiert eine verlinkte Domain                 |
 | `ADULT_DOMAIN`              |      2 | `adultDomain`         | Der Familien-Resolver von Cloudflare blockiert eine verlinkte Domain                |
 | `URIBL_<LIST>`              |      5 | `uriblListed`         | Eine verlinkte Domain steht auf einer Domain-Blockliste, zum Beispiel `URIBL_DBL`   |
+
+Domains, die im Text nur genannt und nicht verlinkt sind, werden ebenfalls auf Nachahmungen geprüft, zählen aber nur, wenn sie eindeutig eine Marke nachahmen: ähnliche Buchstaben oder vertauschte Zeichen bei einer Marke mit fünf oder mehr Buchstaben. Eine Antwort oder Signatur kann jede beliebige Website nennen, und eine Firma kann einen kurzen Namen haben, der sich nur um ein Zeichen von dem einer Marke unterscheidet.
 
 
 ## Anhänge

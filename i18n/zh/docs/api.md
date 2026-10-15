@@ -1,4 +1,4 @@
-<!-- source: b3cc9f949acd -->
+<!-- source: 632106ec8af9 -->
 
 # API 参考
 
@@ -61,22 +61,33 @@ await scanner.scan(raw, {
 });
 ```
 
+已经检查过 SPF、DKIM、DMARC 和 ARC（使用 [mailauth](https://github.com/postalsys/mailauth)）的服务器可以把结果作为 `authenticationResults` 传入，这些结果会直接计分，不再重新检查：
+
+```js
+import {authenticate} from 'mailauth';
+
+const auth = await authenticate(raw, {ip, helo, sender, mta});
+await scanner.scan(raw, {authenticationResults: auth});
+```
+
 
 ## 方法
 
-| 方法                                   | 返回值                                                     |
-| ------------------------------------ | ------------------------------------------------------- |
-| `scan(source, options)`              | 结果。`source` 为 Buffer、字符串、Uint8Array 或可读流                |
-| `scanFile(path, options)`            | 邮件文件的结果                                                 |
-| `learn(source, 'spam' \| 'ham')`     | 用一封邮件训练分类器                                              |
-| `unlearn(source, 'spam' \| 'ham')`   | 撤销 `learn`                                              |
-| `saveModel(path, options)`           | 把分类器写入文件（`options`：`minCount`、`maxFeatures`、`metadata`） |
-| `getClassifier()`                    | 正在使用的 `Classifier`，或 `null`                             |
-| `getClassification(features)`        | 分类器对 `getFeatures` 所得特征的判定                              |
-| `getFeatures(mail)`                  | 已解析邮件的 `{features, words, language, script, links}`     |
-| `getTokens(text, locale)`            | 文本中的词语                                                  |
-| `getTokensAndMailFromSource(source)` | `{tokens, features, mail}`                              |
-| `parse(source)`                      | `{raw, mail}`，其中 `mail` 来自 mailparser                   |
+| 方法                                   | 返回值                                                                   |
+| ------------------------------------ | --------------------------------------------------------------------- |
+| `scan(source, options)`              | 结果。`source` 为 Buffer、字符串、Uint8Array 或可读流                              |
+| `scanFile(path, options)`            | 邮件文件的结果                                                               |
+| `learn(source, 'spam' \| 'ham')`     | 用一封邮件训练分类器                                                            |
+| `unlearn(source, 'spam' \| 'ham')`   | 撤销 `learn`                                                            |
+| `saveModel(path, options)`           | 把分类器写入文件（`options`：`minCount`、`maxFeatures`、`metadata`）               |
+| `getClassifier()`                    | 正在使用的 `Classifier`，或 `null`                                           |
+| `getClassification(features)`        | 分类器对 `getFeatures` 所得特征的判定                                            |
+| `getFeatures(mail)`                  | 邮件的 `{features, words, language, script, links, hosts, text, hidden}` |
+| `getTokens(text, locale)`            | 文本中的词语                                                                |
+| `getTokensAndMailFromSource(source)` | `{tokens, features, mail}`                                            |
+| `parse(source)`                      | `{raw, mail}`，其中 `mail` 来自 mailparser                                 |
+
+在 `getFeatures` 中，`text` 是邮件客户端显示的文本，词语即从中读取；`hidden` 是 HTML 隐藏的文本字符数。
 
 `scanner.metrics` 包含 `totalScans`、`averageTime` 和 `lastScanTime`。
 

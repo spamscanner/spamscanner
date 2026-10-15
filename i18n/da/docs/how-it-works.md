@@ -1,4 +1,4 @@
-<!-- source: 35bf62a30cd7 -->
+<!-- source: 8a788c19971e -->
 
 # Sådan virker det
 
@@ -19,6 +19,8 @@ Spam Scanner beholder det, der virker ved ordoptælling, nemlig statistikken, og
 
 ### Hvad den tæller
 
+Den læste tekst er den, en mailklient viser: HTML-delens, når der er en (en ren tekstdel ved siden af vises kun, hvor HTML ikke kan vises, så en harmløs tekstdel kan ikke tale for HTML'en), uden tags, kommentarer, scripts og styles, med inline-tags, der samler et ord, som en browser samler det (`Free Sp<span>ins</span>`), og uden tekst, som HTML'en skjuler, men den tælles: af et element, der skjuler sit indhold (display, opacity, hidden-attributten, en beskåret boks uden størrelse, tekst flyttet ud af siden), eller usynlig, gennemsigtig eller med en skrift på en pixel eller mindre, hvor den står (hvilket et element indeni kan sætte tilbage, som responsive skabeloner gør). Styles læses, som browsere læser dem (den sidste erklæring vinder, kommentarer, tegnreferencer); farver på en baggrund og stylesheet-klasser læses ikke, så sådan tekst læses, som den vises. HTML, der viser færre end 20 ord, for eksempel et billede af beskeden, læses sammen med sin rene tekstdel. Links og værtsnavne læses fra begge dele og fra skjult tekst.
+
 Teksten normaliseres først: Unicode NFKC folder stiliserede bogstaver og bogstaver i fuld bredde til almindelige, usynlige tegn fjernes og tælles, forvekslelige bogstaver i ellers latinske eller kyrilliske ord oversættes tilbage, og tal brugt som bogstaver (`v1agra`) foldes. Derefter opdeles ordene med `Intl.Segmenter`, Unicode-reglerne for ordgrænser med ordbøger til kinesisk, japansk, thai, lao, khmer og burmesisk.
 
 Ud fra det udtrækker den:
@@ -33,6 +35,7 @@ Ud fra det udtrækker den:
 | Links            | `url:shortener`, `url:deceptive`, `url:punycode`      | Linkforkortere, rå IP-adresser, linktekst, der ikke passer, linkede domæner og deres TLD'er           |
 | Afsender         | `from:freemail`, `fn:support`, `replyto:other_domain` | Afsenderens domæne, ord i visningsnavnet og Reply-To                                                  |
 | HTML             | `html:only`, `html:hidden`, `html:form`               | HTML uden en tekstdel, skjult tekst, formularer, sporingspixels                                       |
+| Dele             | `html:hidden_text`, `html:text_mismatch`              | Tekst, som HTML'en skjuler; en ren tekstdel, der deler få ord med HTML'en ved siden af                |
 | Vedhæftede filer | `att:ext:zip`, `att:count:1`                          | Typer og antal af vedhæftede filer                                                                    |
 | Headere          | `hdr:list_unsubscribe`, `hdr:priority_high`           | Headere fra mailinglister, prioritetsflag, mailprogrammer, Received-hop                               |
 

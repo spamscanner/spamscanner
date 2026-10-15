@@ -1,4 +1,4 @@
-<!-- source: 6f6b765c5fc1 -->
+<!-- source: e4110e4fd51c -->
 
 # Tes dan skor
 
@@ -26,6 +26,8 @@ Ubah ambang batas dengan `threshold` dan `rejectThreshold`. Ubah poin dengan `sc
 | `MALICIOUS_DOMAIN`          |    6 | `maliciousDomain`   | Resolver malware Cloudflare memblokir domain yang ditautkan              |
 | `ADULT_DOMAIN`              |    2 | `adultDomain`       | Resolver keluarga Cloudflare memblokir domain yang ditautkan             |
 | `URIBL_<LIST>`              |    5 | `uriblListed`       | Domain yang ditautkan ada di daftar blokir domain, misalnya `URIBL_DBL`  |
+
+Domain yang hanya disebut dalam teks, tanpa tautan, juga diperiksa apakah merupakan tiruan, tetapi hanya dihitung jika jelas meniru suatu merek: huruf yang mirip, atau karakter yang ditukar untuk merek dengan lima huruf atau lebih. Balasan atau tanda tangan bisa menyebut situs apa pun, dan sebuah perusahaan bisa punya nama pendek yang hanya berbeda satu karakter dari nama merek.
 
 
 ## Lampiran

@@ -1,4 +1,4 @@
-<!-- source: b3cc9f949acd -->
+<!-- source: 632106ec8af9 -->
 
 # Referência da API
 
@@ -61,6 +61,15 @@ await scanner.scan(raw, {
 });
 ```
 
+Um servidor que já verificou SPF, DKIM, DMARC e ARC (com o [mailauth](https://github.com/postalsys/mailauth)) pode passar os resultados como `authenticationResults`, e eles são pontuados em vez de verificados de novo:
+
+```js
+import {authenticate} from 'mailauth';
+
+const auth = await authenticate(raw, {ip, helo, sender, mta});
+await scanner.scan(raw, {authenticationResults: auth});
+```
+
 
 ## Métodos
 
@@ -73,10 +82,12 @@ await scanner.scan(raw, {
 | `saveModel(path, options)`           | Grava o classificador em um arquivo (`options`: `minCount`, `maxFeatures`, `metadata`) |
 | `getClassifier()`                    | O `Classifier` em uso, ou `null`                                                       |
 | `getClassification(features)`        | O veredito do classificador para as características de `getFeatures`                   |
-| `getFeatures(mail)`                  | `{features, words, language, script, links}` para uma mensagem já interpretada         |
+| `getFeatures(mail)`                  | `{features, words, language, script, links, hosts, text, hidden}` de uma mensagem      |
 | `getTokens(text, locale)`            | As palavras de um texto                                                                |
 | `getTokensAndMailFromSource(source)` | `{tokens, features, mail}`                                                             |
 | `parse(source)`                      | `{raw, mail}`, com `mail` vindo do mailparser                                          |
+
+Em `getFeatures`, `text` é o texto que um cliente de e-mail mostra, do qual as palavras são lidas, e `hidden` é quantos caracteres de texto o HTML esconde.
 
 O `scanner.metrics` guarda `totalScans`, `averageTime` e `lastScanTime`.
 

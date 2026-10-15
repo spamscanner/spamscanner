@@ -1,4 +1,4 @@
-<!-- source: b3cc9f949acd -->
+<!-- source: 632106ec8af9 -->
 
 # Tham chiếu API
 
@@ -61,22 +61,33 @@ await scanner.scan(raw, {
 });
 ```
 
+Máy chủ đã kiểm tra SPF, DKIM, DMARC và ARC (bằng [mailauth](https://github.com/postalsys/mailauth)) có thể truyền kết quả dưới dạng `authenticationResults`, và các kết quả này được chấm điểm thay vì kiểm tra lại:
+
+```js
+import {authenticate} from 'mailauth';
+
+const auth = await authenticate(raw, {ip, helo, sender, mta});
+await scanner.scan(raw, {authenticationResults: auth});
+```
+
 
 ## Phương thức
 
-| Phương thức                          | Trả về                                                                     |
-| ------------------------------------ | -------------------------------------------------------------------------- |
-| `scan(source, options)`              | Kết quả. `source` là Buffer, chuỗi, Uint8Array hoặc readable stream        |
-| `scanFile(path, options)`            | Kết quả cho một tệp thư                                                    |
-| `learn(source, 'spam' \| 'ham')`     | Dạy bộ phân loại một thư                                                   |
-| `unlearn(source, 'spam' \| 'ham')`   | Hoàn tác `learn`                                                           |
-| `saveModel(path, options)`           | Ghi bộ phân loại ra tệp (`options`: `minCount`, `maxFeatures`, `metadata`) |
-| `getClassifier()`                    | `Classifier` đang dùng, hoặc `null`                                        |
-| `getClassification(features)`        | Kết luận của bộ phân loại cho các đặc trưng từ `getFeatures`               |
-| `getFeatures(mail)`                  | `{features, words, language, script, links}` cho một thư đã phân tích      |
-| `getTokens(text, locale)`            | Các từ của một văn bản                                                     |
-| `getTokensAndMailFromSource(source)` | `{tokens, features, mail}`                                                 |
-| `parse(source)`                      | `{raw, mail}`, với `mail` từ mailparser                                    |
+| Phương thức                          | Trả về                                                                        |
+| ------------------------------------ | ----------------------------------------------------------------------------- |
+| `scan(source, options)`              | Kết quả. `source` là Buffer, chuỗi, Uint8Array hoặc readable stream           |
+| `scanFile(path, options)`            | Kết quả cho một tệp thư                                                       |
+| `learn(source, 'spam' \| 'ham')`     | Dạy bộ phân loại một thư                                                      |
+| `unlearn(source, 'spam' \| 'ham')`   | Hoàn tác `learn`                                                              |
+| `saveModel(path, options)`           | Ghi bộ phân loại ra tệp (`options`: `minCount`, `maxFeatures`, `metadata`)    |
+| `getClassifier()`                    | `Classifier` đang dùng, hoặc `null`                                           |
+| `getClassification(features)`        | Kết luận của bộ phân loại cho các đặc trưng từ `getFeatures`                  |
+| `getFeatures(mail)`                  | `{features, words, language, script, links, hosts, text, hidden}` của một thư |
+| `getTokens(text, locale)`            | Các từ của một văn bản                                                        |
+| `getTokensAndMailFromSource(source)` | `{tokens, features, mail}`                                                    |
+| `parse(source)`                      | `{raw, mail}`, với `mail` từ mailparser                                       |
+
+Trong `getFeatures`, `text` là văn bản mà ứng dụng thư hiển thị, cũng là nơi các từ được đọc ra, còn `hidden` là số ký tự văn bản mà HTML ẩn đi.
 
 `scanner.metrics` chứa `totalScans`, `averageTime` và `lastScanTime`.
 

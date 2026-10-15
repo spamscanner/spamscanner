@@ -1,4 +1,4 @@
-<!-- source: dacf4c9ca2eb -->
+<!-- source: 79e50e309869 -->
 
 # Språkmodeller
 
@@ -257,7 +257,7 @@ spamscanner milter --llm ollama --llm-policy "We never send invoices by email. A
 
 ## Integritet
 
-Modellen ser en sammanfattning av huvudena (From, Reply-To, To och Subject), länkarna, bilagornas namn och typer, autentiseringsresultaten och brödtexten, avkortad till 6 000 tecken (`maxInputChars`).
+Modellen ser en sammanfattning av huvudena (From, Reply-To, To och Subject), länkarna (först de som visar en adress och leder till en annan), bilagornas namn och typer, autentiseringsresultaten, hur mycket text HTML-koden döljer när den döljer mer än förhandsvisningstext, och brödtexten så som ett e-postprogram visar den (HTML-delens när det finns en, utan dold text, osynliga tecken eller stiliserade bokstäver), avkortad till 6 000 tecken (`maxInputChars`).
 
 För leverantörer utanför ditt nätverk tas personuppgifter bort först: den lokala delen av e-postadresser (domänen behålls, eftersom den är viktig för nätfiske), kort- och kontonummer, telefonnummer och värdena för frågeparametrar i länkar, som ofta bär inloggningstoken. Detta är påslaget som standard för externa leverantörer, beslutsmodeller inräknade, och avstängt för lokala (Ollama, LM Studio, llama.cpp, vLLM, LocalAI, Jan, TEI och alla servrar på localhost). `redact: true` eller `false` (`--llm-redact`, `--no-llm-redact`) åsidosätter det.
 

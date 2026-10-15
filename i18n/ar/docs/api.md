@@ -1,4 +1,4 @@
-<!-- source: b3cc9f949acd -->
+<!-- source: 632106ec8af9 -->
 
 # مرجع API
 
@@ -61,6 +61,15 @@ await scanner.scan(raw, {
 });
 ```
 
+يمكن للخادم الذي فحص SPF وDKIM وDMARC وARC مسبقًا (باستخدام [mailauth](https://github.com/postalsys/mailauth)) أن يمرّر نتائجه في `authenticationResults`، فتُحتسب بدلًا من فحصها مرة أخرى:
+
+```js
+import {authenticate} from 'mailauth';
+
+const auth = await authenticate(raw, {ip, helo, sender, mta});
+await scanner.scan(raw, {authenticationResults: auth});
+```
+
 
 ## الدوال
 
@@ -73,10 +82,12 @@ await scanner.scan(raw, {
 | `saveModel(path, options)`           | تكتب المصنِّف إلى ملف (`options`: `minCount`، `maxFeatures`، `metadata`)     |
 | `getClassifier()`                    | الـ `Classifier` المستخدم، أو `null`                                         |
 | `getClassification(features)`        | حكم المصنِّف على السمات المأخوذة من `getFeatures`                            |
-| `getFeatures(mail)`                  | `{features, words, language, script, links}` لرسالة محلَّلة                  |
+| `getFeatures(mail)`                  | `{features, words, language, script, links, hosts, text, hidden}` لرسالة     |
 | `getTokens(text, locale)`            | كلمات نص                                                                     |
 | `getTokensAndMailFromSource(source)` | `{tokens, features, mail}`                                                   |
 | `parse(source)`                      | `{raw, mail}`، مع `mail` من mailparser                                       |
+
+في `getFeatures`، يكون `text` هو النص الذي يعرضه عميل البريد، ومنه تُقرأ الكلمات، و`hidden` عدد محارف النص التي يخفيها HTML.
 
 تحتوي `scanner.metrics` على `totalScans` و`averageTime` و`lastScanTime`.
 

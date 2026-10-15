@@ -1,4 +1,4 @@
-<!-- source: 6f6b765c5fc1 -->
+<!-- source: e4110e4fd51c -->
 
 # Testes e pontuações
 
@@ -26,6 +26,8 @@ Altere os limites com `threshold` e `rejectThreshold`. Altere os pontos com `sco
 | `MALICIOUS_DOMAIN`          |      6 | `maliciousDomain`     | O resolvedor de malware da Cloudflare bloqueia um domínio linkado                     |
 | `ADULT_DOMAIN`              |      2 | `adultDomain`         | O resolvedor familiar da Cloudflare bloqueia um domínio linkado                       |
 | `URIBL_<LIST>`              |      5 | `uriblListed`         | Um domínio linkado está em uma lista de bloqueio de domínios, por exemplo `URIBL_DBL` |
+
+Domínios apenas mencionados no texto, sem link, também são verificados quanto a imitações, mas só contam quando imitam claramente uma marca: letras parecidas, ou caracteres trocados no caso de uma marca de cinco letras ou mais. Uma resposta ou assinatura pode mencionar qualquer site, e uma empresa pode ter um nome curto a um caractere de distância do de uma marca.
 
 
 ## Anexos

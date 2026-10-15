@@ -1,4 +1,4 @@
-<!-- source: dacf4c9ca2eb -->
+<!-- source: 79e50e309869 -->
 
 # Sprachmodelle
 
@@ -257,7 +257,7 @@ spamscanner milter --llm ollama --llm-policy "We never send invoices by email. A
 
 ## Datenschutz
 
-Das Modell sieht eine Zusammenfassung der Header (From, Reply-To, To und Subject), die Links, die Namen und Typen der Anhänge, die Authentifizierungsergebnisse und den Nachrichtentext, gekürzt auf 6.000 Zeichen (`maxInputChars`).
+Das Modell sieht eine Zusammenfassung der Header (From, Reply-To, To und Subject), die Links (zuerst die, die eine Adresse zeigen und zu einer anderen führen), die Namen und Typen der Anhänge, die Authentifizierungsergebnisse, wie viel Text das HTML versteckt, wenn es mehr als Vorschautext versteckt, und den Nachrichtentext, wie ein Mailprogramm ihn anzeigt (aus dem HTML, wenn es eines gibt, ohne versteckten Text, unsichtbare Zeichen oder Zierbuchstaben), gekürzt auf 6.000 Zeichen (`maxInputChars`).
 
 Bei Anbietern außerhalb des eigenen Netzes werden personenbezogene Daten vorher entfernt: der lokale Teil von E-Mail-Adressen (die Domain bleibt, weil sie für Phishing relevant ist), Karten- und Kontonummern, Telefonnummern und die Werte von Query-Parametern in Links, die oft Anmelde-Token enthalten. Das ist bei entfernten Anbietern standardmäßig aktiv, Entscheidungsmodelle eingeschlossen, und bei lokalen ausgeschaltet (Ollama, LM Studio, llama.cpp, vLLM, LocalAI, Jan, TEI und jeder Server auf localhost). `redact: true` oder `false` (`--llm-redact`, `--no-llm-redact`) überschreibt das.
 

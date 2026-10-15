@@ -1,4 +1,4 @@
-<!-- source: b3cc9f949acd -->
+<!-- source: 632106ec8af9 -->
 
 # API 레퍼런스
 
@@ -61,22 +61,33 @@ await scanner.scan(raw, {
 });
 ```
 
+SPF, DKIM, DMARC, ARC를 이미 ([mailauth](https://github.com/postalsys/mailauth)로) 검사한 서버는 그 결과를 `authenticationResults`로 전달할 수 있으며, 이때 결과는 다시 검사하지 않고 점수에 반영됩니다.
+
+```js
+import {authenticate} from 'mailauth';
+
+const auth = await authenticate(raw, {ip, helo, sender, mta});
+await scanner.scan(raw, {authenticationResults: auth});
+```
+
 
 ## 메서드
 
-| 메서드                                  | 반환값                                                              |
-| ------------------------------------ | ---------------------------------------------------------------- |
-| `scan(source, options)`              | 결과. `source`는 Buffer, 문자열, Uint8Array 또는 읽기 가능한 스트림              |
-| `scanFile(path, options)`            | 메시지 파일의 결과                                                       |
-| `learn(source, 'spam' \| 'ham')`     | 분류기에 메시지 하나를 학습시킵니다                                              |
-| `unlearn(source, 'spam' \| 'ham')`   | `learn`을 취소합니다                                                   |
-| `saveModel(path, options)`           | 분류기를 파일로 기록합니다(`options`: `minCount`, `maxFeatures`, `metadata`) |
-| `getClassifier()`                    | 사용 중인 `Classifier` 또는 `null`                                     |
-| `getClassification(features)`        | `getFeatures`에서 얻은 특징에 대한 분류기의 판정                                |
-| `getFeatures(mail)`                  | 파싱한 메시지의 `{features, words, language, script, links}`            |
-| `getTokens(text, locale)`            | 텍스트의 단어                                                          |
-| `getTokensAndMailFromSource(source)` | `{tokens, features, mail}`                                       |
-| `parse(source)`                      | `{raw, mail}`. `mail`은 mailparser의 결과                            |
+| 메서드                                  | 반환값                                                                    |
+| ------------------------------------ | ---------------------------------------------------------------------- |
+| `scan(source, options)`              | 결과. `source`는 Buffer, 문자열, Uint8Array 또는 읽기 가능한 스트림                    |
+| `scanFile(path, options)`            | 메시지 파일의 결과                                                             |
+| `learn(source, 'spam' \| 'ham')`     | 분류기에 메시지 하나를 학습시킵니다                                                    |
+| `unlearn(source, 'spam' \| 'ham')`   | `learn`을 취소합니다                                                         |
+| `saveModel(path, options)`           | 분류기를 파일로 기록합니다(`options`: `minCount`, `maxFeatures`, `metadata`)       |
+| `getClassifier()`                    | 사용 중인 `Classifier` 또는 `null`                                           |
+| `getClassification(features)`        | `getFeatures`에서 얻은 특징에 대한 분류기의 판정                                      |
+| `getFeatures(mail)`                  | 메시지의 `{features, words, language, script, links, hosts, text, hidden}` |
+| `getTokens(text, locale)`            | 텍스트의 단어                                                                |
+| `getTokensAndMailFromSource(source)` | `{tokens, features, mail}`                                             |
+| `parse(source)`                      | `{raw, mail}`. `mail`은 mailparser의 결과                                  |
+
+`getFeatures`에서 `text`는 메일 클라이언트가 보여 주는 텍스트로, 단어는 여기에서 읽습니다. `hidden`은 HTML이 숨기는 텍스트의 글자 수입니다.
 
 `scanner.metrics`에는 `totalScans`, `averageTime`, `lastScanTime`이 들어 있습니다.
 

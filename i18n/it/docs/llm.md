@@ -1,4 +1,4 @@
-<!-- source: dacf4c9ca2eb -->
+<!-- source: 79e50e309869 -->
 
 # Modelli linguistici
 
@@ -257,7 +257,7 @@ spamscanner milter --llm ollama --llm-policy "We never send invoices by email. A
 
 ## Privacy
 
-Il modello vede un riassunto delle intestazioni (From, Reply-To, To e Subject), i link, i nomi e i tipi degli allegati, i risultati dell'autenticazione e il corpo, troncato a 6.000 caratteri (`maxInputChars`).
+Il modello vede un riassunto delle intestazioni (From, Reply-To, To e Subject), i link (prima quelli che mostrano un indirizzo e portano a un altro), i nomi e i tipi degli allegati, i risultati dell'autenticazione, quanto testo nasconde l'HTML quando ne nasconde più del testo di anteprima, e il corpo come lo mostra un client di posta (quello dell'HTML se c'è, senza testo nascosto, caratteri invisibili o lettere stilizzate), troncato a 6.000 caratteri (`maxInputChars`).
 
 Per i provider esterni alla tua rete, i dati personali vengono prima rimossi: la parte locale degli indirizzi email (il dominio resta, perché è importante per il phishing), i numeri di carta e di conto, i numeri di telefono e i valori dei parametri di query nei link, che spesso contengono token di accesso. Questo comportamento è attivo per impostazione predefinita per i provider remoti, modelli decisionali compresi, e disattivato per quelli locali (Ollama, LM Studio, llama.cpp, vLLM, LocalAI, Jan, TEI e qualsiasi server su localhost). `redact: true` o `false` (`--llm-redact`, `--no-llm-redact`) lo sovrascrive.
 

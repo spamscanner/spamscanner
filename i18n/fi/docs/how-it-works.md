@@ -1,4 +1,4 @@
-<!-- source: 35bf62a30cd7 -->
+<!-- source: 8a788c19971e -->
 
 # Miten se toimii
 
@@ -19,6 +19,8 @@ Spam Scanner säilyttää sanojen laskemisesta sen, mikä toimii, eli tilastot, 
 
 ### Mitä se laskee
 
+Luettava teksti on se, minkä sähköpostiohjelma näyttää: HTML-osan teksti, jos sellainen on (sen rinnalla oleva pelkkä tekstiosa näytetään vain siellä, missä HTML:ää ei voida näyttää, joten harmiton tekstiosa ei voi puhua HTML:n puolesta), ilman tageja, kommentteja, skriptejä ja tyylejä, rivinsisäiset tagit yhdistävät sanan kuten selain sen yhdistää (`Free Sp<span>ins</span>`), ja HTML:n piilottama teksti jätetään pois ja lasketaan: kun elementti piilottaa sisältönsä (display, opacity, hidden-attribuutti, nollakokoiseksi rajattu laatikko, sivulta pois siirretty teksti) tai kun teksti on kohdallaan näkymätöntä, läpinäkyvää tai fontiltaan enintään pikselin kokoista (minkä sisempi elementti voi asettaa uudelleen, kuten responsiiviset mallipohjat tekevät). Tyylit luetaan kuten selaimet ne lukevat (viimeinen määrittely voittaa, kommentit, merkkiviittaukset); taustaa vasten olevia värejä ja tyylitiedostojen luokkia ei lueta, joten sellainen teksti luetaan sellaisena kuin se näytetään. HTML, joka näyttää alle 20 sanaa, kuten kuva viestistä, luetaan yhdessä pelkän tekstiosansa kanssa. Linkit ja isäntänimet luetaan molemmista osista sekä piilotetusta tekstistä.
+
 Teksti normalisoidaan ensin: Unicode NFKC muuntaa tyylitellyt ja täysleveät kirjaimet tavallisiksi, näkymättömät merkit poistetaan ja lasketaan, muuten latinalaisissa tai kyrillisissä sanoissa olevat samannäköiset kirjaimet palautetaan ja kirjaimina käytetyt numerot (`v1agra`) muunnetaan. Sanat pilkotaan sitten `Intl.Segmenter`illä, eli Unicoden sanarajasäännöillä, joissa on sanakirjat kiinalle, japanille, thaille, laolle, khmerille ja burmalle.
 
 Siitä se poimii:
@@ -33,6 +35,7 @@ Siitä se poimii:
 | Linkit          | `url:shortener`, `url:deceptive`, `url:punycode`      | Lyhentäjät, pelkät IP-osoitteet, ristiriitainen linkkiteksti, linkitetyt verkkotunnukset ja niiden TLD:t              |
 | Lähettäjä       | `from:freemail`, `fn:support`, `replyto:other_domain` | Lähettäjän verkkotunnus, näyttönimen sanat ja Reply-To                                                                |
 | HTML            | `html:only`, `html:hidden`, `html:form`               | HTML ilman tekstiosaa, piilotettu teksti, lomakkeet, seurantapikselit                                                 |
+| Osat            | `html:hidden_text`, `html:text_mismatch`              | HTML:n piilottama teksti; pelkkä tekstiosa, jolla on vähän yhteisiä sanoja rinnalla olevan HTML:n kanssa              |
 | Liitteet        | `att:ext:zip`, `att:count:1`                          | Liitteiden tyypit ja määrät                                                                                           |
 | Otsakkeet       | `hdr:list_unsubscribe`, `hdr:priority_high`           | Postituslistojen otsakkeet, prioriteettimerkinnät, postiohjelmat, Received-hypyt                                      |
 

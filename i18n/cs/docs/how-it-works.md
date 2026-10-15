@@ -1,4 +1,4 @@
-<!-- source: 35bf62a30cd7 -->
+<!-- source: 8a788c19971e -->
 
 # Jak to funguje
 
@@ -19,6 +19,8 @@ Spam Scanner si z počítání slov ponechává to, co funguje, tedy statistiku,
 
 ### Co počítá
 
+Čte se text, který zobrazí poštovní klient: text HTML části, pokud existuje (prostá textová část vedle ní se zobrazí jen tam, kde HTML zobrazit nelze, takže neškodná textová část nemůže mluvit za HTML), bez značek, komentářů, skriptů a stylů, přičemž řádkové značky spojují slovo tak, jak ho spojí prohlížeč (`Free Sp<span>ins</span>`), a bez textu, který HTML skrývá, ten se ale počítá: skrytého prvkem, který skrývá svůj obsah (display, opacity, atribut hidden, oříznutý rámeček nulové velikosti, text posunutý mimo stránku), nebo neviditelného, průhledného či v písmu o velikosti jednoho pixelu nebo menším přímo tam, kde je (což může vnořený prvek znovu nastavit, jak to dělají responzivní šablony). Styly se čtou tak, jak je čtou prohlížeče (vyhrává poslední deklarace, komentáře, odkazy na znaky); barvy na pozadí a třídy ze stylů ne, takže takový text se čte tak, jak se zobrazí. HTML, které zobrazí méně než 20 slov, například obrázek zprávy, se čte spolu se svou prostou textovou částí. Odkazy a názvy hostitelů se čtou z obou částí i ze skrytého textu.
+
 Text se nejprve normalizuje: Unicode NFKC převede stylizovaná písmena a písmena plné šířky na obyčejná, neviditelné znaky se odstraní a spočítají, podobně vypadající písmena uvnitř jinak latinkových nebo cyrilických slov se převedou zpět a číslice použité místo písmen (`v1agra`) se nahradí. Slova se pak dělí pomocí `Intl.Segmenter`, tedy pravidel Unicode pro hranice slov se slovníky pro čínštinu, japonštinu, thajštinu, laoštinu, khmerštinu a barmštinu.
 
 Z toho vytáhne:
@@ -33,6 +35,7 @@ Z toho vytáhne:
 | Odkazy         | `url:shortener`, `url:deceptive`, `url:punycode`      | Zkracovače, holé IP adresy, neodpovídající text odkazu, odkazované domény a jejich TLD             |
 | Odesílatel     | `from:freemail`, `fn:support`, `replyto:other_domain` | Doména odesílatele, slova zobrazovaného jména a Reply-To                                           |
 | HTML           | `html:only`, `html:hidden`, `html:form`               | HTML bez textové části, skrytý text, formuláře, sledovací pixely                                   |
+| Části          | `html:hidden_text`, `html:text_mismatch`              | Text, který HTML skrývá; prostá textová část, která má s HTML vedle sebe málo společných slov      |
 | Přílohy        | `att:ext:zip`, `att:count:1`                          | Typy a počty příloh                                                                                |
 | Hlavičky       | `hdr:list_unsubscribe`, `hdr:priority_high`           | Hlavičky e-mailových konferencí, příznaky priority, poštovní programy, skoky v Received            |
 

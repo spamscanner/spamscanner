@@ -1,4 +1,4 @@
-<!-- source: 6f6b765c5fc1 -->
+<!-- source: e4110e4fd51c -->
 
 # Tests en scores
 
@@ -26,6 +26,8 @@ Pas de drempels aan met `threshold` en `rejectThreshold`. Pas punten aan met `sc
 | `MALICIOUS_DOMAIN`          |      6 | `maliciousDomain`   | De malware-resolver van Cloudflare blokkeert een gelinkt domein                 |
 | `ADULT_DOMAIN`              |      2 | `adultDomain`       | De gezinsresolver van Cloudflare blokkeert een gelinkt domein                   |
 | `URIBL_<LIST>`              |      5 | `uriblListed`       | Een gelinkt domein staat op een domeinblocklist, bijvoorbeeld `URIBL_DBL`       |
+
+Domeinen die alleen in de tekst worden genoemd, niet gelinkt, worden ook op lookalikes gecontroleerd, maar tellen alleen mee als ze duidelijk een merk nabootsen: lookalike-letters, of verwisselde tekens bij een merk van vijf letters of meer. Een antwoord of handtekening kan elke site noemen, en een bedrijf kan een korte naam hebben die één teken verschilt van die van een merk.
 
 
 ## Bijlagen

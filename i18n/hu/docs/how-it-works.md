@@ -1,4 +1,4 @@
-<!-- source: 35bf62a30cd7 -->
+<!-- source: 8a788c19971e -->
 
 # Működés
 
@@ -19,6 +19,8 @@ A Spam Scanner megtartja azt, ami a szószámlálásban működik, vagyis a stat
 
 ### Mit számol
 
+A beolvasott szöveg az, amit egy levelezőprogram megjelenít: a HTML-rész szövege, ha van ilyen (a mellette lévő egyszerű szöveges részt csak ott jelenítik meg, ahol a HTML nem jeleníthető meg, így egy ártalmatlan szöveges rész nem beszélhet a HTML nevében), a címkék, megjegyzések, szkriptek és stílusok nélkül, a soron belüli címkék úgy illesztik össze a szót, ahogy egy böngésző (`Free Sp<span>ins</span>`), a HTML által elrejtett szöveget pedig kihagyja és megszámolja: ha egy elem elrejti a tartalmát (display, opacity, a hidden attribútum, nulla méretűre vágott doboz, a lapról kitolt szöveg), vagy ha a szöveg ott, ahol van, láthatatlan, átlátszó vagy legfeljebb egy pixeles betűméretű (amit egy belső elem visszaállíthat, ahogy a reszponzív sablonok teszik). A stílusokat úgy olvassa, ahogy a böngészők (az utolsó deklaráció nyer, megjegyzések, karakterhivatkozások); a háttér előtti színeket és a stíluslap-osztályokat nem, így az ilyen szöveget úgy olvassa, ahogy megjelenik. A 20-nál kevesebb szót megjelenítő HTML-t, például a levélről készült képet, az egyszerű szöveges részével együtt olvassa. A hivatkozásokat és a gépneveket mindkét részből és a rejtett szövegből is kiolvassa.
+
 A szöveget előbb normalizálja: a Unicode NFKC a díszített és teljes szélességű betűket egyszerű betűkké alakítja, a láthatatlan karaktereket eltávolítja és megszámolja, az egyébként latin vagy cirill szavakon belüli hasonmás betűket visszaalakítja, a betűként használt számjegyeket (`v1agra`) pedig visszaírja. Ezután a szavakat az `Intl.Segmenter` szegmentálja, a Unicode szóhatár-szabályai szerint, a kínaihoz, japánhoz, thaihoz, laóhoz, khmerhez és burmaihoz szótárakkal.
 
 Ebből a következőket nyeri ki:
@@ -33,6 +35,7 @@ Ebből a következőket nyeri ki:
 | Hivatkozások | `url:shortener`, `url:deceptive`, `url:punycode`      | Linkrövidítők, nyers IP-címek, eltérő hivatkozásszövegek, hivatkozott domainek és azok TLD-i           |
 | Feladó       | `from:freemail`, `fn:support`, `replyto:other_domain` | A feladó domainje, a megjelenített név szavai és a Reply-To                                            |
 | HTML         | `html:only`, `html:hidden`, `html:form`               | Szöveges rész nélküli HTML, rejtett szöveg, űrlapok, nyomkövető pixelek                                |
+| Részek       | `html:hidden_text`, `html:text_mismatch`              | A HTML által elrejtett szöveg; egyszerű szöveges rész, kevés közös szóval a mellette lévő HTML-lel     |
 | Mellékletek  | `att:ext:zip`, `att:count:1`                          | A mellékletek típusa és száma                                                                          |
 | Fejlécek     | `hdr:list_unsubscribe`, `hdr:priority_high`           | Levelezőlista-fejlécek, prioritásjelzők, levelezőprogramok, Received ugrások                           |
 

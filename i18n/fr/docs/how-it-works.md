@@ -1,4 +1,4 @@
-<!-- source: 35bf62a30cd7 -->
+<!-- source: 8a788c19971e -->
 
 # Fonctionnement
 
@@ -19,6 +19,8 @@ Spam Scanner conserve ce qui fonctionne dans le comptage de mots, les statistiqu
 
 ### Ce qu’il compte
 
+Le texte lu est celui qu’affiche un client de messagerie : celui de la partie HTML s’il y en a une (une partie texte brut à côté n’est affichée que là où le HTML ne peut pas l’être, si bien qu’une partie inoffensive ne peut pas parler à la place du HTML), sans les balises, commentaires, scripts et styles, les balises en ligne joignant un mot comme le fait un navigateur (`Free Sp<span>ins</span>`), et le texte que le HTML cache étant écarté et compté : par un élément qui cache ce qu’il contient (display, opacity, l’attribut hidden, une boîte rognée de taille nulle, du texte déplacé hors de la page), ou invisible, transparent ou dans une police d’un pixel ou moins là où il se trouve (ce qu’un élément intérieur peut rétablir, comme le font les modèles adaptatifs). Les styles sont lus comme les navigateurs les lisent (la dernière déclaration l’emporte, commentaires, références de caractères) ; les couleurs sur un fond et les classes de feuilles de style ne le sont pas, et un tel texte est donc lu tel qu’il est affiché. Un HTML affichant moins de 20 mots, comme une image du message, est lu avec sa partie texte brut. Les liens et les noms d’hôte sont lus dans les deux parties et dans le texte caché.
+
 Le texte est d’abord normalisé : la normalisation Unicode NFKC ramène les lettres stylisées et pleine chasse à des lettres simples, les caractères invisibles sont retirés et comptés, les lettres sosies à l’intérieur de mots par ailleurs latins ou cyrilliques sont rétablies, et les chiffres utilisés comme lettres (`v1agra`) sont convertis. Les mots sont ensuite segmentés avec `Intl.Segmenter`, les règles Unicode de découpage en mots avec des dictionnaires pour le chinois, le japonais, le thaï, le lao, le khmer et le birman.
 
 Il en extrait :
@@ -33,6 +35,7 @@ Il en extrait :
 | Liens           | `url:shortener`, `url:deceptive`, `url:punycode`      | Raccourcisseurs, adresses IP brutes, texte de lien discordant, domaines liés et leurs TLD                         |
 | Expéditeur      | `from:freemail`, `fn:support`, `replyto:other_domain` | Le domaine de l’expéditeur, les mots du nom d’affichage et le Reply-To                                            |
 | HTML            | `html:only`, `html:hidden`, `html:form`               | HTML sans partie texte, texte caché, formulaires, pixels de suivi                                                 |
+| Parties         | `html:hidden_text`, `html:text_mismatch`              | Texte que le HTML cache ; une partie texte brut qui partage peu de mots avec le HTML à côté                       |
 | Pièces jointes  | `att:ext:zip`, `att:count:1`                          | Types et nombre de pièces jointes                                                                                 |
 | En-têtes        | `hdr:list_unsubscribe`, `hdr:priority_high`           | En-têtes de listes de diffusion, indicateurs de priorité, logiciels d’envoi, sauts Received                       |
 
