@@ -61,6 +61,25 @@ describe('linear helpers', () => {
 		assert.equal(typeof loadRe2(), usesRe2 ? 'function' : 'object');
 	});
 
+	it('writes patterns for RE2, also where RE2 is not installed', () => {
+		// (repetition bounded for JavaScript only made unbounded, and \s and \S
+		//  as JavaScript reads them, outside a class and in one)
+		const space = String.raw`\t\n\x0B\f\r \x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}`;
+		assert.equal(re2Source('a{1,64}b{0,10}c{2,24}'), 'a+b*c{2,24}');
+		assert.equal(re2Source(String.raw`a\s[^\s<]\S`), `a[${space}][^${space}<][^${space}]`);
+		assert.equal(re2Source('[a]]'), '[a]]');
+		const js = linear('a{1,64}b{0,10}c{2,24}', 'g', null);
+		assert.ok(js instanceof RegExp);
+		assert.equal(js.source, 'a{1,64}b{0,10}c{2,24}');
+		// (an engine given is passed the pattern written for RE2)
+		const Engine = class {
+			constructor(source, flags) {
+				Object.assign(this, {source, flags});
+			}
+		};
+		assert.deepEqual({...linear('a{0,64}', 'g', Engine)}, {source: 'a*', flags: 'g'});
+	});
+
 	it('compiles JavaScript regular expressions, and unbounded repetition for RE2', onRe2, () => {
 		const js = linear('a{1,64}b{0,10}c{2,24}', 'g', null);
 		assert.ok(js instanceof RegExp);
