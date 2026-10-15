@@ -357,11 +357,20 @@ export function buildSession(values) {
 	return session;
 }
 
+const MAX_STDIN_BYTES = 25 * 1024 * 1024; // 25 MB
+
 async function readInput(file, stdin) {
 	if (!file || file === '-') {
 		const chunks = [];
+		let total = 0;
 		for await (const chunk of stdin) {
-			chunks.push(Buffer.from(chunk));
+			const buf = Buffer.from(chunk);
+			total += buf.length;
+			if (total > MAX_STDIN_BYTES) {
+				throw new Error(`stdin input exceeds maximum allowed size of ${MAX_STDIN_BYTES} bytes`);
+			}
+
+			chunks.push(buf);
 		}
 
 		return Buffer.concat(chunks);
