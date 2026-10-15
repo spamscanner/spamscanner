@@ -242,6 +242,77 @@ describe('SpamScanner detectors', () => {
 		}
 	});
 
+	it('checks host names written without a link and email address domains for lookalikes only', async () => {
+		const dns = await dnsServer({'bare-malware.com A': ['0.0.0.0'], 'mail-malware.net A': ['0.0.0.0'], 'link-malware.com A': ['0.0.0.0']});
+		const empty = await dnsServer({});
+		try {
+			const scanner = new SpamScanner({classifier: false, dns: {servers: [dns.server], timeout: 500}});
+			const original = scanner.dns.checkCloudflare.bind(scanner.dns);
+			const asked = [];
+			scanner.dns.checkCloudflare = (hosts, options) => {
+				asked.push(...hosts);
+				return original(hosts, {...options, malwareServers: [dns.server], familyServers: [empty.server]});
+			};
+
+			const result = await scanner.scan(message({text: 'Sign in at paypa1-secure.com today, see bare-malware.com, write to help@mail-malware.net, or https://link-malware.com/x'}));
+			const lookalike = result.results.phishing.find(item => item.type === 'homograph');
+			assert.equal(lookalike.domain, 'paypa1-secure.com');
+			assert.equal(lookalike.source, 'text');
+			assert.equal(lookalike.url, undefined);
+			// (a quoted reply or a signature may name any site: only links are looked up)
+			assert.deepEqual(asked, ['link-malware.com']);
+			assert.deepEqual(result.results.phishing.filter(item => item.type === 'malicious_domain').map(item => item.domain), ['link-malware.com']);
+		} finally {
+			await dns.close();
+			await empty.close();
+		}
+	});
+
+	it('checks at most 1000 hosts of a message for lookalikes, links first, and links that show an address before them', async () => {
+		const scanner = new SpamScanner({...offline, classifier: false});
+		const homograph = result => result.results.phishing.some(item => item.type === 'homograph');
+		const links = count => Array.from({length: count}, (_, i) => `https://site${i}.example/`).join(' ');
+		assert.ok(!homograph(await scanner.scan(message({text: `${links(1000)} https://paypa1.com/login`}))));
+		assert.ok(homograph(await scanner.scan(message({text: `https://paypa1.com/login ${links(1000)}`}))));
+		assert.ok(homograph(await scanner.scan(message({html: `<p>${links(1000)}</p><a href="https://paypa1.com/login">https://www.paypal.com/</a>`}))));
+		// (600 links and hosts in the text before it: still checked)
+		const text = Array.from({length: 50}, (_, i) => `host${i}.example`).join(' ');
+		assert.ok(homograph(await scanner.scan(message({text: `${text} ${links(600)} https://paypa1.com/login`}))));
+	});
+
+	it('counts hosts only named in the text when they are plainly imitations', async () => {
+		const scanner = new SpamScanner({...offline, classifier: false});
+		const homographs = async text => (await scanner.scan(message({text}))).results.phishing.filter(item => item.type === 'homograph').map(item => item.domain);
+		// (a brand inside another name, or one letter away: as a link only)
+		assert.deepEqual(await homographs('See paypal-help.com, rakutem.com, rnicrosoft.com and arnazon-help.com'), ['rnicrosoft.com', 'arnazon-help.com']);
+		assert.deepEqual(await homographs('See https://paypal-help.example/'), ['paypal-help.example']);
+		// (or a short brand one letter away: a company may be named so)
+		assert.deepEqual(await homographs('See wlse.com, lrs.com and xn--pypal-4ve.com'), ['xn--pypal-4ve.com']);
+		assert.deepEqual(await homographs('See https://wlse.com/'), ['wlse.com']);
+	});
+
+	it('scores SPF, DKIM, DMARC and ARC results the server already has', async () => {
+		const scanner = new SpamScanner({...offline, classifier: false});
+		const raw = message({from: 'billing@sender.example', subject: 'Invoice', text: 'Please see the invoice.'});
+		// (as mailauth gives them: an unsigned message has one DKIM result "none")
+		const failed = {
+			spf: {status: {result: 'permerror'}}, dkim: {results: [{status: {result: 'none'}}]}, dmarc: {status: {result: 'fail'}, domain: 'sender.example'}, arc: {status: {result: 'none'}},
+		};
+		const result = await scanner.scan(raw, {authenticationResults: failed});
+		assert.ok(names(result).includes('DMARC_FAIL'));
+		assert.equal(result.results.authentication.score.score, 3.5);
+		// (the caller's object is not changed)
+		assert.equal(failed.score, undefined);
+
+		const passed = await scanner.scan(raw, {
+			authenticationResults: {
+				spf: {status: {result: 'pass'}, domain: 'sender.example'}, dkim: {results: [{status: {result: 'pass', aligned: 'sender.example'}, signingDomain: 'sender.example'}]}, dmarc: {status: {result: 'pass'}}, arc: {status: {result: 'none'}},
+			},
+		});
+		assert.deepEqual(passed.results.authentication.score.tests.map(test => test.name).sort(), ['DKIM_PASS', 'DMARC_PASS', 'SPF_PASS']);
+		assert.ok(passed.score < result.score);
+	});
+
 	it('checks authentication, and flags spoofing of the recipient\'s own domain', async () => {
 		const {privateKey, publicKey} = generateKeyPairSync('rsa', {modulusLength: 2048});
 		const dns = await dnsServer({

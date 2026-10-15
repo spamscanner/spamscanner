@@ -87,8 +87,70 @@ describe('zipEntries', () => {
 	it('copes with damaged files', () => {
 		assert.deepEqual(zipEntries(Buffer.alloc(100)), []);
 		const broken = zip([{name: 'a.txt', content: 'x'}]);
+		// (a wrong directory offset: the directory right before the end record)
 		broken.writeUInt32LE(0xFF_FF, broken.length - 6);
+		assert.deepEqual(zipEntries(broken).map(entry => entry.name), ['a.txt']);
+		// (and a wrong directory size too, or one larger than the file)
+		broken.writeUInt32LE(1, broken.length - 10);
 		assert.deepEqual(zipEntries(broken), []);
+		broken.writeUInt32LE(0xFF_FF_FF, broken.length - 10);
+		assert.deepEqual(zipEntries(broken), []);
+	});
+});
+
+// A ZIP64 archive: the end record's offset and size in a ZIP64 end record
+// that a locator points to (`shift` moves the offsets, as data in front
+// does).
+function zip64(entries, shift = 0) {
+	const plain = zip(entries);
+	const eocd = plain.length - 22;
+	const size = plain.readUInt32LE(eocd + 12);
+	const offset = plain.readUInt32LE(eocd + 16);
+	const record = Buffer.alloc(56);
+	record.writeUInt32LE(0x06_06_4B_50, 0);
+	record.writeBigUInt64LE(BigInt(size), 40);
+	record.writeBigUInt64LE(BigInt(offset + shift), 48);
+	const locator = Buffer.alloc(20);
+	locator.writeUInt32LE(0x07_06_4B_50, 0);
+	locator.writeBigUInt64LE(BigInt(eocd + shift), 8);
+	const end = Buffer.from(plain.subarray(eocd));
+	end.writeUInt16LE(0xFF_FF, 10);
+	end.writeUInt32LE(0xFF_FF_FF_FF, 12);
+	end.writeUInt32LE(0xFF_FF_FF_FF, 16);
+	return Buffer.concat([plain.subarray(0, eocd), record, locator, end]);
+}
+
+describe('ZIP end records', () => {
+	it('reads ZIP64 archives, also after other data', () => {
+		assert.deepEqual(zipEntries(zip64([{name: 'run.exe', content: 'x'}])).map(entry => entry.name), ['run.exe']);
+		assert.deepEqual(zipEntries(Buffer.concat([Buffer.from('GIF89a'), zip64([{name: 'run.exe', content: 'x'}])])).map(entry => entry.name), ['run.exe']);
+		// (a locator pointing elsewhere: the record right before it; and no
+		//  ZIP64 record at all)
+		const broken = zip64([{name: 'a.txt', content: 'x'}]);
+		broken.writeBigUInt64LE(0xFF_FF_FF_FFn, broken.length - 22 - 12);
+		assert.deepEqual(zipEntries(broken).map(entry => entry.name), ['a.txt']);
+		const unsigned = zip64([{name: 'a.txt', content: 'x'}]);
+		unsigned.writeUInt32LE(0, unsigned.length - 22 - 20 - 56);
+		assert.deepEqual(zipEntries(unsigned), []);
+	});
+
+	it('reads every end record that ends the file, so a decoy in the comment hides nothing', () => {
+		const decoy = zip([{name: 'readme.txt', content: 'x'}]);
+		const real = zip([{name: 'run.exe', content: 'y'}]);
+		// (the decoy's directory and end record in the real archive's comment,
+		//  its offset pointing at its directory there)
+		const directory = decoy.subarray(decoy.length - 22 - decoy.readUInt32LE(decoy.length - 22 + 12));
+		const comment = Buffer.from(directory);
+		comment.writeUInt32LE(real.length + (directory.length - 22) - comment.readUInt32LE(comment.length - 22 + 12), comment.length - 22 + 16);
+		real.writeUInt16LE(comment.length, real.length - 2);
+		const archive = Buffer.concat([real, comment]);
+		assert.deepEqual(zipEntries(archive).map(entry => entry.name).sort(), ['readme.txt', 'run.exe']);
+		assert.deepEqual(inspectAttachments([{filename: 'files.zip', content: archive}]).map(item => item.type), ['executable_in_archive']);
+		// (two records with the same directory: read once)
+		const twice = zip([{name: 'a.txt', content: 'x'}]);
+		const again = Buffer.from(twice.subarray(-22));
+		twice.writeUInt16LE(22, twice.length - 2);
+		assert.deepEqual(zipEntries(Buffer.concat([twice, again])).map(entry => entry.name), ['a.txt']);
 	});
 });
 
@@ -119,10 +181,39 @@ describe('inspectAttachments', () => {
 
 	it('looks inside ZIP archives without unpacking them', () => {
 		assert.deepEqual(types([{filename: 'files.zip', content: zip([{name: 'docs/invoice.scr', content: 'x'}])}]), ['executable_in_archive']);
+		// A name ending in dots or spaces, which Windows drops.
+		assert.deepEqual(types([{filename: 'run.js.', content: Buffer.from('x')}]), ['executable']);
+		assert.deepEqual(types([{filename: 'invoice.pdf.vbs. . ', content: Buffer.from('x')}]).sort(), ['double_extension', 'executable']);
+		// Every program's extension, not only the first's.
+		const [archive] = inspectAttachments([{filename: 'files.zip', content: zip([{name: 'run.sh', content: 'x'}, {name: 'payload.exe', content: 'x'}, {name: 'more.sh', content: 'x'}])}]);
+		assert.equal(archive.extension, 'sh');
+		assert.deepEqual(archive.extensions, ['sh', 'exe']);
 		const many = inspectAttachments([{filename: 'files.zip', content: zip([{name: 'a.exe', content: 'x'}, {name: 'b.js', content: 'y'}])}]);
 		assert.match(many[0].message, /2 programs/);
 		assert.deepEqual(types([{filename: 'locked.zip', content: zip([{name: 'invoice.pdf', content: 'x', encrypted: true}])}]), ['encrypted_archive']);
 		assert.deepEqual(types([{filename: 'photos.zip', content: zip([{name: 'a.jpg', content: 'x'}])}]), []);
+	});
+
+	it('reports documents with macros that Office embeds as macros, and leaves embedded certificates alone', () => {
+		assert.deepEqual(types([{filename: 'report.docx', content: zip([{name: 'word/document.xml', content: 'x'}, {name: 'word/embeddings/Microsoft_Excel_Macro-Enabled_Worksheet.xlsm', content: 'x'}])}]), ['macro']);
+		assert.deepEqual(types([{filename: 'deck.pptx', content: zip([{name: 'ppt/slides/slide1.xml', content: 'x'}, {name: 'ppt/embeddings/oleObject1.bin', content: 'x'}, {name: 'ppt/embeddings/signing.cer', content: 'x'}])}]), []);
+		// (a program is still a program, and an archive is still an archive)
+		assert.deepEqual(types([{filename: 'report.docx', content: zip([{name: 'word/document.xml', content: 'x'}, {name: 'word/embeddings/setup.exe', content: 'x'}])}]), ['executable_in_archive']);
+		assert.deepEqual(types([{filename: 'files.zip', content: zip([{name: 'book.xlsm', content: 'x'}])}]), ['executable_in_archive']);
+	});
+
+	it('finds programs in Office documents and in ZIP archives after other data', () => {
+		// (a ZIP with a word/ folder is read as a Word document)
+		assert.deepEqual(types([{filename: 'files.zip', content: zip([{name: 'word/', content: ''}, {name: 'run.exe', content: 'x'}])}]), ['executable_in_archive']);
+		// (as self-extracting archives are: the ZIP after other data)
+		const prefixed = Buffer.concat([Buffer.from('GIF89a'), zip([{name: 'run.exe', content: 'x'}])]);
+		assert.deepEqual(types([{filename: 'files.zip', content: prefixed}]), ['executable_in_archive']);
+		assert.deepEqual(types([{filename: 'locked.zip', content: Buffer.concat([Buffer.from('GIF89a'), zip([{name: 'a.pdf', content: 'x', encrypted: true}])])}]), ['encrypted_archive']);
+		// (only when named .zip, and not for other data or programs)
+		assert.deepEqual(types([{filename: 'image.gif', content: prefixed}]), []);
+		assert.deepEqual(types([{filename: 'image.zip', content: Buffer.from('GIF89a and no archive')}]), []);
+		// (a password-protected part of an Office document is not reported)
+		assert.deepEqual(types([{filename: 'report.docx', content: zip([{name: 'word/document.xml', content: 'x', encrypted: true}])}]), []);
 	});
 
 	it('flags active PDF and RTF content', () => {

@@ -3,6 +3,12 @@ import {createHash, randomBytes} from 'node:crypto';
 import os from 'node:os';
 import process from 'node:process';
 import {requestJson} from './http.js';
+import {
+	caseless, linear, trimEndOf,
+} from './linear.js';
+import {
+	ADDRESS_SOURCE, isDeceptiveLink, readableText, visibleText,
+} from './tokenizer.js';
 
 /**
  * Built-in provider presets. Each sets the API style, the base URL, the
@@ -209,7 +215,7 @@ export function resolveConfig(options = {}, env = process.env) {
 		throw new TypeError(`LLM provider "${providerName}" needs a base URL (baseUrl, or host and port)`);
 	}
 
-	baseUrl = baseUrl.replace(/\/+$/, '');
+	baseUrl = trimEndOf(baseUrl, '/');
 	const model = options.model || preset.model;
 	if (!model && preset.api !== 'classifier') {
 		throw new TypeError(`LLM provider "${providerName}" needs a model name`);
@@ -360,13 +366,39 @@ export function authHeaders(config) {
 	return headers;
 }
 
+// (see linear.js)
 const REDACTIONS = [
-	[/[\p{L}\p{N}._%+-]+@([\p{L}\p{N}-]+(?:\.[\p{L}\p{N}-]+)+)/gu, '[email]@$1'],
-	[/\b(?:\d[ -]?){13,19}\b/g, '[number]'],
-	[/(?:\+|00)\d[\d\s().-]{7,}\d/g, '[phone]'],
-	[/\b\d{3}-\d{2}-\d{4}\b/g, '[number]'],
-	[/([?&][^=\s&#]+=)[^\s&#]+/g, '$1[redacted]'],
+	[linear(ADDRESS_SOURCE, 'gu'), '[email]@$1'],
+	[linear(String.raw`\b(?:\d[ -]?){13,19}\b`, 'g'), '[number]'],
+	[linear(String.raw`(?:\+|00)\d[\d\s().-]{7,}\d`, 'g'), '[phone]'],
+	[linear(String.raw`\b\d{3}-\d{2}-\d{4}\b`, 'g'), '[number]'],
+	[linear(String.raw`([?&][^=\s&#]{1,256}=)[^\s&#]+`, 'g'), '$1[redacted]'],
 ];
+
+const THINK_OPEN = linear(`<${caseless('think')}>`, 'g');
+const THINK_CLOSE = linear(String.raw`<\/${caseless('think')}>`, 'g');
+
+// Text without the <think>...</think> blocks reasoning models put first (an
+// unclosed one is left, as is everything after it).
+function withoutThinking(text) {
+	let out = '';
+	let from = 0;
+	THINK_OPEN.lastIndex = 0;
+	let open;
+	while ((open = THINK_OPEN.exec(text)) !== null) {
+		THINK_CLOSE.lastIndex = open.index + open[0].length;
+		const close = THINK_CLOSE.exec(text);
+		if (close === null) {
+			break;
+		}
+
+		out += text.slice(from, open.index);
+		from = close.index + close[0].length;
+		THINK_OPEN.lastIndex = from;
+	}
+
+	return out + text.slice(from);
+}
 
 /**
  * Remove personal data from text before it goes to an outside service:
@@ -382,7 +414,38 @@ export function redact(text) {
 		out = out.replace(pattern, replacement);
 	}
 
-	return out;
+	return withoutLocalParts(out);
+}
+
+// A local part character (as in ADDRESS_SOURCE).
+const LOCAL_CHARACTER = /^[\p{L}\p{N}._%+-]$/u;
+
+// The rest of a local part longer than the pattern reads (64 characters on
+// JavaScript's engine, which bounds it) removed before each "[email]@", by
+// scanning back from each (each character is read once).
+function withoutLocalParts(text) {
+	let out = '';
+	let from = 0;
+	let at = text.indexOf('[email]@');
+	while (at !== -1) {
+		let start = at;
+		while (start > from) {
+			// (a character outside the Basic Multilingual Plane is two units)
+			if (start - 2 >= from && LOCAL_CHARACTER.test(text.slice(start - 2, start))) {
+				start -= 2;
+			} else if (LOCAL_CHARACTER.test(text[start - 1])) {
+				start--;
+			} else {
+				break;
+			}
+		}
+
+		out += text.slice(from, start);
+		from = at;
+		at = text.indexOf('[email]@', at + 8);
+	}
+
+	return out + text.slice(from);
 }
 
 function addressList(field) {
@@ -418,7 +481,13 @@ export function describeMessage(mail, context = {}, options = {}) {
 		lines.push(`Authentication: ${context.authentication}`);
 	}
 
-	const links = (context.links || []).slice(0, 15);
+	// (links that show one address and go to another first, then each link
+	//  once)
+	const seen = new Set();
+	const links = [...(context.links || [])]
+		.sort((a, b) => Number(isDeceptiveLink(b)) - Number(isDeceptiveLink(a)))
+		.filter(link => !seen.has(link.url) && seen.add(link.url))
+		.slice(0, 15);
 	if (links.length > 0) {
 		lines.push('Links:');
 		for (const link of links) {
@@ -431,7 +500,24 @@ export function describeMessage(mail, context = {}, options = {}) {
 		lines.push(`Attachments: ${attachments.map(a => `${a.filename || 'unnamed'} (${a.contentType || 'unknown type'})`).join(', ')}`);
 	}
 
-	let body = typeof mail.text === 'string' && mail.text.trim() ? mail.text : (typeof mail.html === 'string' ? mail.html.replaceAll(/<style[\s\S]*?<\/style>|<script[\s\S]*?<\/script>/gi, ' ').replaceAll(/<[^>]+>/g, ' ') : '');
+	// (a message hiding much text, more than preview text: how much)
+	if (context.hidden >= 200) {
+		lines.push(`Hidden text: ${context.hidden} characters the message does not show`);
+	}
+
+	// The text a mail client shows (see `getFeatures`): of the HTML when
+	// there is any, else the plain text, as a person reads it.  (Read from far
+	// enough into the body for the text kept, whatever its spacing and
+	// markup, rather than all of a large message.)
+	const read = Math.max(100_000, maxInputChars * 50);
+	let shown = typeof mail.text === 'string' ? mail.text : '';
+	if (typeof context.text === 'string') {
+		shown = context.text;
+	} else if (typeof mail.html === 'string' && mail.html) {
+		shown = visibleText(mail.html.slice(0, read)).text;
+	}
+
+	let body = readableText(shown.slice(0, read));
 	body = body.replaceAll(/[ \t]+/g, ' ').replaceAll(/\n\s*\n+/g, '\n\n').trim();
 	let text = `${lines.join('\n')}\n\n${body}`;
 	if (options.redact) {
@@ -490,9 +576,11 @@ function objectEnd(text, start) {
 	return -1;
 }
 
-// Every balanced {...} in a text, in order.
+// Every balanced {...} in a text, in order, from its first 64 "{" (each is
+// read to its end, so a reply of braces is not read again from every one).
 function * jsonObjects(text) {
-	for (let start = text.indexOf('{'); start !== -1; start = text.indexOf('{', start + 1)) {
+	let starts = 0;
+	for (let start = text.indexOf('{'); start !== -1 && starts++ < 64; start = text.indexOf('{', start + 1)) {
 		const end = objectEnd(text, start);
 		if (end !== -1) {
 			yield text.slice(start, end + 1);
@@ -512,8 +600,10 @@ export function parseVerdict(text) {
 		return null;
 	}
 
-	// Reasoning models may put their thinking first.
-	const visible = text.replaceAll(/<think>[\s\S]*?<\/think>/gi, '');
+	// Reasoning models may put their thinking first, of any length.  (A
+	// verdict is short: what follows is read from its first 20,000
+	// characters, as finding objects in it reads it again from every "{".)
+	const visible = withoutThinking(text).slice(0, 20_000);
 	for (const candidate of jsonObjects(visible)) {
 		try {
 			const result = normalizeVerdict(JSON.parse(candidate));

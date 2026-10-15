@@ -3,7 +3,9 @@ import {readFile} from 'node:fs/promises';
 import {debuglog} from 'node:util';
 import {simpleParser} from 'mailparser';
 import {inspectAttachments, sniff} from './attachments.js';
-import {authenticate, calculateAuthScore, summarizeAuth} from './auth.js';
+import {
+	authenticate, calculateAuthScore, normalizeAuthOutput, summarizeAuth,
+} from './auth.js';
 import {scanBuffer} from './clamav.js';
 import {Classifier} from './classifier.js';
 import {DnsChecker} from './dnsbl.js';
@@ -14,7 +16,7 @@ import {loadDefaultModel, loadModel, saveModel} from './model.js';
 import {ReputationChecker, reputationValues} from './reputation.js';
 import {scoreResults} from './score.js';
 import {
-	getFeatures, isDeceptiveLink, registrableDomain, segmentWords,
+	getFeatures, isDeceptiveLink, obfuscationOf, registrableDomain, segmentWords,
 } from './tokenizer.js';
 import {VERSION} from './version.js';
 
@@ -176,6 +178,9 @@ function mergeLegacyOptions(options) {
 
 	return config;
 }
+
+// The most hosts of a message checked for lookalikes (links first).
+const MAX_LOOKALIKE_HOSTS = 1000;
 
 /**
  * Spam Scanner: scores a message for spam, phishing, scams and malware.
@@ -345,27 +350,32 @@ export class SpamScanner {
 		return this.scan(await readFile(file), options);
 	}
 
-	async checkLinks(links, config) {
+	async checkLinks(links, config, hosts = []) {
 		const phishing = [];
 		const homographs = [];
 		const seenHosts = new Set();
-		for (const link of links) {
-			if (isDeceptiveLink(link)) {
-				phishing.push(finding({
-					type: 'deceptive_link', url: link.url, text: link.text, message: `A link shows "${link.text}" but goes to ${link.host}`,
-				}));
+		const analysed = new Set();
+		const lookalike = (host, extra) => {
+			// (at most MAX_LOOKALIKE_HOSTS hosts a message: each takes up to
+			// about a millisecond)
+			if (analysed.has(host) || analysed.size >= MAX_LOOKALIKE_HOSTS) {
+				return;
 			}
 
-			if (seenHosts.has(link.host)) {
-				continue;
-			}
-
-			seenHosts.add(link.host);
-			const analysis = this.homograph.detectHomographAttack(link.host);
-			if (analysis.riskScore >= 0.5) {
+			analysed.add(host);
+			const analysis = this.homograph.detectHomographAttack(host);
+			// (a host only named in the text counts when it is plainly an
+			// imitation of a brand of five letters or more: a reply or a
+			// signature may name any site, a brand's other domains, or a
+			// company whose short name reads like a brand with a digit for a
+			// letter, such as "lrs.com" for irs)
+			const counts = extra.source === 'text'
+				? analysis.riskScore >= 0.95 || (analysis.riskScore >= 0.85 && analysis.brand.length >= 5)
+				: analysis.riskScore >= 0.5;
+			if (counts) {
 				const item = finding({
 					type: 'homograph',
-					url: link.url,
+					...extra,
 					domain: analysis.domain,
 					unicode: analysis.unicode,
 					brand: analysis.brand,
@@ -377,12 +387,37 @@ export class SpamScanner {
 				phishing.push(item);
 				homographs.push(item);
 			}
+		};
+
+		for (const link of links) {
+			if (isDeceptiveLink(link)) {
+				phishing.push(finding({
+					type: 'deceptive_link', url: link.url, text: link.text, message: `A link shows "${link.text}" but goes to ${link.host}`,
+				}));
+			}
+
+			seenHosts.add(link.host);
 		}
 
-		const hosts = [...seenHosts].slice(0, config.phishing.maxHosts);
-		const domains = [...new Set(hosts.map(host => registrableDomain(host)))];
+		// (links before hosts in the text, and links that show an address
+		// first: a message cannot put a link out of reach with text, or the
+		// hosts it shows with other links)
+		for (const link of [...links.filter(link => link.text), ...links.filter(link => !link.text)]) {
+			lookalike(link.host, {url: link.url});
+		}
+
+		// Host names in the text that are not links (written without
+		// "http://", or in an email address) are checked for lookalikes only:
+		// a quoted reply or a signature may name any site, so they are not
+		// looked up.
+		for (const host of hosts) {
+			lookalike(host, {source: 'text'});
+		}
+
+		const checked = [...seenHosts].slice(0, config.phishing.maxHosts);
+		const domains = [...new Set(checked.map(host => registrableDomain(host)))];
 		const [blocked, listed] = await Promise.all([
-			config.phishing.cloudflare && hosts.length > 0 ? withTimeout(this.dns.checkCloudflare(hosts, {adult: config.phishing.adult}), config.timeout, []) : [],
+			config.phishing.cloudflare && checked.length > 0 ? withTimeout(this.dns.checkCloudflare(checked, {adult: config.phishing.adult}), config.timeout, []) : [],
 			config.dnsbl.domain?.length > 0 && domains.length > 0 ? withTimeout(this.dns.checkDomains(domains, config.dnsbl.domain), config.timeout, []) : [],
 		]);
 		for (const {host, category} of blocked) {
@@ -469,6 +504,10 @@ export class SpamScanner {
 	 * @param {object} [options.session] - what the receiving server knows:
 	 *   remoteAddress (client IP), resolvedClientHostname (verified reverse
 	 *   DNS), helo, and envelope { mailFrom: {address}, rcptTo: [{address}] }
+	 * @param {object} [options.authenticationResults] - SPF, DKIM, DMARC and
+	 *   ARC results the receiving server already has, as mailauth's
+	 *   authenticate() gives them ({spf, dkim: {results}, dmarc, arc}): scored
+	 *   as if checked here, without checking again
 	 * @returns {Promise<object>} isSpam, score, threshold, action ("accept",
 	 *   "tag" or "reject"), message, tests, results (per detector), links,
 	 *   language, tokens, mail and metrics
@@ -489,18 +528,19 @@ export class SpamScanner {
 		const classification = this.getClassification(extracted.features);
 
 		// Obfuscation seen by the tokenizer.
-		const body = segmentWords(`${mail.subject || ''}\n${typeof mail.text === 'string' ? mail.text : ''}`, {maxLength: config.maxLength});
-		const obfuscation = {invisible: body.invisible, mixed: body.mixed, styled: body.styled};
+		const obfuscation = obfuscationOf(`${mail.subject || ''}\n${typeof mail.text === 'string' ? mail.text : ''}`, {maxLength: config.maxLength});
 
 		const attachments = config.attachments === false ? [] : inspectAttachments(mail.attachments).filter(item => config.macros !== false || !['macro', 'pdf_active', 'rtf_object'].includes(item.type)).map(item => finding(item));
 
 		const [links, authentication, reputation, dnsbl, viruses, toxicity, nsfw] = await Promise.all([
-			this.checkLinks(extracted.links, config),
-			config.authentication && session.remoteAddress
-				? authenticate(raw, {
-					ip: session.remoteAddress, helo: session.helo, sender: session.envelope?.mailFrom?.address, timeout: config.timeout, ...(typeof config.authentication === 'object' ? config.authentication : {}),
-				})
-				: null,
+			this.checkLinks(extracted.links, config, extracted.hosts),
+			config.authenticationResults && typeof config.authenticationResults === 'object'
+				? normalizeAuthOutput(config.authenticationResults)
+				: (config.authentication && session.remoteAddress
+					? authenticate(raw, {
+						ip: session.remoteAddress, helo: session.helo, sender: session.envelope?.mailFrom?.address, timeout: config.timeout, ...(typeof config.authentication === 'object' ? config.authentication : {}),
+					})
+					: null),
 			this.reputation ? withTimeout(this.reputation.check(reputationValues(mail, session)), config.timeout, null) : null,
 			session.remoteAddress && config.dnsbl.ip?.length > 0 ? withTimeout(this.dns.checkIp(session.remoteAddress, config.dnsbl.ip), config.timeout, []) : [],
 			config.clamav ? this.scanViruses(mail, config) : [],
@@ -548,7 +588,9 @@ export class SpamScanner {
 			const close = scored.score >= low && scored.score < high;
 			if (mode === 'always' || (mode === 'auto' && (close || classification.category === 'unsure' || classification.category === 'disabled'))) {
 				try {
-					results.llm = await llm.classify(mail, {links: extracted.links, authentication: authentication ? summarizeAuth(authentication) : null});
+					results.llm = await llm.classify(mail, {
+						links: extracted.links, text: extracted.text, hidden: extracted.hidden, authentication: authentication ? summarizeAuth(authentication) : null,
+					});
 				} catch (error) {
 					debug('LLM check failed: %s', error.message);
 					results.llm = {

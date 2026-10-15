@@ -1,4 +1,5 @@
 import {Buffer} from 'node:buffer';
+import {linear, trimEndOf} from './linear.js';
 import {characterClass} from './tokenizer.js';
 
 /**
@@ -70,7 +71,7 @@ export function sniff(buffer) {
 	}
 
 	if (at(0, [0x50, 0x4B, 0x03, 0x04]) || at(0, [0x50, 0x4B, 0x05, 0x06])) {
-		const names = zipEntries(buffer).map(entry => entry.name);
+		const names = entriesOf(buffer).map(entry => entry.name);
 		if (names.includes('AndroidManifest.xml') || names.includes('classes.dex')) {
 			return result('apk', true);
 		}
@@ -158,36 +159,102 @@ export function sniff(buffer) {
 	return null;
 }
 
+const ZIP_FAMILY = new Set(['zip', 'docx', 'xlsx', 'pptx']);
+const OFFICE_TYPES = new Set(['docx', 'xlsx', 'pptx']);
+// What Office embeds in a document: other documents (with macros too, which
+// are reported as macros) and certificates.
+const OFFICE_EMBEDDED = new Set([...MACRO_EXTENSIONS, 'cer', 'der']);
+
+// The entries of each ZIP attachment, read once (by sniff and by
+// inspectAttachments).
+const ENTRIES = new WeakMap();
+function entriesOf(buffer) {
+	let entries = ENTRIES.get(buffer);
+	if (!entries) {
+		entries = zipEntries(buffer);
+		ENTRIES.set(buffer, entries);
+	}
+
+	return entries;
+}
+
 /**
  * The entries of a ZIP file, read from its central directory without
  * decompressing anything: name, sizes, and whether the entry is encrypted.
+ *
+ * Every end record that ends the file (its comment running to the last byte)
+ * is read, as well as the last one found: archive programs differ in which
+ * they use, so a directory hidden behind another record is read too.  ZIP64
+ * archives, and archives after other data (self-extracting archives), are
+ * read as well.
  * @param {Buffer} buffer
  * @param {number} [limit] - most entries to read
  * @returns {Array<{name: string, encrypted: boolean, size: number}>}
  */
 export function zipEntries(buffer, limit = 2000) {
-	const entries = [];
 	// End of central directory: within the last 64 KiB plus 22 bytes.
 	const start = Math.max(0, buffer.length - 65_557);
-	let eocd = -1;
+	const records = [];
 	for (let i = buffer.length - 22; i >= start; i--) {
-		if (buffer.readUInt32LE(i) === 0x06_05_4B_50) {
-			eocd = i;
-			break;
+		if (buffer.readUInt32LE(i) === 0x06_05_4B_50 && (records.length === 0 || i + 22 + buffer.readUInt16LE(i + 20) === buffer.length)) {
+			records.push(i);
 		}
 	}
 
-	if (eocd === -1) {
-		return entries;
+	// (each directory once, and at most `limit` entries in all)
+	const entries = [];
+	const read = new Set();
+	for (const eocd of records) {
+		const offset = directoryOf(buffer, eocd);
+		if (offset !== -1 && !read.has(offset)) {
+			read.add(offset);
+			readDirectory(buffer, offset, limit - entries.length, entries);
+		}
 	}
 
-	const count = buffer.readUInt16LE(eocd + 10);
+	return entries;
+}
+
+const DIRECTORY = 0x02_01_4B_50;
+const isDirectory = (buffer, offset) => offset >= 0 && offset + 46 <= buffer.length && buffer.readUInt32LE(offset) === DIRECTORY;
+
+// Where the central directory of an end record starts, or -1.
+function directoryOf(buffer, eocd) {
 	let offset = buffer.readUInt32LE(eocd + 16);
-	for (let n = 0; n < Math.min(count, limit); n++) {
-		if (offset + 46 > buffer.length || buffer.readUInt32LE(offset) !== 0x02_01_4B_50) {
-			break;
+	let size = buffer.readUInt32LE(eocd + 12);
+	// ZIP64: the offset and size are in the ZIP64 end record, which a locator
+	// right before this record points to.
+	const locator = eocd - 20;
+	if ((offset === 0xFF_FF_FF_FF || size === 0xFF_FF_FF_FF) && locator >= 0 && buffer.readUInt32LE(locator) === 0x07_06_4B_50) {
+		// (or, after other data, right before the locator)
+		const stated = Number(buffer.readBigUInt64LE(locator + 8));
+		const isRecord = at => at >= 0 && at + 56 <= locator && buffer.readUInt32LE(at) === 0x06_06_4B_50;
+		const record = isRecord(stated) ? stated : locator - 56;
+		if (isRecord(record)) {
+			size = Number(buffer.readBigUInt64LE(record + 40));
+			offset = Number(buffer.readBigUInt64LE(record + 48));
 		}
+	}
 
+	if (isDirectory(buffer, offset)) {
+		return offset;
+	}
+
+	// (after other data, as in a self-extracting archive, the directory is
+	// right before its end records, whatever offset they give)
+	for (const end of [eocd, locator - 56]) {
+		const directory = end - size;
+		if (directory < end && isDirectory(buffer, directory)) {
+			return directory;
+		}
+	}
+
+	return -1;
+}
+
+// Read up to `count` directory entries from `offset` into `entries`.
+function readDirectory(buffer, offset, count, entries) {
+	for (let n = 0; n < count && isDirectory(buffer, offset); n++) {
 		const flags = buffer.readUInt16LE(offset + 8);
 		const size = buffer.readUInt32LE(offset + 24);
 		const nameLength = buffer.readUInt16LE(offset + 28);
@@ -197,12 +264,11 @@ export function zipEntries(buffer, limit = 2000) {
 		entries.push({name, encrypted: (flags & 1) === 1, size});
 		offset += 46 + nameLength + extraLength + commentLength;
 	}
-
-	return entries;
 }
 
+// (Windows drops dots and spaces at the end of a file name: "run.js." runs)
 function extensionOf(name) {
-	const base = String(name).toLowerCase().split(/[/\\]/).pop();
+	const base = trimEndOf(String(name).toLowerCase().split(/[/\\]/).pop(), '. ');
 	const dot = base.lastIndexOf('.');
 	return dot === -1 ? '' : base.slice(dot + 1).trim();
 }
@@ -214,7 +280,11 @@ function oleHasMacros(buffer) {
 	return names.some(name => buffer.includes(name));
 }
 
-const PDF_ACTIVE = /\/(?:JavaScript|JS|Launch|EmbeddedFile|OpenAction\s*<<[^>]*\/(?:JS|JavaScript))\b/;
+// Actions a PDF runs or files it carries. (An /OpenAction that runs script
+// names /JS or /JavaScript, which this matches wherever it is, so the action
+// itself is not looked for: "<<[^>]*" would read the rest of the file again
+// from every /OpenAction.)
+const PDF_ACTIVE = linear(String.raw`\/(?:JavaScript|JS|Launch|EmbeddedFile)\b`);
 
 /**
  * Inspect a message's attachments.
@@ -225,6 +295,7 @@ const PDF_ACTIVE = /\/(?:JavaScript|JS|Launch|EmbeddedFile|OpenAction\s*<<[^>]*\
  * - double_extension: "invoice.pdf.exe"
  * - rtl_override: a right-to-left override hides the real extension (a file named "invoice", U+202E, "fdp.exe" shows as "invoiceexe.pdf")
  * - executable_in_archive: a ZIP holds a program, read without unpacking
+ *   (extension: the first program's, extensions: every program's)
  * - encrypted_archive: a password-protected ZIP, which virus scanners cannot open
  * - macro: an Office document with a VBA project
  * - pdf_active: a PDF with JavaScript, launch actions or embedded files
@@ -232,7 +303,7 @@ const PDF_ACTIVE = /\/(?:JavaScript|JS|Launch|EmbeddedFile|OpenAction\s*<<[^>]*\
  * - html_attachment: an HTML or SVG file, the usual carrier of fake login pages
  *
  * @param {Array<{filename?: string, contentType?: string, content?: Buffer}>} attachments
- * @returns {Array<{type: string, filename: string, message: string, extension?: string}>}
+ * @returns {Array<{type: string, filename: string, message: string, extension?: string, extensions?: string[]}>}
  */
 export function inspectAttachments(attachments = []) {
 	const findings = [];
@@ -250,7 +321,7 @@ export function inspectAttachments(attachments = []) {
 			add('rtl_override', `Attachment "${name}" uses a right-to-left override to hide its real extension`);
 		}
 
-		const parts = filename.toLowerCase().split('.');
+		const parts = trimEndOf(filename.toLowerCase(), '. ').split('.');
 		if (parts.length >= 3 && EXECUTABLE_EXTENSIONS.has(extension) && DOCUMENT_EXTENSIONS.has(parts.at(-2))) {
 			add('double_extension', `Attachment "${name}" has a document extension followed by a program extension`, {extension});
 		}
@@ -269,23 +340,32 @@ export function inspectAttachments(attachments = []) {
 			continue;
 		}
 
-		if (detected?.type === 'zip' || detected?.type === 'docx' || detected?.type === 'xlsx' || detected?.type === 'pptx') {
-			const entries = zipEntries(content);
+		// (a ZIP named .zip after other data, as self-extracting archives are,
+		//  opens in archive programs too)
+		const zipFamily = ZIP_FAMILY.has(detected?.type) || (extension === 'zip' && !detected?.executable && entriesOf(content).length > 0);
+		if (zipFamily) {
+			const entries = entriesOf(content);
+			const office = OFFICE_TYPES.has(detected?.type);
 			if (entries.some(entry => /(?:^|\/)vbaproject\.bin$/i.test(entry.name))) {
 				add('macro', `Attachment "${name}" is an Office document with a VBA macro project`, {extension});
 			} else if (MACRO_EXTENSIONS.has(extension)) {
 				add('macro', `Attachment "${name}" is an Office document type that holds macros (.${extension})`, {extension});
+			} else if (office && entries.some(entry => MACRO_EXTENSIONS.has(extensionOf(entry.name)))) {
+				// (as Office names an embedded workbook or document with macros:
+				//  "word/embeddings/Microsoft_Excel_Macro-Enabled_Worksheet.xlsm")
+				add('macro', `Attachment "${name}" is an Office document holding another with macros`, {extension});
 			}
 
-			if (detected.type === 'zip') {
-				const inner = entries.filter(entry => EXECUTABLE_EXTENSIONS.has(extensionOf(entry.name)));
-				if (inner.length > 0) {
-					add('executable_in_archive', `Archive "${name}" contains ${inner.length === 1 ? 'a program' : `${inner.length} programs`} (${inner.slice(0, 3).map(entry => entry.name.split('/').pop()).join(', ')})`, {extension: extensionOf(inner[0].name)});
-				}
+			// (an Office document holding a program is an archive of programs
+			// too; not the documents and certificates Office itself embeds)
+			const inner = entries.filter(entry => EXECUTABLE_EXTENSIONS.has(extensionOf(entry.name)) && !(office && OFFICE_EMBEDDED.has(extensionOf(entry.name))));
+			if (inner.length > 0) {
+				add('executable_in_archive', `Archive "${name}" contains ${inner.length === 1 ? 'a program' : `${inner.length} programs`} (${inner.slice(0, 3).map(entry => entry.name.split('/').pop()).join(', ')})`, {extension: extensionOf(inner[0].name), extensions: [...new Set(inner.map(entry => extensionOf(entry.name)))]});
+			}
 
-				if (entries.some(entry => entry.encrypted)) {
-					add('encrypted_archive', `Archive "${name}" is password protected, so its contents cannot be scanned`, {extension});
-				}
+			// (archives only: Office documents are encrypted otherwise)
+			if ((detected?.type === 'zip' || !ZIP_FAMILY.has(detected?.type)) && entries.some(entry => entry.encrypted)) {
+				add('encrypted_archive', `Archive "${name}" is password protected, so its contents cannot be scanned`, {extension});
 			}
 		} else if (detected?.type === 'ole') {
 			if (oleHasMacros(content)) {

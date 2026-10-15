@@ -26,13 +26,15 @@ export function parseReportFields(content) {
 	const fields = {};
 	const unfolded = String(content).replaceAll(/\r?\n[ \t]+/g, ' ');
 	for (const line of unfolded.split(/\r?\n/)) {
-		const match = /^([\w-]+):\s*(.*)$/.exec(line);
-		if (!match) {
+		// (no "$": a line with a line break of its own fails, as before,
+		// without "\s*" and ".*" trying every split of it)
+		const match = /^([\w-]+):(\s*)(.*)/.exec(line);
+		if (!match || match[0].length !== line.length) {
 			continue;
 		}
 
 		const name = match[1].toLowerCase().replaceAll('-', '_');
-		const value = match[2].trim();
+		const value = match[3].trim();
 		if (MULTIPLE.has(name)) {
 			(fields[name] ||= []).push(value);
 		} else if (!(name in fields)) {
@@ -48,12 +50,12 @@ function extractEmail(value) {
 		return null;
 	}
 
-	const angle = /<([^>]*)>/.exec(value);
+	const angle = /<([^<>]*)>/.exec(value);
 	if (angle) {
 		return angle[1].trim() || null;
 	}
 
-	const plain = /[^\s@<>]+@[^\s@<>]+/.exec(value);
+	const plain = /[^\s@<>]{1,256}@[^\s@<>]+/.exec(value);
 	return plain ? plain[0] : value.trim();
 }
 
@@ -80,8 +82,9 @@ function parseReportingMta(value) {
 		return null;
 	}
 
-	const match = /^([\w-]+);\s*(.+)$/.exec(value.trim());
-	return match ? {type: match[1].toLowerCase(), name: match[2].trim()} : {type: 'unknown', name: value.trim()};
+	const trimmed = value.trim();
+	const match = /^([\w-]+);\s*(.+)/.exec(trimmed);
+	return match && match[0].length === trimmed.length ? {type: match[1].toLowerCase(), name: match[2].trim()} : {type: 'unknown', name: value.trim()};
 }
 
 function decodeQuotedPrintable(text) {
@@ -226,7 +229,7 @@ export async function parse(source) {
 	if (original) {
 		const content = original.content.toString('utf8');
 		result.originalMessage = content;
-		const inner = await simpleParser(original.type === 'message/rfc822' ? content : `${content.replace(/\s+$/, '')}\r\n\r\n`, PARSER_OPTIONS);
+		const inner = await simpleParser(original.type === 'message/rfc822' ? content : `${content.trimEnd()}\r\n\r\n`, PARSER_OPTIONS);
 		result.originalHeaders = Object.fromEntries([...inner.headers].map(([key, value]) => [key, value]));
 	}
 

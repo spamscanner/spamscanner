@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {describe, it} from 'node:test';
 import {simpleParser} from 'mailparser';
 import {
-	characterClass, chunk, extractLinks, getFeatures, isDeceptiveLink, normalizeText, registrableDomain, segmentWords,
+	characterClass, chunk, decodeEntities, extractHosts, extractLinks, getFeatures, isDeceptiveLink, normalizeText, obfuscationOf, readableText, registrableDomain, segmentWords, visibleText,
 } from '../src/tokenizer.js';
 import {message} from './helpers/index.js';
 
@@ -33,6 +33,42 @@ describe('chunk', () => {
 		const {words} = segmentWords('Congratulations you have won a free prize click here now. '.repeat(2700), {maxLength: 200_000});
 		assert.ok(words.length > 20_000);
 		assert.ok(Date.now() - started < 5000);
+	});
+});
+
+describe('extractHosts', () => {
+	it('finds host names written without a link, and the domains of email addresses', () => {
+		assert.deepEqual(
+			extractHosts('Sign in at paypa1-secure.com, or write to j.doe@mail.example.co.uk. End.Click here; see node.js, file.txt, readme.md, paypal-sdk.zip, xn--pypal-4ve.app, docs.example.md, first.name@x.org and paypa1-secure.com again.'),
+			// (not file names whose extension is also a top-level domain)
+			['paypa1-secure.com', 'mail.example.co.uk', 'xn--pypal-4ve.app', 'docs.example.md', 'x.org'],
+		);
+	});
+
+	it('skips known hosts, nothing, and stops at 50', () => {
+		assert.deepEqual(extractHosts('see example.com', new Set(['example.com'])), []);
+		assert.deepEqual(extractHosts(''), []);
+		assert.deepEqual(extractHosts(null), []);
+		const many = Array.from({length: 60}, (_, i) => `host${i}.com`).join(' ');
+		assert.equal(extractHosts(many).length, 50);
+	});
+
+	it('skips the end of a longer name in letters it does not read', () => {
+		assert.deepEqual(extractHosts('see m\u00FCnchen-ups.de, \u{1D41A}paypa1.com, x\u0301paypa1.com and (paypa1.com)'), ['paypa1.com']);
+		// (a "." or "-" not after a name starts none)
+		assert.deepEqual(extractHosts('Go...paypa1.com, see -rnicrosoft.com, \u00FC.arnazon.com'), ['paypa1.com', 'rnicrosoft.com']);
+	});
+
+	it('reads "\u017F" and "\u212A" in names as "s" and "k", as browsers do, on either engine', () => {
+		assert.deepEqual(extractHosts('see paypa1.\u017Fite or ban\u212Aofamerica-login.com'), ['paypa1.site', 'bankofamerica-login.com']);
+		assert.deepEqual(extractLinks('https://paypa1.\u017Fite/x', '<a href="https://a.example/">https://www.payp\u212Aal.com/</a>').map(link => [link.host, link.text]), [['a.example', 'https://www.paypkal.com/'], ['paypa1.site', null], ['www.paypkal.com', null]]);
+		// (also written as character references)
+		assert.equal(extractLinks('', '<a href="https://a.example/">http&#383;://www.paypal.com/</a>')[0].text, 'https://www.paypal.com/');
+	});
+
+	it('gives the hosts that are not links with the features', async () => {
+		const mail = await parse(message({text: 'Go to https://example.org/a or example.net, or ask help@example.com'}));
+		assert.deepEqual(getFeatures(mail).hosts, ['example.net', 'example.com']);
 	});
 });
 
@@ -90,6 +126,33 @@ describe('segmentWords', () => {
 
 	it('ignores non-string input', () => {
 		assert.deepEqual(segmentWords(undefined).words, []);
+	});
+});
+
+describe('obfuscationOf', () => {
+	it('counts obfuscation as segmentWords does', () => {
+		const pieces = ['pаypаl', 'Verify', 'αpple', 'h\u200Bello', '𝐟𝐫𝐞𝐞', 'Привет', 'world', '日本語', ' ', '\n', 'v1agra', 'ﬁnance', 'Ⅻ'];
+		let seed = 11;
+		const random = () => {
+			seed = ((seed * 1_103_515_245) + 12_345) % 2_147_483_648;
+			return seed / 2_147_483_648;
+		};
+
+		for (let i = 0; i < 500; i++) {
+			const text = Array.from({length: Math.floor(random() * 12)}, () => pieces[Math.floor(random() * pieces.length)]).join(random() < 0.5 ? ' ' : '');
+			const {invisible, mixed, styled} = segmentWords(text, {maxLength: 40});
+			assert.deepEqual(obfuscationOf(text, {maxLength: 40}), {invisible, mixed, styled}, JSON.stringify(text));
+		}
+
+		// (long text, read in pieces)
+		for (const separator of [' ', '', '\n']) {
+			const text = Array.from({length: 3000}, (_, i) => pieces[(i * 7) % pieces.length]).join(separator);
+			const {invisible, mixed, styled} = segmentWords(text);
+			assert.deepEqual(obfuscationOf(text), {invisible, mixed, styled});
+		}
+
+		assert.deepEqual(obfuscationOf(undefined), {invisible: 0, mixed: 0, styled: false});
+		assert.equal(obfuscationOf('Verify your pаypаl account').mixed, 1);
 	});
 });
 
@@ -221,5 +284,177 @@ describe('getFeatures', () => {
 		const raw = message({subject: 'Same', text: 'Exactly the same text every time'});
 		const [a, b] = await Promise.all([parse(raw), parse(raw)]);
 		assert.deepEqual(getFeatures(a).features.sort(), getFeatures(b).features.sort());
+	});
+});
+
+describe('visibleText', () => {
+	const shown = html => visibleText(html).text.replaceAll(/\s+/g, ' ').trim();
+
+	it('reads text as a mail client shows it: inline tags join, blocks break', () => {
+		assert.equal(shown('Free Sp<span>ins</span> now, <b>c</b>a<i>s</i>ino'), 'Free Spins now, casino');
+		assert.equal(shown('<table><tr><td>a</td><td>b</td></tr></table><p>c</p>d<br>e'), 'a b c d e');
+		assert.equal(shown('<!doctype html><!-- note --><head><title>T</title><style>p{}</style></head><script>x()</script><template>t</template>body'), 'body');
+		// (as browsers do with what never closes)
+		assert.equal(shown('a<!-- b'), 'a');
+		assert.equal(shown('a<style>b'), 'a');
+		assert.equal(shown('a < b and <3 <?php ?>'), 'a < b and <3');
+		assert.equal(shown('a<!doctype'), 'a');
+		assert.deepEqual(visibleText(''), {text: '', hidden: 0});
+		assert.deepEqual(visibleText(null), {text: '', hidden: 0});
+		assert.equal(readableText(null), '');
+		assert.equal(readableText('Ｆr\u200Bee'), 'Free');
+	});
+
+	it('decodes character references as browsers do', () => {
+		assert.equal(shown('caf&eacute; &Eacute; &AMP; &amp;lt; &euro;5 &#x48;&#105; &zwnj;'), 'café É & &lt; €5 Hi ‌');
+		// (by number also without a ";", C1 controls as Windows-1252, and what no
+		//  character is as U+FFFD)
+		assert.equal(decodeEntities('V&#105agra don&#146;t &#x0000000041; &#0;&#55296;&#x110000;'), 'Viagra don\u2019t A \uFFFD\uFFFD\uFFFD');
+		// (the names browsers read without a ";", in text, not in an attribute
+		//  where a letter, digit or "=" follows)
+		assert.equal(decodeEntities('Free&nbspSpins &amp &notin;'), 'Free\u00A0Spins & &notin;');
+		assert.equal(decodeEntities('?a=1&copy=2&amp;b&lt', {attribute: true}), '?a=1&copy=2&b<');
+		// (an unknown name, and names of object properties, stay)
+		assert.equal(decodeEntities('&nosuch; &constructor; &__proto__; &zz'), '&nosuch; &constructor; &__proto__; &zz');
+	});
+
+	it('leaves out what the HTML hides, and counts it', () => {
+		for (const style of ['font-size:5%', 'font-size:0.05rem', 'display:none', 'DISPLAY : NONE', 'visibility:hidden', 'opacity:0', 'opacity:0.0', 'color:transparent', 'font-size:0', 'font-size:1px', 'font-size:0.5pt', 'font-size:0em', 'max-height:0;overflow:hidden', 'height:0px; overflow: hidden']) {
+			const result = visibleText(`<p>Buy now</p><div style="${style}">harmless filler words</div><p>today</p>`);
+			assert.equal(result.text.replaceAll(/\s+/g, ' ').trim(), 'Buy now today', style);
+			assert.equal(result.hidden, 'harmlessfillerwords'.length, style);
+		}
+
+		// (in any quotes, or none)
+		assert.equal(shown('<p style=\'display:none\'>a</p><p style=display:none>b</p>c'), 'c');
+		// (also by the attribute, nested, and to the end of the hiding element)
+		assert.equal(shown('<span hidden>a</span>b<div style="display:none"><div>c</div>d</div>e'), 'b e');
+		// (not a value saying "hidden", a font of a readable size, or a box
+		//  that only clips)
+		assert.equal(shown('<div class="hidden" title=" hidden">a</div><p style="font-size:12px">b</p><p style="overflow:hidden">c</p>'), 'a b c');
+	});
+
+	it('reads styles as browsers do', () => {
+		// (a child can show again what is invisible, transparent or in a tiny
+		//  font where it is, as responsive templates do, but not what an
+		//  element hides)
+		assert.equal(shown('<div style="font-size:0px"><table><tr><td style="font-size:0"><div style="font-size:13px">Your order shipped</div></td></tr></table></div>'), 'Your order shipped');
+		assert.equal(shown('<div style="visibility:hidden">a<span style="visibility:visible">b</span></div>'), 'b');
+		assert.equal(shown('<div style="color:transparent">a<span style="color:red">b</span></div>'), 'b');
+		assert.equal(shown('<div style="font-size:0">a<span style="font-size:2em">b</span><span style="font-size:larger">c</span></div>'), '');
+		assert.equal(shown('<div style="display:none"><span style="display:block">a</span></div>'), '');
+		// (the last declaration wins, an important one over the rest; a value
+		//  is read whole, in units browsers know)
+		assert.equal(shown('<p style="display:none;display:block">a</p><p style="display:block!important;display:none">b</p><p style="display:nonesuch">c</p>'), 'a b c');
+		assert.equal(shown('<p style="font-size:1in">a</p><p style="font-size:1e1px">b</p><p style="font-size:1pc">c</p><p style="font-size:-5px">d</p><p style="font-size:2vw">e</p>'), 'a b c d e');
+		assert.equal(shown('<p style="FONT-SIZE:0.9PX">a</p><p style="opacity:0%">b</p><p style="display:/* x */none">c</p><p style="display&#58;none">d</p><p style="font:0/0 a">e</p>f'), 'f');
+		assert.equal(shown('<p style="color:rgba(0,0,0,0)">a</p><p style="color:#fff0">b</p><p style="color:#ffffff00">c</p><p style="color:rgb(0 0 0 / 0%)">d</p><p style="color:rgba(0,0,0,0.5)">e</p>'), 'e');
+		assert.equal(shown('<p style="height:0;overflow:hidden;min-height:40px">a</p><p style="text-indent:-9999px">b</p><p style="position:absolute;left:-10000px">c</p><p style="position:relative;left:-10000px">d</p>'), 'a d');
+		// (attributes as browsers read them: the first of a name, values in
+		//  quotes or not, a quote opening a value only after "=")
+		assert.equal(shown('<div title=" style=display:none">a</div><div class= hidden>b</div><div style="color:red" style="display:none">c</div><div/style="display:none">d</div>'), 'a b c');
+		assert.equal(shown('<b x\'>BUY</b> now don\'t>'), 'BUY now don\'t>');
+		assert.equal(shown(`<div title="${'a'.repeat(7000)}>ham words">x</div>`), 'x');
+	});
+
+	it('reads what is left unfinished or unusual as browsers do', () => {
+		// (a quoted value or a comment the input ends in, a declaration without
+		//  a value, a number too large, a "</" at the end)
+		assert.equal(shown('a<p title="b'), 'a');
+		assert.equal(shown('a</'), 'a</');
+		assert.equal(shown(`<p style="color:red;/* display:none">a</p><p style="junk;display:none">b</p><p style="font-size:1e999px">c</p><p style="font-size:${'0'.repeat(70)}px">d</p>`), 'a c d');
+		// (sizes in ex, ch, keywords, and relative ones)
+		assert.equal(shown('<div style="font-size:2px"><span style="font-size:1ch">a</span><span style="font-size:small">b</span></div><div style="font-size:1.1px">c<span style="font-size:smaller">d</span></div>'), 'b c');
+		// (an opaque colour, a box of no width, a page position out of view)
+		assert.equal(shown('<p style="color:rgb(0,0,0)">a</p><p style="width:0;overflow:hidden">b</p><p style="position:fixed;top:-2000px">c</p><p style="position:absolute;left:auto">d</p><p style="font:inherit">e</p>'), 'a d e');
+		// (a <style> that closes itself in an <svg>)
+		assert.equal(shown('<svg><style/>a</svg>'), 'a');
+	});
+
+	it('ends comments and raw text as browsers do', () => {
+		// (a comment joins what is around it)
+		assert.equal(shown('<!-->a<!--->b<!-- c --!>d'), 'abd');
+		assert.equal(shown('<xmp><b>a</b></xmp><textarea>&lt;c&gt;<!--</textarea>d'), '<b>a</b> <c><!-- d');
+		assert.equal(shown('<image hidden src=x>a<keygen hidden>b'), 'a b');
+		assert.equal(shown('</>a</ b>c'), 'ac');
+	});
+
+	it('reads elements as browsers do', () => {
+		// (unknown and custom elements are shown in the line, so they join a
+		//  word; an image or a field breaks it)
+		assert.equal(shown('V<foo>iag</foo>ra Fr<o:p>ee</o:p> a<img src=x>b'), 'Viagra Free a b');
+		// (an end tag does not close through a block open inside it)
+		assert.equal(shown('<span style="display:none"><div>x</span>ham</div>tail'), '');
+		assert.equal(shown('<div style="display:none"><b>x</div>shown'), 'shown');
+		// (a closed <details> shows only its summary; a template nothing; the
+		//  hidden attribute yields to a style that shows the element)
+		assert.equal(shown('<details><summary>S</summary>body</details>after <details open><summary>T</summary>text</details>'), 'S after T text');
+		assert.equal(shown('<template><template>a</template>b</template>c<div hidden style="display:block">d</div>'), 'c d');
+		// (a font size after the weight; a negative opacity; <plaintext> to the
+		//  end; a "/" ending a value, not the tag)
+		assert.equal(shown('<p style="font:400 0px Arial">a</p><p style="font:bold 12px/1.4 Arial">b</p><p style="opacity:-1">c</p><div title=a/>d</div>e<plaintext><b>f'), 'b d e <b>f');
+		// (past the most open elements kept, an element goes in beside the
+		//  innermost)
+		assert.equal(shown(`${'<div>'.repeat(1024)}<span style="display:none">a</span>b`), 'b');
+	});
+
+	it('ends a hidden element where a browser does', () => {
+		assert.equal(shown(`<div style="display:none">x${'<b>'.repeat(70)}</div>a`), 'a');
+		assert.equal(shown('<table><tr style="display:none"><td>x<tr><td>a</table>'), 'a');
+		assert.equal(shown('<table><thead style="display:none"><tr><td>x<tbody><tr><td>a</table>'), 'a');
+		assert.equal(shown('<ul><p hidden>x<li>a</ul>'), 'a');
+		// (a paragraph at the next block, a cell at the next cell, an element
+		//  at the end of the one it is in)
+		assert.equal(shown('<p style="display:none">a<div>b</div>'), 'b');
+		assert.equal(shown('<table><tr><td style="display:none">a<td>b</table>'), 'b');
+		assert.equal(shown('<table><tr><td><div style="display:none">a</td><td>b</td></tr></table>'), 'b');
+		// (an element that closes itself only in an <svg>)
+		assert.equal(shown('<span style="display:none"/>a'), '');
+		assert.equal(shown('<svg><rect style="display:none"/></svg>a<svg><rect hidden / ></svg>b'), 'a b');
+	});
+});
+
+describe('the parts of a message read', () => {
+	const words = mail => new Set(getFeatures(mail).words);
+
+	it('reads the words of the HTML a mail client shows, not a plain part beside it', async () => {
+		const mail = await simpleParser(message({
+			text: 'Hi Bob, see you at lunch on Tuesday. Regards, Alice. Let me know which place works, and whether Carol is coming too.',
+			html: '<p>Cheap pi<span>lls</span> online, buy now, limited offer, best prices guaranteed for everyone today only, no questions asked, shipped worldwide in discreet packages within days</p>',
+		}));
+		const read = words(mail);
+		assert.ok(read.has('pills'));
+		assert.ok(!read.has('tuesday'));
+		// (a plain part saying something else than the HTML)
+		assert.ok(getFeatures(mail).features.includes('html:text_mismatch'));
+	});
+
+	it('compares at most 2000 words of each part', () => {
+		const many = Array.from({length: 2500}, (_, i) => `w${i.toString(36)}x`).join(' ');
+		const {features} = getFeatures({html: `<p>${many}</p>`, text: many});
+		assert.ok(!features.includes('html:text_mismatch'));
+	});
+
+	it('reads the plain part too when the HTML shows little text, as an image of the message', async () => {
+		const mail = await simpleParser(message({
+			text: 'Save money on your prescriptions with our online pharmacy offer',
+			html: '<p>Click <img src="cid:offer"> to continue</p>',
+		}));
+		assert.ok(words(mail).has('pharmacy'));
+		assert.ok(!getFeatures(mail).features.includes('html:text_mismatch'));
+	});
+
+	it('leaves hidden filler out of the words but reads links and host names everywhere', () => {
+		const features = getFeatures({
+			html: '<p>Your account is locked</p><div style="display:none">weather report garden recipes <a href="https://hidden.example/x">x</a> https&#58;//encoded.example/y</div>',
+			text: 'Go to https://plain.example/z or paypa1.com',
+		});
+		assert.ok(!features.words.includes('weather'));
+		assert.ok(features.features.includes('html:hidden_text'));
+		assert.ok(features.hidden > 0);
+		assert.deepEqual(features.links.map(link => link.host).sort(), ['encoded.example', 'hidden.example', 'plain.example']);
+		const visible = getFeatures({html: '<p>See https&#58;//encoded.example/y</p>'});
+		assert.ok(visible.links.some(link => link.url === 'https://encoded.example/y'));
+		assert.equal(visible.text.trim(), 'See https://encoded.example/y');
 	});
 });

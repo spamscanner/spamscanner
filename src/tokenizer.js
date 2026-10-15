@@ -1,5 +1,9 @@
 import {parse as parseDomain} from 'tldts';
+import {decodeEntities, visibleText} from './html.js';
 import {scriptOf, detectLanguage} from './language.js';
+import {
+	foldToAscii, linear, replaceTags, trimEndOf,
+} from './linear.js';
 
 /**
  * A regular expression matching any character in the given ranges of code
@@ -40,13 +44,49 @@ const LEET = {
 // Scripts written without spaces between words: single characters are words.
 const UNSPACED = new Set(['Han', 'Hiragana', 'Katakana', 'Thai', 'Lao', 'Khmer', 'Myanmar']);
 
-const URL_PATTERN = /\b(?:https?:\/\/|www\.)[^\s<>"'`]+|\b[a-z\d][a-z\d-]*(?:\.[a-z\d-]+)*\.[a-z]{2,24}\/[^\s<>"'`]*/giu;
-const EMAIL_PATTERN = /[\p{L}\p{N}._%+-]+@[\p{L}\p{N}-]+(?:\.[\p{L}\p{N}-]+)*\.\p{L}{2,24}/gu;
-const PHONE_PATTERN = /(?:\+|0{2})\d[\d\s().-]{7,}\d|\(\d{3}\)\s?\d{3}[\s.-]\d{4}|\b(?:\d{3}[.-]){2}\d{4}\b/g;
-const IP_PATTERN = /\b(?:25[0-5]|2[0-4]\d|1?\d?\d)(?:\.(?:25[0-5]|2[0-4]\d|1?\d?\d)){3}\b/g;
-const MONEY_PATTERN = /[$€£¥₹₽₩₺₦]\s?\d|\d\s?(?:[$€£¥₹₽₩₺₦]|usd|eur|gbp|dollars?|euros?)\b/giu;
-const BITCOIN_PATTERN = /\b(?:bc1[ac-hj-np-z02-9]{25,60}|[13][a-km-zA-HJ-NP-Z1-9]{25,34})\b/g;
-const CARD_PATTERN = /\b(?:\d[ -]?){13,19}\b/g;
+// Patterns for message content (see linear.js). Host names and email
+// addresses are bounded as DNS and SMTP bound them (63 characters a label,
+// 64 a local part), so a long run of letters is not read again from each
+// position in it.
+const URL_PATTERN = linear(String.raw`\b(?:https?:\/\/|www\.)[^\s<>"'\x60]+|\b[a-z\d][a-z\d-]{0,62}(?:\.[a-z\d-]{1,63}){0,10}\.[a-z]{2,24}\/[^\s<>"'\x60]*`, 'giu');
+export const EMAIL_SOURCE = String.raw`[\p{L}\p{N}._%+-]{1,64}@([\p{L}\p{N}-]{1,63}(?:\.[\p{L}\p{N}-]{1,63}){0,10}\.\p{L}{2,24})`;
+const EMAIL_PATTERN = linear(EMAIL_SOURCE, 'gu');
+const PHONE_PATTERN = linear(String.raw`(?:\+|0{2})\d[\d\s().-]{7,}\d|\(\d{3}\)\s?\d{3}[\s.-]\d{4}|\b(?:\d{3}[.-]){2}\d{4}\b`, 'g');
+const IP_PATTERN = linear(String.raw`\b(?:25[0-5]|2[0-4]\d|1?\d?\d)(?:\.(?:25[0-5]|2[0-4]\d|1?\d?\d)){3}\b`, 'g');
+const MONEY_PATTERN = linear(String.raw`[$€£¥₹₽₩₺₦]\s?\d|\d\s?(?:[$€£¥₹₽₩₺₦]|usd|eur|gbp|dollars?|euros?)\b`, 'giu');
+const BITCOIN_PATTERN = linear(String.raw`\b(?:bc1[ac-hj-np-z02-9]{25,60}|[13][a-km-zA-HJ-NP-Z1-9]{25,34})\b`, 'g');
+const CARD_PATTERN = linear(String.raw`\b(?:\d[ -]?){13,19}\b`, 'g');
+// An HTML link: the opening tag, then the href in it and the text up to
+// "</a>" (see anchors).
+const ANCHOR_START = linear(String.raw`<a\b`, 'gi');
+const HREF = linear(String.raw`\bhref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))`, 'i');
+const ANCHOR_CLOSE = linear(String.raw`<\/a\s*>`, 'gi');
+const SHOWN_URL = linear(String.raw`^(?:https?:\/\/|www\.)\S+$|^[a-z\d-]{1,63}(?:\.[a-z\d-]{1,63}){1,10}(?:\/\S*)?$`, 'i');
+const IMG_PIXEL = linear(String.raw`<img\b[^<>]*\b(?:width|height)\s*=\s*["']?[01]["'\s>]`, 'i');
+const IMG = linear(String.raw`<img\b`, 'gi');
+// A host name written without "http://" ("paypa1-secure.example") or in an
+// email address.
+const BARE_HOST = linear(String.raw`\b[a-z\d][a-z\d-]{0,62}(?:\.[a-z\d-]{1,63}){0,9}\.[a-z]{2,24}\b`, 'gi');
+const MAX_BARE_HOSTS = 50;
+// A character of a name, at the end of a string (two code units for one
+// outside the Basic Multilingual Plane).
+const NAME_END = /[\p{L}\p{N}\p{M}_]$/u;
+
+// Whether text[index] continues a longer name: after a letter, digit or mark,
+// or after a "." or "-" that follows one ("nchen-ups.de" in "münchen-ups.de",
+// not "paypa1.com" in "Go...paypa1.com").
+function continuesName(text, index) {
+	if (NAME_END.test(text.slice(Math.max(0, index - 2), index))) {
+		return true;
+	}
+
+	return (text[index - 1] === '.' || text[index - 1] === '-') && NAME_END.test(text.slice(Math.max(0, index - 3), index - 1));
+}
+
+// Top-level domains that are also file extensions: a name with one dot and
+// one of these ("report.zip", "notes.md", "build.sh") is taken for a file
+// (not international names, "xn--...", which are not file names)
+const FILE_TLDS = new Set(['ai', 'app', 'md', 'mov', 'pm', 'ps', 'py', 'rs', 'sh', 'so', 'zip']);
 
 const SHORTENERS = new Set(['bit.ly', 'tinyurl.com', 'goo.gl', 't.co', 'ow.ly', 'is.gd', 'buff.ly', 'rebrand.ly', 'cutt.ly', 'shorturl.at', 'tiny.cc', 'rb.gy', 'bit.do', 'v.gd', 's.id', 't.ly', 'lnkd.in', 'qrco.de', 'shorturl.asia', 'urlz.fr']);
 
@@ -101,6 +141,18 @@ export function chunk(text, size = 1000) {
 	}
 
 	return pieces;
+}
+
+/**
+ * Text as a person reads it, for the language model: without the invisible
+ * characters put inside words to break filters (not the joiners scripts and
+ * emoji need), with compatibility forms folded ("𝐅𝐑𝐄𝐄" and "ＦＲＥＥ" are
+ * "FREE"), case kept.
+ * @param {string} text
+ * @returns {string}
+ */
+export function readableText(text) {
+	return typeof text === 'string' ? text.replaceAll(OBFUSCATING, '').normalize('NFKC') : '';
 }
 
 /**
@@ -198,6 +250,39 @@ export function segmentWords(text, options = {}) {
 	};
 }
 
+// Letters of the scripts a mixed-script word mixes (see mixedScripts).
+const LATIN = /\p{Script=Latin}/u;
+const CYRILLIC_OR_GREEK = /[\p{Script=Cyrillic}\p{Script=Greek}]/u;
+
+/**
+ * The obfuscation in text, as segmentWords counts it ({invisible, mixed,
+ * styled}), segmenting into words only the parts of the text that could have
+ * a word mixing scripts: those with Latin letters and Cyrillic or Greek ones.
+ * @param {string} text
+ * @param {object} [options]
+ * @param {number} [options.maxLength] - characters of text to read
+ * @returns {{invisible: number, mixed: number, styled: boolean}}
+ */
+export function obfuscationOf(text, options = {}) {
+	const {maxLength = 100_000} = options;
+	const normalized = normalizeText(typeof text === 'string' ? text.slice(0, maxLength) : '');
+	// (by the pieces segmentWords reads, segmenting only those with both)
+	let mixed = 0;
+	for (const piece of chunk(normalized.text)) {
+		if (!LATIN.test(piece) || !CYRILLIC_OR_GREEK.test(piece)) {
+			continue;
+		}
+
+		for (const {segment, isWordLike} of segmenter().segment(piece)) {
+			if (isWordLike && mixedScripts(segment)) {
+				mixed++;
+			}
+		}
+	}
+
+	return {invisible: normalized.invisible, mixed, styled: normalized.styled};
+}
+
 function bucket(n, steps) {
 	let i = 0;
 	while (i < steps.length && n > steps[i]) {
@@ -226,10 +311,14 @@ export function registrableDomain(host) {
  * @returns {Array<{url: string, host: string, text: string|null}>}
  */
 export function extractLinks(text, html) {
+	// ("\u017F" and "\u212A" as browsers read them in host names, on
+	// either engine)
+	text = typeof text === 'string' ? foldToAscii(text) : text;
+	html = typeof html === 'string' ? foldToAscii(html) : html;
 	const links = [];
 	const seen = new Set();
 	const add = (raw, shown = null) => {
-		let href = raw.trim().replace(/[).,;:!?'"\]]+$/, '');
+		let href = trimEndOf(raw.trim(), ').,;:!?\'"]');
 		if (/^www\./i.test(href)) {
 			href = `http://${href}`;
 		}
@@ -259,16 +348,13 @@ export function extractLinks(text, html) {
 	};
 
 	if (typeof html === 'string' && html) {
-		const anchor = /<a\b[^>]{0,2000}?\bhref\s*=\s*(?:"([^"]{1,4000})"|'([^']{1,4000})'|([^\s>]{1,4000}))[^>]{0,2000}>([\s\S]{0,2000}?)<\/a\s*>/gi;
-		for (const match of html.matchAll(anchor)) {
-			const href = decodeEntities(match[1] || match[2] || match[3]);
-			const inner = decodeEntities(match[4].replaceAll(/<[^>]*>/g, '')).trim();
-			const shown = /^(?:https?:\/\/|www\.)\S+$|^[a-z\d-]+(?:\.[a-z\d-]+)+(?:\/\S*)?$/i.test(inner) ? inner : null;
+		for (const {href, inner} of anchors(html)) {
+			const shown = SHOWN_URL.test(inner) ? inner : null;
 			add(href, shown);
 		}
 	}
 
-	for (const source of [text, typeof html === 'string' ? html.replaceAll(/<a\b[^>]*>/gi, ' ') : '']) {
+	for (const source of [text, typeof html === 'string' ? withoutAnchorTags(html) : '']) {
 		if (typeof source === 'string' && source) {
 			for (const match of source.slice(0, 500_000).matchAll(URL_PATTERN)) {
 				add(match[0]);
@@ -279,18 +365,157 @@ export function extractLinks(text, html) {
 	return links;
 }
 
-const ENTITIES = {
-	amp: '&', lt: '<', gt: '>', quot: '"', apos: '\'', nbsp: ' ',
-};
-function decodeEntities(value) {
-	return value.replaceAll(/&(#x[\da-f]+|#\d+|[a-z]+);/gi, (match, entity) => {
-		if (entity[0] === '#') {
-			const code = entity[1] === 'x' || entity[1] === 'X' ? Number.parseInt(entity.slice(2), 16) : Number.parseInt(entity.slice(1), 10);
-			return code > 0 && code <= 0x10_FF_FF ? String.fromCodePoint(code) : match;
+/**
+ * The end of the tag that starts at `start` (just after its ">"), or -1 when
+ * no ">" follows. A quoted attribute may hold ">" ("?a=>b"); a "<" outside
+ * quotes is part of the tag, as browsers read it. A quote not closed within
+ * 6000 characters is not one: then the tag ends at the next ">".
+ * @param {string} html
+ * @param {number} start
+ * @returns {number}
+ */
+export function tagEnd(html, start) {
+	const limit = Math.min(html.length, start + 6000);
+	let quote = null;
+	for (let i = start + 1; i < limit; i++) {
+		const char = html[i];
+		if (quote) {
+			if (char === quote) {
+				quote = null;
+			}
+		} else if (char === '>') {
+			return i + 1;
+		} else if (char === '"' || char === '\'') {
+			quote = char;
+		}
+	}
+
+	const close = html.indexOf('>', start + 1);
+	return close === -1 ? -1 : close + 1;
+}
+
+// HTML with its <a> tags replaced by a space (their hrefs are links already),
+// as `html.replace(/<a\b[^>]*>/gi, ' ')` does: from each "<a" to the next
+// ">" (once no ">" follows, no later "<a" has one either)
+function withoutAnchorTags(html) {
+	let out = '';
+	let from = 0;
+	ANCHOR_START.lastIndex = 0;
+	let match;
+	while ((match = ANCHOR_START.exec(html)) !== null) {
+		const close = html.indexOf('>', match.index + 2);
+		if (close === -1) {
+			break;
 		}
 
-		return ENTITIES[entity.toLowerCase()] ?? match;
-	});
+		out += `${html.slice(from, match.index)} `;
+		from = close + 1;
+		ANCHOR_START.lastIndex = from;
+	}
+
+	return out + html.slice(from);
+}
+
+export {decodeEntities, visibleText} from './html.js';
+
+/**
+ * The links of HTML: each <a> tag with an href (up to 4000 characters, in a
+ * tag of up to 6000), and its text without tags when "</a>" follows within
+ * 2000 characters.
+ *
+ * Read in about one pass: a tag is read up to its end, and the next tag
+ * looked for after it, and the closing tags are found with one search, so
+ * the HTML is not read again for each tag. (A tag whose quote is not closed
+ * may read up to 6000 characters, but another such tag within them needs the
+ * other quote mark, so at most two do.)
+ * @param {string} html
+ * @returns {Array<{href: string, inner: string}>}
+ */
+export function anchors(html) {
+	const found = [];
+	ANCHOR_START.lastIndex = 0;
+	ANCHOR_CLOSE.lastIndex = 0;
+	let close = null;
+	let exhausted = false;
+	let match;
+	while ((match = ANCHOR_START.exec(html)) !== null) {
+		const end = tagEnd(html, match.index);
+		if (end === -1) {
+			// (no ">" after here: no later tag ends either)
+			break;
+		}
+
+		const attribute = end - match.index <= 6000 ? HREF.exec(html.slice(match.index, end)) : null;
+		const value = attribute ? attribute[1] ?? attribute[2] ?? attribute[3] : '';
+		if (!value || value.length > 4000) {
+			ANCHOR_START.lastIndex = end;
+			continue;
+		}
+
+		// The first "</a>" after this tag (searched for again only once a
+		// tag is past the last one found).
+		if (close !== null && close.index < end) {
+			close = null;
+		}
+
+		if (close === null && !exhausted) {
+			ANCHOR_CLOSE.lastIndex = Math.max(ANCHOR_CLOSE.lastIndex, end);
+			close = ANCHOR_CLOSE.exec(html);
+			// No "</a>" after here: no later tag has one either.
+			exhausted = close === null;
+		}
+
+		if (close === null || close.index - end > 2000) {
+			ANCHOR_START.lastIndex = end;
+			continue;
+		}
+
+		// (folded again: a character reference may stand for "\u017F" or "\u212A")
+		found.push({href: foldToAscii(decodeEntities(value, {attribute: true})), inner: foldToAscii(decodeEntities(replaceTags(html.slice(end, close.index), ''))).trim()});
+		ANCHOR_START.lastIndex = close.index + close[0].length;
+		close = null;
+	}
+
+	return found;
+}
+
+/**
+ * Host names in text that are not links: written without "http://"
+ * ("paypa1-secure.example") or the domain of an email address. Only names
+ * under a real public suffix count ("node.js" and "file.txt" do not), written
+ * in lowercase as addresses are (so "end.Click" in text missing a space is
+ * not taken for one), not the local part of an address, and at most 50.
+ * These are for lookalike checks, not classifier features.
+ * @param {string} text
+ * @param {Set<string>} [known] - hosts of the links already found
+ * @returns {string[]}
+ */
+export function extractHosts(text, known = new Set()) {
+	const hosts = new Set();
+	if (typeof text !== 'string' || text === '') {
+		return [];
+	}
+
+	text = foldToAscii(text);
+	BARE_HOST.lastIndex = 0;
+	let match;
+	while ((match = BARE_HOST.exec(text)) !== null && hosts.size < MAX_BARE_HOSTS) {
+		const [host] = match;
+		const next = text[match.index + host.length];
+		// (not part of a longer name with letters the pattern does not read,
+		//  such as "nchen-ups.de" in "münchen-ups.de")
+		if (continuesName(text, match.index) || host !== host.toLowerCase() || next === '@' || next === '+' || known.has(host) || hosts.has(host)) {
+			continue;
+		}
+
+		const parsed = parseDomain(host);
+		const file = !parsed.subdomain && FILE_TLDS.has(parsed.publicSuffix) && !host.startsWith('xn--');
+		if (parsed.isIcann && parsed.domain && !file) {
+			hosts.add(host);
+		}
+	}
+
+	return [...hosts];
 }
 
 /**
@@ -320,12 +545,16 @@ export function isDeceptiveLink(link) {
 
 function addressDomain(address) {
 	const at = address.lastIndexOf('@');
-	return at === -1 ? '' : address.slice(at + 1).toLowerCase().replace(/[>\s]+$/, '');
+	return at === -1 ? '' : trimEndOf(address.slice(at + 1).toLowerCase(), '> \t\r\n\f\v');
 }
 
 function firstAddress(field) {
 	return field?.value?.find(entry => entry.address) || null;
 }
+
+// An email address and its domain, in a display name or any text.
+export const ADDRESS_SOURCE = String.raw`[\p{L}\p{N}._%+-]{1,64}@([\p{L}\p{N}-]{1,63}(?:\.[\p{L}\p{N}-]{1,63}){1,10})`;
+export const NAMED_ADDRESS = linear(ADDRESS_SOURCE, 'u');
 
 function headerValue(mail, name) {
 	const value = mail.headers?.get?.(name);
@@ -347,7 +576,7 @@ function headerValue(mail, name) {
 function addPatternFeatures(text, add) {
 	// Links, addresses and numbers become features of their own and are taken
 	// out of the text, so their fragments do not become words.
-	let body = text;
+	let body = foldToAscii(text);
 	const patterns = [
 		['url', URL_PATTERN],
 		['email', EMAIL_PATTERN],
@@ -499,7 +728,7 @@ function addSenderFeatures(mail, add) {
 	}
 
 	const name = typeof from.name === 'string' ? from.name : '';
-	const named = name.match(/[\p{L}\p{N}._%+-]+@([\p{L}\p{N}-]+(?:\.[\p{L}\p{N}-]+)+)/u);
+	const named = name.match(NAMED_ADDRESS);
 	if (named && registrableDomain(named[1].toLowerCase()) !== registrableDomain(domain)) {
 		add('from:name_has_other_address');
 	}
@@ -517,16 +746,73 @@ function addSenderFeatures(mail, add) {
 	}
 }
 
+// Whether a message has HTML and no plain text of its own (mailparser makes
+// text from HTML when a message has no text part, so the Content-Type tells
+// whether the sender wrote any plain text)
+function isHtmlOnly(mail) {
+	const contentType = mail.headers?.get?.('content-type');
+	return !(typeof mail.text === 'string' && mail.text) || (contentType?.value ?? contentType) === 'text/html';
+}
+
+// HTML showing fewer words than this is read with its plain text part
+const MIN_SHOWN_WORDS = 20;
+
+// Words of text for comparing two parts: letters and digits, folded, the
+// first 2000 at most
+const PART_WORD = /[\p{L}\p{N}]{2,}/gu;
+function partWords(text) {
+	const words = new Set();
+	for (const [word] of normalizeText(text.slice(0, 50_000)).text.matchAll(PART_WORD)) {
+		words.add(word);
+		if (words.size >= 2000) {
+			break;
+		}
+	}
+
+	return words;
+}
+
+//
+// Features of what the HTML hides, and of a plain text part that says
+// something else than the HTML beside it (as a harmless text part beside
+// spam does): `html:hidden_text`, and `html:text_mismatch` when the two
+// parts, each of 20 different words or more, share fewer than a fifth of the
+// smaller one's words
+//
+function addPartFeatures({visible, text, plain, alternative}, add) {
+	if (visible.hidden > 0) {
+		add('html:hidden_text');
+		add(`html:hidden_text:${bucket(visible.hidden, [1, 50, 500])}`);
+	}
+
+	if (!alternative) {
+		return;
+	}
+
+	const shown = partWords(text);
+	const other = partWords(plain);
+	if (shown.size < MIN_SHOWN_WORDS || other.size < MIN_SHOWN_WORDS) {
+		return;
+	}
+
+	let shared = 0;
+	for (const word of other) {
+		if (shown.has(word)) {
+			shared++;
+		}
+	}
+
+	if (shared < Math.min(shown.size, other.size) / 5) {
+		add('html:text_mismatch');
+	}
+}
+
 function addHtmlFeatures(mail, html, words, add) {
 	if (!html) {
 		return;
 	}
 
-	// Mailparser makes text from HTML when a message has no text part, so the
-	// Content-Type tells whether the sender wrote any plain text.
-	const contentType = mail.headers?.get?.('content-type');
-	const htmlOnly = !(typeof mail.text === 'string' && mail.text) || (contentType?.value ?? contentType) === 'text/html';
-	add(htmlOnly ? 'html:only' : 'html:alternative');
+	add(isHtmlOnly(mail) ? 'html:only' : 'html:alternative');
 	if (/<form\b/i.test(html)) {
 		add('html:form');
 	}
@@ -543,7 +829,7 @@ function addHtmlFeatures(mail, html, words, add) {
 		add('html:hidden');
 	}
 
-	const images = (html.match(/<img\b/gi) || []).length;
+	const images = (html.match(IMG) || []).length;
 	if (images > 0) {
 		add(`html:img:${bucket(images, [1, 5, 20])}`);
 		if (words.length < 20) {
@@ -551,7 +837,7 @@ function addHtmlFeatures(mail, html, words, add) {
 		}
 	}
 
-	if (/<img\b[^>]*\b(?:width|height)\s*=\s*["']?[01]["'\s>]/i.test(html)) {
+	if (IMG_PIXEL.test(html)) {
 		add('html:pixel');
 	}
 }
@@ -619,8 +905,9 @@ function addHeaderFeatures(mail, add) {
 /**
  * Classifier features of a message parsed by mailparser.
  *
- * Every word of the body is a feature, every pair of neighbouring words is
- * another, and the subject's words are features of their own ("s:free").
+ * Every word of the text a mail client shows (see `visibleText`) is a
+ * feature, every pair of neighbouring words is another, and the subject's
+ * words are features of their own ("s:free").
  * The rest describe structure: link domains and tricks, the sender's domain,
  * HTML forms and hidden text, attachment types, headers, language and script,
  * and obfuscation. The same message always gives the same features.
@@ -629,22 +916,33 @@ function addHeaderFeatures(mail, add) {
  * @param {object} [options]
  * @param {number} [options.maxLength] - characters of body text to read
  * @param {number} [options.maxBigrams] - word pairs to emit
- * @returns {{features: string[], words: string[], language: string|null, script: string|null, links: Array}}
+ * @returns {{features: string[], words: string[], language: string|null, script: string|null, links: Array, hosts: string[], text: string, hidden: number}}
  */
 export function getFeatures(mail = {}, options = {}) {
 	const {maxLength = 100_000, maxBigrams = 3000} = options;
 	const features = new Set();
 	const add = feature => features.add(feature);
 
-	const html = typeof mail.html === 'string' ? mail.html : '';
-	let text = typeof mail.text === 'string' ? mail.text : '';
-	if (!text && html) {
-		text = decodeEntities(html.replaceAll(/<(script|style)\b[\s\S]*?<\/\1\s*>/gi, ' ').replaceAll(/<[^>]*>/g, ' '));
+	const html = typeof mail.html === 'string' ? mail.html.slice(0, maxLength * 2) : '';
+	const plain = typeof mail.text === 'string' ? mail.text.slice(0, maxLength) : '';
+	// The words are those a mail client shows: of the HTML when there is any
+	// (a plain text part beside it is shown only where HTML cannot be, so a
+	// harmless one cannot speak for spam in the HTML, nor can text the HTML
+	// hides), else of the plain text.  Links and host names are read from
+	// both parts and from hidden text too.
+	const visible = html ? visibleText(html) : {text: plain, hidden: 0};
+	const alternative = Boolean(html && plain && !isHtmlOnly(mail));
+	let text = visible.text.slice(0, maxLength);
+	// (but HTML that shows little text, such as an image of the message, is
+	// read with its plain text part, which says what the image does)
+	// (counted as words are, also in scripts written without spaces)
+	if (alternative && segmentWords(text.slice(0, 4000)).words.length < MIN_SHOWN_WORDS) {
+		text = `${text}\n${plain}`.slice(0, maxLength);
 	}
 
-	text = text.slice(0, maxLength);
 	const subject = typeof mail.subject === 'string' ? mail.subject : '';
-	const links = extractLinks(text, html.slice(0, maxLength * 2));
+	const links = extractLinks(html ? `${plain}\n${text}` : text, html);
+	const hosts = extractHosts(`${subject}\n${text}${alternative ? `\n${plain}` : ''}`, new Set(links.map(link => link.host)));
 	const body = addPatternFeatures(text, add);
 
 	const detected = detectLanguage(`${subject}\n${body}`);
@@ -669,6 +967,9 @@ export function getFeatures(mail = {}, options = {}) {
 	addLinkFeatures(links, add);
 	addSenderFeatures(mail, add);
 	addHtmlFeatures(mail, html, segmented.words, add);
+	addPartFeatures({
+		visible, text, plain, alternative,
+	}, add);
 	addAttachmentFeatures(mail, add);
 	addHeaderFeatures(mail, add);
 
@@ -678,5 +979,10 @@ export function getFeatures(mail = {}, options = {}) {
 		language: detected.language,
 		script: detected.script,
 		links,
+		hosts,
+		// (the text shown, as read for the words, and how many characters of
+		//  text the HTML hides)
+		text,
+		hidden: visible.hidden,
 	};
 }

@@ -59,6 +59,15 @@ await scanner.scan(raw, {
 });
 ```
 
+A server that has already checked SPF, DKIM, DMARC and ARC (with [mailauth](https://github.com/postalsys/mailauth)) can pass its results as `authenticationResults`, and they are scored instead of checked again:
+
+```js
+import {authenticate} from 'mailauth';
+
+const auth = await authenticate(raw, {ip, helo, sender, mta});
+await scanner.scan(raw, {authenticationResults: auth});
+```
+
 
 ## Methods
 
@@ -71,10 +80,12 @@ await scanner.scan(raw, {
 | `saveModel(path, options)`           | Writes the classifier to a file (`options`: `minCount`, `maxFeatures`, `metadata`) |
 | `getClassifier()`                    | The `Classifier` in use, or `null`                                                 |
 | `getClassification(features)`        | The classifier's verdict for features from `getFeatures`                           |
-| `getFeatures(mail)`                  | `{features, words, language, script, links}` for a parsed message                  |
+| `getFeatures(mail)`                  | `{features, words, language, script, links, hosts, text, hidden}` of a message     |
 | `getTokens(text, locale)`            | The words of a text                                                                |
 | `getTokensAndMailFromSource(source)` | `{tokens, features, mail}`                                                         |
 | `parse(source)`                      | `{raw, mail}`, with `mail` from mailparser                                         |
+
+In `getFeatures`, `text` is the text a mail client shows, which the words are read from, and `hidden` how many characters of text the HTML hides.
 
 `scanner.metrics` holds `totalScans`, `averageTime` and `lastScanTime`.
 

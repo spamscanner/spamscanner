@@ -25,6 +25,8 @@ Change the thresholds with `threshold` and `rejectThreshold`. Change points with
 | `ADULT_DOMAIN`              |      2 | `adultDomain`       | Cloudflare's family resolver blocks a linked domain                   |
 | `URIBL_<LIST>`              |      5 | `uriblListed`       | A linked domain is on a domain blocklist, for example `URIBL_DBL`     |
 
+Domains only named in the text, not linked, are checked for lookalikes too, but count only when they plainly imitate a brand: lookalike letters, or swapped characters for a brand of five letters or more. A reply or signature may name any site, and a company may have a short name one character from a brand's.
+
 
 ## Attachments
 

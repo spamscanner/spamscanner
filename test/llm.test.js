@@ -111,6 +111,10 @@ describe('message description and verdict parsing', () => {
 		assert.ok(!hidden.includes('123-45-6789'));
 		assert.ok(hidden.includes('[email]@example.net'));
 		assert.equal(redact('no data'), 'no data');
+		// (a local part longer than the pattern reads, all of it)
+		assert.equal(redact(`write to ${'a.b'.repeat(40)}@example.net or x@example.org`), 'write to [email]@example.net or [email]@example.org');
+		assert.equal(redact('from a1[email]@example.net, \u{1D41A}[email]@example.org'), 'from [email]@example.net, [email]@example.org');
+		assert.equal(redact(`to ${'\u{1D41A}b'.repeat(40)}@example.net`), 'to [email]@example.net');
 	});
 
 	it('shortens long messages and reads HTML when there is no text', () => {
@@ -123,6 +127,36 @@ describe('message description and verdict parsing', () => {
 		assert.match(describeMessage({}), /^From: \nSubject: \n\n$/);
 		assert.match(describeMessage({from: {value: [{name: 'Only Name'}]}}), /^From: "Only Name" <>/);
 		assert.match(describeMessage({text: '  ', html: false}), /^From: /);
+	});
+
+	it('reads the text a mail client shows, as a person reads it', () => {
+		// (the HTML over a plain part beside it, without hidden text, invisible
+		//  characters or styled letters)
+		const text = describeMessage({
+			text: 'Lunch on Tuesday?',
+			html: `<p>Ver\u200Bify your \u{1D41A}ccount n<b>ow</b></p><div style="display:none">${'filler '.repeat(50)}</div>`,
+		}, {hidden: 300});
+		assert.match(text, /Verify your account now/);
+		assert.ok(!text.includes('Tuesday'));
+		assert.ok(!text.includes('filler'));
+		assert.match(text, /Hidden text: 300 characters the message does not show/);
+		// (what the scan read, when given; no line for preview-sized hidden text)
+		const given = describeMessage({html: '<p>other</p>'}, {text: 'Shown text', hidden: 80});
+		assert.match(given, /Shown text/);
+		assert.ok(!given.includes('Hidden text'));
+	});
+
+	it('lists links that show another address first, each once', () => {
+		const links = [
+			...Array.from({length: 20}, (_, i) => ({url: `https://shop.example/${i}`, host: 'shop.example', text: null})),
+			{url: 'https://shop.example/0', host: 'shop.example', text: null},
+			{url: 'https://evil.example/login', host: 'evil.example', text: 'https://www.paypal.com/'},
+		];
+		const text = describeMessage({text: 'hi'}, {links});
+		const listed = text.split('\n').filter(line => line.startsWith('- '));
+		assert.equal(listed.length, 15);
+		assert.match(listed[0], /shown as "https:\/\/www.paypal.com\/", goes to https:\/\/evil.example\/login/);
+		assert.equal(new Set(listed).size, 15);
 	});
 
 	it('finds the verdict in JSON, prose, code fences and reasoning output', () => {

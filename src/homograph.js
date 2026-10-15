@@ -2,6 +2,13 @@ import {domainToUnicode} from 'node:url';
 import {parse as parseDomain} from 'tldts';
 import {scriptOf} from './language.js';
 
+// Banks, shops, payment and delivery services imitated in other languages
+// (only names that are not words or close to words, so ordinary domains
+// are not taken for typos of them).
+const INTERNATIONAL_BRANDS = [
+	'alipay', 'auspost', 'bancolombia', 'bnpparibas', 'bradesco', 'caixabank', 'canadapost', 'commerzbank', 'coupang', 'creditagricole', 'deutschebank', 'flipkart', 'gosuslugi', 'japanpost', 'kakaobank', 'klarna', 'kucoin', 'lazada', 'mercadolibre', 'mercadolivre', 'mercadopago', 'mercari', 'natwest', 'nubank', 'phonepe', 'postbank', 'rakuten', 'sberbank', 'swisscom', 'trustwallet', 'unicredit', 'vodafone', 'wechat', 'yandex',
+];
+
 /**
  * Brands most often imitated in phishing: banks, payment services, mail and
  * cloud providers, shops, couriers and tax offices. A domain whose name is a
@@ -9,8 +16,39 @@ import {scriptOf} from './language.js';
  * never flagged.
  */
 export const BRANDS = [
-	'adobe', 'airbnb', 'alibaba', 'aliexpress', 'amazon', 'americanexpress', 'amex', 'apple', 'appleid', 'att', 'binance', 'bankofamerica', 'barclays', 'bestbuy', 'blockchain', 'booking', 'bybit', 'cashapp', 'chase', 'citibank', 'cloudflare', 'coinbase', 'comcast', 'costco', 'dhl', 'discord', 'docusign', 'dropbox', 'ebay', 'facebook', 'fedex', 'forwardemail', 'github', 'gitlab', 'gmail', 'godaddy', 'google', 'hmrc', 'hotmail', 'hsbc', 'icloud', 'instagram', 'intuit', 'irs', 'kraken', 'ledger', 'linkedin', 'mastercard', 'mcafee', 'metamask', 'microsoft', 'microsoftonline', 'namecheap', 'netflix', 'norton', 'office', 'office365', 'okta', 'onedrive', 'outlook', 'paypal', 'proton', 'protonmail', 'quickbooks', 'revolut', 'roblox', 'royalmail', 'salesforce', 'samsung', 'santander', 'sharepoint', 'shopify', 'skype', 'slack', 'sparkasse', 'spotify', 'steam', 'steampowered', 'stripe', 'telegram', 'tiktok', 'tmobile', 'trezor', 'tutanota', 'twitter', 'uber', 'ups', 'usps', 'venmo', 'verizon', 'visa', 'walmart', 'wellsfargo', 'whatsapp', 'wise', 'xfinity', 'yahoo', 'zelle', 'zoom',
+	'adobe', 'airbnb', 'alibaba', 'aliexpress', 'amazon', 'americanexpress', 'amex', 'apple', 'appleid', 'att', 'binance', 'bankofamerica', 'barclays', 'bestbuy', 'blockchain', 'booking', 'bybit', 'cashapp', 'chase', 'citibank', 'cloudflare', 'coinbase', 'comcast', 'costco', 'dhl', 'discord', 'docusign', 'dropbox', 'ebay', 'facebook', 'fedex', 'forwardemail', 'github', 'gitlab', 'gmail', 'godaddy', 'google', 'hmrc', 'hotmail', 'hsbc', 'icloud', 'instagram', 'intuit', 'irs', 'kraken', 'ledger', 'linkedin', 'mastercard', 'mcafee', 'metamask', 'microsoft', 'microsoftonline', 'namecheap', 'netflix', 'norton', 'office', 'office365', 'okta', 'onedrive', 'outlook', 'paypal', 'proton', 'protonmail', 'quickbooks', 'revolut', 'roblox', 'royalmail', 'salesforce', 'samsung', 'santander', 'sharepoint', 'shopify', 'skype', 'slack', 'sparkasse', 'spotify', 'steam', 'steampowered', 'stripe', 'telegram', 'tiktok', 'tmobile', 'trezor', 'tutanota', 'twitter', 'uber', 'ups', 'usps', 'venmo', 'verizon', 'visa', 'walmart', 'wellsfargo', 'whatsapp', 'wise', 'xfinity', 'yahoo', 'zelle', 'zoom', ...INTERNATIONAL_BRANDS,
 ];
+
+// Words phishing domains add to a brand ("paypallogin", "secure-chase"):
+// asking to sign in, verify, unlock or pay, not words a shop or service puts
+// in an ordinary name.
+const PHISHING_WORDS = ['account', 'accounts', 'alert', 'alerts', 'auth', 'authentication', 'billing', 'confirm', 'login', 'logon', 'password', 'recovery', 'refund', 'secure', 'security', 'signin', 'signon', 'suspended', 'unlock', 'update', 'validate', 'verification', 'verify'];
+
+// Brands that are also words: joined to a phishing word ("securebooking",
+// "officesecurity") they name something else as often as the brand.
+const WORD_BRANDS = new Set(['apple', 'blockchain', 'booking', 'chase', 'discord', 'kraken', 'ledger', 'office', 'proton', 'slack', 'steam', 'stripe']);
+
+// Words one letter or two swapped letters away from a brand ("applied",
+// "appleid"; "raketen", "rakuten"), in the dictionaries of English, German,
+// French, Spanish, Italian, Dutch, Portuguese and the Scandinavian languages.
+const SWAPPED_WORDS = new Set([
+	'akuten', 'alzada', 'appel', 'applied', 'auslost', 'azada', 'coupant', 'gechat', 'klara', 'lanada', 'lanzada', 'lapada', 'latada', 'lavada', 'mazada', 'mercar', 'mercati', 'pazada', 'phoneme', 'postbak', 'raketen', 'rauten', 'razada', 'stirpe', 'vazada', 'venom', 'webchat',
+]);
+
+// Official domains of the brands above whose names also hold a brand
+// ("deutsche-bank.de"), never flagged.
+const OFFICIAL_DOMAINS = [
+	'adobelogin.com', 'amazon-adsystem.com', 'apple-cloudkit.com', 'apple-dns.net', 'bnpparibas-am.com', 'canadapost-postescanada.ca', 'cdn-apple.com', 'cloudflare-dns.com', 'credit-agricole.com', 'credit-agricole.fr', 'deutsche-bank.de', 'google-analytics.com', 'icloud-content.com', 'images-amazon.com', 'instagram-engineering.com', 'media-amazon.com', 'okta-emea.com', 'paypal-community.com', 'paypal-objects.com', 'paypal-prepaid.com', 'paypal-status.com', 'rakuten-bank.co.jp', 'rakuten-card.co.jp', 'rakuten-sec.co.jp', 'sberbank-ast.ru', 'slack-edge.com', 'slack-msgs.com', 'ssl-images-amazon.com', 't-mobile.com', 'yahoo-corp.jp', 'yandex-team.ru',
+];
+
+// Suffixes put after a brand inside another domain ("paypal.com-verify.example"):
+// the generic ones, which no ordinary name starts with, and country codes and
+// others, which many do ("office.it-haus.de", "microsoft.co-op.org"), so
+// these count fully only with a phishing word after them.
+const SUFFIX_DASH = /^(?:com|net|org|gov|edu)-/;
+const OTHER_SUFFIX_DASH = /^(?:co|info|biz|io|app|us|uk|de|fr|es|it|ca|au|jp|br|in)-/;
+// (and fully, a second-level suffix spelled out: "paypal.co-uk.example")
+const SECOND_SUFFIX_DASH = /^(?:co|com)-(?:uk|jp|au|nz|za|in|kr|br)\b/;
 
 // Letters from other scripts, and accented Latin letters, folded to the plain
 // Latin letter they look like.
@@ -51,15 +89,29 @@ export function skeleton(label) {
 	return out;
 }
 
+// (each trick in a label doubles its variants: a label with more than
+// seven kinds of trick, which no brand's imitation needs, gets the variants
+// of its first seven, rather than thousands)
+const MAX_VARIANTS = 256;
+
 function trickVariants(label) {
 	const variants = new Set([label]);
 	for (const [pattern, letter] of ASCII_TRICKS) {
+		if (!label.includes(pattern.source)) {
+			continue;
+		}
+
 		for (const value of variants) {
+			if (variants.size >= MAX_VARIANTS / 2) {
+				break;
+			}
+
 			variants.add(value.replace(pattern, letter));
 		}
 	}
 
-	// "1" and "l" also stand for "i" (paypa1, 1nstagram).
+	// "1" and "l" also stand for "i" (paypa1, 1nstagram).  (At most twice as
+	// many.)
 	for (const value of variants) {
 		variants.add(value.replaceAll('l', 'i'));
 	}
@@ -69,7 +121,9 @@ function trickVariants(label) {
 }
 
 /**
- * Levenshtein distance, giving up once it exceeds `max`.
+ * Edit distance (Levenshtein, with two neighbouring letters swapped counting
+ * as one edit: "paypla" is one from "paypal"), giving up once it exceeds
+ * `max`.
  * @param {string} a
  * @param {string} b
  * @param {number} [max]
@@ -80,6 +134,7 @@ export function editDistance(a, b, max = 2) {
 		return max + 1;
 	}
 
+	let before = null;
 	let previous = Array.from({length: b.length + 1}, (_, i) => i);
 	for (let i = 1; i <= a.length; i++) {
 		const current = [i];
@@ -87,17 +142,52 @@ export function editDistance(a, b, max = 2) {
 		for (let j = 1; j <= b.length; j++) {
 			const cost = a[i - 1] === b[j - 1] ? 0 : 1;
 			current[j] = Math.min(previous[j] + 1, current[j - 1] + 1, previous[j - 1] + cost);
+			if (before && i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) {
+				current[j] = Math.min(current[j], before[j - 2] + 1);
+			}
+
 			best = Math.min(best, current[j]);
 		}
 
+		// (a swap reaches back two rows, but costs at least as much as the
+		// row between, so the row's best still bounds what follows)
 		if (best > max) {
 			return max + 1;
 		}
 
+		before = previous;
 		previous = current;
 	}
 
 	return previous[b.length];
+}
+
+/**
+ * The brand a name joins to a phishing word ("paypallogin", "verifyamazon"),
+ * or null. Brands of five letters or more only, and not brands that are words
+ * themselves.
+ * @param {string} name
+ * @param {Set<string>} brands
+ * @returns {string|null}
+ */
+export function brandWithPhishingWord(name, brands) {
+	for (const word of PHISHING_WORDS) {
+		if (name.length <= word.length + 4) {
+			continue;
+		}
+
+		const before = name.endsWith(word) ? name.slice(0, -word.length) : null;
+		if (before && before.length >= 5 && brands.has(before) && !WORD_BRANDS.has(before)) {
+			return before;
+		}
+
+		const after = name.startsWith(word) ? name.slice(word.length) : null;
+		if (after && after.length >= 5 && brands.has(after) && !WORD_BRANDS.has(after)) {
+			return after;
+		}
+	}
+
+	return null;
 }
 
 function labelScripts(label) {
@@ -142,7 +232,7 @@ export default class HomographDetector {
 	constructor(options = {}) {
 		this.options = options;
 		this.brands = new Set([...(options.brands || BRANDS), ...(options.extraBrands || [])].map(brand => brand.toLowerCase()));
-		this.allowlist = new Set((options.allowlist || []).map(domain => domain.toLowerCase()));
+		this.allowlist = new Set([...OFFICIAL_DOMAINS, ...(options.allowlist || [])].map(domain => domain.toLowerCase()));
 		this.cache = new Map();
 	}
 
@@ -207,32 +297,42 @@ export default class HomographDetector {
 		if (viaConfusable) {
 			flag(0.95, `"${unicode}" imitates ${viaConfusable} with lookalike letters`, viaConfusable);
 		} else if (/^[a-z\d-]+$/.test(folded)) {
-			const trick = [...trickVariants(folded)].find(variant => this.brands.has(variant));
+			const variants = trickVariants(folded);
+			const trick = [...variants].find(variant => this.brands.has(variant));
 			if (trick) {
 				flag(0.85, `"${unicode}" imitates ${trick} by swapping characters`, trick);
-			} else if (folded.length >= 5) {
+			} else if (folded.length >= 5 && !SWAPPED_WORDS.has(folded)) {
 				const near = [...this.brands].find(brand => brand.length >= 5 && editDistance(folded, brand, 1) === 1);
 				if (near) {
 					flag(0.5, `"${unicode}" is one letter away from ${near}`, near);
 				}
 			}
 
-			if (folded.includes('-')) {
-				for (const piece of folded.split('-')) {
-					if (piece.length < 4) {
-						continue;
-					}
+			const pieces = folded.includes('-') ? folded.split('-') : [];
+			for (const piece of pieces) {
+				if (piece.length < 4) {
+					continue;
+				}
 
-					if (this.brands.has(piece)) {
-						flag(0.6, `"${unicode}" puts ${piece} inside another domain name`, piece);
-						break;
-					}
+				if (this.brands.has(piece)) {
+					flag(0.6, `"${unicode}" puts ${piece} inside another domain name`, piece);
+					break;
+				}
 
-					const disguised = [...trickVariants(piece)].find(variant => this.brands.has(variant));
-					if (disguised) {
-						flag(0.85, `"${unicode}" imitates ${disguised} by swapping characters`, disguised);
-						break;
-					}
+				const disguised = [...trickVariants(piece)].find(variant => this.brands.has(variant));
+				if (disguised) {
+					flag(0.85, `"${unicode}" imitates ${disguised} by swapping characters`, disguised);
+					break;
+				}
+			}
+
+			// A brand joined to a phishing word, in the name or one of its
+			// parts, also with swapped characters ("paypa1login").
+			for (const value of [folded, ...pieces, ...variants]) {
+				const joined = brandWithPhishingWord(value, this.brands);
+				if (joined) {
+					flag(0.6, `"${unicode}" joins ${joined} to a phishing word`, joined);
+					break;
 				}
 			}
 		}
@@ -242,6 +342,13 @@ export default class HomographDetector {
 		const brandLabel = subdomain.map(label => skeleton(label)).find(label => label.length >= 4 && this.brands.has(label));
 		if (brandLabel && (this.options.strictMode || subdomain.length >= 2)) {
 			flag(0.6, `"${unicode}" puts ${brandLabel} in front of another domain`, brandLabel);
+		}
+
+		// "paypal.com-verify.example": the brand's address, then a dash.
+		const last = subdomain.length > 0 ? skeleton(subdomain.at(-1)) : '';
+		if (last.length >= 3 && this.brands.has(last) && (SUFFIX_DASH.test(folded) || OTHER_SUFFIX_DASH.test(folded))) {
+			const strong = SUFFIX_DASH.test(folded) || SECOND_SUFFIX_DASH.test(folded) || PHISHING_WORDS.some(word => folded.includes(word));
+			flag(strong ? 0.85 : 0.6, `"${unicode}" starts with ${last}'s address and continues into another domain`, last);
 		}
 
 		result.confidence = result.riskScore;

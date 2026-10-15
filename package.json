@@ -104,6 +104,9 @@
   "license": "BUSL-1.1",
   "main": "./dist/cjs/index.cjs",
   "module": "./dist/esm/index.js",
+  "optionalDependencies": {
+    "re2": "^1.22.1"
+  },
   "packageManager": "pnpm@10.34.6",
   "repository": {
     "type": "git",

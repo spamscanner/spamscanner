@@ -1,4 +1,4 @@
-import {registrableDomain} from './tokenizer.js';
+import {NAMED_ADDRESS, registrableDomain} from './tokenizer.js';
 
 // The GTUBE test string: any message containing it must be treated as spam.
 export const GTUBE = 'XJS*C4JDBQADN1.NSBN3*2IDNEN*GTUBE-STANDARD-ANTI-UBE-TEST-EMAIL*C.34X';
@@ -147,7 +147,7 @@ export function isArbitrary(mail = {}, options = {}) {
 	if (from) {
 		const fromRoot = session.originalFromAddressRootDomain;
 		const name = typeof from.name === 'string' ? from.name.toLowerCase() : '';
-		const claimed = name.match(/[\p{L}\p{N}._%+-]+@([\p{L}\p{N}-]+(?:\.[\p{L}\p{N}-]+)+)/u);
+		const claimed = name.match(NAMED_ADDRESS);
 		if (claimed && registrableDomain(claimed[1]) !== fromRoot) {
 			hit('FROM_NAME_OTHER_ADDRESS', 2.5, `Display name shows ${claimed[0]} but the message is from ${from.address}`, 'SPOOFING');
 		}

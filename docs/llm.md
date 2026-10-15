@@ -255,7 +255,7 @@ spamscanner milter --llm ollama --llm-policy "We never send invoices by email. A
 
 ## Privacy
 
-The model sees a summary of the headers (From, Reply-To, To and Subject), the links, the attachment names and types, the authentication results and the body, cut to 6,000 characters (`maxInputChars`).
+The model sees a summary of the headers (From, Reply-To, To and Subject), the links (those showing one address and going to another first), the attachment names and types, the authentication results, how much text the HTML hides when it hides more than preview text, and the body as a mail client shows it (of the HTML when there is one, without hidden text, invisible characters or styled letters), cut to 6,000 characters (`maxInputChars`).
 
 For providers outside your network, personal data is removed first: the local part of email addresses (the domain stays, because it matters for phishing), card and account numbers, phone numbers and the values of query parameters in links, which often carry login tokens. This is on by default for remote providers, decision models included, and off for local ones (Ollama, LM Studio, llama.cpp, vLLM, LocalAI, Jan, TEI, and any server on localhost). `redact: true` or `false` (`--llm-redact`, `--no-llm-redact`) overrides it.
 

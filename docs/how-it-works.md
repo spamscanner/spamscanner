@@ -17,6 +17,8 @@ Spam Scanner keeps what works in word counting, the statistics, and changes what
 
 ### What it counts
 
+The text read is what a mail client shows: of the HTML part when there is one (a plain text part beside it is shown only where HTML cannot be, so a harmless one cannot speak for the HTML), with tags, comments, scripts and styles left out, inline tags joining a word as a browser joins it (`Free Sp<span>ins</span>`), and text the HTML hides left out and counted: by an element that hides what it holds (display, opacity, the hidden attribute, a clipped box of no size, text moved off the page), or invisible, transparent or in a font of a pixel or less where it is (which an element inside can set again, as responsive templates do). Styles are read as browsers read them (the last declaration wins, comments, character references); colours on a background and style sheet classes are not, so such text is read as shown. HTML showing fewer than 20 words, such as an image of the message, is read with its plain text part. Links and host names are read from both parts and from hidden text.
+
 Text is normalized first: Unicode NFKC folds styled and full-width letters to plain ones, invisible characters are removed and counted, lookalike letters inside otherwise Latin or Cyrillic words are mapped back, and digits used as letters (`v1agra`) are folded. Words are then segmented with `Intl.Segmenter`, the Unicode word-boundary rules with dictionaries for Chinese, Japanese, Thai, Lao, Khmer and Burmese.
 
 From that it extracts:
@@ -31,6 +33,7 @@ From that it extracts:
 | Links         | `url:shortener`, `url:deceptive`, `url:punycode`      | Shorteners, raw IP addresses, mismatched link text, linked domains and their TLDs                                |
 | Sender        | `from:freemail`, `fn:support`, `replyto:other_domain` | The sender's domain, display name words and Reply-To                                                             |
 | HTML          | `html:only`, `html:hidden`, `html:form`               | HTML without a text part, hidden text, forms, tracking pixels                                                    |
+| Parts         | `html:hidden_text`, `html:text_mismatch`              | Text the HTML hides; a plain text part that shares few words with the HTML beside it                             |
 | Attachments   | `att:ext:zip`, `att:count:1`                          | Attachment types and counts                                                                                      |
 | Headers       | `hdr:list_unsubscribe`, `hdr:priority_high`           | Mailing list headers, priority flags, mailers, Received hops                                                     |
 
