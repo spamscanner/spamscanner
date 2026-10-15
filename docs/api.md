@@ -108,6 +108,7 @@ In `getFeatures`, `text` is the text a mail client shows, which the words are re
   results: {
     classification: {probability, category, spam, ham, clues, coverage},
     phishing: [],        // lookalike domains, deceptive links, Cloudflare and URIBL findings
+    uncheckedHosts: 0,   // link hosts beyond phishing.maxHosts, not looked up
     attachments: [],     // every attachment finding
     executables: [],     // the executable findings among them
     macros: [],          // macros, active PDFs, RTF objects

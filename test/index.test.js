@@ -236,6 +236,11 @@ describe('SpamScanner detectors', () => {
 
 			const noAdult = await scanner.scan(raw, {phishing: {adult: false}});
 			assert.ok(!noAdult.results.phishing.some(item => item.type === 'adult_domain'));
+			// (hosts beyond phishing.maxHosts are not looked up, and counted)
+			assert.equal(result.results.uncheckedHosts, 0);
+			const few = await scanner.scan(raw, {phishing: {maxHosts: 1}});
+			assert.equal(few.results.uncheckedHosts, 3);
+			assert.deepEqual(few.results.phishing.map(item => item.type), ['malicious_domain']);
 		} finally {
 			await dns.close();
 			await malwareOnly.close();

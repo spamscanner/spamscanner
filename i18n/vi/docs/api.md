@@ -1,4 +1,4 @@
-<!-- source: 632106ec8af9 -->
+<!-- source: eaaf1c6a0b4b -->
 
 # Tham chiếu API
 
@@ -110,6 +110,7 @@ Trong `getFeatures`, `text` là văn bản mà ứng dụng thư hiển thị, c
   results: {
     classification: {probability, category, spam, ham, clues, coverage},
     phishing: [],        // lookalike domains, deceptive links, Cloudflare and URIBL findings
+    uncheckedHosts: 0,   // link hosts beyond phishing.maxHosts, not looked up
     attachments: [],     // every attachment finding
     executables: [],     // the executable findings among them
     macros: [],          // macros, active PDFs, RTF objects

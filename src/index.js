@@ -432,7 +432,7 @@ export class SpamScanner {
 			}));
 		}
 
-		return {phishing, homographs};
+		return {phishing, homographs, uncheckedHosts: seenHosts.size - checked.length};
 	}
 
 	async scanViruses(mail, config) {
@@ -624,6 +624,8 @@ export class SpamScanner {
 				// Grouped as in earlier versions.
 				executables: attachments.filter(item => ['executable', 'disguised_executable', 'double_extension', 'rtl_override', 'executable_in_archive'].includes(item.type)),
 				macros: attachments.filter(item => ['macro', 'pdf_active', 'rtf_object'].includes(item.type)),
+				// Link hosts beyond phishing.maxHosts, which were not looked up.
+				uncheckedHosts: links.uncheckedHosts,
 				idnHomographAttack: {
 					detected: links.homographs.length > 0,
 					domains: links.homographs,

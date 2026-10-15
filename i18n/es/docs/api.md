@@ -1,4 +1,4 @@
-<!-- source: 632106ec8af9 -->
+<!-- source: eaaf1c6a0b4b -->
 
 # Referencia de la API
 
@@ -110,6 +110,7 @@ En `getFeatures`, `text` es el texto que muestra un cliente de correo, del que s
   results: {
     classification: {probability, category, spam, ham, clues, coverage},
     phishing: [],        // lookalike domains, deceptive links, Cloudflare and URIBL findings
+    uncheckedHosts: 0,   // link hosts beyond phishing.maxHosts, not looked up
     attachments: [],     // every attachment finding
     executables: [],     // the executable findings among them
     macros: [],          // macros, active PDFs, RTF objects

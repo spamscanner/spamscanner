@@ -8,6 +8,15 @@ import {zip} from './helpers/index.js';
 
 const bytes = (...values) => Buffer.from(values);
 const pad = (head, size = 64) => Buffer.concat([Buffer.isBuffer(head) ? head : Buffer.from(head, 'latin1'), Buffer.alloc(size)]);
+// The start of a Windows program: "MZ", and "PE\\0\\0" where its header says.
+const pe = () => {
+	const buffer = Buffer.alloc(0x48);
+	buffer.write('MZ', 0, 'latin1');
+	buffer.writeUInt32LE(0x40, 0x3C);
+	buffer.write('PE\0\0', 0x40, 'latin1');
+	return buffer;
+};
+
 const ole = (...names) => Buffer.concat([bytes(0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1), Buffer.alloc(32), ...names.map(name => Buffer.from(name, 'utf16le'))]);
 const iso = () => {
 	const buffer = Buffer.alloc(0x80_10);
@@ -19,7 +28,7 @@ const types = attachments => inspectAttachments(attachments).map(finding => find
 
 describe('sniff', () => {
 	const cases = [
-		['exe', pad('MZ'), true],
+		['exe', pe(), true],
 		['elf', pad(bytes(0x7F, 0x45, 0x4C, 0x46)), true],
 		['macho', pad(bytes(0xFE, 0xED, 0xFA, 0xCF)), true],
 		['macho', pad(bytes(0xCF, 0xFA, 0xED, 0xFE)), true],
@@ -71,6 +80,12 @@ describe('sniff', () => {
 		assert.equal(sniff(Buffer.from('plain text file')), null);
 		assert.equal(sniff(Buffer.from('MZ')), null);
 		assert.equal(sniff('MZ....'), null);
+		// (text that starts with "MZ" is not a program)
+		assert.equal(sniff(pad('MZ')), null);
+		assert.equal(sniff(Buffer.from('MZ,Mozambique\nNA,Namibia\n'.repeat(4))), null);
+		const far = pe();
+		far.writeUInt32LE(0x10_00, 0x3C);
+		assert.equal(sniff(far), null);
 	});
 });
 
@@ -156,16 +171,24 @@ describe('ZIP end records', () => {
 
 describe('inspectAttachments', () => {
 	it('flags programs by extension and by content', () => {
-		assert.deepEqual(types([{filename: 'setup.exe', content: pad('MZ')}]), ['executable']);
+		assert.deepEqual(types([{filename: 'setup.exe', content: pe()}]), ['executable']);
 		assert.deepEqual(types([{filename: 'tool.js', content: Buffer.from('x()')}]), ['executable']);
-		assert.deepEqual(types([{filename: 'photo.jpg', content: pad('MZ')}]), ['disguised_executable']);
+		assert.deepEqual(types([{filename: 'photo.jpg', content: pe()}]), ['disguised_executable']);
 		assert.deepEqual(types([{content: pad(bytes(0x7F, 0x45, 0x4C, 0x46))}]), ['executable']);
+		// (a program named as a script or another type that runs code, by its
+		// content; a script by its name)
+		const [program] = inspectAttachments([{filename: 'run.py', content: pe()}]);
+		assert.deepEqual([program.type, program.extension], ['executable', 'exe']);
+		assert.match(program.message, /contains a program \(exe\) but is named \.py/);
+		const [script] = inspectAttachments([{filename: 'run.sh', content: Buffer.from('#!/bin/sh\necho hi\n')}]);
+		assert.deepEqual([script.type, script.extension], ['executable', 'sh']);
+		assert.deepEqual(types([{filename: 'countries.csv', content: Buffer.from('MZ,Mozambique\n'.repeat(8))}]), []);
 		assert.ok(EXECUTABLE_EXTENSIONS.has('scr'));
 		assert.ok(!EXECUTABLE_EXTENSIONS.has('dat'));
 	});
 
 	it('flags double extensions and right-to-left overrides', () => {
-		assert.deepEqual(types([{filename: 'invoice.pdf.exe', content: pad('MZ')}]), ['double_extension', 'executable']);
+		assert.deepEqual(types([{filename: 'invoice.pdf.exe', content: pe()}]), ['double_extension', 'executable']);
 		assert.deepEqual(types([{filename: 'invoice\u{202E}fdp.exe'}]), ['rtl_override', 'executable']);
 		assert.deepEqual(types([{filename: 'archive.tar.gz', content: pad(bytes(0x1F, 0x8B))}]), []);
 	});

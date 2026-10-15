@@ -43,7 +43,9 @@ export function sniff(buffer) {
 	const ascii = (offset, text) => at(offset, [...Buffer.from(text, 'latin1')]);
 	const result = (type, executable = false) => ({type, executable, archive: ARCHIVE_TYPES.has(type)});
 
-	if (ascii(0, 'MZ')) {
+	// A Windows program: "MZ", and "PE\0\0" where its header says (text can
+	// start with "MZ" too, such as a list of country codes).
+	if (ascii(0, 'MZ') && buffer.length >= 64 && at(buffer.readUInt32LE(0x3C), [0x50, 0x45, 0x00, 0x00])) {
 		return result('exe', true);
 	}
 
@@ -326,10 +328,14 @@ export function inspectAttachments(attachments = []) {
 			add('double_extension', `Attachment "${name}" has a document extension followed by a program extension`, {extension});
 		}
 
-		if (EXECUTABLE_EXTENSIONS.has(extension) && !MACRO_EXTENSIONS.has(extension)) {
+		// A program by its content, whatever it is named (also as a script, a
+		// file type that runs code too, but is often allowed); a script by its
+		// name, else by its content.
+		const byName = EXECUTABLE_EXTENSIONS.has(extension) && !MACRO_EXTENSIONS.has(extension);
+		if (detected?.executable && (detected.type !== 'script' || !byName)) {
+			add(extension && !EXECUTABLE_EXTENSIONS.has(extension) ? 'disguised_executable' : 'executable', `Attachment "${name}" contains a program (${detected.type})${extension && extension !== detected.type ? ` but is named .${extension}` : ''}`, {extension: detected.type});
+		} else if (byName) {
 			add('executable', `Attachment "${name}" is a file type that runs code (.${extension})`, {extension});
-		} else if (detected?.executable) {
-			add(extension && !EXECUTABLE_EXTENSIONS.has(extension) ? 'disguised_executable' : 'executable', `Attachment "${name}" contains a program (${detected.type})${extension ? ` but is named .${extension}` : ''}`, {extension: detected.type});
 		}
 
 		if (!content) {
