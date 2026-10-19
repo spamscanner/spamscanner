@@ -1,8 +1,8 @@
-<!-- source: 0378a5e0f12b -->
+<!-- source: 9f8d9e55622c -->
 
 <!--
 label: Oppdage phishing
-title: Phishing i e-post: forvekslingsdomener og villedende lenker
+title: Phishing-deteksjon: forvekslingsdomener og villedende lenker
 description: Slik oppdager Spam Scanner phishing: forvekslbare Unicode-domener, villedende lenker, merkenavn i visningsnavn, Cloudflares resolver mot skadevare og DMARC.
 keywords: oppdage phishing, phishingfilter e-post, nettfiske, homografangrep, IDN-homograf, forvekslingsdomene, villedende lenke, etterligning av merkenavn
 -->

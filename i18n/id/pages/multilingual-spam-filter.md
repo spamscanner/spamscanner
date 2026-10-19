@@ -1,8 +1,8 @@
-<!-- source: 0ad167ddd34e -->
+<!-- source: c624a0354fe1 -->
 
 <!--
 label: Filter spam multibahasa
-title: Filter spam multibahasa: Tionghoa, Arab, Rusia, dan aksara lain
+title: Filter spam multibahasa untuk setiap bahasa dan aksara
 description: Cara Spam Scanner menyaring spam dalam setiap bahasa: segmentasi kata Unicode, membongkar penyamaran, dan tidak menandai bahasa yang kurang dikenal model.
 keywords: filter spam multibahasa, filter spam bahasa Tionghoa, filter spam bahasa Arab, filter spam bahasa Rusia, filter spam bahasa Jepang, deteksi spam Unicode, spam homoglif
 -->

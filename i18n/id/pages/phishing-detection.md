@@ -1,8 +1,8 @@
-<!-- source: 0378a5e0f12b -->
+<!-- source: 9f8d9e55622c -->
 
 <!--
 label: Deteksi phishing
-title: Deteksi phishing: domain tiruan, tautan menipu, dan spoofing
+title: Deteksi phishing: domain tiruan dan tautan menipu
 description: Cara Spam Scanner mendeteksi phishing: domain tiruan Unicode, tautan yang menampilkan alamat lain dari tujuannya, nama merek, resolver Cloudflare, dan DMARC.
 keywords: deteksi phishing, filter phishing email, serangan homograf, homograf IDN, deteksi domain tiruan, tautan menipu, email peniruan merek
 -->

@@ -1,4 +1,4 @@
-<!-- source: 361732724f0e -->
+<!-- source: 6ec79ca6f686 -->
 
 <!--
 label: UKK
@@ -17,7 +17,7 @@ Roskapostisuodatin Node.js:lle, komentoriville ja postipalvelimille. Se lukee ra
 
 ## Onko se ilmainen?
 
-Sen [lisenssi](https://github.com/spamscanner/spamscanner/blob/master/LICENSE), Business Source License 1.1, sallii kaiken käytön paitsi roskapostin tunnistuksen tarjoamisen palveluna muille, ja se nimeää päivämäärän, jolloin lisenssi vaihtuu Apache License 2.0:ksi.
+Spam Scannerin [lisenssi](https://github.com/spamscanner/spamscanner/blob/master/LICENSE) on Business Source License 1.1, ja sen Change License on Apache License 2.0. Lisenssissä nimetty Change Date on jo mennyt, ja siitä päivästä alkaen lisenssi antaa sinulle Apache License 2.0:n mukaiset oikeudet.
 
 
 ## Kuinka tarkka se on?

@@ -1,8 +1,8 @@
-<!-- source: 20d3823ab446 -->
+<!-- source: 0ecf2764c1b2 -->
 
 <!--
 label: Filtro de spam com IA
-title: Filtro de spam com IA, modelos de linguagem locais e de decisão
+title: Filtro de spam com IA e modelos de linguagem locais ou hospedados
 description: Pegue o spam e o phishing que as regras deixam passar com um modelo de linguagem: Ollama, Cloudflare Clef, Claude ou ChatGPT, só nos casos duvidosos.
 keywords: filtro de spam com IA, detecção de spam com LLM, filtro de spam Ollama, modelo de decisão, Cloudflare Clef, Jev, filtro de spam ChatGPT, filtro de spam Claude, LLM local para filtrar e-mail, detecção de phishing com IA
 -->

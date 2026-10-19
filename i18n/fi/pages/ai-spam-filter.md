@@ -1,8 +1,8 @@
-<!-- source: 20d3823ab446 -->
+<!-- source: 0ecf2764c1b2 -->
 
 <!--
 label: Tekoälyroskapostisuodatin
-title: Tekoälyroskapostisuodatin paikallisilla kieli- ja päätösmalleilla
+title: Tekoälyroskapostisuodatin paikallisilla ja palvelun kielimalleilla
 description: Kielimalli löytää säännöiltä jäävän roskapostin ja tietojenkalastelun: Ollama omalla palvelimella, Cloudflare Clef tai Claude ja ChatGPT epäselviin tapauksiin.
 keywords: tekoäly roskapostisuodatin, AI roskapostisuodatin, LLM roskapostin tunnistus, Ollama roskapostisuodatin, päätösmalli, Cloudflare Clef, Jev, ChatGPT roskapostisuodatin, Claude roskapostisuodatin, paikallinen LLM sähköpostisuodatin, tietojenkalastelun tunnistus tekoäly
 -->

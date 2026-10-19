@@ -1,8 +1,8 @@
-<!-- source: 0ad167ddd34e -->
+<!-- source: c624a0354fe1 -->
 
 <!--
 label: Monikielinen roskapostisuodatin
-title: Monikielinen roskapostisuodatin kiinalle, arabialle ja venäjälle
+title: Monikielinen roskapostisuodatin kaikille kielille ja kirjoitusjärjestelmille
 description: Miten Spam Scanner suodattaa roskapostia kaikilla kielillä: Unicode-sanojen pilkkominen, naamiointien purku eikä merkintöjä kielistä, joita malli ei tunne.
 keywords: monikielinen roskapostisuodatin, kiinankielinen roskaposti, arabiankielinen roskaposti, venäjänkielinen roskaposti, japaninkielinen roskaposti, Unicode roskapostin tunnistus, homoglyfi roskaposti
 -->

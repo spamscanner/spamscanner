@@ -1,8 +1,8 @@
-<!-- source: 0378a5e0f12b -->
+<!-- source: 9f8d9e55622c -->
 
 <!--
 label: Upptäcka nätfiske
-title: Upptäck nätfiske i e-post: förväxlingsbara domäner, falska länkar
+title: Upptäck nätfiske: förväxlingsbara domäner och falska länkar
 description: Spam Scanner hittar nätfiske: förväxlingsbara Unicode-domäner, länkar som leder fel, varumärken i visningsnamn, Cloudflares skyddsresolver och DMARC.
 keywords: upptäcka nätfiske, nätfiskefilter e-post, phishing, homografattack, IDN-homograf, förväxlingsbara domäner, vilseledande länk, varumärkesförfalskning e-post
 -->

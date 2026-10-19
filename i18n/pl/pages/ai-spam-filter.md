@@ -1,8 +1,8 @@
-<!-- source: 20d3823ab446 -->
+<!-- source: 0ecf2764c1b2 -->
 
 <!--
 label: Filtr antyspamowy AI
-title: Filtr antyspamowy AI z lokalnymi modelami i modelami decyzyjnymi
+title: Filtr antyspamowy AI z lokalnymi i hostowanymi modelami językowymi
 description: Model językowy wyłapuje spam i phishing omijające reguły: Ollama na twoim serwerze, Cloudflare Clef lub Claude i ChatGPT, tylko w trudnych przypadkach.
 keywords: filtr antyspamowy AI, wykrywanie spamu LLM, sztuczna inteligencja antyspam, filtr spamu Ollama, model decyzyjny, Cloudflare Clef, Jev, filtr spamu ChatGPT, filtr spamu Claude, lokalny LLM filtr poczty, wykrywanie phishingu AI
 -->

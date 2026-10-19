@@ -1,8 +1,8 @@
-<!-- source: 0378a5e0f12b -->
+<!-- source: 9f8d9e55622c -->
 
 <!--
 label: Tietojenkalastelun tunnistus
-title: Tietojenkalastelun tunnistus: huijausverkkotunnukset ja -linkit
+title: Tietojenkalastelun tunnistus: harhauttavat verkkotunnukset ja linkit
 description: Miten Spam Scanner tunnistaa tietojenkalastelun: samannäköiset Unicode-verkkotunnukset, harhaanjohtavat linkit, tuotemerkit, Cloudflaren suodatus ja DMARC.
 keywords: tietojenkalastelun tunnistus, phishing tunnistus, sähköpostin tietojenkalastelusuodatin, homografihyökkäys, IDN homografi, samannäköinen verkkotunnus, harhaanjohtava linkki, tuotemerkin jäljittely sähköposti
 -->

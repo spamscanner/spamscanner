@@ -1,8 +1,8 @@
-<!-- source: 20d3823ab446 -->
+<!-- source: 0ecf2764c1b2 -->
 
 <!--
 label: AI 垃圾邮件过滤
-title: 使用本地语言模型和决策模型的 AI 垃圾邮件过滤器
+title: 使用本地和托管语言模型的 AI 垃圾邮件过滤器
 description: 用语言模型识别规则漏掉的垃圾邮件和钓鱼邮件：自己服务器上的 Ollama、Cloudflare Clef，或 Claude 和 ChatGPT，只在难以判断时询问。
 keywords: AI 垃圾邮件过滤, LLM 垃圾邮件识别, Ollama 垃圾邮件过滤, 决策模型, Cloudflare Clef, Jev, ChatGPT 垃圾邮件过滤, Claude 垃圾邮件过滤, 本地大模型邮件过滤, AI 钓鱼邮件检测
 -->

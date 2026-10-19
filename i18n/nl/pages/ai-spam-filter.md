@@ -1,8 +1,8 @@
-<!-- source: 20d3823ab446 -->
+<!-- source: 0ecf2764c1b2 -->
 
 <!--
 label: AI-spamfilter
-title: AI-spamfilter met lokale taalmodellen en beslismodellen
+title: AI-spamfilter met lokale en gehoste taalmodellen
 description: Vang met een taalmodel spam en phishing die regels missen: Ollama op je eigen server, Cloudflare Clef, of Claude en ChatGPT, alleen bij twijfelgevallen.
 keywords: AI spamfilter, AI spam filter, LLM spamdetectie, Ollama spamfilter, beslismodel, Cloudflare Clef, Jev, ChatGPT spamfilter, Claude spamfilter, lokaal LLM e-mailfilter, phishing detectie AI
 -->

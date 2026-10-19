@@ -1,8 +1,8 @@
-<!-- source: 20d3823ab446 -->
+<!-- source: 0ecf2764c1b2 -->
 
 <!--
 label: AIスパムフィルター
-title: ローカルの言語モデルと決定モデルを使うAIスパムフィルター
+title: ローカルとホスト型の言語モデルを使う AI スパムフィルター
 description: ルールでは見逃すスパムやフィッシングを言語モデルで検出します。自分のサーバーのOllama、Cloudflare Clef、またはClaudeやChatGPTに、際どい判定だけを問い合わせます。
 keywords: AI スパムフィルター, AI 迷惑メール対策, LLM スパム判定, Ollama スパムフィルター, 決定モデル, Cloudflare Clef, Jev, ChatGPT スパムフィルター, Claude スパムフィルター, ローカルLLM メールフィルター, AI フィッシング検出
 -->

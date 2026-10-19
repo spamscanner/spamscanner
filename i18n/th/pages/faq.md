@@ -1,4 +1,4 @@
-<!-- source: 361732724f0e -->
+<!-- source: 6ec79ca6f686 -->
 
 <!--
 label: คำถามที่พบบ่อย
@@ -17,7 +17,7 @@ keywords: Spam Scanner คำถามที่พบบ่อย, คำถา�
 
 ## ใช้ฟรีหรือไม่
 
-[สัญญาอนุญาต](https://github.com/spamscanner/spamscanner/blob/master/LICENSE) ของโครงการคือ Business Source License 1.1 ซึ่งอนุญาตให้ใช้งานได้ทุกรูปแบบ ยกเว้นการให้บริการตรวจจับสแปมแก่ผู้อื่น และระบุวันที่สัญญาอนุญาตจะเปลี่ยนเป็น Apache License 2.0
+[สัญญาอนุญาต](https://github.com/spamscanner/spamscanner/blob/master/LICENSE)ของ Spam Scanner คือ Business Source License 1.1 โดยมี Apache License 2.0 เป็น Change License วันที่ Change Date ที่ระบุในสัญญาอนุญาตได้ผ่านไปแล้ว และตั้งแต่วันนั้น สัญญาอนุญาตให้สิทธิ์แก่คุณตาม Apache License 2.0
 
 
 ## แม่นยำแค่ไหน

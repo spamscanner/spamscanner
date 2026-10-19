@@ -1,8 +1,8 @@
-<!-- source: 0378a5e0f12b -->
+<!-- source: 9f8d9e55622c -->
 
 <!--
 label: 钓鱼邮件检测
-title: 电子邮件钓鱼检测：仿冒域名、欺骗性链接和冒充
+title: 钓鱼检测：仿冒域名和欺骗性链接
 description: Spam Scanner 如何检测钓鱼邮件：Unicode 仿冒域名，显示一个地址却指向另一个地址的链接，品牌显示名称，Cloudflare 的恶意软件解析器和 DMARC。
 keywords: 钓鱼邮件检测, 邮件钓鱼过滤, 同形异义字攻击, IDN 同形攻击, 仿冒域名检测, 欺骗性链接, 品牌冒充邮件
 -->

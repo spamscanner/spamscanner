@@ -1,4 +1,4 @@
-<!-- source: 361732724f0e -->
+<!-- source: 6ec79ca6f686 -->
 
 <!--
 label: الأسئلة الشائعة
@@ -17,7 +17,7 @@ keywords: أسئلة Spam Scanner الشائعة, أسئلة عن فلتر ال�
 
 ## هل هو مجاني؟
 
-يسمح [ترخيصه](https://github.com/spamscanner/spamscanner/blob/master/LICENSE)، وهو Business Source License 1.1، بأي استخدام باستثناء تقديم كشف البريد المزعج كخدمة للآخرين، ويحدد التاريخ الذي يتحوّل فيه إلى Apache License 2.0.
+[ترخيص](https://github.com/spamscanner/spamscanner/blob/master/LICENSE) Spam Scanner هو Business Source License 1.1، وترخيص التغيير (Change License) فيه هو Apache License 2.0. وقد مضى تاريخ التغيير (Change Date) المذكور في الترخيص، ومنذ ذلك التاريخ يمنحك الترخيص حقوقًا بموجب Apache License 2.0.
 
 
 ## ما مدى دقته؟

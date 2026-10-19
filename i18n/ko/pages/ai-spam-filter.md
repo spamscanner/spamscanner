@@ -1,8 +1,8 @@
-<!-- source: 20d3823ab446 -->
+<!-- source: 0ecf2764c1b2 -->
 
 <!--
 label: AI 스팸 필터
-title: 로컬 언어 모델과 결정 모델을 쓰는 AI 스팸 필터
+title: 로컬 및 호스팅 언어 모델을 쓰는 AI 스팸 필터
 description: 규칙이 놓치는 스팸과 피싱을 언어 모델로 잡습니다. 자체 서버의 Ollama, Cloudflare Clef, Claude나 ChatGPT에 애매한 메시지만 묻습니다.
 keywords: AI 스팸 필터, LLM 스팸 탐지, Ollama 스팸 필터, 결정 모델, Cloudflare Clef, Jev, ChatGPT 스팸 필터, Claude 스팸 필터, 로컬 LLM 이메일 필터, AI 피싱 탐지, 인공지능 스팸 차단
 -->

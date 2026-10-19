@@ -1,4 +1,4 @@
-<!-- source: 361732724f0e -->
+<!-- source: 6ec79ca6f686 -->
 
 <!--
 label: GYIK
@@ -17,7 +17,7 @@ Spamszűrő Node.js-hez, a parancssorhoz és levelezőszerverekhez. Beolvas egy 
 
 ## Ingyenes?
 
-A [licence](https://github.com/spamscanner/spamscanner/blob/master/LICENSE), a Business Source License 1.1, bármilyen felhasználást megenged, kivéve a spamfelismerés szolgáltatásként való nyújtását másoknak, és megnevezi azt a dátumot, amikor Apache License 2.0-ra vált.
+A Spam Scanner [licence](https://github.com/spamscanner/spamscanner/blob/master/LICENSE) a Business Source License 1.1, amelynek Change License-e az Apache License 2.0. A licencben megnevezett Change Date már elmúlt, és attól a naptól a licenc az Apache License 2.0 szerinti jogokat adja meg.
 
 
 ## Mennyire pontos?

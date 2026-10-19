@@ -55,7 +55,7 @@ jobs:
           # The first audit on a fresh runner pays for starting Chrome and cold caches. Discard it.
           audit / mobile warmup.json
           # English, plus translations in a Latin, a right-to-left and two CJK scripts.
-          pages="/ /docs/ /docs/getting-started/ /docs/llm/ /docs/scoring/ /postfix-spam-filter/ /faq/ /de/ /ar/ /ja/docs/scoring/ /zh/faq/"
+          pages="/ /docs/ /docs/getting-started/ /docs/llm/ /docs/scoring/ /postfix-spam-filter/ /self-hosted-spam-filter/ /faq/ /about/ /glossary/ /de/ /ar/ /ja/docs/scoring/ /zh/faq/ /he/glossary/"
           i=0
           for p in $pages; do
             for preset in mobile desktop; do

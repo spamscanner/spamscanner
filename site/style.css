@@ -719,10 +719,6 @@ html:not(.js) .term:focus > .tip {
 
 .credit-logo {
   flex: none;
-  line-height: 0;
-}
-
-.credit-logo img {
   border-radius: 8px;
 }
 
@@ -864,7 +860,7 @@ html:not(.js) .term:focus > .tip {
   margin-top: 24px;
 }
 
-.side-group h2,
+.side-title,
 .toc h2 {
   margin: 0 0 8px;
   color: var(--text-3);
@@ -1058,6 +1054,23 @@ html:not(.js) .term:focus > .tip {
 .prose h3 code {
   font-size: 0.8em;
   font-weight: 500;
+}
+
+.glossary {
+  margin: 32px 0 0;
+}
+
+.glossary dt {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--rule);
+  font-weight: 600;
+  scroll-margin-top: calc(var(--header) + 16px);
+}
+
+.glossary dd {
+  margin: 6px 0 0;
+  color: var(--text-2);
 }
 
 .h-anchor {
@@ -2060,6 +2073,11 @@ html:not(.js) .tabs [role='tabpanel'][hidden] {
   border-radius: 10px;
   background: #0b0d10;
   box-shadow: 0 18px 50px rgb(0 0 0 / 18%);
+}
+
+.video-poster picture {
+  display: block;
+  height: 100%;
 }
 
 .video-poster img {

@@ -1,8 +1,8 @@
-<!-- source: 0378a5e0f12b -->
+<!-- source: 9f8d9e55622c -->
 
 <!--
 label: Détection de l’hameçonnage
-title: Détection du phishing : domaines sosies, liens piégés, usurpation
+title: Détection du phishing : domaines sosies et liens trompeurs
 description: Comment Spam Scanner détecte l’hameçonnage : domaines sosies Unicode, liens trompeurs, marques dans les noms d’affichage, résolveur de Cloudflare et DMARC.
 keywords: détection de phishing, détection d’hameçonnage, filtre anti-phishing e-mail, attaque par homographe, homographe IDN, détection de domaines sosies, lien trompeur, usurpation de marque e-mail
 -->

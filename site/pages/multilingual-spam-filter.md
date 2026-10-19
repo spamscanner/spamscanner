@@ -1,6 +1,6 @@
 <!--
 label: Multilingual spam filter
-title: Multilingual spam filter for Chinese, Arabic, Russian and every other script
+title: Multilingual spam filter for every language and script
 description: How Spam Scanner filters spam in every language: Unicode word segmentation, undoing disguises, and never flagging a language the model knows little about.
 keywords: multilingual spam filter, Chinese spam filter, Arabic spam filter, Russian spam filter, Japanese spam filter, Unicode spam detection, homoglyph spam
 -->

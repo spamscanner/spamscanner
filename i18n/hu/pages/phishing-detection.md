@@ -1,8 +1,8 @@
-<!-- source: 0378a5e0f12b -->
+<!-- source: 9f8d9e55622c -->
 
 <!--
 label: Adathalászat felismerése
-title: Adathalász e-mailek felismerése: hasonmás domainek, csaló linkek
+title: Adathalászat felismerése: hasonmás domainek és csaló linkek
 description: Hogyan ismeri fel a Spam Scanner az adathalász e-maileket: Unicode hasonmás domainek, megtévesztő hivatkozások, márkanevek, Cloudflare-szűrés és DMARC.
 keywords: adathalászat felismerése, adathalász e-mail szűrő, phishing szűrő, homográf támadás, IDN homográf, hasonmás domain felismerése, megtévesztő link, márkahamisítás e-mail
 -->

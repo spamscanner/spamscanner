@@ -1,8 +1,8 @@
-<!-- source: 0378a5e0f12b -->
+<!-- source: 9f8d9e55622c -->
 
 <!--
 label: Phishing-Erkennung
-title: Phishing-Erkennung für E-Mails: Doppelgänger-Domains und Spoofing
+title: Phishing-Erkennung: Doppelgänger-Domains und täuschende Links
 description: Wie Spam Scanner Phishing erkennt: Unicode-Doppelgänger-Domains, irreführende Links, Marken in Anzeigenamen, der Malware-Resolver von Cloudflare und DMARC.
 keywords: Phishing-Erkennung, Phishing erkennen, E-Mail Phishing-Filter, Homograph-Angriff, IDN-Homograph, Doppelgänger-Domain erkennen, irreführender Link, Markenmissbrauch E-Mail
 -->

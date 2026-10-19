@@ -1,8 +1,8 @@
-<!-- source: 0ad167ddd34e -->
+<!-- source: c624a0354fe1 -->
 
 <!--
 label: Filtro antispam multilingue
-title: Filtro antispam multilingue: cinese, arabo, russo e ogni scrittura
+title: Filtro antispam multilingue per ogni lingua e scrittura
 description: Come Spam Scanner filtra lo spam in ogni lingua: segmentazione Unicode, camuffamenti annullati e nessuna segnalazione per le lingue poco note al modello.
 keywords: filtro antispam multilingue, filtro antispam cinese, filtro antispam arabo, filtro antispam russo, filtro antispam giapponese, rilevamento spam Unicode, spam omoglifi
 -->

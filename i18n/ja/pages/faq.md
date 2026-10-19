@@ -1,4 +1,4 @@
-<!-- source: 361732724f0e -->
+<!-- source: 6ec79ca6f686 -->
 
 <!--
 label: よくある質問
@@ -17,7 +17,7 @@ Node.js、コマンドライン、メールサーバー向けのスパムフィ�
 
 ## 無料ですか
 
-[ライセンス](https://github.com/spamscanner/spamscanner/blob/master/LICENSE)であるBusiness Source License 1.1は、スパム検出をサービスとして他者に提供すること以外のあらゆる利用を認めており、Apache License 2.0に切り替わる日付も明記しています。
+Spam Scanner の[ライセンス](https://github.com/spamscanner/spamscanner/blob/master/LICENSE)は Business Source License 1.1 で、Change License は Apache License 2.0 です。ライセンスに記載された Change Date はすでに過ぎており、その日以降、ライセンスは Apache License 2.0 に基づく権利をあなたに与えます。
 
 
 ## 精度はどのくらいですか

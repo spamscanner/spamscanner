@@ -1,4 +1,4 @@
-<!-- source: 361732724f0e -->
+<!-- source: 6ec79ca6f686 -->
 
 <!--
 label: Câu hỏi thường gặp
@@ -17,7 +17,7 @@ Một bộ lọc spam cho Node.js, dòng lệnh và máy chủ thư. Nó đọc 
 
 ## Nó có miễn phí không?
 
-[Giấy phép](https://github.com/spamscanner/spamscanner/blob/master/LICENSE) của nó, Business Source License 1.1, cho phép mọi cách sử dụng trừ việc cung cấp tính năng phát hiện spam như một dịch vụ cho người khác, và nêu ngày giấy phép chuyển thành Apache License 2.0.
+[Giấy phép](https://github.com/spamscanner/spamscanner/blob/master/LICENSE) của Spam Scanner là Business Source License 1.1, với Apache License 2.0 là Change License. Change Date ghi trong giấy phép đã qua, và từ ngày đó giấy phép trao cho bạn các quyền theo Apache License 2.0.
 
 
 ## Nó chính xác đến mức nào?

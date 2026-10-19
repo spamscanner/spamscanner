@@ -1,4 +1,4 @@
-<!-- source: 361732724f0e -->
+<!-- source: 6ec79ca6f686 -->
 
 <!--
 label: Časté dotazy
@@ -17,7 +17,7 @@ Spamový filtr pro Node.js, příkazovou řádku a poštovní servery. Přečte 
 
 ## Je zdarma?
 
-Jeho [licence](https://github.com/spamscanner/spamscanner/blob/master/LICENSE), Business Source License 1.1, povoluje jakékoli použití kromě nabízení detekce spamu jako služby jiným a uvádí datum, kdy se změní na Apache License 2.0.
+[Licence](https://github.com/spamscanner/spamscanner/blob/master/LICENSE) Spam Scanneru je Business Source License 1.1 a jako Change License uvádí Apache License 2.0. Change Date uvedené v licenci už uplynulo a od tohoto data vám licence uděluje práva podle Apache License 2.0.
 
 
 ## Jak je přesný?

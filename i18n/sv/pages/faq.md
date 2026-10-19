@@ -1,4 +1,4 @@
-<!-- source: 361732724f0e -->
+<!-- source: 6ec79ca6f686 -->
 
 <!--
 label: Vanliga frågor
@@ -17,7 +17,7 @@ Ett spamfilter för Node.js, kommandoraden och e-postservrar. Det läser ett rå
 
 ## Är det gratis?
 
-Dess [licens](https://github.com/spamscanner/spamscanner/blob/master/LICENSE), Business Source License 1.1, tillåter all användning utom att erbjuda spamdetektering som en tjänst åt andra, och anger det datum då den övergår till Apache License 2.0.
+Spam Scanners [licens](https://github.com/spamscanner/spamscanner/blob/master/LICENSE) är Business Source License 1.1, med Apache License 2.0 som Change License. Det Change Date som licensen anger har passerat, och från det datumet ger licensen dig rättigheter enligt Apache License 2.0.
 
 
 ## Hur träffsäkert är det?

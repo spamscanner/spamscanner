@@ -1,8 +1,8 @@
-<!-- source: 20d3823ab446 -->
+<!-- source: 0ecf2764c1b2 -->
 
 <!--
 label: KI-spamfilter
-title: KI-spamfilter med lokale språkmodeller og beslutningsmodeller
+title: KI-spamfilter med lokale og eksterne språkmodeller
 description: Fang spam og phishing som regler overser, med en språkmodell: Ollama på egen server, Cloudflare Clef, eller Claude og ChatGPT, kun for vanskelige tilfeller.
 keywords: KI-spamfilter, AI spamfilter, spamdeteksjon med LLM, spamfilter med Ollama, beslutningsmodell, Cloudflare Clef, Jev, ChatGPT spamfilter, Claude spamfilter, lokal LLM e-postfilter, oppdage phishing med KI
 -->

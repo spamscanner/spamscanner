@@ -1,4 +1,4 @@
-<!-- source: 361732724f0e -->
+<!-- source: 6ec79ca6f686 -->
 
 <!--
 label: FAQ
@@ -17,7 +17,7 @@ To filtr antyspamowy dla Node.js, wiersza poleceń i serwerów pocztowych. Czyta
 
 ## Czy jest darmowy?
 
-Jego [licencja](https://github.com/spamscanner/spamscanner/blob/master/LICENSE), Business Source License 1.1, pozwala na każde użycie z wyjątkiem oferowania wykrywania spamu innym jako usługi i podaje datę, w której zmienia się na Apache License 2.0.
+[Licencja](https://github.com/spamscanner/spamscanner/blob/master/LICENSE) Spam Scannera to Business Source License 1.1, a jej Change License to Apache License 2.0. Change Date podana w licencji już minęła i od tej daty licencja przyznaje ci prawa na warunkach Apache License 2.0.
 
 
 ## Jaka jest jego skuteczność?

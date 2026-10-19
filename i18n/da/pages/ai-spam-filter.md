@@ -1,8 +1,8 @@
-<!-- source: 20d3823ab446 -->
+<!-- source: 0ecf2764c1b2 -->
 
 <!--
 label: AI-spamfilter
-title: AI-spamfilter med lokale sprogmodeller og beslutningsmodeller
+title: AI-spamfilter med lokale og hostede sprogmodeller
 description: Fang spam og phishing, som regler overser, med en sprogmodel: Ollama på din egen server, Cloudflare Clef eller Claude og ChatGPT, kun ved tvivlstilfælde.
 keywords: AI spamfilter, spamfilter med kunstig intelligens, LLM spamdetektion, Ollama spamfilter, beslutningsmodel, Cloudflare Clef, Jev, ChatGPT spamfilter, Claude spamfilter, lokal LLM e-mailfilter, phishing-detektion AI
 -->

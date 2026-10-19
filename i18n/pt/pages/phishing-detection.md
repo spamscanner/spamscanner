@@ -1,8 +1,8 @@
-<!-- source: 0378a5e0f12b -->
+<!-- source: 9f8d9e55622c -->
 
 <!--
 label: Detecção de phishing
-title: Detecção de phishing: domínios parecidos, links falsos e spoofing
+title: Detecção de phishing: domínios parecidos e links enganosos
 description: Como o Spam Scanner detecta phishing: domínios parecidos em Unicode, links que levam a outro endereço, marcas no remetente, resolvedor da Cloudflare e DMARC.
 keywords: detecção de phishing, filtro de phishing para e-mail, ataque homográfico, homógrafo IDN, detecção de domínio parecido, link enganoso, falsificação de marca em e-mail
 -->

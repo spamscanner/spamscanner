@@ -1,8 +1,8 @@
-<!-- source: 0ad167ddd34e -->
+<!-- source: c624a0354fe1 -->
 
 <!--
 label: Flerspråklig spamfilter
-title: Flerspråklig spamfilter for kinesisk, arabisk, russisk og mer
+title: Flerspråklig spamfilter for alle språk og skriftsystemer
 description: Slik filtrerer Spam Scanner spam på alle språk: Unicode-ordsegmentering, forkledninger gjort om, og aldri flagging av språk modellen kjenner lite.
 keywords: flerspråklig spamfilter, spamfilter kinesisk, spamfilter arabisk, spamfilter russisk, spamfilter japansk, Unicode spamdeteksjon, homoglyf spam
 -->

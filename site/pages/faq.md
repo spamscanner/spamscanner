@@ -15,7 +15,7 @@ A spam filter for Node.js, the command line and mail servers. It reads a raw ema
 
 ## Is it free?
 
-Its [license](https://github.com/spamscanner/spamscanner/blob/master/LICENSE), the Business Source License 1.1, allows any use except offering spam detection as a service to others, and names the date on which it changes to the Apache License 2.0.
+Spam Scanner's [license](https://github.com/spamscanner/spamscanner/blob/master/LICENSE) is the Business Source License 1.1, with the Apache License 2.0 as its Change License. The Change Date named in the license has passed, and from that date the license grants you rights under the Apache License 2.0.
 
 
 ## How accurate is it?

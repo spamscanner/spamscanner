@@ -1,8 +1,8 @@
-<!-- source: 20d3823ab446 -->
+<!-- source: 0ecf2764c1b2 -->
 
 <!--
 label: KI-Spamfilter
-title: KI-Spamfilter mit lokalen Sprach- und Entscheidungsmodellen
+title: KI-Spamfilter mit lokalen und gehosteten Sprachmodellen
 description: Spam und Phishing, die Regeln übersehen, mit einem Sprachmodell erkennen: Ollama lokal, Cloudflare Clef oder Claude und ChatGPT, nur bei knappen Fällen.
 keywords: KI Spamfilter, KI-Spamfilter, LLM Spamerkennung, Ollama Spamfilter, Entscheidungsmodell, Cloudflare Clef, Jev, ChatGPT Spamfilter, Claude Spamfilter, lokales LLM E-Mail-Filter, Phishing-Erkennung KI
 -->

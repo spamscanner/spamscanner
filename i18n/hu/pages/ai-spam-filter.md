@@ -1,8 +1,8 @@
-<!-- source: 20d3823ab446 -->
+<!-- source: 0ecf2764c1b2 -->
 
 <!--
 label: MI spamszűrő
-title: MI spamszűrő helyi nyelvi modellekkel és döntési modellekkel
+title: MI spamszűrő helyi és felhőben futó nyelvi modellekkel
 description: Nyelvi modell a szabályokon átjutó spam és adathalászat ellen: Ollama a saját szerveren, Cloudflare Clef, vagy Claude és ChatGPT, csak a kétes esetekben.
 keywords: MI spamszűrő, AI spamszűrő, LLM spamfelismerés, Ollama spamszűrő, döntési modell, Cloudflare Clef, Jev, ChatGPT spamszűrő, Claude spamszűrő, helyi LLM e-mail-szűrő, adathalászat felismerése MI-vel
 -->

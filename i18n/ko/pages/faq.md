@@ -1,4 +1,4 @@
-<!-- source: 361732724f0e -->
+<!-- source: 6ec79ca6f686 -->
 
 <!--
 label: FAQ
@@ -17,7 +17,7 @@ Node.js, 명령줄, 메일 서버를 위한 스팸 필터입니다. 원본 이�
 
 ## 무료입니까?
 
-[라이선스](https://github.com/spamscanner/spamscanner/blob/master/LICENSE)인 Business Source License 1.1은 다른 사람에게 스팸 탐지를 서비스로 제공하는 경우를 제외한 모든 용도를 허용하며, Apache License 2.0으로 바뀌는 날짜를 명시하고 있습니다.
+Spam Scanner의 [라이선스](https://github.com/spamscanner/spamscanner/blob/master/LICENSE)는 Business Source License 1.1이며, Change License는 Apache License 2.0입니다. 라이선스에 적힌 Change Date는 이미 지났고, 그날부터 라이선스는 Apache License 2.0에 따른 권리를 부여합니다.
 
 
 ## 얼마나 정확합니까?

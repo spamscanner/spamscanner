@@ -1,8 +1,8 @@
-<!-- source: 20d3823ab446 -->
+<!-- source: 0ecf2764c1b2 -->
 
 <!--
 label: Filtro antispam con IA
-title: Filtro antispam con IA, modelli linguistici locali e decisionali
+title: Filtro antispam con IA e modelli linguistici locali o ospitati
 description: Un modello linguistico intercetta spam e phishing che sfuggono alle regole: Ollama sul tuo server, Cloudflare Clef, o Claude e ChatGPT, solo nei casi dubbi.
 keywords: filtro antispam IA, filtro antispam intelligenza artificiale, rilevamento spam LLM, filtro antispam Ollama, modello decisionale, Cloudflare Clef, Jev, filtro antispam ChatGPT, filtro antispam Claude, LLM locale email, rilevamento phishing IA
 -->

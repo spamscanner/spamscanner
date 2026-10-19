@@ -1,8 +1,8 @@
-<!-- source: 0ad167ddd34e -->
+<!-- source: c624a0354fe1 -->
 
 <!--
 label: Vícejazyčný spamový filtr
-title: Vícejazyčný spamový filtr pro čínštinu, arabštinu, ruštinu a další
+title: Vícejazyčný spamový filtr pro každý jazyk a písmo
 description: Jak Spam Scanner filtruje spam v každém jazyce: dělení na slova podle Unicode, odstranění maskování a nikdy neoznačí jazyk, který model málo zná.
 keywords: vícejazyčný spamový filtr, spamový filtr čeština, čínský spam, arabský spam, ruský spam, japonský spam, detekce spamu Unicode, homoglyfy spam
 -->

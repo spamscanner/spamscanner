@@ -1,8 +1,8 @@
-<!-- source: 0ad167ddd34e -->
+<!-- source: c624a0354fe1 -->
 
 <!--
 label: Mehrsprachiger Spamfilter
-title: Mehrsprachiger Spamfilter für Chinesisch, Arabisch und Russisch
+title: Mehrsprachiger Spamfilter für jede Sprache und Schrift
 description: Wie Spam Scanner Spam in jeder Sprache filtert: Unicode-Wortsegmentierung, aufgelöste Tarnungen und keine Fehlalarme bei Sprachen, die das Modell kaum kennt.
 keywords: mehrsprachiger Spamfilter, Spamfilter Chinesisch, Spamfilter Arabisch, Spamfilter Russisch, Spamfilter Japanisch, Unicode Spamerkennung, Homoglyphen Spam
 -->

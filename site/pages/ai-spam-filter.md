@@ -1,6 +1,6 @@
 <!--
 label: AI spam filter
-title: AI spam filter with local language models and decision models
+title: AI spam filter with local and hosted language models
 description: Catch spam and phishing that rules miss with a language model: Ollama on your own server, Cloudflare Clef, or Claude and ChatGPT, asked only about close calls.
 keywords: AI spam filter, LLM spam detection, Ollama spam filter, decision model, Cloudflare Clef, Jev, ChatGPT spam filter, Claude spam filter, local LLM email filter, phishing detection AI
 -->

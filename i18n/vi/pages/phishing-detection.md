@@ -1,8 +1,8 @@
-<!-- source: 0378a5e0f12b -->
+<!-- source: 9f8d9e55622c -->
 
 <!--
 label: Phát hiện phishing
-title: Phát hiện phishing email: tên miền giả, liên kết lừa, mạo danh
+title: Phát hiện phishing: tên miền giả mạo và liên kết lừa đảo
 description: Cách Spam Scanner phát hiện phishing: tên miền giả Unicode, liên kết hiện địa chỉ này nhưng dẫn tới nơi khác, tên thương hiệu, resolver Cloudflare, DMARC.
 keywords: phát hiện phishing, lọc email lừa đảo, email lừa đảo, tấn công homograph, IDN homograph, phát hiện tên miền giả mạo, liên kết lừa đảo, giả mạo thương hiệu email
 -->

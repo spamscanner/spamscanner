@@ -1,8 +1,8 @@
-<!-- source: 0378a5e0f12b -->
+<!-- source: 9f8d9e55622c -->
 
 <!--
 label: Detekce phishingu
-title: Detekce phishingu: podobné domény, klamavé odkazy a podvrhování
+title: Detekce phishingu: zaměnitelné domény a klamavé odkazy
 description: Jak Spam Scanner odhaluje phishing: podobné domény v Unicode, odkazy vedoucí jinam, než ukazují, jména značek, resolver Cloudflare proti malwaru a DMARC.
 keywords: detekce phishingu, phishingový filtr e-mailu, ochrana proti phishingu, homografický útok, IDN homograf, podobné domény, klamavý odkaz, zneužití značky v e-mailu
 -->

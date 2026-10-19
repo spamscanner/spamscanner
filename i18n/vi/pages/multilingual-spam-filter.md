@@ -1,8 +1,8 @@
-<!-- source: 0ad167ddd34e -->
+<!-- source: c624a0354fe1 -->
 
 <!--
 label: Bộ lọc spam đa ngôn ngữ
-title: Lọc spam đa ngôn ngữ: tiếng Trung, Ả Rập, Nga và mọi chữ viết
+title: Bộ lọc spam đa ngôn ngữ cho mọi ngôn ngữ và chữ viết
 description: Cách Spam Scanner lọc spam bằng mọi ngôn ngữ: tách từ theo Unicode, hoàn nguyên ngụy trang, và không đánh dấu ngôn ngữ mà mô hình ít biết.
 keywords: bộ lọc spam đa ngôn ngữ, lọc thư rác tiếng Việt, lọc spam tiếng Trung, lọc spam tiếng Ả Rập, lọc spam tiếng Nga, lọc spam tiếng Nhật, phát hiện spam Unicode, spam homoglyph
 -->

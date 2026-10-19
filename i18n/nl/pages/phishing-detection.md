@@ -1,8 +1,8 @@
-<!-- source: 0378a5e0f12b -->
+<!-- source: 9f8d9e55622c -->
 
 <!--
 label: Phishingdetectie
-title: Phishingdetectie: lookalike-domeinen, misleidende links, spoofing
+title: Phishingdetectie: lookalike-domeinen en misleidende links
 description: Hoe Spam Scanner phishingmail herkent: Unicode-lookalike-domeinen, misleidende links, merknamen als afzender, de malware-resolver van Cloudflare en DMARC.
 keywords: phishing detectie, phishing herkennen, phishingfilter e-mail, homograafaanval, IDN homograph, lookalike domein detectie, misleidende link, merkimitatie e-mail
 -->

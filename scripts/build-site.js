@@ -16,6 +16,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 import {fileURLToPath} from 'node:url';
+import {transformSync} from 'esbuild';
 import {Marked} from 'marked';
 import {PROVIDERS} from '../src/llm.js';
 import {RECOMMENDED_MODELS} from '../src/models.js';
@@ -23,6 +24,8 @@ import {segmentWords} from '../src/tokenizer.js';
 import {
 	DEFAULT, DIR as I18N_DIR, LOCALES, byCode, has, isDefault, locale, markdownHash, prefix, setLocale, t, th, translatedMarkdown, usedStrings,
 } from './site-i18n.js';
+import {robots, securityTxt, sitemap} from './site-files.js';
+import {MORE_TERMS, TERM_LINKS, TERM_NAMES} from './site-glossary.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const siteDir = path.join(root, 'site');
@@ -47,13 +50,37 @@ const PUBLISHER = {
 	'@type': 'Organization',
 	'@id': 'https://forwardemail.net/#organization',
 	name: 'Forward Email',
+	legalName: 'Forward Email LLC',
 	url: 'https://forwardemail.net',
-	logo: 'https://forwardemail.net/img/logo-square.svg',
-	sameAs: ['https://github.com/forwardemail'],
+	logo: {
+		'@type': 'ImageObject', url: 'https://forwardemail.net/img/logo-square-180x180.png', width: 180, height: 180,
+	},
+	// The profiles in forwardemail.net's own structured data.
+	sameAs: ['https://github.com/forwardemail', 'https://x.com/fwdemail', 'https://www.reddit.com/r/forwardemail/', 'https://www.youtube.com/forwardemail'],
 };
 
-// Guides in site/pages/, in this order; faq.md is the FAQ page.
-const GUIDES = ['postfix-spam-filter', 'spamassassin-alternative', 'ai-spam-filter', 'multilingual-spam-filter', 'phishing-detection', 'nodejs-spam-filter'];
+// Guides in site/pages/, in this order; faq.md is the FAQ page and about.md
+// the about page.
+const GUIDES = ['postfix-spam-filter', 'spamassassin-alternative', 'self-hosted-spam-filter', 'ai-spam-filter', 'multilingual-spam-filter', 'phishing-detection', 'nodejs-spam-filter'];
+const PAGES = [...GUIDES, 'faq', 'about'];
+
+// The home page's description in search results (SITE.description is longer).
+const HOME_DESCRIPTION = 'A spam filter for Node.js, the command line and mail servers. Catches spam, phishing, scams and malware in any language and explains every decision.';
+
+// Search result titles: a page title gets the site name after it while the
+// whole stays within this many characters.
+const TITLE_MAX = 60;
+
+// Descriptions for documents whose first paragraph does not describe the
+// page (it is code, a list's lead-in or a single fact).
+const DOC_DESCRIPTIONS = {
+	'docs/getting-started.md': 'Install Spam Scanner with npm or a standalone binary, scan a message from the command line or Node.js, and turn on more checks such as SPF, DKIM and ClamAV.',
+	'docs/cli.md': 'Every spamscanner command and option: scan, the Postfix content filter, the milter, HTTP, TCP and spamd servers, training, and a configuration file.',
+	'docs/postfix.md': 'Connect Spam Scanner to Postfix or Sendmail as a milter or content filter, with a systemd unit, X-Spam headers, 4xx or 5xx refusals and a GTUBE test.',
+	'docs/mail-servers.md': 'Use Spam Scanner with Exim, Haraka, Dovecot, procmail and maildrop through its command line, spamd and HTTP servers, and teach it from a Junk folder.',
+	'docs/http-api.md': 'Scan and teach over HTTP with a bearer token, or use the plain TCP server and the SpamAssassin-compatible spamd server. Examples in curl, Node.js and Python.',
+	'docs/api.md': 'The Node.js library: constructor options, allow and deny lists, methods, the scan result, and exports for the classifier, training, servers and ARF reports.',
+};
 
 const NAV = [
 	{group: 'Start', pages: [['docs/README.md', 'Overview'], ['docs/getting-started.md'], ['docs/cli.md']]},
@@ -119,7 +146,7 @@ function contentSecurityPolicy() {
 		'default-src \'none\'',
 		`script-src 'self' 'sha256-${digest}'`,
 		'style-src \'self\' \'unsafe-inline\'',
-		'img-src \'self\' https://forwardemail.net',
+		'img-src \'self\'',
 		'media-src \'self\'',
 		// Lighthouse and agents fetch /robots.txt and /llms.txt from the page.
 		'connect-src \'self\'',
@@ -160,7 +187,7 @@ function hash(content) {
 }
 
 function plain(markdown) {
-	return markdown.replaceAll(/`([^`]*)`/g, '$1').replaceAll(/\[([^\]]*)]\([^)]*\)/g, '$1').replaceAll(/[*_]/g, '').replaceAll(/\s+/g, ' ').trim();
+	return markdown.replaceAll(/`([^`]*)`/g, '$1').replaceAll(/\[([^\]]*)]\([^)]*\)/g, '$1').replaceAll(/\*|(?<![\p{L}\p{N}])_+|_+(?![\p{L}\p{N}])/gu, '').replaceAll(/\s+/g, ' ').trim();
 }
 
 function truncate(text, max) {
@@ -171,6 +198,15 @@ function truncate(text, max) {
 	const cut = text.slice(0, max);
 	const space = cut.lastIndexOf(' ');
 	return `${(space > max / 2 ? cut.slice(0, space) : cut).replace(/[,;:.、，]$/, '')}…`;
+}
+
+// A page title for search results: the site name after it when it fits.
+function pageTitle(title, withName) {
+	if (title.includes(SITE.name)) {
+		return title;
+	}
+
+	return [withName, `${title}: ${SITE.name}`].find(candidate => candidate && candidate.length <= TITLE_MAX) || title;
 }
 
 // A locale-aware link to a page of the site.
@@ -330,7 +366,7 @@ function renderMarkdown(markdown, source, pages, english = null) {
 				return codeBlock(code, (lang || '').split(/\s/)[0].toLowerCase());
 			},
 			table(token) {
-				const cell = (c, tag) => `<${tag}${c.align ? ` style="text-align:${c.align}"` : ''}>${this.parser.parseInline(c.tokens)}</${tag}>`;
+				const cell = (c, tag) => `<${tag}${tag === 'th' ? ' scope="col"' : ''}${c.align ? ` style="text-align:${c.align}"` : ''}>${this.parser.parseInline(c.tokens)}</${tag}>`;
 				const head = token.header.map(c => cell(c, 'th')).join('');
 				const rows = token.rows.map(row => `<tr>${row.map(c => cell(c, 'td')).join('')}</tr>`).join('\n');
 				return `<div class="table-wrap" tabindex="0"><table><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table></div>\n`;
@@ -387,8 +423,11 @@ function addGlossary(html, idPrefix) {
 // ---------------------------------------------------------------------------
 // Templates
 
-function svgInline(file, className) {
+// A second copy on the same page gets its own ids (suffix), so ids stay unique.
+function svgInline(file, className, suffix = '') {
 	return fs.readFileSync(path.join(siteDir, 'brand', file), 'utf8')
+		.replaceAll(/\bid="([^"]+)"/g, (match, id) => (id === 't' ? match : `id="${id}${suffix}"`))
+		.replaceAll(/url\(#([^)]+)\)/g, `url(#$1${suffix})`)
 		.replace(/<title[^>]*>[^<]*<\/title>/, '')
 		.replace(' role="img" aria-labelledby="t"', '')
 		.replace('<svg ', `<svg class="${className}" aria-hidden="true" focusable="false" `)
@@ -415,8 +454,8 @@ const ICONS = {
 	spark: `<svg viewBox="0 0 24 24" aria-hidden="true"><path ${STROKE} d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z"/></svg>`,
 };
 
-function brandLink() {
-	return `<a class="brand" href="${href('/')}">${svgInline('mark.svg', 'mark')}<span>${SITE.name}</span></a>`;
+function brandLink(suffix) {
+	return `<a class="brand" href="${href('/')}">${svgInline('mark.svg', 'mark', suffix)}<span>${SITE.name}</span></a>`;
 }
 
 // Share popover for the current page: plain links to each network's own share
@@ -432,7 +471,7 @@ function shareBox(url, text) {
 		['Telegram', `https://t.me/share/url?url=${u}&text=${tx}`],
 		['Mastodon', `https://mastodon.social/share?text=${both}`],
 		['Bluesky', `https://bsky.app/intent/compose?text=${both}`],
-		['X', `https://x.com/intent/post?text=${tx}&url=${u}`],
+		['X (Twitter)', `https://x.com/intent/post?text=${tx}&url=${u}`],
 		['Reddit', `https://www.reddit.com/submit?url=${u}&title=${tx}`],
 		['Hacker News', `https://news.ycombinator.com/submitlink?u=${u}&t=${tx}`],
 		['LinkedIn', `https://www.linkedin.com/sharing/share-offsite/?url=${u}`],
@@ -447,7 +486,7 @@ function shareBox(url, text) {
 <button class="button share-native" type="button" data-share-native hidden>${th('Share with an app on this device')}</button>
 <div class="share-link"><label class="sr-only" for="share-url">${th('Link')}</label><input id="share-url" type="text" value="${esc(url)}" readonly data-share-url dir="ltr"><button class="button button-quiet" type="button" data-share-copy>${ICONS.link}${th('Copy link')}</button></div>
 <ul class="share-grid">${targets.map(([name, link]) => `<li><a class="share-to" href="${esc(link)}"${/^(mailto|sms):/.test(link) ? '' : ' rel="nofollow noopener noreferrer" target="_blank"'}${name === 'Mastodon' ? ' data-mastodon' : ''}>${esc(name)}</a></li>`).join('')}</ul>
-<form class="share-mastodon" data-mastodon-form hidden><label for="share-instance">${th('Your Mastodon server')}</label><div><input id="share-instance" type="text" inputmode="url" placeholder="mastodon.social" autocomplete="off" spellcheck="false" dir="ltr"><button class="button" type="submit">${th('Share')}</button></div></form>
+<form class="share-mastodon" method="post" data-mastodon-form hidden><label for="share-instance">${th('Your Mastodon server')}</label><div><input id="share-instance" type="text" inputmode="url" placeholder="mastodon.social" autocomplete="off" spellcheck="false" dir="ltr"><button class="button" type="submit">${th('Share')}</button></div></form>
 <p class="muted small share-status" data-share-status role="status">${th('These are plain links. No share buttons, scripts or trackers from other sites are loaded.')}</p>
 </div>`;
 }
@@ -518,6 +557,7 @@ function structuredData(p, context) {
 		publisher: {'@id': PUBLISHER['@id']},
 		author: {'@id': PUBLISHER['@id']},
 		image,
+		...(p.published ? {datePublished: p.published} : {}),
 		dateModified: p.lastmod,
 		...(p.keywords ? {keywords: p.keywords} : {}),
 		...(crumbs ? {breadcrumb: {'@id': crumbs['@id']}} : {}),
@@ -541,6 +581,7 @@ function structuredData(p, context) {
 				license: `${SITE.repo}/blob/${SITE.branch}/LICENSE`,
 				softwareVersion: packageJson.version,
 				downloadUrl: 'https://www.npmjs.com/package/spamscanner',
+				sameAs: [SITE.repo, 'https://www.npmjs.com/package/spamscanner'],
 				isAccessibleForFree: true,
 				offers: {'@type': 'Offer', price: '0', priceCurrency: 'USD'},
 				publisher: {'@id': PUBLISHER['@id']},
@@ -567,6 +608,25 @@ function structuredData(p, context) {
 		case 'doc':
 		case 'guide': {
 			graph.push(article('TechArticle'));
+			break;
+		}
+
+		case 'about': {
+			graph.push({...article('AboutPage'), about: {'@id': `${SITE.url}/#software`}});
+			break;
+		}
+
+		case 'glossary': {
+			graph.push(article('WebPage'), {
+				'@type': 'DefinedTermSet',
+				'@id': `${url}#terms`,
+				name: p.heading,
+				url,
+				inLanguage: language,
+				hasDefinedTerm: p.terms.map(term => ({
+					'@type': 'DefinedTerm', name: term.name, description: term.description, url: `${url}#${term.id}`, inDefinedTermSet: {'@id': `${url}#terms`},
+				})),
+			});
 			break;
 		}
 
@@ -599,6 +659,7 @@ function head(p, context) {
 	const meta = (name, content) => `<meta name="${name}" content="${esc(content)}">`;
 	const property = (name, content) => `<meta property="${name}" content="${esc(content)}">`;
 	// Every language of a page links to the others, so search engines show the right one.
+	// They come after the tags crawlers read first, and before the head script, which reads them.
 	const alternates = p.alternates
 		? `${p.alternates.map(code => `<link rel="alternate" hreflang="${byCode.get(code).hreflang}" href="${SITE.url}${prefix(code)}${p.path}">`).join('\n')}\n<link rel="alternate" hreflang="x-default" href="${SITE.url}${p.path}">`
 		: '';
@@ -612,13 +673,11 @@ function head(p, context) {
 ${meta('description', p.description)}
 ${p.keywords ? meta('keywords', p.keywords) : ''}
 ${p.noindex ? meta('robots', 'noindex') : ''}
+<meta name="referrer" content="strict-origin-when-cross-origin">
 <link rel="canonical" href="${url}">
-${alternates}
 ${p.markdown ? `<link rel="alternate" type="text/markdown" href="${url}index.md" title="Markdown">` : ''}
 ${property('og:type', p.kind === 'home' ? 'website' : 'article')}
 ${property('og:site_name', SITE.name)}
-${property('og:locale', current.og)}
-${p.alternates ? p.alternates.filter(code => code !== current.code).map(code => property('og:locale:alternate', byCode.get(code).og)).join('\n') : ''}
 ${property('og:title', p.title)}
 ${property('og:description', p.description)}
 ${property('og:url', url)}
@@ -632,6 +691,8 @@ ${meta('twitter:title', p.title)}
 ${meta('twitter:description', p.description)}
 ${meta('twitter:image', image)}
 ${meta('twitter:image:alt', t(SITE.imageAlt))}
+${property('og:locale', current.og)}
+${p.alternates ? p.alternates.filter(code => code !== current.code).map(code => property('og:locale:alternate', byCode.get(code).og)).join('\n') : ''}
 <meta name="color-scheme" content="light dark">
 <meta name="theme-color" content="${SITE.themeLight}" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="${SITE.themeDark}" media="(prefers-color-scheme: dark)">
@@ -639,9 +700,10 @@ ${meta('twitter:image:alt', t(SITE.imageAlt))}
 <link rel="icon" href="/favicon-32.png" type="image/png" sizes="32x32">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="manifest" href="/manifest.webmanifest">
+${alternates}
 <script>${HEAD_SCRIPT}</script>
-<link rel="stylesheet" href="/style.css?v=${context.assets.css}">
-<script src="/site.js?v=${context.assets.js}" defer></script>
+<link rel="stylesheet" href="/style.min.css?v=${context.assets.css}">
+<script src="/site.min.js?v=${context.assets.js}" defer></script>
 <script type="application/ld+json">${structuredData(p, context)}</script>
 </head>`.replaceAll(/\n{2,}/g, '\n');
 }
@@ -664,7 +726,7 @@ ${link('/faq/', th('FAQ'), 'faq')}
 </nav>
 <div class="header-actions">
 <button class="icon-button header-share" type="button" popovertarget="share" data-share aria-label="${esc(t('Share'))}" title="${esc(t('Share'))}">${ICONS.share}</button>
-<button class="icon-button lang-toggle" type="button" popovertarget="lang" aria-label="${esc(t('Language: {name}', {name: locale().name}))}" title="${esc(t('Language'))}">${ICONS.language}<span class="lang-code">${locale().code.toUpperCase()}</span></button>
+<button class="icon-button lang-toggle" type="button" popovertarget="lang" aria-label="${esc(`${t('Language: {name}', {name: locale().name})} (${locale().code.toUpperCase()})`)}" title="${esc(t('Language'))}">${ICONS.language}<span class="lang-code">${locale().code.toUpperCase()}</span></button>
 <button class="icon-button theme-toggle" type="button" aria-label="${esc(t('Theme'))}" title="${esc(t('Theme'))}" data-label="${esc(t('Theme'))}" data-labels="${esc(JSON.stringify({system: t('system'), light: t('light'), dark: t('dark')}))}">${ICONS.theme}</button>
 <button class="icon-button menu-toggle" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="${esc(t('Menu'))}">${ICONS.menu}</button>
 </div>
@@ -677,13 +739,13 @@ function footer(guides) {
 	return `<footer class="site-footer">
 <div class="wrap footer-grid">
 <div class="footer-brand">
-${brandLink()}
+${brandLink('-f')}
 <p>${th('A spam filter that reads every language and explains every decision.')} <a href="${SITE.repo}/blob/${SITE.branch}/LICENSE" rel="noopener">${th('License')}</a>. © Forward Email LLC.</p>
 ${isDefault() ? '' : `<p class="muted small">${th('This translation is provided for convenience. The English version is the reference.')}</p>`}
 </div>
-${list('f-docs', th('Documentation'), [[href('/docs/getting-started/'), th('Getting started')], [href('/docs/cli/'), th('Command line')], [href('/docs/how-it-works/'), th('How it works')], [href('/docs/api/'), th('API reference')], [href('/faq/'), th('FAQ')]])}
+${list('f-docs', th('Documentation'), [[href('/docs/getting-started/'), th('Getting started')], [href('/docs/cli/'), th('Command line')], [href('/docs/how-it-works/'), th('How it works')], [href('/docs/api/'), th('API reference')], [href('/faq/'), th('FAQ')], [href('/glossary/'), th('Glossary')]])}
 ${list('f-guides', th('Guides'), guides.map(g => [href(g.url), esc(g.label)]))}
-${list('f-project', th('Project'), [[SITE.repo, 'GitHub'], ['https://www.npmjs.com/package/spamscanner', 'npm'], [`${SITE.repo}/releases`, th('Releases')], [href('/docs/security/'), th('Security')], ['/llms.txt', 'llms.txt']])}
+${list('f-project', th('Project'), [[SITE.repo, 'GitHub'], ['https://www.npmjs.com/package/spamscanner', 'npm'], [`${SITE.repo}/releases`, th('Releases')], [href('/docs/security/'), th('Security')], [href('/about/'), th('About')], [href('/about/#privacy'), th('Privacy')], ['/llms.txt', 'llms.txt']])}
 ${list('f-related', th('Related'), [['https://forwardemail.net', 'Forward Email'], ['https://attestium.com/', 'Attestium'], ['https://terminalemail.com/', 'Terminal Email'], ['https://privacyratings.com/', 'Privacy Ratings']])}
 </div>
 </footer>`;
@@ -740,7 +802,8 @@ function terminal() {
 			}
 		}
 	});
-	return `<figure class="terminal" dir="ltr" aria-label="${esc(t('A phishing message scanned from the command line'))}">
+	return `<figure class="terminal" dir="ltr">
+<figcaption class="sr-only">${th('A phishing message scanned from the command line')}</figcaption>
 <div class="terminal-bar" aria-hidden="true"><span></span><span></span><span></span><b>spamscanner</b></div>
 <pre tabindex="0">${lines.join('\n')}</pre>
 </figure>`;
@@ -803,7 +866,7 @@ function providers() {
 
 function modelsTable() {
 	const rows = RECOMMENDED_MODELS.filter(model => ['qwen3.5:4b', 'gemma4:e2b', 'qwen3.5:0.8b', 'qwen3.5:9b', 'gpt-oss-safeguard:20b'].includes(model.ollama)).map(model => `<tr><td dir="ltr"><code>${esc(model.ollama)}</code></td><td class="hide-small" dir="ltr"><a href="https://huggingface.co/${esc(model.huggingface)}" rel="noopener">${esc(model.huggingface)}</a></td><td dir="ltr">${esc(model.license)}</td><td class="num">${esc(model.size)}</td></tr>`).join('');
-	return `<div class="table-wrap" tabindex="0"><table class="data-table"><thead><tr><th>Ollama</th><th class="hide-small">Hugging Face</th><th>${th('License')}</th><th class="num">${th('Size')}</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+	return `<div class="table-wrap" tabindex="0"><table class="data-table"><caption class="sr-only">${th('Recommended open models.')}</caption><thead><tr><th scope="col">Ollama</th><th scope="col" class="hide-small">Hugging Face</th><th scope="col">${th('License')}</th><th scope="col" class="num">${th('Size')}</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 
 function metricsTable(model) {
@@ -817,7 +880,7 @@ function metricsTable(model) {
 	const count = new Intl.NumberFormat(language);
 	const names = new Intl.DisplayNames([language], {type: 'language'});
 	const rows = Object.entries(metrics.byLanguage).filter(([code]) => ['en', 'ru', 'it', 'de', 'es'].includes(code)).map(([code, m]) => `<tr><td>${esc(names.of(code))}</td><td class="num">${count.format(m.messages)}</td><td class="num">${percent.format(m.precision)}</td><td class="num">${percent.format(m.recall)}</td><td class="num">${percent.format(m.falsePositiveRate)}</td></tr>`).join('');
-	return `<div class="table-wrap" tabindex="0"><table class="data-table"><thead><tr><th>${th('Held-out messages')}</th><th class="num">${th('Messages')}</th><th class="num">${th('Precision')}</th><th class="num">${th('Recall')}</th><th class="num">${th('False positives')}</th></tr></thead><tbody>${rows}<tr><td><strong>${th('All')}</strong></td><td class="num">${count.format(metrics.messages)}</td><td class="num">${percent.format(metrics.precision)}</td><td class="num">${percent.format(metrics.recall)}</td><td class="num">${percent.format(metrics.falsePositiveRate)}</td></tr></tbody></table></div>
+	return `<div class="table-wrap" tabindex="0"><table class="data-table"><caption class="sr-only">${th('Held-out messages')}</caption><thead><tr><th scope="col">${th('Held-out messages')}</th><th scope="col" class="num">${th('Messages')}</th><th scope="col" class="num">${th('Precision')}</th><th scope="col" class="num">${th('Recall')}</th><th scope="col" class="num">${th('False positives')}</th></tr></thead><tbody>${rows}<tr><td><strong>${th('All')}</strong></td><td class="num">${count.format(metrics.messages)}</td><td class="num">${percent.format(metrics.precision)}</td><td class="num">${percent.format(metrics.recall)}</td><td class="num">${percent.format(metrics.falsePositiveRate)}</td></tr></tbody></table></div>
 <p class="note">${th('The classifier alone, on every tenth message of its public training data, held out. Unsure messages count as missed. German, Italian and Spanish come from synthetic datasets with noisy labels.')} <a href="${href('/docs/training/#the-bundled-model')}">${th('About the bundled model')}</a></p>`;
 }
 
@@ -835,7 +898,7 @@ function videoFeature(video) {
 ${isDefault() ? '' : `<p class="muted small">${th('Narrated in English, with English captions.')}</p>`}
 <p class="hero-links"><a class="button" href="${SITE.video}.mp4" data-video-open>${ICONS.play}${th('Watch the video')}</a>${shareButton(th('Share'))}</p>
 </div>
-<a class="video-poster" href="${SITE.video}.mp4" data-video-open aria-label="${esc(t('Watch the video ({duration})', {duration: video.duration}))}"><img src="${SITE.video}-cover.jpg" width="1280" height="720" alt="${esc(t('The video\'s title frame: the Spam Scanner logo.'))}" loading="lazy" decoding="async"><span class="play" aria-hidden="true"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M7 4.5v15l12.5-7.5z"/></svg></span><span class="duration" aria-hidden="true">${esc(video.duration)}</span></a>
+<a class="video-poster" href="${SITE.video}.mp4" data-video-open aria-label="${esc(t('Watch the video ({duration})', {duration: video.duration}))}"><picture><source type="image/webp" srcset="${SITE.video}-cover-640.webp 640w, ${SITE.video}-cover.webp 1280w" sizes="(max-width: 900px) 100vw, 560px"><img src="${SITE.video}-cover.jpg" width="1280" height="720" alt="${esc(t('The video\'s title frame: the Spam Scanner logo.'))}" fetchpriority="low" decoding="async"></picture><span class="play" aria-hidden="true"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M7 4.5v15l12.5-7.5z"/></svg></span><span class="duration" aria-hidden="true">${esc(video.duration)}</span></a>
 </div>
 </section>`;
 }
@@ -858,6 +921,15 @@ function landing(context) {
 <ul class="facts"><li>Node.js 18+</li><li>${th('Milter, spamd, HTTP')}</li><li>Ollama, Claude, ChatGPT</li><li>${th('No telemetry')}</li></ul>
 </div>
 ${terminal()}
+</div>
+</section>
+
+<section class="section" id="what-it-is" aria-labelledby="what-h">
+<div class="wrap">
+<div class="section-head">
+<h2 id="what-h">${th('What is Spam Scanner?')}</h2>
+<p>${th('Spam Scanner is an email spam filter from Forward Email, published on npm as spamscanner (version {version}). It scores a raw message with a classifier and with checks of its links, attachments, sender authentication and blocklists. At 5 points a message is spam, and at 15 a mail server should refuse it. It runs as a Node.js library, a command line, a milter for Postfix and Sendmail, a SpamAssassin-compatible spamd server, an HTTP API or a TCP server. It needs Node.js 18 or later, or nothing with the standalone binaries for Linux, macOS and Windows, and it sends no telemetry.', {version: esc(packageJson.version)})}</p>
+</div>
 </div>
 </section>
 
@@ -949,7 +1021,7 @@ ${tabs()}
 <p>${th('Forward Email keeps no logs of message content, so it could not send mail to an outside filtering service. Spam Scanner runs on your own servers, sends nothing anywhere unless configured to, and explains every decision without a person reading the mail.')} <a href="${href('/docs/forward-email/')}">${th('Forward Email and upgrading')}</a></p>
 </div>
 <div class="credit">
-<a class="credit-logo" href="https://forwardemail.net"><img src="https://forwardemail.net/img/logo-square.svg" width="44" height="44" alt="Forward Email"></a>
+<img class="credit-logo" src="/brand/forward-email.svg" width="44" height="44" alt="" loading="lazy" decoding="async">
 <p>${th('A project by {link}, the privacy-focused email service.', {link: '<a href="https://forwardemail.net">Forward Email</a>'})}</p>
 </div>
 </div>
@@ -959,8 +1031,8 @@ ${tabs()}
 	return {
 		path: '/',
 		kind: 'home',
-		title: t('Spam Scanner: a spam filter for every language, with explained decisions'),
-		description: t(SITE.description),
+		title: t('Spam Scanner: self-hosted Node.js and Postfix spam filter'),
+		description: t(HOME_DESCRIPTION),
 		keywords: t(SITE.keywords),
 		sources: ['README.md', 'scripts/build-site.js', 'model/classifier.json'],
 		body,
@@ -968,11 +1040,21 @@ ${tabs()}
 	};
 }
 
+// The home page as Markdown for agents: the README without its HTML banner and
+// the development notes.
+function homeMarkdown(pages) {
+	const readme = fs.readFileSync(path.join(root, 'README.md'), 'utf8');
+	const start = readme.indexOf('## Features');
+	const end = readme.indexOf('## Development');
+	const body = `${readme.slice(start, end === -1 ? undefined : end)}${end === -1 ? '' : readme.slice(readme.indexOf('## License'))}`;
+	return markdownCopy(SITE.name, `\n> ${SITE.description}\n\n${body}`, {source: 'README.md', pages, url: '/'});
+}
+
 // ---------------------------------------------------------------------------
 // Docs pages
 
 function sidebar(nav, current) {
-	return nav.map(({group, pages}) => `<div class="side-group"><h2>${th(group)}</h2><ul>${pages.map(p => `<li><a href="${href(p.url)}"${p.source === current ? ' aria-current="page"' : ''}>${esc(p.label)}</a></li>`).join('')}</ul></div>`).join('\n');
+	return nav.map(({group, pages}) => `<div class="side-group"><p class="side-title">${th(group)}</p><ul>${pages.map(p => `<li><a href="${href(p.url)}"${p.source === current ? ' aria-current="page"' : ''}>${esc(p.label)}</a></li>`).join('')}</ul></div>`).join('\n');
 }
 
 function tocNav(toc) {
@@ -1018,7 +1100,7 @@ ${tocNav(toc)}
 		kind: 'doc',
 		active,
 		translated: doc.translated,
-		title: doc.title.includes(SITE.name) ? doc.title : `${doc.title}: ${SITE.name}`,
+		title: pageTitle(doc.title, t('{title}: Spam Scanner documentation', {title: doc.title})),
 		heading: doc.title,
 		description: doc.description,
 		sources: [doc.file],
@@ -1057,7 +1139,7 @@ function loadDoc(source, label) {
 		title,
 		titleHtml,
 		label: navLabel,
-		description: truncate(plain(paragraph), 158),
+		description: DOC_DESCRIPTIONS[source] ? t(DOC_DESCRIPTIONS[source]) : truncate(plain(paragraph), 158),
 		body,
 		englishBody: translation ? parseDoc(english).body : null,
 		translated: isDefault() || Boolean(translation),
@@ -1124,6 +1206,7 @@ function loadGuide(slug) {
 function guidePage(guide, pages, guides) {
 	const {slug, source, data, heading, body} = guide;
 	const url = `/${slug}/`;
+	const kind = {faq: 'faq', about: 'about'}[slug] || 'guide';
 	const {html, toc} = renderMarkdown(body, source, pages, guide.englishBody);
 	const note = untranslatedNote();
 	const faq = slug === 'faq'
@@ -1133,7 +1216,7 @@ function guidePage(guide, pages, guides) {
 		})
 		: null;
 	const related = guides.filter(g => g.url !== url);
-	const aside = `<aside class="related" aria-labelledby="related-h"><h2 id="related-h">${slug === 'faq' ? th('Guides') : th('More guides')}</h2><ul>${related.map(g => `<li><a href="${href(g.url)}">${esc(g.label)}</a><span>${esc(g.description)}</span></li>`).join('')}</ul></aside>`;
+	const aside = `<aside class="related" aria-labelledby="related-h"><h2 id="related-h">${kind === 'guide' ? th('More guides') : th('Guides')}</h2><ul>${related.map(g => `<li><a href="${href(g.url)}">${esc(g.label)}</a><span>${esc(g.description)}</span></li>`).join('')}</ul></aside>`;
 	const label = data.label || heading;
 	const bodyHtml = `<div class="wrap guide">
 <main id="main" class="doc"${guide.translated ? '' : ' lang="en" dir="ltr"'}>
@@ -1150,10 +1233,10 @@ ${tocNav(toc)}
 </div>`;
 	return {
 		path: url,
-		kind: slug === 'faq' ? 'faq' : 'guide',
-		active: slug === 'faq' ? 'faq' : 'guide',
+		kind,
+		active: kind,
 		translated: guide.translated,
-		title: `${data.title || heading}: ${SITE.name}`,
+		title: pageTitle(data.title || heading),
 		heading,
 		label,
 		description: data.description,
@@ -1161,9 +1244,55 @@ ${tocNav(toc)}
 		sources: [guide.file],
 		crumbs: [{name: SITE.name, url: href('/')}, {name: label, url: href(url)}],
 		markdown: markdownCopy(heading, body, {source, pages, url: href(url)}),
-		group: slug === 'faq' ? 'FAQ' : 'Guides',
+		group: {faq: 'FAQ', about: 'About'}[kind] || 'Guides',
 		faq,
 		body: bodyHtml,
+	};
+}
+
+// The glossary: every term the tooltips explain, and a few more.
+
+function glossaryPage() {
+	const url = '/glossary/';
+	const intro = 'Short definitions of the email and spam filter terms used in the Spam Scanner documentation. Each term links to the page that explains it.';
+	const strings = ['Glossary', 'Email spam filter glossary', intro, ...GLOSSARY.map(([, text]) => text), ...MORE_TERMS.flatMap(([name, text]) => [name, text])];
+	const terms = [
+		...GLOSSARY.map(([term, text]) => ({key: term, name: TERM_NAMES[term] || term, description: t(text)})),
+		...MORE_TERMS.map(([name, text]) => ({key: name, name: t(name), description: t(text)})),
+	].map(term => ({...term, id: slugify(term.key), link: TERM_LINKS[term.key]})).sort((a, b) => a.key.localeCompare(b.key, 'en', {sensitivity: 'base'}));
+	const heading = t('Email spam filter glossary');
+	const label = t('Glossary');
+	const list = terms.map(term => `<dt id="${term.id}"><a href="${href(term.link)}">${esc(term.name)}</a></dt><dd>${esc(term.description)}</dd>`).join('\n');
+	const body = `<div class="wrap guide">
+<main id="main" class="doc">
+<nav class="crumbs" aria-label="${esc(t('Breadcrumb'))}"><ol><li><a href="${href('/')}">${SITE.name}</a></li><li><span aria-current="page">${esc(label)}</span></li></ol></nav>
+<article class="prose">
+<h1>${esc(heading)}</h1>
+<p>${th(intro)}</p>
+<dl class="glossary">
+${list}
+</dl>
+</article>
+<p class="edit"><a href="${href(url)}index.md">Markdown</a> · ${shareButton(th('Share this page'))}</p>
+</main>
+${tocNav([])}
+</div>`;
+	const markdown = `# ${heading}\n\n${t(intro)}\n\n${terms.map(term => `## [${term.name}](${SITE.url}${href(term.link)})\n\n${term.description}`).join('\n\n')}\n`;
+	return {
+		path: url,
+		kind: 'glossary',
+		active: 'glossary',
+		translated: strings.every(english => has(english)),
+		title: pageTitle(heading),
+		heading,
+		label,
+		description: t('Definitions of email and spam filter terms, from ham, milter and spamd to SPF, DKIM, DMARC, DNSBL and GTUBE, with links to the documentation.'),
+		sources: ['scripts/build-site.js'],
+		crumbs: [{name: SITE.name, url: href('/')}, {name: label, url: href(url)}],
+		markdown,
+		group: 'Glossary',
+		terms,
+		body,
 	};
 }
 
@@ -1205,17 +1334,22 @@ function lastmod(sources, fallback) {
 	return dates.length > 0 ? dates.at(-1) : fallback;
 }
 
-function robots() {
-	return `# Everything on this site is public. Search engines, crawlers and AI agents are welcome;\n# /llms.txt lists the pages for language models.\nUser-agent: *\nAllow: /\n\nSitemap: ${SITE.url}/sitemap.xml\n`;
-}
+// When a page's first source file was added, from git; nothing if unknown.
+const firstAdded = new Map();
+function published(sources) {
+	const dates = sources.map(source => {
+		if (!firstAdded.has(source)) {
+			let date = '';
+			try {
+				date = execFileSync('git', ['-C', root, 'log', '--diff-filter=A', '--format=%cI', '--', source], {encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore']}).trim().split('\n').at(-1);
+			} catch {}
 
-// One entry per page and language, with links to the page's other languages.
-function sitemap(pages) {
-	const entries = pages.filter(p => !p.noindex).map(p => {
-		const links = (p.alternates || []).map(code => `<xhtml:link rel="alternate" hreflang="${byCode.get(code).hreflang}" href="${SITE.url}${prefix(code)}${p.path}"/>`).join('');
-		return `<url><loc>${SITE.url}${p.url}</loc><lastmod>${p.lastmod}</lastmod>${links}</url>`;
-	});
-	return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">\n${entries.join('\n')}\n</urlset>\n`;
+			firstAdded.set(source, date);
+		}
+
+		return firstAdded.get(source);
+	}).filter(Boolean).sort();
+	return dates[0];
 }
 
 function llms(pages) {
@@ -1236,6 +1370,11 @@ ${group('Documentation')}
 
 ${group('Guides')}
 ${group('FAQ')}
+${group('Glossary')}
+
+## About
+
+${group('About')}
 
 ## Optional
 
@@ -1307,19 +1446,27 @@ function videoInfo() {
 function buildLocale(context) {
 	const nav = NAV.map(({group, pages}) => ({group, pages: pages.map(([source, label]) => loadDoc(source, label))}));
 	const order = nav.flatMap(g => g.pages);
-	const sources = new Set(['README.md', ...order.map(p => p.source), ...[...GUIDES, 'faq'].map(slug => `site/pages/${slug}.md`)]);
+	const sources = new Set(['README.md', ...order.map(p => p.source), ...PAGES.map(slug => `site/pages/${slug}.md`)]);
 	const guides = GUIDES.map(slug => loadGuide(slug));
 	const faq = loadGuide('faq');
+	const about = loadGuide('about');
 	const guideSummaries = guides.map(g => ({url: `/${g.slug}/`, label: g.data.label, description: g.data.description}));
 	context.guides = guideSummaries;
 	const home = landing(context);
+	if (isDefault()) {
+		home.markdown = homeMarkdown(sources);
+		home.group = 'Documentation';
+	}
+
 	// The home page counts as translated when its interface strings are.
-	home.translated = isDefault() || [SITE.description, 'How a message is judged', 'What it checks', 'Built for Forward Email'].every(english => has(english));
+	home.translated = isDefault() || [HOME_DESCRIPTION, 'How a message is judged', 'What it checks', 'Built for Forward Email'].every(english => has(english));
 	return [
 		home,
 		...order.map(doc => docPage(doc, nav, order, sources)),
 		...guides.map(guide => guidePage(guide, sources, guideSummaries)),
 		guidePage(faq, sources, guideSummaries),
+		guidePage(about, sources, guideSummaries),
+		glossaryPage(),
 	];
 }
 
@@ -1331,17 +1478,19 @@ export async function build({outDir = path.join(root, '_site')} = {}) {
 	const css = fs.readFileSync(path.join(siteDir, 'style.css'), 'utf8');
 	const js = fs.readFileSync(path.join(siteDir, 'site.js'), 'utf8');
 	const assets = {css: hash(css), js: hash(js)};
-	fs.writeFileSync(path.join(outDir, 'style.css'), css);
-	fs.writeFileSync(path.join(outDir, 'site.js'), js);
+	// Minified copies; the sources in site/ stay readable.
+	fs.writeFileSync(path.join(outDir, 'style.min.css'), transformSync(css, {loader: 'css', minify: true}).code);
+	fs.writeFileSync(path.join(outDir, 'site.min.js'), transformSync(js, {loader: 'js', minify: true}).code);
 	for (const file of ['favicon-32.png', 'apple-touch-icon.png', 'icon-192.png', 'icon-512.png', 'og.png']) {
 		copy(path.join(siteDir, file), outDir, file);
 	}
 
 	copy(path.join(siteDir, 'brand', 'favicon.svg'), outDir, 'favicon.svg');
 	copy(path.join(siteDir, 'brand', 'mark.svg'), outDir, 'brand/mark.svg');
+	copy(path.join(siteDir, 'brand', 'forward-email.svg'), outDir, 'brand/forward-email.svg');
 	const video = videoInfo();
 	if (video) {
-		for (const file of ['spam-scanner.mp4', 'spam-scanner.webm', 'spam-scanner.jpg', 'spam-scanner-cover.jpg']) {
+		for (const file of ['spam-scanner.mp4', 'spam-scanner.webm', 'spam-scanner.jpg', 'spam-scanner-cover.jpg', 'spam-scanner-cover.webp', 'spam-scanner-cover-640.webp']) {
 			copy(path.join(siteDir, 'media', file), outDir, `media/${file}`);
 		}
 	}
@@ -1370,6 +1519,7 @@ export async function build({outDir = path.join(root, '_site')} = {}) {
 	for (const p of all) {
 		setLocale(p.locale);
 		p.lastmod = lastmod(p.sources, buildTime);
+		p.published = published(p.sources);
 		// Rendering needs the current locale for the shared chrome.
 		context.guides = byLocale.get(p.locale).filter(q => q.kind === 'guide').map(q => ({url: q.path, label: q.label, description: q.description}));
 		write(outDir, p.url, render(p, context));
@@ -1386,8 +1536,9 @@ export async function build({outDir = path.join(root, '_site')} = {}) {
 	write(outDir, errorPage.url, render(errorPage, context));
 
 	const english = byLocale.get(DEFAULT);
-	fs.writeFileSync(path.join(outDir, 'sitemap.xml'), sitemap(all));
-	fs.writeFileSync(path.join(outDir, 'robots.txt'), robots());
+	fs.writeFileSync(path.join(outDir, 'sitemap.xml'), sitemap(SITE.url, all));
+	fs.writeFileSync(path.join(outDir, 'robots.txt'), robots(SITE.url));
+	write(outDir, '/.well-known/security.txt', securityTxt({url: SITE.url, repo: SITE.repo, buildTime}));
 	fs.writeFileSync(path.join(outDir, 'llms.txt'), llms(english));
 	fs.writeFileSync(path.join(outDir, 'llms-full.txt'), llmsFull(english));
 	fs.writeFileSync(path.join(outDir, 'manifest.webmanifest'), manifest());
@@ -1402,7 +1553,7 @@ export async function build({outDir = path.join(root, '_site')} = {}) {
 		sourceHashes[`docs/${file}`] = markdownHash(fs.readFileSync(path.join(root, 'docs', file), 'utf8'));
 	}
 
-	for (const slug of [...GUIDES, 'faq']) {
+	for (const slug of PAGES) {
 		sourceHashes[`pages/${slug}.md`] = markdownHash(fs.readFileSync(path.join(siteDir, 'pages', `${slug}.md`), 'utf8'));
 	}
 

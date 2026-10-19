@@ -1,8 +1,8 @@
-<!-- source: 0ad167ddd34e -->
+<!-- source: c624a0354fe1 -->
 
 <!--
 label: Meertalig spamfilter
-title: Meertalig spamfilter voor Chinees, Arabisch, Russisch en meer
+title: Meertalig spamfilter voor elke taal en elk schrift
 description: Hoe Spam Scanner spam in elke taal filtert: Unicode-woordsegmentatie, vermommingen ongedaan maken en nooit een onbekende taal als spam markeren.
 keywords: meertalig spamfilter, spamfilter meerdere talen, Chinese spam filteren, Arabische spam, Russische spam, Japanse spam, Unicode spamdetectie, homoglyph spam
 -->

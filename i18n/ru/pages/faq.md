@@ -1,4 +1,4 @@
-<!-- source: 361732724f0e -->
+<!-- source: 6ec79ca6f686 -->
 
 <!--
 label: Вопросы и ответы
@@ -17,7 +17,7 @@ keywords: Spam Scanner вопросы, вопросы о спам-фильтре
 
 ## Он бесплатный?
 
-Его [лицензия](https://github.com/spamscanner/spamscanner/blob/master/LICENSE), Business Source License 1.1, разрешает любое использование, кроме предоставления обнаружения спама другим как сервиса, и указывает дату, когда она сменится на Apache License 2.0.
+[Лицензия](https://github.com/spamscanner/spamscanner/blob/master/LICENSE) Spam Scanner — Business Source License 1.1, а её Change License — Apache License 2.0. Указанная в лицензии Change Date уже прошла, и с этой даты лицензия предоставляет вам права по Apache License 2.0.
 
 
 ## Насколько он точен?

@@ -1,8 +1,8 @@
-<!-- source: 20d3823ab446 -->
+<!-- source: 0ecf2764c1b2 -->
 
 <!--
 label: Filter spam AI
-title: Filter spam AI dengan model bahasa lokal dan model keputusan
+title: Filter spam AI dengan model bahasa lokal dan ter-hosting
 description: Tangkap spam dan phishing yang lolos dari aturan dengan model bahasa: Ollama di server Anda, Cloudflare Clef, atau Claude dan ChatGPT, untuk kasus meragukan.
 keywords: filter spam AI, deteksi spam LLM, filter spam Ollama, model keputusan, Cloudflare Clef, Jev, filter spam ChatGPT, filter spam Claude, filter email LLM lokal, deteksi phishing AI
 -->

@@ -1,8 +1,8 @@
-<!-- source: 0ad167ddd34e -->
+<!-- source: c624a0354fe1 -->
 
 <!--
 label: Çok dilli spam filtresi
-title: Çince, Arapça, Rusça ve her yazı için çok dilli spam filtresi
+title: Her dil ve yazı sistemi için çok dilli spam filtresi
 description: Spam Scanner her dilde spamı nasıl filtreler: Unicode sözcük bölütleme, kamuflajları geri çözme ve modelin az tanıdığı bir dili asla işaretlememe.
 keywords: çok dilli spam filtresi, Çince spam filtresi, Arapça spam filtresi, Rusça spam filtresi, Japonca spam filtresi, Türkçe spam filtresi, Unicode spam tespiti, homoglif spam
 -->

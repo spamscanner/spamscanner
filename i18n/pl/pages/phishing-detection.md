@@ -1,8 +1,8 @@
-<!-- source: 0378a5e0f12b -->
+<!-- source: 9f8d9e55622c -->
 
 <!--
 label: Wykrywanie phishingu
-title: Wykrywanie phishingu w e-mailach: podobne domeny i mylące linki
+title: Wykrywanie phishingu: domeny sobowtóry i mylące linki
 description: Jak Spam Scanner wykrywa phishing: podobne domeny Unicode, linki pokazujące inny adres niż cel, marki w nazwach nadawców, resolver Cloudflare i DMARC.
 keywords: wykrywanie phishingu, filtr phishingu e-mail, atak homograficzny, homograf IDN, wykrywanie podobnych domen, fałszywe linki, podszywanie się pod markę e-mail
 -->

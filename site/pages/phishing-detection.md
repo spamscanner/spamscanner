@@ -1,6 +1,6 @@
 <!--
 label: Phishing detection
-title: Phishing detection for email: lookalike domains, deceptive links and spoofing
+title: Phishing detection: lookalike domains and deceptive links
 description: How Spam Scanner detects phishing email: Unicode lookalike domains, links that show one address and go to another, brand display names, Cloudflare's malware resolver and DMARC.
 keywords: phishing detection, email phishing filter, homograph attack, IDN homograph, lookalike domain detection, deceptive link, brand impersonation email
 -->

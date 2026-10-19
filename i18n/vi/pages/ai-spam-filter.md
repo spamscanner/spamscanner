@@ -1,8 +1,8 @@
-<!-- source: 20d3823ab446 -->
+<!-- source: 0ecf2764c1b2 -->
 
 <!--
 label: Bộ lọc spam AI
-title: Bộ lọc spam AI với mô hình ngôn ngữ cục bộ và mô hình quyết định
+title: Bộ lọc spam AI với mô hình ngôn ngữ cục bộ và được lưu trữ
 description: Bắt spam và phishing mà quy tắc bỏ sót bằng mô hình ngôn ngữ: Ollama trên máy chủ của bạn, Cloudflare Clef, hoặc Claude và ChatGPT, chỉ hỏi khi sát nút.
 keywords: bộ lọc spam AI, lọc thư rác bằng AI, phát hiện spam bằng LLM, lọc spam Ollama, mô hình quyết định, Cloudflare Clef, Jev, lọc spam ChatGPT, lọc spam Claude, lọc email bằng LLM cục bộ, phát hiện phishing bằng AI
 -->

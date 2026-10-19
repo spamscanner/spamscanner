@@ -1,4 +1,4 @@
-<!-- source: 361732724f0e -->
+<!-- source: 6ec79ca6f686 -->
 
 <!--
 label: FAQ
@@ -17,7 +17,7 @@ Filter spam untuk Node.js, baris perintah, dan server email. Spam Scanner membac
 
 ## Apakah gratis?
 
-[Lisensinya](https://github.com/spamscanner/spamscanner/blob/master/LICENSE), Business Source License 1.1, mengizinkan penggunaan apa pun kecuali menawarkan deteksi spam sebagai layanan kepada pihak lain, dan menyebutkan tanggal lisensi berubah menjadi Apache License 2.0.
+[Lisensi](https://github.com/spamscanner/spamscanner/blob/master/LICENSE) Spam Scanner adalah Business Source License 1.1, dengan Apache License 2.0 sebagai Change License. Change Date yang disebutkan dalam lisensi sudah lewat, dan sejak tanggal itu lisensi memberi Anda hak berdasarkan Apache License 2.0.
 
 
 ## Seberapa akurat?

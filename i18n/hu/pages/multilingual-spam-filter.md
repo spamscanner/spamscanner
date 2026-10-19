@@ -1,8 +1,8 @@
-<!-- source: 0ad167ddd34e -->
+<!-- source: c624a0354fe1 -->
 
 <!--
 label: Többnyelvű spamszűrő
-title: Többnyelvű spamszűrő: kínai, arab, orosz és minden írásrendszer
+title: Többnyelvű spamszűrő minden nyelvhez és írásrendszerhez
 description: Hogyan szűri a Spam Scanner a spamet minden nyelven: Unicode-szószegmentálás, az álcázások feloldása, és nem jelöli meg a modell által alig ismert nyelveket.
 keywords: többnyelvű spamszűrő, kínai spamszűrő, arab spamszűrő, orosz spamszűrő, japán spamszűrő, magyar spamszűrő, Unicode spamfelismerés, homoglif spam
 -->

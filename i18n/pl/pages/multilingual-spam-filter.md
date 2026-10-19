@@ -1,8 +1,8 @@
-<!-- source: 0ad167ddd34e -->
+<!-- source: c624a0354fe1 -->
 
 <!--
 label: Wielojęzyczny filtr antyspamowy
-title: Wielojęzyczny filtr antyspamowy: chiński, arabski, rosyjski i inne
+title: Wielojęzyczny filtr antyspamowy dla każdego języka i pisma
 description: Jak Spam Scanner filtruje spam w każdym języku: podział na słowa według Unicode, odwracanie maskowania i brak oznaczeń za język, o którym model wie mało.
 keywords: wielojęzyczny filtr antyspamowy, filtr spamu chiński, filtr spamu arabski, filtr spamu rosyjski, filtr spamu japoński, wykrywanie spamu Unicode, spam homoglify
 -->

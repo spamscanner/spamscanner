@@ -1,8 +1,8 @@
-<!-- source: 20d3823ab446 -->
+<!-- source: 0ecf2764c1b2 -->
 
 <!--
 label: Filtre antispam IA
-title: Filtre antispam IA avec modèles de langage locaux et de décision
+title: Filtre antispam IA avec modèles de langage locaux et hébergés
 description: Un modèle de langage contre le spam et l’hameçonnage qui échappent aux règles : Ollama en local, Cloudflare Clef, ou Claude et ChatGPT, pour les cas limites.
 keywords: filtre antispam IA, antispam intelligence artificielle, détection de spam par LLM, antispam Ollama, modèle de décision, Cloudflare Clef, Jev, filtre antispam ChatGPT, filtre antispam Claude, LLM local filtre e-mail, détection de phishing IA
 -->

@@ -1,8 +1,8 @@
-<!-- source: 20d3823ab446 -->
+<!-- source: 0ecf2764c1b2 -->
 
 <!--
 label: Spamový filtr s AI
-title: Spamový filtr s AI: lokální jazykové a rozhodovací modely
+title: Spamový filtr s AI a lokálními či hostovanými jazykovými modely
 description: Jazykový model zachytí spam a phishing, které pravidla minou: Ollama na vlastním serveru, Cloudflare Clef, nebo Claude a ChatGPT, jen u hraničních případů.
 keywords: spamový filtr AI, antispam AI, detekce spamu LLM, spamový filtr Ollama, rozhodovací model, Cloudflare Clef, Jev, spamový filtr ChatGPT, spamový filtr Claude, lokální LLM filtr e-mailu, detekce phishingu AI
 -->

@@ -1,4 +1,4 @@
-<!-- source: 361732724f0e -->
+<!-- source: 6ec79ca6f686 -->
 
 <!--
 label: 常见问题
@@ -17,7 +17,7 @@ keywords: Spam Scanner 常见问题, 垃圾邮件过滤器问题, 垃圾邮件�
 
 ## 它免费吗？
 
-它的[许可证](https://github.com/spamscanner/spamscanner/blob/master/LICENSE)是 Business Source License 1.1，允许除向他人提供垃圾邮件检测服务以外的任何用途，并写明了它转为 Apache License 2.0 的日期。
+Spam Scanner 的[许可证](https://github.com/spamscanner/spamscanner/blob/master/LICENSE)是 Business Source License 1.1，其 Change License 为 Apache License 2.0。许可证中写明的 Change Date 已经过去，自该日起，许可证授予你 Apache License 2.0 下的权利。
 
 
 ## 它有多准确？

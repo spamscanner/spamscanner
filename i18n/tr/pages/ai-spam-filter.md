@@ -1,8 +1,8 @@
-<!-- source: 20d3823ab446 -->
+<!-- source: 0ecf2764c1b2 -->
 
 <!--
 label: Yapay zekâ spam filtresi
-title: Yerel dil modelleri ve karar modelleriyle yapay zekâ spam filtresi
+title: Yerel ve barındırılan dil modelleriyle yapay zekâ spam filtresi
 description: Kuralların kaçırdığı spam ve kimlik avını bir dil modeliyle yakalayın: sunucunuzda Ollama, Cloudflare Clef ya da Claude ve ChatGPT, yalnızca sınırdaki iletilerde.
 keywords: yapay zekâ spam filtresi, LLM ile spam tespiti, Ollama spam filtresi, karar modeli, Cloudflare Clef, Jev, ChatGPT spam filtresi, Claude spam filtresi, yerel LLM e-posta filtresi, yapay zekâ ile kimlik avı tespiti, oltalama tespiti
 -->

@@ -1,4 +1,4 @@
-<!-- source: 361732724f0e -->
+<!-- source: 6ec79ca6f686 -->
 
 <!--
 label: SSS
@@ -17,7 +17,7 @@ Node.js, komut satırı ve posta sunucuları için bir spam filtresi. Ham bir e-
 
 ## Ücretsiz mi?
 
-[Lisansı](https://github.com/spamscanner/spamscanner/blob/master/LICENSE) olan Business Source License 1.1, spam tespitini başkalarına hizmet olarak sunmak dışında her türlü kullanıma izin verir ve Apache License 2.0'a geçeceği tarihi belirtir.
+Spam Scanner'ın [lisansı](https://github.com/spamscanner/spamscanner/blob/master/LICENSE), Change License olarak Apache License 2.0'ı belirten Business Source License 1.1'dir. Lisansta belirtilen Change Date geçti ve o tarihten itibaren lisans size Apache License 2.0 kapsamında haklar tanır.
 
 
 ## Ne kadar doğru?

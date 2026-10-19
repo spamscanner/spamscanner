@@ -1,8 +1,8 @@
-<!-- source: 0378a5e0f12b -->
+<!-- source: 9f8d9e55622c -->
 
 <!--
 label: Rilevamento del phishing
-title: Rilevamento del phishing: domini sosia, link ingannevoli, spoofing
+title: Rilevamento del phishing: domini sosia e link ingannevoli
 description: Come Spam Scanner rileva il phishing: domini sosia Unicode, link ingannevoli, marchi nei nomi visualizzati, resolver antimalware di Cloudflare e DMARC.
 keywords: rilevamento phishing, filtro phishing email, attacco omografico, omografi IDN, rilevamento domini sosia, link ingannevoli, furto di identità del marchio email
 -->

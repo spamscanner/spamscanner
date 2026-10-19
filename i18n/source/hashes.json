@@ -15,9 +15,11 @@
 	"docs/training.md": "4d7afeb36844",
 	"pages/postfix-spam-filter.md": "f33722183f00",
 	"pages/spamassassin-alternative.md": "e38668f057b9",
-	"pages/ai-spam-filter.md": "20d3823ab446",
-	"pages/multilingual-spam-filter.md": "0ad167ddd34e",
-	"pages/phishing-detection.md": "0378a5e0f12b",
+	"pages/self-hosted-spam-filter.md": "988243aec4f3",
+	"pages/ai-spam-filter.md": "0ecf2764c1b2",
+	"pages/multilingual-spam-filter.md": "c624a0354fe1",
+	"pages/phishing-detection.md": "9f8d9e55622c",
 	"pages/nodejs-spam-filter.md": "ff63d002c5fd",
-	"pages/faq.md": "361732724f0e"
+	"pages/faq.md": "6ec79ca6f686",
+	"pages/about.md": "599bd320e55a"
 }

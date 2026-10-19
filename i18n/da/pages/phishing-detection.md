@@ -1,8 +1,8 @@
-<!-- source: 0378a5e0f12b -->
+<!-- source: 9f8d9e55622c -->
 
 <!--
 label: Phishing-detektion
-title: Phishing-detektion: falske domæner, vildledende links og spoofing
+title: Phishing-detektion: forvekslingsdomæner og vildledende links
 description: Sådan fanger Spam Scanner phishing: Unicode-forvekslinger, links til en anden adresse end den viste, varemærker i navne, Cloudflares malware-resolver og DMARC.
 keywords: phishing-detektion, phishingfilter e-mail, homografangreb, IDN-homograf, forvekslelige domæner, vildledende link, varemærkeefterligning e-mail
 -->

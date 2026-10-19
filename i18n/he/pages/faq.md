@@ -1,4 +1,4 @@
-<!-- source: 361732724f0e -->
+<!-- source: 6ec79ca6f686 -->
 
 <!--
 label: שאלות נפוצות
@@ -17,7 +17,7 @@ keywords: Spam Scanner שאלות נפוצות, שאלות על מסנן ספא�
 
 ## האם הוא חינמי?
 
-[הרישיון](https://github.com/spamscanner/spamscanner/blob/master/LICENSE) שלו, Business Source License 1.1, מתיר כל שימוש חוץ מהצעת זיהוי ספאם כשירות לאחרים, ומציין את התאריך שבו הוא עובר ל-Apache License 2.0.
+[הרישיון](https://github.com/spamscanner/spamscanner/blob/master/LICENSE) של Spam Scanner הוא Business Source License 1.1, ורישיון השינוי (Change License) שלו הוא Apache License 2.0. תאריך השינוי (Change Date) שמצוין ברישיון כבר עבר, ומאותו תאריך הרישיון מעניק לכם זכויות לפי Apache License 2.0.
 
 
 ## כמה הוא מדויק?
