@@ -422,9 +422,22 @@ describe('message size limit', () => {
 	it('stops sendmail if the rest of a larger message cannot be read', async () => {
 		const directory = temporaryDirectory();
 		const file = path.join(directory, 'sendmail');
-		writeFileSync(file, `#!/bin/sh\nexec cat > "${directory}/message"\n`);
+		// (a sendmail that delivers what it read at the end of its input, and
+		//  ignores SIGTERM)
+		writeFileSync(file, `#!/bin/sh\ntrap '' TERM\ncat > "${directory}/read"\nmv "${directory}/read" "${directory}/message"\n`);
 		chmodSync(file, 0o755);
 		const result = await cli(['filter', '--sendmail', file, '--max-size', '1024', '--on-error', 'accept', ...offline, '--', 'bob@example.com'], {stdin: largeInput(ham, 1000, {fail: true}).stream});
+		assert.equal(result.code, 75);
+		assert.match(result.stderr, /sendmail exited with a signal, deferring/);
+		assert.equal(existsSync(path.join(directory, 'message')), false);
+	});
+
+	it('defers a larger message passed on to a sendmail that stops reading it', async () => {
+		const directory = temporaryDirectory();
+		const file = path.join(directory, 'sendmail');
+		writeFileSync(file, '#!/bin/sh\nhead -c 10 > /dev/null\n');
+		chmodSync(file, 0o755);
+		const result = await cli(['filter', '--sendmail', file, '--max-size', '1024', '--on-error', 'accept', ...offline, '--', 'bob@example.com'], {stdin: largeInput(ham).stream});
 		assert.equal(result.code, 75);
 		assert.match(result.stderr, /sendmail exited with a signal, deferring/);
 	});

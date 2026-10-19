@@ -4,7 +4,6 @@ import {
 	createReadStream, existsSync, readFileSync, statSync,
 } from 'node:fs';
 import process from 'node:process';
-import {pipeline} from 'node:stream';
 import {format, parseArgs} from 'node:util';
 import {Classifier} from './classifier.js';
 import {rewriteMessage, spamHeaders} from './headers.js';
@@ -502,25 +501,61 @@ function listen(server, values, defaultPort, io) {
 export function deliver(sendmail, args, message, rest) {
 	return new Promise((resolve, reject) => {
 		const child = spawn(sendmail, args, {stdio: ['pipe', 'ignore', 'inherit']});
+		let written = Promise.resolve(true);
 		child.on('error', reject);
-		child.on('close', code => resolve(code ?? 'a signal'));
+		child.on('close', async code => {
+			// (a sendmail that exits before it read the whole message fails)
+			resolve(await written ? code ?? 'a signal' : 'a signal');
+		});
 		child.stdin.on('error', () => {});
 		if (!rest) {
 			child.stdin.end(message);
 			return;
 		}
 
-		// If the rest cannot be read, sendmail is stopped rather than left to
-		// deliver part of the message (and a sendmail that stops reading has
-		// failed anyway).
-		pipeline(async function * () {
-			yield message;
-			yield * rest;
-		}, child.stdin, error => {
-			if (error) {
-				child.kill();
+		// If the rest cannot be read, sendmail is killed before its input is
+		// closed, so it never reads an end of input and delivers part of the
+		// message (and a sendmail that stops reading has failed anyway).
+		written = (async () => {
+			try {
+				for await (const chunk of prepend(message, rest)) {
+					if (!child.stdin.write(chunk)) {
+						await drained(child.stdin);
+					}
+				}
+
+				child.stdin.end();
+				return true;
+			} catch {
+				child.kill('SIGKILL');
+				child.stdin.destroy();
+				return false;
 			}
-		});
+		})();
+	});
+}
+
+async function * prepend(first, rest) {
+	yield first;
+	yield * rest;
+}
+
+// Waits until a stream can take more, and fails if it closes first (as it
+// does when it fails).
+function drained(stream) {
+	return new Promise((resolve, reject) => {
+		const drain = () => {
+			stream.off('close', close);
+			resolve();
+		};
+
+		const close = () => {
+			stream.off('drain', drain);
+			reject(new Error('closed'));
+		};
+
+		stream.once('drain', drain);
+		stream.once('close', close);
 	});
 }
 

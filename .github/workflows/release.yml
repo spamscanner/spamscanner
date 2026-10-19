@@ -120,12 +120,17 @@ jobs:
         run: |
           "./$ARTIFACT" version
           printf 'From: a@example.com\r\nSubject: Test\r\n\r\nXJS*C4JDBQADN1.NSBN3*2IDNEN*GTUBE-STANDARD-ANTI-UBE-TEST-EMAIL*C.34X\r\n' > gtube.eml
+          # (spam exits 1, so neither scan is in a pipeline: bash runs this
+          #  step with pipefail)
           set +e
           "./$ARTIFACT" scan gtube.eml --no-cloudflare
           code=$?
+          "./$ARTIFACT" scan gtube.eml --no-cloudflare --json > gtube.json
+          json=$?
           set -e
           test "$code" = 1
-          "./$ARTIFACT" scan gtube.eml --no-cloudflare --json | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const r=JSON.parse(s);if(!r.tests.some(t=>t.name.startsWith('BAYES_')))process.exit(1)})"
+          test "$json" = 1
+          node -e "const r=JSON.parse(require('fs').readFileSync('gtube.json','utf8'));const names=r.tests.map(t=>t.name);if(!names.includes('GTUBE')||!names.some(n=>n.startsWith('BAYES_')))process.exit(1)"
       # The hash of the binary as built here, published as SHA256SUMS.
       - name: Hash the binary
         shell: bash
