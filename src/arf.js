@@ -1,8 +1,7 @@
 import {Buffer} from 'node:buffer';
 import {randomBytes} from 'node:crypto';
 import {isIP} from 'node:net';
-import {simpleParser} from 'mailparser';
-import {finishable} from './parse.js';
+import {simpleParse} from './parse.js';
 
 /**
  * Feedback types from RFC 5965, RFC 6591 (auth-failure) and RFC 7489 (dmarc).
@@ -11,10 +10,6 @@ export const VALID_FEEDBACK_TYPES = new Set(['abuse', 'fraud', 'virus', 'other',
 
 // Fields that may appear more than once (RFC 5965 section 3.2).
 const MULTIPLE = new Set(['original_rcpt_to', 'authentication_results', 'reported_domain', 'reported_uri']);
-
-const PARSER_OPTIONS = {
-	skipHtmlToText: true, skipTextToHtml: true, skipImageLinks: true, skipTextLinks: true,
-};
 
 /**
  * Parse the fields of a message/feedback-report part. Folded lines are
@@ -168,7 +163,7 @@ export function isArfMessage(parsed) {
 
 /**
  * Parse an ARF (RFC 5965) abuse report.
- * @param {Buffer|string} source - the raw report message
+ * @param {Buffer|Uint8Array|string} source - the raw report message
  * @returns {Promise<object>} feedbackType, userAgent, version, arrivalDate,
  *   sourceIp, originalMailFrom, originalRcptTo, reportingMta,
  *   originalEnvelopeId, authenticationResults, reportedDomain, reportedUri,
@@ -177,8 +172,10 @@ export function isArfMessage(parsed) {
  *   message) and rawFeedbackReport
  * @throws {Error} when the message is not a valid ARF report
  */
-export async function parse(source) {
-	const parsed = await simpleParser(finishable(source), PARSER_OPTIONS);
+export async function parse(message) {
+	// (a Uint8Array as the bytes it holds, as a Buffer)
+	const source = message instanceof Uint8Array && !Buffer.isBuffer(message) ? Buffer.from(message.buffer, message.byteOffset, message.byteLength) : message;
+	const parsed = await simpleParse(source);
 	if (!isArfMessage(parsed)) {
 		throw new Error('Not an ARF report: expected multipart/report with report-type=feedback-report');
 	}
@@ -236,7 +233,7 @@ export async function parse(source) {
 	if (original) {
 		const content = original.content.toString('utf8');
 		result.originalMessage = content;
-		const inner = await simpleParser(finishable(original.type === 'message/rfc822' ? content : `${content.trimEnd()}\r\n\r\n`), PARSER_OPTIONS);
+		const inner = await simpleParse(original.type === 'message/rfc822' ? content : `${content.trimEnd()}\r\n\r\n`);
 		result.originalHeaders = Object.fromEntries([...inner.headers].map(([key, value]) => [key, value]));
 	}
 
@@ -245,7 +242,7 @@ export async function parse(source) {
 
 /**
  * Parse an ARF report, or return null when the message is not one.
- * @param {Buffer|string} source
+ * @param {Buffer|Uint8Array|string} source
  * @returns {Promise<object|null>}
  */
 export async function tryParse(source) {

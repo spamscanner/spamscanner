@@ -1,4 +1,4 @@
-<!-- source: 9caf3ffb803a -->
+<!-- source: 665fbc0d5adc -->
 
 # HTTP API, server TCP, dan spamd
 
@@ -37,7 +37,7 @@ Tanpa `ip`, pemeriksaan SPF, DKIM, DMARC, ARC, dan daftar blokir IP (`--auth`, `
 
 `/check` juga mengembalikan `X-Spam-Flag`, `X-Spam-Score`, dan `X-Spam-Action` sebagai header respons, sehingga klien dapat memutuskan tanpa mengurai pesan.
 
-Pesan yang lebih besar dari 25 MB mendapat `413`. Pemindaian yang gagal mendapat `500` dengan `{"error": "..."}`.
+Pesan yang lebih besar dari 25 MiB (`--max-size`) mendapat `413`, sebelum isinya dibaca jika `Content-Length` memberikan ukurannya. Pemindaian yang gagal mendapat `500` dengan `{"error": "..."}`. Server menangani paling banyak 200 permintaan sekaligus (`--max-connections`), termasuk permintaan pipelined; permintaan berikutnya mendapat `503` dengan `Retry-After: 1`.
 
 ```sh
 curl -s -X POST -H "Authorization: Bearer $SPAMSCANNER_TOKEN" \
@@ -86,7 +86,7 @@ nc -N 127.0.0.1 7830 < message.eml
 
 Dengan `--verbose`, jawabannya berupa satu baris teks: `SPAM 16.3/5.0 BAYES_999,PHISHING_LOOKALIKE_DOMAIN,DECEPTIVE_LINK,FROM_NAME_BRAND` atau `HAM -2.5/5.0 BAYES_00`.
 
-Server TCP tidak mengetahui alamat IP klien, sehingga `--auth` dan `--dnsbl` tidak berpengaruh. Server menutup koneksi yang tidak mengirim apa pun selama 60 detik, dan menjawab pesan yang lebih besar dari 25 MB dengan galat.
+Server TCP tidak mengetahui alamat IP klien, sehingga `--auth` dan `--dnsbl` tidak berpengaruh. Server hanya menjawab setelah klien menutup sisi pengirimannya (`nc -N` atau `nc -q 1`, atau `shutdown(SHUT_WR)` pada soket); klien yang membiarkannya terbuka tidak mendapat jawaban, dan koneksi ditutup setelah 60 detik tanpa data. Server menjawab pesan yang lebih besar dari 25 MiB (`--max-size`) dengan galat.
 
 
 ## spamd
@@ -111,4 +111,4 @@ Server yang kompatibel dengan SpamAssassin untuk spamc, Exim, Haraka, dan klien 
 
 Permintaan terkompresi (`Compress: zlib`) ditolak.
 
-Klien spamd juga tidak mengirim alamat IP klien, sehingga `--auth` dan `--dnsbl` tidak berpengaruh. Pesan yang lebih besar dari 25 MB mendapat `65` (`EX_DATAERR`), pesan yang lebih pendek dari `Content-length`-nya mendapat `76` (`EX_PROTOCOL`), dan koneksi yang tidak mengirim apa pun selama 60 detik ditutup.
+Klien spamd juga tidak mengirim alamat IP klien, sehingga `--auth` dan `--dnsbl` tidak berpengaruh. Pesan yang lebih besar dari 25 MiB (`--max-size`) mendapat `65` (`EX_DATAERR`), pesan yang lebih pendek dari `Content-length`-nya mendapat `76` (`EX_PROTOCOL`), dan koneksi yang tidak mengirim apa pun selama 60 detik ditutup.

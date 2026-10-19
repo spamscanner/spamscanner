@@ -1,4 +1,4 @@
-<!-- source: f8a77c318b83 -->
+<!-- source: ff86d06bdcd0 -->
 
 # Příkazová řádka
 
@@ -44,8 +44,13 @@ spamscanner scan message.eml --subject-tag "[SPAM]" > tagged.eml
 | `--no-classifier`          | Nepoužívat klasifikátor                                |
 | `--config <file>`          | Soubor JSON s [volbami knihovny](api.md#options)       |
 | `--allow-language <codes>` | Přijímané jazyky, například `en,de,fr`                 |
+| `--max-size <bytes>`       | Největší čtená zpráva (výchozí 26214400, 25 MiB)       |
 
 Návratové kódy: 0 ham, 1 spam, 2 chyba.
+
+`scan` a `learn` čtou ze zprávy nejvýše `--max-size` bajtů, ze souboru nebo ze standardního vstupu; servery mají stejný limit. Větší zpráva je chyba (návratový kód 2) a její zbytek se nečte.
+
+Standardní výstup nese jen výsledek (nebo zprávu): cokoli knihovna vypíše za běhu příkazu, například poznámky mailauth k délkám těla DKIM, jde na standardní chybový výstup.
 
 ### Relace SMTP
 
@@ -106,8 +111,11 @@ spamscanner filter -f "$sender" -- "$recipient"
 | `--reject`            | Poštu na prahu odmítnutí vrátí odesílateli místo předání dál                          |
 | `--discard`           | Poštu na prahu odmítnutí zahodí místo předání dál                                     |
 | `--on-error <answer>` | Pro poštu, kterou nebylo možné úplně zkontrolovat: `tempfail` (výchozí) nebo `accept` |
+| `--max-size <bytes>`  | Největší kontrolovaná zpráva (výchozí 26214400, 25 MiB)                               |
 
 Návratové kódy se řídí konvencemi programu sendmail, které Postfix čte: 0 doručeno (nebo zahozeno), 64 nezadáni žádní příjemci, 69 odmítnuto jako spam (Postfix zprávu vrátí), 75 jakékoli selhání, takže Postfix zprávu ponechá a zkusí to později znovu. Selháním je i zpráva s přílohou, kterou ClamAV nedokázal zkontrolovat. S `--on-error accept` se taková zpráva, nebo zpráva, jejíž kontrola selhala, předá dál s `X-Spam-Virus-Scan: failed` a bez hlaviček `X-Spam-*`, které přidal odesílatel.
+
+Zpráva větší než `--max-size` se nekontroluje a nedrží se celá v paměti. Odloží se (75), nebo se s `--on-error accept` předá dál nezkontrolovaná, tak jak se čte, označená a bez hlaviček `X-Spam-*` od odesílatele jako výše. `message_size_limit` Postfixu (ve výchozím stavu 10 MB) drží poštu pod výchozím limitem; pokud ho zvýšíte nad 25 MiB, zvyšte i `--max-size`.
 
 
 ## milter, http, server a spamd
@@ -123,21 +131,23 @@ HTTP API čte svůj token z proměnné prostředí `SPAMSCANNER_TOKEN`. Funguje 
 
 Port 783 je port, který klienti SpamAssassinu používají ve výchozím stavu. Porty pod 1024 vyžadují roota nebo oprávnění `CAP_NET_BIND_SERVICE`; použijte jiný port, například `--port 7833`, a nastavte ho v klientovi.
 
-| Volba                 | Význam                                                                                        |
-| --------------------- | --------------------------------------------------------------------------------------------- |
-| `--port <n>`          | Port TCP                                                                                      |
-| `--host <ip>`         | Adresa, na které naslouchat (výchozí 127.0.0.1)                                               |
-| `--socket <path>`     | Naslouchat místo toho na unixovém socketu                                                     |
-| `--reject`            | Milter: odmítat poštu na prahu odmítnutí                                                      |
-| `--reject-code <n>`   | Milter: kód 4xx, zkuste to později (451, výchozí), nebo kód 5xx, například 550                |
-| `--quarantine`        | Milter: zadržet spam v karanténě poštovního serveru                                           |
-| `--on-error <answer>` | Milter: pro poštu, kterou nebylo možné úplně zkontrolovat, `tempfail` (výchozí) nebo `accept` |
-| `--name <hostname>`   | Milter: jméno tohoto serveru v Authentication-Results                                         |
-| `--token <secret>`    | HTTP: vyžadovat `Authorization: Bearer <secret>`; nutné pro `/learn`                          |
-| `--allow-tell`        | spamd: přijímat požadavky TELL (`spamc -L spam`) k učení                                      |
-| `--out <file>`        | HTTP a spamd: ukládat naučené do tohoto souboru modelu                                        |
-| `--subject-tag <tag>` | Milter a spamd: přidat předponu k předmětu spamu                                              |
-| `--verbose`           | Milter: zaznamenat každou kontrolu. TCP server: odpovědět jedním řádkem textu                 |
+| Volba                   | Význam                                                                                                                                                                                         |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--port <n>`            | Port TCP                                                                                                                                                                                       |
+| `--host <ip>`           | Adresa, na které naslouchat (výchozí 127.0.0.1)                                                                                                                                                |
+| `--socket <path>`       | Naslouchat místo toho na unixovém socketu                                                                                                                                                      |
+| `--max-size <bytes>`    | Největší přijatá zpráva (výchozí 26214400, 25 MiB). Milter zkontroluje začátek delšího těla, a když jsou větší už samotná obálka a hlavičky, odpoví jako při neúspěšné kontrole (`--on-error`) |
+| `--max-connections <n>` | Současně otevřená spojení (výchozí 200); další se okamžitě zavřou. HTTP: také současně zpracovávané požadavky, další dostanou `503`                                                            |
+| `--reject`              | Milter: odmítat poštu na prahu odmítnutí                                                                                                                                                       |
+| `--reject-code <n>`     | Milter: kód 4xx, zkuste to později (451, výchozí), nebo kód 5xx, například 550                                                                                                                 |
+| `--quarantine`          | Milter: zadržet spam v karanténě poštovního serveru                                                                                                                                            |
+| `--on-error <answer>`   | Milter: pro poštu, kterou nebylo možné úplně zkontrolovat, `tempfail` (výchozí) nebo `accept`                                                                                                  |
+| `--name <hostname>`     | Milter: jméno tohoto serveru v Authentication-Results                                                                                                                                          |
+| `--token <secret>`      | HTTP: vyžadovat `Authorization: Bearer <secret>`; nutné pro `/learn`                                                                                                                           |
+| `--allow-tell`          | spamd: přijímat požadavky TELL (`spamc -L spam`) k učení                                                                                                                                       |
+| `--out <file>`          | HTTP a spamd: ukládat naučené do tohoto souboru modelu                                                                                                                                         |
+| `--subject-tag <tag>`   | Milter a spamd: přidat předponu k předmětu spamu                                                                                                                                               |
+| `--verbose`             | Milter: zaznamenat každou kontrolu. TCP server: odpovědět jedním řádkem textu                                                                                                                  |
 
 Výše uvedené volby kontroly platí i pro servery. [Milter](postfix.md#milter), [HTTP API, TCP server a spamd](http-api.md).
 

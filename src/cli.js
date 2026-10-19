@@ -1,15 +1,20 @@
 import {Buffer} from 'node:buffer';
 import {spawn} from 'node:child_process';
-import {existsSync, readFileSync, statSync} from 'node:fs';
+import {
+	createReadStream, existsSync, readFileSync, statSync,
+} from 'node:fs';
 import process from 'node:process';
-import {parseArgs} from 'node:util';
+import {pipeline} from 'node:stream';
+import {format, parseArgs} from 'node:util';
 import {Classifier} from './classifier.js';
 import {rewriteMessage, spamHeaders} from './headers.js';
 import {LOCALHOST, PROVIDERS, describeHardware} from './llm.js';
 import {MilterServer} from './milter.js';
 import {loadDefaultModel, loadModel, saveModel} from './model.js';
 import {CLASSIFIER_MODELS, DECISION_MODELS, RECOMMENDED_MODELS} from './models.js';
-import {createHttpServer, createTcpServer, serializeResult} from './server.js';
+import {
+	MAX_CONNECTIONS, MAX_MESSAGE_SIZE, createHttpServer, createTcpServer, serializeResult,
+} from './server.js';
 import {createSpamdServer} from './spamd.js';
 import {evaluate, readExamples, train} from './train.js';
 import {VERSION} from './version.js';
@@ -48,6 +53,8 @@ Scanning:
   --no-classifier      Do not use the classifier
   --config <file>      JSON file with scanner settings (see the API docs)
   --allow-language <codes>  Accepted languages, e.g. en,de,fr
+  --max-size <bytes>   Largest message read, by every command and server
+                       (default ${MAX_MESSAGE_SIZE}, 25 MiB)
 
 SMTP session (improves accuracy):
   --ip <address>       IP address of the client that sent the message
@@ -94,6 +101,8 @@ Filter (Postfix pipe):
 
 Servers:
   --port <n>  --host <ip>  --socket <path>
+  --max-connections <n>  Connections open at once (default ${MAX_CONNECTIONS}; HTTP: also
+                       requests at once, more get 503)
   --reject             Milter: refuse mail at the reject threshold
   --reject-code <n>    Milter: a 4xx or 5xx code, 451 (try later; default) or 550
   --name <hostname>    Milter: this server's name in Authentication-Results
@@ -131,6 +140,8 @@ const OPTIONS = {
 	'no-classifier': {type: 'boolean'},
 	config: {type: 'string'},
 	'allow-language': {type: 'string'},
+	'max-size': {type: 'string'},
+	'max-connections': {type: 'string'},
 	ip: {type: 'string'},
 	'sender-ip': {type: 'string'},
 	hostname: {type: 'string'},
@@ -208,6 +219,25 @@ function number(value, name) {
 	}
 
 	return parsed;
+}
+
+// A whole number of at least 1, or the default when not given.
+function count(value, name, fallback) {
+	if (value === undefined) {
+		return fallback;
+	}
+
+	const parsed = number(value, name);
+	if (!Number.isInteger(parsed) || parsed < 1) {
+		throw new TypeError(`${name} must be a whole number of at least 1, not "${value}"`);
+	}
+
+	return parsed;
+}
+
+// Size and connection limits shared by the commands and servers.
+function limits(values) {
+	return {maxSize: count(values['max-size'], '--max-size', MAX_MESSAGE_SIZE), maxConnections: count(values['max-connections'], '--max-connections', MAX_CONNECTIONS)};
 }
 
 /**
@@ -382,17 +412,48 @@ export function buildSession(values) {
 	return session;
 }
 
-async function readInput(file, stdin) {
-	if (!file || file === '-') {
-		const chunks = [];
-		for await (const chunk of stdin) {
-			chunks.push(Buffer.from(chunk));
+/**
+ * Read a message from a stream, stopping once it is larger than maxSize, so
+ * an endless or huge input is never held in memory whole.
+ * @param {AsyncIterable<Buffer|string>} stream
+ * @param {number} maxSize
+ * @returns {Promise<{data: Buffer, complete: boolean, rest: AsyncIterableIterator<Buffer|string>}>}
+ *   data: what was read (a little more than maxSize when not complete);
+ *   rest: the stream's iterator, for the unread part
+ */
+export async function readMessage(stream, maxSize) {
+	// (a stream's iterator is iterable itself)
+	const iterator = stream[Symbol.asyncIterator]();
+	const chunks = [];
+	let size = 0;
+	for (;;) {
+		// eslint-disable-next-line no-await-in-loop -- chunks arrive in order
+		const {value, done} = await iterator.next();
+		if (done) {
+			return {data: Buffer.concat(chunks), complete: true, rest: iterator};
 		}
 
-		return Buffer.concat(chunks);
+		const chunk = Buffer.from(value);
+		chunks.push(chunk);
+		size += chunk.length;
+		if (size > maxSize) {
+			return {data: Buffer.concat(chunks), complete: false, rest: iterator};
+		}
+	}
+}
+
+// The whole message from a file, or standard input for "-" or none; a larger
+// message than maxSize is an error, and the rest of it is not read.
+async function readInput(file, stdin, maxSize) {
+	const stream = !file || file === '-' ? stdin : createReadStream(file);
+	const {data, complete, rest} = await readMessage(stream, maxSize);
+	if (!complete) {
+		// (which closes the file, or standard input)
+		await rest.return();
+		throw new Error(`Message larger than ${maxSize} bytes (see --max-size)`);
 	}
 
-	return readFileSync(file);
+	return data;
 }
 
 function formatResult(result, verbose) {
@@ -435,21 +496,37 @@ function listen(server, values, defaultPort, io) {
  * @param {string} sendmail
  * @param {string[]} args
  * @param {Buffer} message
+ * @param {AsyncIterable<Buffer|string>} [rest] - more of the message, streamed after it
  * @returns {Promise<number|string>} sendmail's exit code, or "a signal" if it was killed
  */
-export function deliver(sendmail, args, message) {
+export function deliver(sendmail, args, message, rest) {
 	return new Promise((resolve, reject) => {
 		const child = spawn(sendmail, args, {stdio: ['pipe', 'ignore', 'inherit']});
 		child.on('error', reject);
 		child.on('close', code => resolve(code ?? 'a signal'));
 		child.stdin.on('error', () => {});
-		child.stdin.end(message);
+		if (!rest) {
+			child.stdin.end(message);
+			return;
+		}
+
+		// If the rest cannot be read, sendmail is stopped rather than left to
+		// deliver part of the message (and a sendmail that stops reading has
+		// failed anyway).
+		pipeline(async function * () {
+			yield message;
+			yield * rest;
+		}, child.stdin, error => {
+			if (error) {
+				child.kill();
+			}
+		});
 	});
 }
 
 // Deliver, or defer (EX_TEMPFAIL) if sendmail fails.
-async function deliverOrDefer(sendmail, args, message, stderr) {
-	const code = await deliver(sendmail, args, message);
+async function deliverOrDefer({sendmail, args, message, rest}, stderr) {
+	const code = await deliver(sendmail, args, message, rest);
 	if (code !== 0) {
 		stderr.write(`filter: sendmail exited with ${code}, deferring\n`);
 		return 75;
@@ -488,7 +565,7 @@ function waitForClose(server) {
 // settings and the streams, and returns the exit code.
 const HANDLERS = {
 	async scan({positionals, values, config, session, stdin, stdout, out}) {
-		const raw = await readInput(positionals[0], stdin);
+		const raw = await readInput(positionals[0], stdin, limits(values).maxSize);
 		const scanner = new SpamScanner(config);
 		const result = await scanner.scan(raw, {session});
 		const tag = values['subject-tag'] ?? (values['prepend-subject'] ? '[SPAM]' : null);
@@ -505,7 +582,8 @@ const HANDLERS = {
 
 	// Postfix: argv=spamscanner filter -f ${sender} -- ${recipient}
 	async filter({positionals: recipients, values, config, session, stdin, stderr}) {
-		const raw = await readInput('-', stdin);
+		const {maxSize} = limits(values);
+		const {data: raw, complete, rest} = await readMessage(stdin, maxSize);
 		if (recipients.length === 0) {
 			stderr.write('filter: no recipients given (use: spamscanner filter -f sender -- recipient...)\n');
 			return 64;
@@ -513,6 +591,23 @@ const HANDLERS = {
 
 		const accept = onError(values) === 'accept';
 		const sendmail = ['-G', '-i', '-f', values.from ?? values.sender ?? '', '--', ...recipients];
+		if (!complete) {
+			// Not scanned, and not held in memory whole: deferred, or passed on
+			// as it is read, marked, without the sender's X-Spam headers. Without
+			// the end of its header block in what was read, those headers cannot
+			// be removed, so it is deferred either way.
+			const unscanned = `filter: message larger than ${maxSize} bytes (see --max-size)`;
+			if (!accept || !/^\r?\n|\r?\n\r?\n/.test(raw.toString('latin1'))) {
+				stderr.write(`${unscanned}, deferring\n`);
+				return 75;
+			}
+
+			stderr.write(`${unscanned}, passing it on unscanned\n`);
+			return deliverOrDefer({
+				sendmail: values.sendmail, args: sendmail, message: rewriteMessage(raw, [['X-Spam-Virus-Scan', 'failed']]), rest,
+			}, stderr);
+		}
+
 		let message;
 		let result;
 		try {
@@ -540,7 +635,7 @@ const HANDLERS = {
 		}
 
 		if (result === null) {
-			return deliverOrDefer(values.sendmail, sendmail, message, stderr);
+			return deliverOrDefer({sendmail: values.sendmail, args: sendmail, message}, stderr);
 		}
 
 		if (result.action === 'reject' && values.reject) {
@@ -552,12 +647,13 @@ const HANDLERS = {
 			return 0;
 		}
 
-		return deliverOrDefer(values.sendmail, sendmail, message, stderr);
+		return deliverOrDefer({sendmail: values.sendmail, args: sendmail, message}, stderr);
 	},
 
 	async milter({values, config, stderr, io}) {
 		const scanner = new SpamScanner(config);
 		const milter = new MilterServer(scanner, {
+			...limits(values),
 			reject: Boolean(values.reject), rejectCode: values['reject-code'] ? number(values['reject-code'], '--reject-code') : 451, quarantine: Boolean(values.quarantine), subjectTag: values['subject-tag'] ?? null, hostname: values.name || 'spamscanner', onError: onError(values),
 		});
 		milter.on('error', error => stderr.write(`milter: ${error.message}\n`));
@@ -572,7 +668,7 @@ const HANDLERS = {
 
 	async http({values, config, env, stderr, io}) {
 		warnWithoutClientIp('http', config, stderr);
-		const server = createHttpServer(new SpamScanner(config), {token: values.token || env.SPAMSCANNER_TOKEN || null, modelPath: values.out || null});
+		const server = createHttpServer(new SpamScanner(config), {...limits(values), token: values.token || env.SPAMSCANNER_TOKEN || null, modelPath: values.out || null});
 		await listen(server, values, 7832, {stderr});
 		io.onListening?.(server);
 		return waitForClose(server);
@@ -580,7 +676,7 @@ const HANDLERS = {
 
 	async server({values, config, stderr, io}) {
 		warnWithoutClientIp('server', config, stderr);
-		const server = createTcpServer(new SpamScanner(config), {json: !values.verbose});
+		const server = createTcpServer(new SpamScanner(config), {...limits(values), json: !values.verbose});
 		await listen(server, values, 7830, {stderr});
 		io.onListening?.(server);
 		return waitForClose(server);
@@ -588,7 +684,9 @@ const HANDLERS = {
 
 	async spamd({values, config, stderr, io}) {
 		warnWithoutClientIp('spamd', config, stderr);
-		const server = createSpamdServer(new SpamScanner(config), {allowTell: Boolean(values['allow-tell']), modelPath: values.out || null, subjectTag: values['subject-tag'] ?? null});
+		const server = createSpamdServer(new SpamScanner(config), {
+			...limits(values), allowTell: Boolean(values['allow-tell']), modelPath: values.out || null, subjectTag: values['subject-tag'] ?? null,
+		});
 		await listen(server, values, 783, {stderr});
 		io.onListening?.(server);
 		return waitForClose(server);
@@ -649,7 +747,7 @@ const HANDLERS = {
 
 		// Start from --model, else the --out file, else the bundled model.
 		const base = [values.model, values.out].find(candidate => candidate && existsSync(candidate));
-		const raw = await readInput(source, stdin);
+		const raw = await readInput(source, stdin, limits(values).maxSize);
 		const scanner = new SpamScanner({...config, classifier: base});
 		await scanner.learn(raw, category);
 		scanner.saveModel(file);
@@ -706,10 +804,42 @@ const HANDLERS = {
 	},
 };
 
+// The standard error streams of the commands running, the newest last, and
+// console.log and console.info as they were before.
+const consoleTargets = [];
+let consoleMethods;
+
+// While a command runs, console.log and console.info write to its standard
+// error: a dependency that prints with them (mailauth does) must not corrupt
+// a rewritten message or JSON written to standard output. They are put back
+// once no command is running.
+async function withConsoleTo(stderr, run) {
+	if (consoleTargets.length === 0) {
+		consoleMethods = {log: console.log, info: console.info};
+		const write = (...args) => {
+			consoleTargets.at(-1).write(`${format(...args)}\n`);
+		};
+
+		console.log = write;
+		console.info = write;
+	}
+
+	consoleTargets.push(stderr);
+	try {
+		return await run();
+	} finally {
+		consoleTargets.splice(consoleTargets.lastIndexOf(stderr), 1);
+		if (consoleTargets.length === 0) {
+			Object.assign(console, consoleMethods);
+		}
+	}
+}
+
 /**
  * Run the command-line interface.
  * @param {string[]} argv - arguments after the program name
  * @param {object} [io] - stdin, stdout, stderr, env and onListening, for tests
+ *   (while a command runs, console.log and console.info write to stderr)
  * @returns {Promise<number>} the exit code (servers resolve when they stop)
  */
 export async function main(argv = process.argv.slice(2), io = {}) {
@@ -741,9 +871,9 @@ export async function main(argv = process.argv.slice(2), io = {}) {
 	}
 
 	try {
-		return await HANDLERS[command]({
+		return await withConsoleTo(stderr, () => HANDLERS[command]({
 			positionals, values, config: buildConfig(values, env), session: buildSession(values), stdin, stdout, stderr, env, out, io,
-		});
+		}));
 	} catch (error) {
 		stderr.write(`spamscanner: ${error.message}\n`);
 		if (values.debug) {

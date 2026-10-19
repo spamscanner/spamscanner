@@ -122,20 +122,21 @@ main() {
         fail "Checksum mismatch for ${artifact}: the download is corrupt or was tampered with" "Nothing was installed."
     fi
 
-    chmod +x "$TMP_DIR/$artifact"
-
     # Install (may need sudo)
     echo ""
     echo -e "${YELLOW}Installing to ${bin_dir}...${NC}"
 
     # The directory is created when it does not exist yet (with sudo when
-    # its parent is not writable either).
+    # its parent is not writable either). "install" copies the binary as a
+    # new file, executable by all and, under sudo, owned by root: one moved
+    # with "mv" would keep the downloading user as its owner, who could then
+    # change the program root and others run.
     if mkdir -p "$bin_dir" 2> /dev/null && [ -w "$bin_dir" ]; then
-        mv "$TMP_DIR/$artifact" "$bin_dir/spamscanner"
+        install -m 0755 "$TMP_DIR/$artifact" "$bin_dir/spamscanner"
     else
         echo "Requesting sudo access..."
         sudo mkdir -p "$bin_dir"
-        sudo mv "$TMP_DIR/$artifact" "$bin_dir/spamscanner"
+        sudo install -m 0755 "$TMP_DIR/$artifact" "$bin_dir/spamscanner"
     fi
 
     # Verify installation

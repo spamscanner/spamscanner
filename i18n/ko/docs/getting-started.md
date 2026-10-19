@@ -1,4 +1,4 @@
-<!-- source: 1a2009efd1f9 -->
+<!-- source: e64ba1432e54 -->
 
 # 시작하기
 
@@ -26,7 +26,7 @@ Node.js와 모델이 내장된 Linux 또는 macOS용 독립 실행형 바이너�
 curl -fsSL https://github.com/spamscanner/spamscanner/releases/latest/download/install.sh | bash
 ```
 
-스크립트는 설치하기 전에 릴리스의 `SHA256SUMS` 파일로 바이너리를 검증합니다. Linux용 바이너리는 glibc가 필요하므로 Alpine 등 musl 기반 시스템에서는 npm으로 설치하십시오.
+스크립트는 설치하기 전에 릴리스 빌드가 계산한 해시인 릴리스의 `SHA256SUMS` 파일로 바이너리를 검증하고, 모든 사용자가 실행할 수 있게, sudo로 실행하면 root 소유로 설치합니다. 각 바이너리에는 서명된 빌드 출처 증명도 있습니다. `gh attestation verify spamscanner-linux-x64 --repo spamscanner/spamscanner`는 GitHub Actions가 이 저장소에서 바이너리를 빌드했는지 확인합니다. Linux용 바이너리는 glibc가 필요하므로 Alpine 등 musl 기반 시스템에서는 npm으로 설치하십시오.
 
 Linux(x64, arm64), macOS(Intel, Apple 실리콘), Windows용 바이너리는 모든 [릴리스](https://github.com/spamscanner/spamscanner/releases)에 첨부되어 있습니다.
 

@@ -1,4 +1,4 @@
-<!-- source: 1a2009efd1f9 -->
+<!-- source: e64ba1432e54 -->
 
 # 入门
 
@@ -26,7 +26,7 @@ npm install spamscanner
 curl -fsSL https://github.com/spamscanner/spamscanner/releases/latest/download/install.sh | bash
 ```
 
-安装前，脚本会用该版本发布中的 `SHA256SUMS` 文件校验二进制文件。Linux 二进制文件需要 glibc，因此在 Alpine 等基于 musl 的系统上请改用 npm 安装。
+安装前，脚本会用该版本发布中的 `SHA256SUMS` 文件（即发布构建计算出的哈希值）校验二进制文件，并将其安装为所有人可执行，在 sudo 下归 root 所有。每个二进制文件还带有经过签名的构建来源证明：`gh attestation verify spamscanner-linux-x64 --repo spamscanner/spamscanner` 会检查它是否由 GitHub Actions 从本仓库构建。Linux 二进制文件需要 glibc，因此在 Alpine 等基于 musl 的系统上请改用 npm 安装。
 
 每个[版本发布](https://github.com/spamscanner/spamscanner/releases)都附有适用于 Linux（x64 和 arm64）、macOS（Intel 和 Apple 芯片）和 Windows 的二进制文件。
 

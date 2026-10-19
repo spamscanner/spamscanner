@@ -1,4 +1,4 @@
-<!-- source: f8a77c318b83 -->
+<!-- source: ff86d06bdcd0 -->
 
 # Dòng lệnh
 
@@ -44,8 +44,13 @@ spamscanner scan message.eml --subject-tag "[SPAM]" > tagged.eml
 | `--no-classifier`          | Không dùng bộ phân loại                                                |
 | `--config <file>`          | Một tệp JSON chứa [tùy chọn thư viện](api.md#options)                  |
 | `--allow-language <codes>` | Các ngôn ngữ được chấp nhận, ví dụ `en,de,fr`                          |
+| `--max-size <bytes>`       | Thư lớn nhất được đọc (mặc định 26214400, 25 MiB)                      |
 
 Mã thoát: 0 là ham, 1 là spam, 2 là lỗi.
+
+`scan` và `learn` đọc tối đa `--max-size` byte của một thư, từ tệp hoặc đầu vào chuẩn; các máy chủ có cùng giới hạn này. Thư lớn hơn là một lỗi (mã thoát 2), và phần còn lại của nó không được đọc.
+
+Đầu ra chuẩn chỉ chứa kết quả (hoặc thư): mọi thứ mà một thư viện in ra khi lệnh đang chạy, như các ghi chú của mailauth về độ dài thân thư DKIM, đều đi tới đầu ra lỗi chuẩn.
 
 ### Phiên SMTP
 
@@ -106,8 +111,11 @@ spamscanner filter -f "$sender" -- "$recipient"
 | `--reject`            | Trả lại thư đạt ngưỡng từ chối thay vì chuyển tiếp                  |
 | `--discard`           | Bỏ thư đạt ngưỡng từ chối thay vì chuyển tiếp                       |
 | `--on-error <answer>` | Với thư không quét được đầy đủ: `tempfail` (mặc định) hoặc `accept` |
+| `--max-size <bytes>`  | Thư lớn nhất được quét (mặc định 26214400, 25 MiB)                  |
 
 Mã thoát tuân theo quy ước của sendmail, mà Postfix đọc được: 0 là đã chuyển (hoặc đã bỏ), 64 là không có người nhận, 69 là bị từ chối vì spam (Postfix trả thư về), 75 là mọi lỗi, khi đó Postfix giữ thư và thử lại sau. Thư có tệp đính kèm mà ClamAV không quét được cũng là một lỗi. Với `--on-error accept`, thư như vậy, hoặc thư mà việc quét thất bại, được chuyển tiếp kèm `X-Spam-Virus-Scan: failed` và không kèm bất kỳ header `X-Spam-*` nào mà người gửi đã thêm.
+
+Thư lớn hơn `--max-size` không được quét, và không được giữ trọn trong bộ nhớ. Thư bị hoãn (75), hoặc, với `--on-error accept`, được chuyển tiếp không quét ngay trong lúc đọc, có đánh dấu và không kèm các header `X-Spam-*` của người gửi như trên. `message_size_limit` của Postfix (mặc định 10 MB) giữ thư dưới giới hạn mặc định; nếu bạn nâng nó lên quá 25 MiB, hãy nâng cả `--max-size`.
 
 
 ## milter, http, server và spamd
@@ -123,21 +131,23 @@ API HTTP đọc token từ biến môi trường `SPAMSCANNER_TOKEN`. `--token` 
 
 Cổng 783 là cổng mà các client SpamAssassin dùng mặc định. Các cổng dưới 1024 cần quyền root hoặc capability `CAP_NET_BIND_SERVICE`; hãy dùng cổng khác, như `--port 7833`, và báo cho client biết.
 
-| Tùy chọn              | Ý nghĩa                                                                      |
-| --------------------- | ---------------------------------------------------------------------------- |
-| `--port <n>`          | Cổng TCP                                                                     |
-| `--host <ip>`         | Địa chỉ để lắng nghe (mặc định 127.0.0.1)                                    |
-| `--socket <path>`     | Lắng nghe trên một Unix socket thay vào đó                                   |
-| `--reject`            | Milter: từ chối thư đạt ngưỡng từ chối                                       |
-| `--reject-code <n>`   | Milter: một mã 4xx, thử lại sau (451, mặc định), hoặc một mã 5xx như 550     |
-| `--quarantine`        | Milter: giữ spam trong khu cách ly của máy chủ thư                           |
-| `--on-error <answer>` | Milter: với thư không quét được đầy đủ, `tempfail` (mặc định) hoặc `accept`  |
-| `--name <hostname>`   | Milter: tên của máy chủ này trong Authentication-Results                     |
-| `--token <secret>`    | HTTP: yêu cầu `Authorization: Bearer <secret>`; cần cho `/learn`             |
-| `--allow-tell`        | spamd: chấp nhận yêu cầu TELL (`spamc -L spam`) để học                       |
-| `--out <file>`        | HTTP và spamd: lưu những gì đã học vào tệp mô hình này                       |
-| `--subject-tag <tag>` | Milter và spamd: thêm tiền tố vào tiêu đề của spam                           |
-| `--verbose`           | Milter: ghi nhật ký mọi lần quét. Máy chủ TCP: trả lời bằng một dòng văn bản |
+| Tùy chọn                | Ý nghĩa                                                                                                                                                                                    |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `--port <n>`            | Cổng TCP                                                                                                                                                                                   |
+| `--host <ip>`           | Địa chỉ để lắng nghe (mặc định 127.0.0.1)                                                                                                                                                  |
+| `--socket <path>`       | Lắng nghe trên một Unix socket thay vào đó                                                                                                                                                 |
+| `--max-size <bytes>`    | Thư lớn nhất được nhận (mặc định 26214400, 25 MiB). Milter quét phần đầu của thân thư dài hơn, và trả lời như với lần quét thất bại (`--on-error`) khi riêng phong bì và header đã lớn hơn |
+| `--max-connections <n>` | Số kết nối mở cùng lúc (mặc định 200); các kết nối vượt quá bị đóng ngay. HTTP: cũng là số yêu cầu được xử lý cùng lúc, các yêu cầu vượt quá nhận `503`                                    |
+| `--reject`              | Milter: từ chối thư đạt ngưỡng từ chối                                                                                                                                                     |
+| `--reject-code <n>`     | Milter: một mã 4xx, thử lại sau (451, mặc định), hoặc một mã 5xx như 550                                                                                                                   |
+| `--quarantine`          | Milter: giữ spam trong khu cách ly của máy chủ thư                                                                                                                                         |
+| `--on-error <answer>`   | Milter: với thư không quét được đầy đủ, `tempfail` (mặc định) hoặc `accept`                                                                                                                |
+| `--name <hostname>`     | Milter: tên của máy chủ này trong Authentication-Results                                                                                                                                   |
+| `--token <secret>`      | HTTP: yêu cầu `Authorization: Bearer <secret>`; cần cho `/learn`                                                                                                                           |
+| `--allow-tell`          | spamd: chấp nhận yêu cầu TELL (`spamc -L spam`) để học                                                                                                                                     |
+| `--out <file>`          | HTTP và spamd: lưu những gì đã học vào tệp mô hình này                                                                                                                                     |
+| `--subject-tag <tag>`   | Milter và spamd: thêm tiền tố vào tiêu đề của spam                                                                                                                                         |
+| `--verbose`             | Milter: ghi nhật ký mọi lần quét. Máy chủ TCP: trả lời bằng một dòng văn bản                                                                                                               |
 
 Các tùy chọn quét ở trên cũng áp dụng cho các máy chủ. [Milter](postfix.md#milter), [HTTP API, máy chủ TCP và spamd](http-api.md).
 

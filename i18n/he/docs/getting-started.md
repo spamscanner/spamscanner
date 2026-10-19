@@ -1,4 +1,4 @@
-<!-- source: 1a2009efd1f9 -->
+<!-- source: e64ba1432e54 -->
 
 # צעדים ראשונים
 
@@ -26,7 +26,7 @@ npm install spamscanner
 curl -fsSL https://github.com/spamscanner/spamscanner/releases/latest/download/install.sh | bash
 ```
 
-הסקריפט בודק את הקובץ הבינארי מול קובץ `SHA256SUMS` של הגרסה לפני ההתקנה. הקבצים הבינאריים ל-Linux דורשים glibc, ולכן ב-Alpine ובמערכות אחרות המבוססות על musl יש להתקין דרך npm.
+הסקריפט בודק את הקובץ הבינארי מול קובץ `SHA256SUMS` של הגרסה, הגיבובים שחושבו בבניות הגרסה, לפני ההתקנה, ומתקין אותו כקובץ הרצה לכולם, ותחת sudo בבעלות root. לכל קובץ בינארי יש גם אישור חתום של מקור הבנייה (build provenance attestation): ‏`gh attestation verify spamscanner-linux-x64 --repo spamscanner/spamscanner` בודק ש-GitHub Actions בנה אותו מהמאגר הזה. הקבצים הבינאריים ל-Linux דורשים glibc, ולכן ב-Alpine ובמערכות אחרות המבוססות על musl יש להתקין דרך npm.
 
 קבצים בינאריים ל-Linux (x64 ו-arm64), ל-macOS (Intel ו-Apple silicon) ול-Windows מצורפים לכל [גרסה](https://github.com/spamscanner/spamscanner/releases).
 

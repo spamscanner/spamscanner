@@ -1,4 +1,4 @@
-<!-- source: f8a77c318b83 -->
+<!-- source: ff86d06bdcd0 -->
 
 # Komentorivi
 
@@ -44,8 +44,13 @@ spamscanner scan message.eml --subject-tag "[SPAM]" > tagged.eml
 | `--no-classifier`          | Ei käytä luokitinta                                          |
 | `--config <file>`          | JSON-tiedosto, jossa on [kirjaston valinnat](api.md#options) |
 | `--allow-language <codes>` | Hyväksytyt kielet, esimerkiksi `en,de,fr`                    |
+| `--max-size <bytes>`       | Suurin luettava viesti (oletus 26214400, 25 MiB)             |
 
 Paluukoodit: 0 ham, 1 roskaposti, 2 virhe.
+
+`scan` ja `learn` lukevat viestistä enintään `--max-size` tavua, tiedostosta tai vakiosyötteestä; palvelimilla on sama raja. Suurempi viesti on virhe (paluukoodi 2), eikä sen loppua lueta.
+
+Vakiotulosteeseen menee vain tulos (tai viesti): kaikki, mitä jokin kirjasto tulostaa komennon ajon aikana, kuten mailauthin huomautukset DKIM-rungon pituuksista, menee vakiovirhetulosteeseen.
 
 ### SMTP-istunto
 
@@ -106,8 +111,11 @@ spamscanner filter -f "$sender" -- "$recipient"
 | `--reject`            | Palauttaa hylkäysrajan ylittävän postin lähettäjälle sen sijaan, että välittäisi sen eteenpäin |
 | `--discard`           | Pudottaa hylkäysrajan ylittävän postin sen sijaan, että välittäisi sen eteenpäin               |
 | `--on-error <answer>` | Postille, jota ei voitu tarkistaa kokonaan: `tempfail` (oletus) tai `accept`                   |
+| `--max-size <bytes>`  | Suurin tarkistettava viesti (oletus 26214400, 25 MiB)                                          |
 
 Paluukoodit noudattavat sendmailin käytäntöjä, joita Postfix lukee: 0 toimitettu (tai pudotettu), 64 vastaanottajia ei annettu, 69 hylätty roskapostina (Postfix palauttaa sen lähettäjälle), 75 mikä tahansa virhe, jolloin Postfix säilyttää viestin ja yrittää myöhemmin uudelleen. Myös viesti, jonka liitettä ClamAV ei voinut tarkistaa, on virhe. Valitsimella `--on-error accept` tällainen viesti tai viesti, jonka tarkistus epäonnistui, välitetään eteenpäin otsakkeella `X-Spam-Virus-Scan: failed` ja ilman lähettäjän lisäämiä `X-Spam-*`-otsakkeita.
+
+`--max-size`-rajaa suurempaa viestiä ei tarkisteta, eikä sitä pidetä kokonaan muistissa. Se lykätään (75), tai `--on-error accept` -valitsimella se välitetään tarkistamattomana eteenpäin sitä mukaa kuin sitä luetaan, merkittynä ja ilman lähettäjän `X-Spam-*`-otsakkeita kuten yllä. Postfixin `message_size_limit` (oletuksena 10 Mt) pitää postin oletusrajan alapuolella; jos nostat sen yli 25 MiB:n, nosta myös `--max-size`.
 
 
 ## milter, http, server ja spamd
@@ -123,21 +131,23 @@ HTTP-rajapinta lukee tunnisteensa ympäristömuuttujasta `SPAMSCANNER_TOKEN`. My
 
 Portti 783 on SpamAssassin-asiakkaiden oletusportti. Alle 1024:n portit vaativat root-oikeudet tai `CAP_NET_BIND_SERVICE`-kyvyn; käytä muuta porttia, kuten `--port 7833`, ja kerro se asiakkaalle.
 
-| Valitsin              | Merkitys                                                                                |
-| --------------------- | --------------------------------------------------------------------------------------- |
-| `--port <n>`          | TCP-portti                                                                              |
-| `--host <ip>`         | Kuunneltava osoite (oletus 127.0.0.1)                                                   |
-| `--socket <path>`     | Kuuntelee sen sijaan Unix-socketissa                                                    |
-| `--reject`            | Milter: hylkää hylkäysrajan ylittävän postin                                            |
-| `--reject-code <n>`   | Milter: 4xx-koodi, yritä myöhemmin uudelleen (451, oletus), tai 5xx-koodi, kuten 550    |
-| `--quarantine`        | Milter: pitää roskapostin postipalvelimen karanteenissa                                 |
-| `--on-error <answer>` | Milter: postille, jota ei voitu tarkistaa kokonaan, `tempfail` (oletus) tai `accept`    |
-| `--name <hostname>`   | Milter: tämän palvelimen nimi Authentication-Results-otsakkeessa                        |
-| `--token <secret>`    | HTTP: vaatii otsakkeen `Authorization: Bearer <secret>`; tarvitaan polulle `/learn`     |
-| `--allow-tell`        | spamd: hyväksyy TELL-pyynnöt (`spamc -L spam`) oppimista varten                         |
-| `--out <file>`        | HTTP ja spamd: tallentaa opitun tähän mallitiedostoon                                   |
-| `--subject-tag <tag>` | Milter ja spamd: lisää etuliitteen roskapostin aiheriville                              |
-| `--verbose`           | Milter: kirjaa jokaisen tarkistuksen lokiin. TCP-palvelin: vastaa yhdellä tekstirivillä |
+| Valitsin                | Merkitys                                                                                                                                                                                                      |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--port <n>`            | TCP-portti                                                                                                                                                                                                    |
+| `--host <ip>`           | Kuunneltava osoite (oletus 127.0.0.1)                                                                                                                                                                         |
+| `--socket <path>`       | Kuuntelee sen sijaan Unix-socketissa                                                                                                                                                                          |
+| `--max-size <bytes>`    | Suurin hyväksyttävä viesti (oletus 26214400, 25 MiB). Milter tarkistaa pidemmän rungon alun ja vastaa kuten epäonnistuneeseen tarkistukseen (`--on-error`), kun pelkät kirjekuori ja otsakkeet ovat suurempia |
+| `--max-connections <n>` | Yhtä aikaa avoinna olevat yhteydet (oletus 200); ylimääräiset suljetaan heti. HTTP: myös yhtä aikaa käsiteltävät pyynnöt, ylimääräiset saavat vastauksen `503`                                                |
+| `--reject`              | Milter: hylkää hylkäysrajan ylittävän postin                                                                                                                                                                  |
+| `--reject-code <n>`     | Milter: 4xx-koodi, yritä myöhemmin uudelleen (451, oletus), tai 5xx-koodi, kuten 550                                                                                                                          |
+| `--quarantine`          | Milter: pitää roskapostin postipalvelimen karanteenissa                                                                                                                                                       |
+| `--on-error <answer>`   | Milter: postille, jota ei voitu tarkistaa kokonaan, `tempfail` (oletus) tai `accept`                                                                                                                          |
+| `--name <hostname>`     | Milter: tämän palvelimen nimi Authentication-Results-otsakkeessa                                                                                                                                              |
+| `--token <secret>`      | HTTP: vaatii otsakkeen `Authorization: Bearer <secret>`; tarvitaan polulle `/learn`                                                                                                                           |
+| `--allow-tell`          | spamd: hyväksyy TELL-pyynnöt (`spamc -L spam`) oppimista varten                                                                                                                                               |
+| `--out <file>`          | HTTP ja spamd: tallentaa opitun tähän mallitiedostoon                                                                                                                                                         |
+| `--subject-tag <tag>`   | Milter ja spamd: lisää etuliitteen roskapostin aiheriville                                                                                                                                                    |
+| `--verbose`             | Milter: kirjaa jokaisen tarkistuksen lokiin. TCP-palvelin: vastaa yhdellä tekstirivillä                                                                                                                       |
 
 Yllä olevat tarkistusvalitsimet koskevat myös palvelimia. [Milter](postfix.md#milter), [HTTP API, TCP-palvelin ja spamd](http-api.md).
 

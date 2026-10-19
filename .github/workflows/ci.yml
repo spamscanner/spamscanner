@@ -52,6 +52,26 @@ jobs:
       # Every test, with 100% line, branch, function and statement coverage (see "c8" in package.json).
       - run: npx c8 node --test test/*.test.js
 
+  # The oldest mailparser package.json allows, as a lockfile may pin it, on the
+  # oldest Node.js (each later mailparser needs a later Node.js), so the code
+  # holds with what an install may resolve and not only the newest.
+  test-minimum:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    name: Node.js 18, mailparser 3.9.16
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 18
+      - run: npm install
+      - run: npm install --no-save mailparser@3.9.16
+      - run: npm ls mailparser
+      - run: npm run build
+      - run: npx c8 node --test test/*.test.js
+
   site:
     runs-on: ubuntu-latest
     timeout-minutes: 15

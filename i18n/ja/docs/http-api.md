@@ -1,4 +1,4 @@
-<!-- source: 9caf3ffb803a -->
+<!-- source: 665fbc0d5adc -->
 
 # HTTP API、TCPサーバー、spamd
 
@@ -37,7 +37,7 @@ HTTP API はトークンを環境変数 `SPAMSCANNER_TOKEN` から読み込み�
 
 `/check`は、`X-Spam-Flag`、`X-Spam-Score`、`X-Spam-Action`をレスポンスヘッダーとしても返すため、クライアントはメッセージを解析せずに判断できます。
 
-25 MBを超えるメッセージには`413`を返します。スキャンに失敗した場合は、`{"error": "..."}`とともに`500`を返します。
+25 MiB（`--max-size`）を超えるメッセージには`413`を返します。`Content-Length`でサイズがわかる場合は、本文を読む前に返します。スキャンに失敗した場合は、`{"error": "..."}`とともに`500`を返します。サーバーが同時に処理するリクエストは、パイプライン化されたものを含めて最大200件（`--max-connections`）で、超えた分には`Retry-After: 1`とともに`503`を返します。
 
 ```sh
 curl -s -X POST -H "Authorization: Bearer $SPAMSCANNER_TOKEN" \
@@ -86,7 +86,7 @@ nc -N 127.0.0.1 7830 < message.eml
 
 `--verbose`を指定すると、代わりに1行のテキストで応答します：`SPAM 16.3/5.0 BAYES_999,PHISHING_LOOKALIKE_DOMAIN,DECEPTIVE_LINK,FROM_NAME_BRAND`または`HAM -2.5/5.0 BAYES_00`。
 
-TCP サーバーはクライアントの IP アドレスを知らないため、`--auth` と `--dnsbl` は効果がありません。60 秒間何も送らない接続は閉じ、25 MB を超えるメッセージにはエラーを返します。
+TCP サーバーはクライアントの IP アドレスを知らないため、`--auth` と `--dnsbl` は効果がありません。応答するのは、クライアントが送信側を閉じてから（`nc -N` または `nc -q 1`、ソケットでは `shutdown(SHUT_WR)`）です。送信側を開いたままのクライアントには応答せず、データのない状態が 60 秒続くと接続を閉じます。25 MiB（`--max-size`）を超えるメッセージにはエラーを返します。
 
 
 ## spamd
@@ -111,4 +111,4 @@ spamc、Exim、Harakaなど、SpamAssassinのクライアント向けのSpamAssa
 
 圧縮されたリクエスト（`Compress: zlib`）は拒否します。
 
-spamd のクライアントもクライアントの IP アドレスを送らないため、`--auth` と `--dnsbl` は効果がありません。25 MB を超えるメッセージには `65`（`EX_DATAERR`）、`Content-length` より短いメッセージには `76`（`EX_PROTOCOL`）を返し、60 秒間何も送らない接続は閉じます。
+spamd のクライアントもクライアントの IP アドレスを送らないため、`--auth` と `--dnsbl` は効果がありません。25 MiB（`--max-size`）を超えるメッセージには `65`（`EX_DATAERR`）、`Content-length` より短いメッセージには `76`（`EX_PROTOCOL`）を返し、60 秒間何も送らない接続は閉じます。

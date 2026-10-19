@@ -3,8 +3,14 @@ name: Release binaries
 # Builds a standalone binary for each platform (a Node.js single executable
 # application with the classifier model embedded) and attaches it to the
 # GitHub release. The install script is attached first, so its download link
-# works at once (it asks users to try again later while SHA256SUMS is missing);
-# SHA256SUMS is attached once every build has finished.
+# works at once (it asks users to try again later while SHA256SUMS is missing).
+#
+# The builds, which install dependencies from npm and run their scripts, can
+# only read the repository: each hashes the binary it built and hands both
+# to the publish job as workflow artifacts. The publish job, which runs no
+# code from npm, checks each binary against its build's hash, attests their
+# provenance, and attaches the binaries and SHA256SUMS (the builds' hashes)
+# to the release.
 
 on:
   release:
@@ -48,7 +54,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     permissions:
-      contents: write
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -120,43 +126,74 @@ jobs:
           set -e
           test "$code" = 1
           "./$ARTIFACT" scan gtube.eml --no-cloudflare --json | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const r=JSON.parse(s);if(!r.tests.some(t=>t.name.startsWith('BAYES_')))process.exit(1)})"
-      - name: Attach to the release
+      # The hash of the binary as built here, published as SHA256SUMS.
+      - name: Hash the binary
         shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.event.release.tag_name }}
-        run: gh release upload "$TAG" "$ARTIFACT" --clobber --repo "$GITHUB_REPOSITORY"
+        run: |
+          if command -v sha256sum > /dev/null; then
+            hash="$(sha256sum "$ARTIFACT")"
+          else
+            hash="$(shasum -a 256 "$ARTIFACT")"
+          fi
+          printf '%s  %s\n' "${hash%% *}" "$ARTIFACT" | tee "$ARTIFACT.sha256"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: binary-${{ matrix.artifact }}
+          path: |
+            ${{ matrix.artifact }}
+            ${{ matrix.artifact }}.sha256
+          if-no-files-found: error
+          retention-days: 7
 
   # Runs after every build, even a failed one, over the binaries that were
-  # attached, and then fails if any build did. Re-running a failed build
-  # re-runs this job, which replaces SHA256SUMS.
-  checksums:
+  # built, and then fails if any build did. Re-running a failed build re-runs
+  # this job, which attaches its binary and replaces SHA256SUMS.
+  publish:
     needs: [check, build]
     if: ${{ !cancelled() && needs.check.result == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
       contents: write
+      id-token: write
+      attestations: write
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        # (with no build finished there is nothing to download)
+        continue-on-error: true
         with:
-          persist-credentials: false
-      - name: Attach SHA256SUMS to the release
+          pattern: binary-*
+          merge-multiple: true
+          path: assets
+      - name: Check the binaries against their builds' hashes
+        id: sums
+        run: |
+          mkdir -p assets sums
+          if compgen -G 'assets/*.sha256' > /dev/null; then
+            mv assets/*.sha256 sums/
+            for file in sums/*.sha256; do
+              (cd assets && sha256sum -c "../$file")
+            done
+            cat sums/*.sha256 > SHA256SUMS
+            cat SHA256SUMS
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
+        if: ${{ steps.sums.outputs.found == 'true' }}
+        with:
+          subject-path: assets/spamscanner-*
+      - name: Attach the binaries and SHA256SUMS to the release
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.event.release.tag_name }}
           BUILD_RESULT: ${{ needs.build.result }}
+          FOUND: ${{ steps.sums.outputs.found }}
         run: |
-          mkdir assets
-          # (with no binaries attached at all there is nothing to download)
-          if ! gh release download "$TAG" --pattern 'spamscanner-*' --dir assets --repo "$GITHUB_REPOSITORY"; then
-            test "$BUILD_RESULT" != success
-          fi
-          if compgen -G 'assets/spamscanner-*' > /dev/null; then
-            (cd assets && sha256sum spamscanner-* > SHA256SUMS && cat SHA256SUMS)
-            gh release upload "$TAG" assets/SHA256SUMS --clobber --repo "$GITHUB_REPOSITORY"
+          if [ "$FOUND" = true ]; then
+            gh release upload "$TAG" assets/spamscanner-* --clobber --repo "$GITHUB_REPOSITORY"
+            gh release upload "$TAG" SHA256SUMS --clobber --repo "$GITHUB_REPOSITORY"
           fi
           if [ "$BUILD_RESULT" != success ]; then
-            echo "::error::Some binaries were not built ($BUILD_RESULT); SHA256SUMS lists only those attached. Re-run the failed builds."
+            echo "::error::Some binaries were not built ($BUILD_RESULT); only those built are attached and in SHA256SUMS. Re-run the failed builds."
             exit 1
           fi

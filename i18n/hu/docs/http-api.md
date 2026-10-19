@@ -1,4 +1,4 @@
-<!-- source: 9caf3ffb803a -->
+<!-- source: 665fbc0d5adc -->
 
 # HTTP API, TCP-szerver és spamd
 
@@ -37,7 +37,7 @@ A lekérdezési paraméterek az SMTP-munkamenetet írják le:
 
 A `/check` válaszfejlécként az `X-Spam-Flag`, az `X-Spam-Score` és az `X-Spam-Action` értékét is visszaadja, így a kliens a levél feldolgozása nélkül is dönthet.
 
-A 25 MB-nál nagyobb levelek `413` választ kapnak. A sikertelen vizsgálat `500` választ kap `{"error": "..."}` törzzsel.
+A 25 MiB-nál (`--max-size`) nagyobb levelek `413` választ kapnak, még a törzs beolvasása előtt, ha a `Content-Length` megadja a méretet. A sikertelen vizsgálat `500` választ kap `{"error": "..."}` törzzsel. A szerver egyszerre legfeljebb 200 kérést kezel (`--max-connections`), a pipeline-ban küldötteket is beleértve; a továbbiak `503` választ kapnak `Retry-After: 1` fejléccel.
 
 ```sh
 curl -s -X POST -H "Authorization: Bearer $SPAMSCANNER_TOKEN" \
@@ -86,7 +86,7 @@ nc -N 127.0.0.1 7830 < message.eml
 
 A `--verbose` kapcsolóval a válasz ehelyett egy szövegsor: `SPAM 16.3/5.0 BAYES_999,PHISHING_LOOKALIKE_DOMAIN,DECEPTIVE_LINK,FROM_NAME_BRAND` vagy `HAM -2.5/5.0 BAYES_00`.
 
-A TCP-szerver nem ismeri a kliens IP-címét, így a `--auth` és a `--dnsbl` hatástalan. Bezárja azokat a kapcsolatokat, amelyek 60 másodpercig semmit sem küldenek, és a 25 MB-nál nagyobb üzenetekre hibával válaszol.
+A TCP-szerver nem ismeri a kliens IP-címét, így a `--auth` és a `--dnsbl` hatástalan. Csak akkor válaszol, amikor a kliens lezárja a küldő oldalát (`nc -N` vagy `nc -q 1`, vagy `shutdown(SHUT_WR)` egy socketen); a nyitva tartó kliens nem kap választ, és a kapcsolat 60 másodpercnyi adat nélküli idő után bezárul. A 25 MiB-nál (`--max-size`) nagyobb üzenetekre hibával válaszol.
 
 
 ## spamd
@@ -111,4 +111,4 @@ SpamAssassin-kompatibilis szerver a spamc, az Exim, a Haraka és más SpamAssass
 
 A tömörített kéréseket (`Compress: zlib`) visszautasítja.
 
-A spamd-kliensek sem küldik el a kliens IP-címét, így a `--auth` és a `--dnsbl` hatástalan. A 25 MB-nál nagyobb üzenet `65` (`EX_DATAERR`), a `Content-length` értékénél rövidebb üzenet `76` (`EX_PROTOCOL`) választ kap, a 60 másodpercig semmit sem küldő kapcsolatok pedig bezárulnak.
+A spamd-kliensek sem küldik el a kliens IP-címét, így a `--auth` és a `--dnsbl` hatástalan. A 25 MiB-nál (`--max-size`) nagyobb üzenet `65` (`EX_DATAERR`), a `Content-length` értékénél rövidebb üzenet `76` (`EX_PROTOCOL`) választ kap, a 60 másodpercig semmit sem küldő kapcsolatok pedig bezárulnak.

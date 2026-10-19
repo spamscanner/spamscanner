@@ -1,4 +1,4 @@
-<!-- source: f8a77c318b83 -->
+<!-- source: ff86d06bdcd0 -->
 
 # 命令行
 
@@ -44,8 +44,13 @@ spamscanner scan message.eml --subject-tag "[SPAM]" > tagged.eml
 | `--no-classifier`          | 不使用分类器                           |
 | `--config <file>`          | 包含[库选项](api.md#options)的 JSON 文件 |
 | `--allow-language <codes>` | 接受的语言，例如 `en,de,fr`              |
+| `--max-size <bytes>`       | 读取的最大邮件（默认 26214400，25 MiB）      |
 
 退出码：0 为正常邮件，1 为垃圾邮件，2 为出错。
+
+`scan` 和 `learn` 从文件或标准输入最多读取邮件的 `--max-size` 个字节；服务器也有相同的限制。更大的邮件按出错处理（退出码 2），其余部分不会读取。
+
+标准输出只包含结果（或邮件）：命令运行期间库打印的任何内容，例如 mailauth 关于 DKIM 正文长度的提示，都会输出到标准错误。
 
 ### SMTP 会话
 
@@ -106,8 +111,11 @@ spamscanner filter -f "$sender" -- "$recipient"
 | `--reject`            | 达到拒收阈值的邮件会被退回，而不是传递下去                |
 | `--discard`           | 达到拒收阈值的邮件会被丢弃，而不是传递下去                |
 | `--on-error <answer>` | 对于未能完整扫描的邮件：`tempfail`（默认）或 `accept` |
+| `--max-size <bytes>`  | 扫描的最大邮件（默认 26214400，25 MiB）          |
 
 退出码遵循 Postfix 能读取的 sendmail 约定：0 表示已投递（或已丢弃），64 表示未提供收件人，69 表示作为垃圾邮件被拒收（Postfix 会退信），75 表示任何失败，此时 Postfix 会保留邮件并稍后重试。带有 ClamAV 未能扫描的附件的邮件同样算作失败。使用 `--on-error accept` 时，这样的邮件或扫描失败的邮件会加上 `X-Spam-Virus-Scan: failed` 并去掉发件人添加的所有 `X-Spam-*` 头后被传递下去。
+
+大于 `--max-size` 的邮件不会被扫描，也不会被整个保存在内存中。它会被推迟（75），或者在使用 `--on-error accept` 时，边读取边不经扫描地传递下去，并如上所述加上标记、去掉发件人的 `X-Spam-*` 头。Postfix 的 `message_size_limit`（默认 10 MB）会让邮件保持在默认限制以下；如果将其调到 25 MiB 以上，也请调大 `--max-size`。
 
 
 ## milter、http、server 和 spamd
@@ -123,21 +131,23 @@ HTTP API 从环境变量 `SPAMSCANNER_TOKEN` 读取令牌。`--token` 也可以�
 
 端口 783 是 SpamAssassin 客户端默认使用的端口。低于 1024 的端口需要 root 权限或 `CAP_NET_BIND_SERVICE` 能力；也可以使用其他端口，例如 `--port 7833`，并告知客户端。
 
-| 选项                    | 含义                                                    |
-| --------------------- | ----------------------------------------------------- |
-| `--port <n>`          | TCP 端口                                                |
-| `--host <ip>`         | 监听的地址（默认 127.0.0.1）                                   |
-| `--socket <path>`     | 改为监听 Unix 套接字                                         |
-| `--reject`            | Milter：拒收达到拒收阈值的邮件                                    |
-| `--reject-code <n>`   | Milter：4xx 代码，稍后重试（451，默认），或 5xx 代码，如 550             |
-| `--quarantine`        | Milter：把垃圾邮件扣留在邮件服务器的隔离区中                             |
-| `--on-error <answer>` | Milter：对于未能完整扫描的邮件，`tempfail`（默认）或 `accept`           |
-| `--name <hostname>`   | Milter：本服务器在 Authentication-Results 中的名称              |
-| `--token <secret>`    | HTTP：要求 `Authorization: Bearer <secret>`；`/learn` 需要它 |
-| `--allow-tell`        | spamd：接受用于学习的 TELL 请求（`spamc -L spam`）                |
-| `--out <file>`        | HTTP 和 spamd：把学到的内容保存到此模型文件                           |
-| `--subject-tag <tag>` | Milter 和 spamd：为垃圾邮件的主题添加前缀                           |
-| `--verbose`           | Milter：记录每次扫描。TCP 服务器：以一行文本作答                         |
+| 选项                      | 含义                                                                                       |
+| ----------------------- | ---------------------------------------------------------------------------------------- |
+| `--port <n>`            | TCP 端口                                                                                   |
+| `--host <ip>`           | 监听的地址（默认 127.0.0.1）                                                                      |
+| `--socket <path>`       | 改为监听 Unix 套接字                                                                            |
+| `--max-size <bytes>`    | 接受的最大邮件（默认 26214400，25 MiB）。对于更长的正文，milter 扫描其开头部分；如果仅信封和头就已超过该大小，则按扫描失败（`--on-error`）答复 |
+| `--max-connections <n>` | 同时打开的连接数（默认 200）；超出的连接会被立即关闭。HTTP：也是同时处理的请求数，超出的请求得到 `503`                               |
+| `--reject`              | Milter：拒收达到拒收阈值的邮件                                                                       |
+| `--reject-code <n>`     | Milter：4xx 代码，稍后重试（451，默认），或 5xx 代码，如 550                                                |
+| `--quarantine`          | Milter：把垃圾邮件扣留在邮件服务器的隔离区中                                                                |
+| `--on-error <answer>`   | Milter：对于未能完整扫描的邮件，`tempfail`（默认）或 `accept`                                              |
+| `--name <hostname>`     | Milter：本服务器在 Authentication-Results 中的名称                                                 |
+| `--token <secret>`      | HTTP：要求 `Authorization: Bearer <secret>`；`/learn` 需要它                                    |
+| `--allow-tell`          | spamd：接受用于学习的 TELL 请求（`spamc -L spam`）                                                   |
+| `--out <file>`          | HTTP 和 spamd：把学到的内容保存到此模型文件                                                              |
+| `--subject-tag <tag>`   | Milter 和 spamd：为垃圾邮件的主题添加前缀                                                              |
+| `--verbose`             | Milter：记录每次扫描。TCP 服务器：以一行文本作答                                                            |
 
 上面的扫描选项同样适用于服务器。[milter](postfix.md#milter)，[HTTP API、TCP 服务器和 spamd](http-api.md)。
 

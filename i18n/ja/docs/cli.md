@@ -1,4 +1,4 @@
-<!-- source: f8a77c318b83 -->
+<!-- source: ff86d06bdcd0 -->
 
 # コマンドライン
 
@@ -44,8 +44,13 @@ spamscanner scan message.eml --subject-tag "[SPAM]" > tagged.eml
 | `--no-classifier`          | 分類器を使わない                                   |
 | `--config <file>`          | [ライブラリのオプション](api.md#options)を記述したJSONファイル |
 | `--allow-language <codes>` | 受け入れる言語。例：`en,de,fr`                       |
+| `--max-size <bytes>`       | 読み込むメッセージの最大サイズ（デフォルトは26214400、25 MiB）     |
 
 終了コード：0はハム、1はスパム、2はエラー。
+
+`scan`と`learn`は、ファイルまたは標準入力から、メッセージを最大`--max-size`バイトまで読みます。サーバーにも同じ上限があります。これより大きいメッセージはエラー（終了コード2）となり、残りは読みません。
+
+標準出力には結果（またはメッセージ）だけを出力します。コマンドの実行中にライブラリが出力するもの、たとえばDKIMの本文長に関するmailauthの注記は、標準エラー出力に送られます。
 
 ### SMTPセッション
 
@@ -106,8 +111,11 @@ spamscanner filter -f "$sender" -- "$recipient"
 | `--reject`            | 拒否のしきい値に達したメールを、渡さずにバウンスする                        |
 | `--discard`           | 拒否のしきい値に達したメールを、渡さずに破棄する                          |
 | `--on-error <answer>` | 完全にはスキャンできなかったメールの扱い。`tempfail`（デフォルト）または`accept` |
+| `--max-size <bytes>`  | スキャンするメッセージの最大サイズ（デフォルトは26214400、25 MiB）          |
 
 終了コードは、Postfixが読み取るsendmailの慣例に従います。0は配送済み（または破棄済み）、64は受信者の指定なし、69はスパムとして拒否（Postfixがバウンスする）、75はなんらかの失敗です。75の場合、Postfixはメッセージを保持して後で再試行します。ClamAVがスキャンできなかった添付ファイルを含むメッセージも失敗として扱います。`--on-error accept`を指定すると、そのようなメッセージやスキャンに失敗したメッセージは、`X-Spam-Virus-Scan: failed`を付け、送信者が付けた`X-Spam-*`ヘッダーを除いて渡されます。
+
+`--max-size`より大きいメッセージはスキャンせず、全体をメモリに保持することもありません。延期する（75）か、`--on-error accept`を指定した場合は、読みながらスキャンせずに渡します。上記のとおり印を付け、送信者の`X-Spam-*`ヘッダーは除きます。Postfixの`message_size_limit`（デフォルトは10 MB）により、メールはデフォルトの上限より小さく保たれます。25 MiBを超えて引き上げる場合は、`--max-size`も引き上げてください。
 
 
 ## milter、http、server、spamd
@@ -123,21 +131,23 @@ HTTP API はトークンを環境変数 `SPAMSCANNER_TOKEN` から読み込み�
 
 ポート783は、SpamAssassinのクライアントがデフォルトで使うポートです。1024未満のポートにはrootか`CAP_NET_BIND_SERVICE`ケーパビリティが必要です。`--port 7833`のような別のポートを使い、クライアントにそれを指定してください。
 
-| オプション                 | 意味                                                       |
-| --------------------- | -------------------------------------------------------- |
-| `--port <n>`          | TCPポート                                                   |
-| `--host <ip>`         | 待ち受けるアドレス（デフォルトは127.0.0.1）                               |
-| `--socket <path>`     | 代わりにUnixソケットで待ち受ける                                       |
-| `--reject`            | milter：拒否のしきい値に達したメールを拒否する                               |
-| `--reject-code <n>`   | milter：4xxコード（後で再試行、451がデフォルト）、または550などの5xxコード           |
-| `--quarantine`        | milter：スパムをメールサーバーの隔離領域に保留する                             |
-| `--on-error <answer>` | milter：完全にはスキャンできなかったメールの扱い。`tempfail`（デフォルト）または`accept` |
-| `--name <hostname>`   | milter：Authentication-Resultsに記載するこのサーバーの名前              |
-| `--token <secret>`    | HTTP：`Authorization: Bearer <secret>`を必須にする。`/learn`に必要  |
-| `--allow-tell`        | spamd：学習用のTELLリクエスト（`spamc -L spam`）を受け付ける               |
-| `--out <file>`        | HTTPとspamd：学習した内容をこのモデルファイルに保存する                         |
-| `--subject-tag <tag>` | milterとspamd：スパムの件名の先頭に付ける                               |
-| `--verbose`           | milter：すべてのスキャンをログに記録する。TCPサーバー：1行のテキストで応答する             |
+| オプション                   | 意味                                                                                                                    |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `--port <n>`            | TCPポート                                                                                                                |
+| `--host <ip>`           | 待ち受けるアドレス（デフォルトは127.0.0.1）                                                                                            |
+| `--socket <path>`       | 代わりにUnixソケットで待ち受ける                                                                                                    |
+| `--max-size <bytes>`    | 受け入れるメッセージの最大サイズ（デフォルトは26214400、25 MiB）。milterは長い本文の先頭をスキャンし、エンベロープとヘッダーだけで上限を超える場合は、スキャン失敗時と同じように応答します（`--on-error`） |
+| `--max-connections <n>` | 同時に開ける接続数（デフォルトは200）。超えた分はすぐに閉じます。HTTP：同時に処理するリクエスト数でもあり、超えた分には`503`を返します                                             |
+| `--reject`              | milter：拒否のしきい値に達したメールを拒否する                                                                                            |
+| `--reject-code <n>`     | milter：4xxコード（後で再試行、451がデフォルト）、または550などの5xxコード                                                                        |
+| `--quarantine`          | milter：スパムをメールサーバーの隔離領域に保留する                                                                                          |
+| `--on-error <answer>`   | milter：完全にはスキャンできなかったメールの扱い。`tempfail`（デフォルト）または`accept`                                                              |
+| `--name <hostname>`     | milter：Authentication-Resultsに記載するこのサーバーの名前                                                                           |
+| `--token <secret>`      | HTTP：`Authorization: Bearer <secret>`を必須にする。`/learn`に必要                                                               |
+| `--allow-tell`          | spamd：学習用のTELLリクエスト（`spamc -L spam`）を受け付ける                                                                            |
+| `--out <file>`          | HTTPとspamd：学習した内容をこのモデルファイルに保存する                                                                                      |
+| `--subject-tag <tag>`   | milterとspamd：スパムの件名の先頭に付ける                                                                                            |
+| `--verbose`             | milter：すべてのスキャンをログに記録する。TCPサーバー：1行のテキストで応答する                                                                          |
 
 上記のスキャンのオプションはサーバーにも適用されます。[milter](postfix.md#milter)、[HTTP API、TCPサーバー、spamd](http-api.md)を参照してください。
 

@@ -12,12 +12,13 @@ import {Readable} from 'node:stream';
 import {describe, it} from 'node:test';
 import {promisify} from 'node:util';
 import {
-	HELP, buildConfig, buildSession, deliver, main, parseCli,
+	HELP, buildConfig, buildSession, deliver, main, parseCli, readMessage,
 } from '../src/cli.js';
 import {GTUBE} from '../src/is-arbitrary.js';
+import {MAX_CONNECTIONS, MAX_MESSAGE_SIZE} from '../src/server.js';
 import {VERSION} from '../src/version.js';
 import {
-	HAM, SPAM, httpServer, message, milterClient, sink, temporaryDirectory,
+	HAM, SPAM, dnsServer, httpServer, message, milterClient, sink, temporaryDirectory,
 } from './helpers/index.js';
 
 const run = promisify(execFile);
@@ -25,12 +26,13 @@ const offline = ['--no-cloudflare'];
 const ham = message({subject: 'Lunch', text: 'Hi Bob, are we still on for lunch on Thursday at noon? Alice'});
 const spam = message({subject: 'Test', text: GTUBE});
 
-// Run the CLI in this process with fake standard streams.
+// Run the CLI in this process with fake standard streams (standard input: a
+// string, or a stream).
 async function cli(argv, {stdin = '', env = {}, onListening} = {}) {
 	const stdout = sink();
 	const stderr = sink();
 	const code = await main(argv, {
-		stdin: Readable.from([Buffer.from(stdin)]), stdout, stderr, env, onListening,
+		stdin: typeof stdin === 'string' ? Readable.from([Buffer.from(stdin)]) : stdin, stdout, stderr, env, onListening,
 	});
 	return {code, stdout: stdout.text(), stderr: stderr.text()};
 }
@@ -321,6 +323,128 @@ describe('spamscanner filter', () => {
 	});
 });
 
+// Standard input that gives a message and then filler, in 1 KiB chunks,
+// counting what was read and noting when it is closed.
+function largeInput(head, chunks = 1000, {fail = false} = {}) {
+	const input = {read: 0, closed: false};
+	input.stream = Readable.from((async function * () {
+		try {
+			yield Buffer.from(head);
+			for (let index = 0; index < chunks; index++) {
+				input.read++;
+				if (fail && index === 5) {
+					throw new Error('standard input broke');
+				}
+
+				yield Buffer.alloc(1024, 'a');
+			}
+		} finally {
+			input.closed = true;
+		}
+	})());
+	return input;
+}
+
+describe('message size limit', () => {
+	it('reads standard input up to the limit, and keeps the rest unread', async () => {
+		const input = largeInput('From: a@example.org\r\n\r\n', 10);
+		const {data, complete, rest} = await readMessage(input.stream, 2000);
+		assert.equal(complete, false);
+		assert.equal(data.length, 23 + 2048);
+		// (and the stream reads at most a little ahead)
+		assert.ok(input.read <= 4, `read ${input.read} chunks`);
+		const after = [];
+		for await (const chunk of rest) {
+			after.push(chunk);
+		}
+
+		assert.equal(Buffer.concat(after).length, 8 * 1024);
+		const whole = await readMessage(Readable.from(['ab', 'c']), 3);
+		assert.deepEqual([whole.data.toString(), whole.complete], ['abc', true]);
+	});
+
+	it('stops scan and learn at the limit with an error', async () => {
+		const input = largeInput(ham);
+		const scanned = await cli(['scan', '-', '--max-size', '4096', ...offline], {stdin: input.stream});
+		assert.equal(scanned.code, 2);
+		assert.equal(scanned.stderr, 'spamscanner: Message larger than 4096 bytes (see --max-size)\n');
+		assert.ok(input.read <= 5, `read ${input.read} chunks`);
+		assert.equal(input.closed, true);
+		// (a file too, and a message of exactly the limit is read)
+		const file = path.join(temporaryDirectory(), 'large.eml');
+		writeFileSync(file, `${ham}${'a'.repeat(5000)}`);
+		assert.equal((await cli(['scan', file, '--max-size', '4096', ...offline])).code, 2);
+		assert.equal((await cli(['scan', file, '--max-size', String(Buffer.byteLength(ham) + 5000), '--no-classifier', ...offline])).code, 0);
+		const model = path.join(temporaryDirectory(), 'model.json');
+		const learned = await cli(['learn', 'spam', '-', '--model', model, '--max-size', '4096'], {stdin: largeInput(spam).stream});
+		assert.equal(learned.code, 2);
+		assert.match(learned.stderr, /Message larger than 4096 bytes/);
+		assert.equal(existsSync(model), false);
+	});
+
+	it('takes only a whole number of at least 1', async () => {
+		for (const value of ['0', '-5', '1.5', 'lots']) {
+			const result = await cli(['scan', '-', `--max-size=${value}`], {stdin: ham});
+			assert.equal(result.code, 2);
+			assert.match(result.stderr, /--max-size must be/);
+		}
+
+		assert.match((await cli(['http', '--max-connections', '0'])).stderr, /--max-connections must be a whole number of at least 1, not "0"/);
+		assert.equal(MAX_MESSAGE_SIZE, 25 * 1024 * 1024);
+		assert.ok(HELP.includes(`(default ${MAX_MESSAGE_SIZE}, 25 MiB)`) && HELP.includes(`(default ${MAX_CONNECTIONS};`));
+	});
+
+	it('defers a larger message in filter mode, without reading it all', async () => {
+		const sendmail = fakeSendmail();
+		const input = largeInput(ham);
+		const result = await cli(['filter', '--sendmail', sendmail.file, '--max-size', '4096', ...offline, '--', 'bob@example.com'], {stdin: input.stream});
+		assert.equal(result.code, 75);
+		assert.equal(result.stderr, 'filter: message larger than 4096 bytes (see --max-size), deferring\n');
+		assert.ok(input.read <= 5, `read ${input.read} chunks`);
+		assert.equal(sendmail.delivered(), false);
+	});
+
+	it('passes a larger message on whole and unscanned with --on-error accept', async () => {
+		const sendmail = fakeSendmail();
+		const forged = `X-Spam-Flag: NO\r\n${ham}`;
+		const result = await cli(['filter', '--sendmail', sendmail.file, '--max-size', '4096', '--on-error', 'accept', ...offline, '-f', 'a@example.org', '--', 'bob@example.com'], {stdin: largeInput(forged).stream});
+		assert.equal(result.code, 0);
+		assert.equal(result.stderr, 'filter: message larger than 4096 bytes (see --max-size), passing it on unscanned\n');
+		assert.equal(sendmail.message(), `X-Spam-Virus-Scan: failed\r\n${ham}${'a'.repeat(1000 * 1024)}`);
+		// Without the end of its header block in what was read, it is deferred.
+		const long = fakeSendmail();
+		const header = await cli(['filter', '--sendmail', long.file, '--max-size', '100', '--on-error', 'accept', ...offline, '--', 'bob@example.com'], {stdin: largeInput(`X-Long: ${'b'.repeat(500)}\r\n`).stream});
+		assert.equal(header.code, 75);
+		assert.match(header.stderr, /deferring/);
+		assert.equal(long.delivered(), false);
+	});
+
+	it('stops sendmail if the rest of a larger message cannot be read', async () => {
+		const directory = temporaryDirectory();
+		const file = path.join(directory, 'sendmail');
+		writeFileSync(file, `#!/bin/sh\nexec cat > "${directory}/message"\n`);
+		chmodSync(file, 0o755);
+		const result = await cli(['filter', '--sendmail', file, '--max-size', '1024', '--on-error', 'accept', ...offline, '--', 'bob@example.com'], {stdin: largeInput(ham, 1000, {fail: true}).stream});
+		assert.equal(result.code, 75);
+		assert.match(result.stderr, /sendmail exited with a signal, deferring/);
+	});
+
+	it('gives the servers the limits', async () => {
+		const {server, done} = await serve(['http', '--port', '0', '--max-size', '100', '--max-connections', '3', '--no-classifier', ...offline]);
+		assert.equal(server.maxConnections, 3);
+		const response = await fetch(`http://127.0.0.1:${server.address().port}/scan`, {method: 'POST', body: 'x'.repeat(200)});
+		assert.equal(response.status, 413);
+		server.close();
+		await done;
+		for (const command of ['server', 'spamd', 'milter']) {
+			const started = await serve([command, '--port', '0', '--max-connections', '7', '--no-classifier', ...offline]);
+			assert.equal(started.server.maxConnections, 7);
+			started.server.close();
+			await started.done;
+		}
+	});
+});
+
 describe('spamscanner servers', () => {
 	it('runs the milter until it is closed', async () => {
 		const {server, done: stopped} = await serve(['milter', '--port', '0', '--no-classifier', ...offline, '--reject', '--reject-code', '550', '--quarantine', '--subject-tag', '[SPAM]', '--name', 'mx.example.com', '--verbose']);
@@ -428,6 +552,41 @@ describe('spamscanner servers', () => {
 		const learning = await serve(['spamd', '--port', '0', '--allow-tell', '--out', path.join(temporaryDirectory(), 'told.json'), '--no-classifier', ...offline]);
 		learning.server.close();
 		await learning.done;
+	});
+
+	it('keeps what dependencies print with console.log off standard output', async () => {
+		const dns = await dnsServer({'sender.test TXT': ['v=spf1 -all']});
+		const file = path.join(temporaryDirectory(), 'config.json');
+		writeFileSync(file, JSON.stringify({authentication: {dnsServers: [dns.server], timeout: 2000}}));
+		try {
+			// (mailauth prints "TOTAL 7 EXPECTING 100000" for a body length
+			//  longer than the body)
+			const signature = 'DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=signer.test; s=s; h=from; l=100000; bh=AAAA; b=AAAA\r\n';
+			const scanned = await cli(['scan', '--json', '--no-classifier', ...offline, '--auth', '--ip', '192.0.2.1', '--from', 'a@sender.test', '--config', file], {stdin: signature + message({from: 'a@sender.test'})});
+			assert.equal(JSON.parse(scanned.stdout).results.authentication.dkim.status.result, 'neutral');
+			assert.ok(scanned.stderr.includes(' EXPECTING 100000'), scanned.stderr);
+		} finally {
+			await dns.close();
+		}
+
+		// (two commands at once: each writes to its own standard error until it
+		//  ends, and console.log is itself again when both have)
+		const original = console.log;
+		const {server, done} = await serve(['spamd', '--port', '0', '--no-classifier', ...offline]);
+		const second = await cli(['spamd', '--port', '0', '--no-classifier', ...offline], {
+			onListening(other) {
+				console.info('to the second');
+				other.close();
+			},
+		});
+		console.log('to the first');
+		server.close();
+		const first = await done;
+		assert.match(second.stderr, /to the second/);
+		assert.doesNotMatch(second.stderr, /to the first/);
+		assert.match(first.stderr, /to the first/);
+		assert.doesNotMatch(first.stderr + first.stdout + second.stdout, /to the second/);
+		assert.equal(console.log, original);
 	});
 
 	it('warns that spamd, TCP and HTTP clients do not send the client address', async () => {

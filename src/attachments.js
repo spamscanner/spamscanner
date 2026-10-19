@@ -205,7 +205,9 @@ function entriesOf(buffer) {
  * is read, as well as the last one found: archive programs differ in which
  * they use, so a directory hidden behind another record is read too.  ZIP64
  * archives, and archives after other data (self-extracting archives), are
- * read as well.
+ * read as well. Each entry is read once, however many directories overlap
+ * it; a name longer than 1 KiB keeps its first and last 512 bytes (with "…"
+ * between them), and reading stops after 1 MiB of names.
  * @param {Buffer} buffer
  * @param {number} [limit] - most entries to read
  * @returns {Array<{name: string, encrypted: boolean, size: number}>}
@@ -220,19 +222,25 @@ export function zipEntries(buffer, limit = 2000) {
 		}
 	}
 
-	// (each directory once, and at most `limit` entries in all)
-	const entries = [];
-	const read = new Set();
+	// (each entry once, and at most `limit` entries and MAX_NAME_BYTES of
+	//  names in all)
+	const state = {
+		entries: [], limit, read: new Set(), names: MAX_NAME_BYTES,
+	};
 	for (const eocd of records) {
 		const offset = directoryOf(buffer, eocd);
-		if (offset !== -1 && !read.has(offset)) {
-			read.add(offset);
-			readDirectory(buffer, offset, limit - entries.length, entries);
+		if (offset !== -1) {
+			readDirectory(buffer, offset, state);
 		}
 	}
 
-	return entries;
+	return state.entries;
 }
+
+// The longest entry name read whole, and the most bytes of names read from
+// one archive.
+const MAX_NAME_LENGTH = 1024;
+const MAX_NAME_BYTES = 1024 * 1024;
 
 const DIRECTORY = 0x02_01_4B_50;
 const isDirectory = (buffer, offset) => offset >= 0 && offset + 46 <= buffer.length && buffer.readUInt32LE(offset) === DIRECTORY;
@@ -271,18 +279,40 @@ function directoryOf(buffer, eocd) {
 	return -1;
 }
 
-// Read up to `count` directory entries from `offset` into `entries`.
-function readDirectory(buffer, offset, count, entries) {
-	for (let n = 0; n < count && isDirectory(buffer, offset); n++) {
+// Read directory entries from `offset` into state.entries, until it has
+// state.limit, an entry was read already (state.read: their offsets) or the
+// names read reach state.names bytes.
+function readDirectory(buffer, offset, state) {
+	while (state.entries.length < state.limit && isDirectory(buffer, offset) && !state.read.has(offset)) {
+		state.read.add(offset);
 		const flags = buffer.readUInt16LE(offset + 8);
 		const size = buffer.readUInt32LE(offset + 24);
 		const nameLength = buffer.readUInt16LE(offset + 28);
 		const extraLength = buffer.readUInt16LE(offset + 30);
 		const commentLength = buffer.readUInt16LE(offset + 32);
-		const name = buffer.subarray(offset + 46, offset + 46 + nameLength).toString(flags & 0x8_00 ? 'utf8' : 'latin1');
-		entries.push({name, encrypted: (flags & 1) === 1, size});
+		const encoding = flags & 0x8_00 ? 'utf8' : 'latin1';
+		const start = offset + 46;
+		const end = Math.min(buffer.length, start + nameLength);
+		const kept = Math.min(end - start, MAX_NAME_LENGTH);
+		state.names -= kept;
+		if (state.names < 0) {
+			return;
+		}
+
+		const half = MAX_NAME_LENGTH / 2;
+		const name = end - start > MAX_NAME_LENGTH
+			? `${buffer.toString(encoding, start, start + half)}…${buffer.toString(encoding, end - half, end)}`
+			: buffer.toString(encoding, start, end);
+		state.entries.push({name, encrypted: (flags & 1) === 1, size});
 		offset += 46 + nameLength + extraLength + commentLength;
 	}
+}
+
+// A name for a message: at most `max` characters, its start and end (with
+// its extension) around "…".
+function shorten(name, max = 100) {
+	const characters = [...name];
+	return characters.length <= max ? name : `${characters.slice(0, max - 41).join('')}…${characters.slice(-40).join('')}`;
 }
 
 // (Windows drops dots and spaces at the end of a file name: "run.js." runs)
@@ -407,7 +437,7 @@ export function inspectAttachments(attachments = []) {
 			// too; not the documents and certificates Office itself embeds)
 			const inner = entries.filter(entry => EXECUTABLE_EXTENSIONS.has(extensionOf(entry.name)) && !(office && OFFICE_EMBEDDED.has(extensionOf(entry.name))));
 			const details = {extension: extensionOf(inner[0]?.name ?? ''), extensions: [...new Set(inner.map(entry => extensionOf(entry.name)))]};
-			const listed = inner.slice(0, 3).map(entry => entry.name.split('/').pop()).join(', ');
+			const listed = inner.slice(0, 3).map(entry => shorten(entry.name.split('/').pop())).join(', ');
 			if (inner.some(entry => !SCRIPT_EXTENSIONS.has(extensionOf(entry.name)))) {
 				add('executable_in_archive', `Archive "${name}" contains ${inner.length === 1 ? 'a program' : `${inner.length} programs`} (${listed})`, details);
 			} else if (inner.length > 0) {

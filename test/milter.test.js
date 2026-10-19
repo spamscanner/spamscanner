@@ -10,6 +10,7 @@ import {GTUBE} from '../src/is-arbitrary.js';
 import {
 	MAX_PACKET, MilterServer, MilterSession, PROTOCOL, cstrings, packet,
 } from '../src/milter.js';
+import {MAX_CONNECTIONS} from '../src/server.js';
 import {
 	cstr, dnsServer, milterClient, temporaryDirectory,
 } from './helpers/index.js';
@@ -321,7 +322,8 @@ describe('MilterServer', () => {
 	});
 
 	it('limits the body it keeps, and starts over after abort and quit-new-connection', async () => {
-		const {server, port} = await start({maxSize: 10});
+		// (the envelope and headers of each message, 26 bytes at most, fit too)
+		const {server, port} = await start({maxSize: 31});
 		const scans = [];
 		server.on('scan', scan => scans.push(scan));
 		try {
@@ -330,8 +332,8 @@ describe('MilterServer', () => {
 			await client.read();
 			client.send('M', cstr('<a@example.org>'));
 			await client.read();
-			client.send('L', cstr('Subject', 'Dropped'));
-			await client.read();
+			client.send('L', cstr('Subject', 'X'));
+			assert.equal((await client.read()).command, 'c');
 			client.send('A');
 			client.send('M', cstr('<b@example.org>'));
 			await client.read();
@@ -626,6 +628,78 @@ describe('MilterServer', () => {
 		} finally {
 			await server.close();
 		}
+	});
+
+	it('limits the envelope and headers it keeps, answering as for a failed scan', async () => {
+		for (const [onError, answer] of [['tempfail', 't'], ['accept', 'a']]) {
+			const {server, port} = await start({maxSize: 100, onError});
+			const errors = [];
+			server.on('error', error => errors.push(error.message));
+			try {
+				const client = await milterClient(port);
+				client.send('M', cstr('<a@example.org>'));
+				assert.equal((await client.read()).command, 'c');
+				client.send('L', cstr('Received', 'x'.repeat(60)));
+				assert.equal((await client.read()).command, 'c');
+				client.send('L', cstr('Received', 'x'.repeat(60)));
+				assert.equal((await client.read()).command, answer);
+				assert.deepEqual(errors, ['Message headers larger than 100 bytes']);
+				// (recipients count too, and the next message starts over)
+				client.send('M', cstr('<a@example.org>'));
+				await client.read();
+				const replies = [];
+				for (let index = 0; index < 10; index++) {
+					client.send('R', cstr(`<${index}@example.com>`));
+					replies.push((await client.read()).command);
+				}
+
+				assert.deepEqual(replies, ['c', 'c', 'c', 'c', 'c', answer, 'c', 'c', 'c', 'c']);
+				client.close();
+			} finally {
+				await server.close();
+			}
+		}
+	});
+
+	it('stops reading while a message is scanned', {timeout: 10_000}, async () => {
+		let release;
+		const {server, port} = await start({}, {
+			async scan(...arguments_) {
+				await new Promise(resolve => {
+					release = resolve;
+				});
+				return scanner.scan(...arguments_);
+			},
+		});
+		try {
+			const client = await milterClient(port);
+			client.send('B', 'Hi Bob');
+			await client.read();
+			client.send('E');
+			await delay(50);
+			// (a peer that sends on without waiting for the answer)
+			const chunk = Buffer.alloc(60_000, 'a');
+			for (let index = 0; index < 300; index++) {
+				client.send('B', chunk);
+			}
+
+			await delay(300);
+			const [socket] = server.sockets;
+			assert.ok(socket.bytesRead < 4 * 1024 * 1024, `read ${socket.bytesRead} bytes during the scan`);
+			release();
+			const answers = await client.readUntilFinal();
+			assert.equal(answers.at(-1).command, 'c');
+			// (and reads again afterwards)
+			assert.equal((await client.read()).command, 'c');
+			client.close();
+		} finally {
+			await server.close();
+		}
+	});
+
+	it('limits connections', () => {
+		assert.equal(new MilterServer(scanner).server.maxConnections, MAX_CONNECTIONS);
+		assert.equal(new MilterServer(scanner, {maxConnections: 3}).server.maxConnections, 3);
 	});
 
 	it('accepts only 4xx and 5xx reject codes', () => {

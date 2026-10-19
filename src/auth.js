@@ -1,8 +1,11 @@
 import {Buffer, File} from 'node:buffer';
 import dns from 'node:dns';
 import {debuglog} from 'node:util';
+import {boundedForAuth} from './parse.js';
 import {asciiHostname} from './reputation.js';
 import {registrableDomain} from './tokenizer.js';
+
+export {MAX_DKIM_SIGNATURES} from './parse.js';
 
 const debug = debuglog('spamscanner:auth');
 
@@ -50,6 +53,61 @@ export function createResolver(timeout = 10_000, servers) {
 						error.code = 'ETIMEOUT';
 						reject(error);
 					}, timeout);
+				}),
+			]);
+		} finally {
+			clearTimeout(timer);
+		}
+	};
+}
+
+/**
+ * DNS lookups allowed for one message: room for SPF at the limits of RFC
+ * 7208 (10 lookups, each MX mechanism with up to 10 hosts, A and AAAA, about
+ * 220 in all, as mailauth counts them), MAX_DKIM_SIGNATURES keys (see
+ * boundedForAuth), the
+ * newest ARC seal, DMARC and BIMI.
+ */
+export const MAX_DNS_QUERIES = 300;
+
+// The longest Authentication-Results value written (whole results only).
+const MAX_AUTH_RESULTS_LENGTH = 8192;
+
+function dnsTimeout(message) {
+	const error = new Error(message);
+	error.code = 'ETIMEOUT';
+	return error;
+}
+
+/**
+ * A resolver that answers through `resolver` at most `maxQueries` times and
+ * until `deadline` (a time in milliseconds, as Date.now() gives it): any
+ * lookup after either, or still unanswered at the deadline, fails at once
+ * with ETIMEOUT, so a message's checks stop sending queries when its time is
+ * up and never send more than `maxQueries`.
+ * @param {(name: string, type: string) => Promise<any[]>} resolver
+ * @param {{maxQueries?: number, deadline?: number}} [limits]
+ * @returns {(name: string, type: string) => Promise<any[]>}
+ */
+export function limitResolver(resolver, {maxQueries = MAX_DNS_QUERIES, deadline = Number.POSITIVE_INFINITY} = {}) {
+	let count = 0;
+	return async (...args) => {
+		count++;
+		if (count > maxQueries) {
+			throw dnsTimeout(`More than ${maxQueries} DNS lookups for one message`);
+		}
+
+		const left = deadline - Date.now();
+		if (left <= 0) {
+			throw dnsTimeout('Out of time for this message\'s DNS lookups');
+		}
+
+		let timer;
+		try {
+			return await Promise.race([
+				resolver(...args),
+				new Promise((_resolve, reject) => {
+					timer = setTimeout(() => reject(dnsTimeout('Out of time for this message\'s DNS lookups')), Math.min(left, 2_147_483_647));
 				}),
 			]);
 		} finally {
@@ -264,6 +322,7 @@ export function normalizeAuthOutput(output = {}, options = {}) {
  *
  * Needs the connecting client's IP address: without it nothing is checked and
  * every result is "none". DNS errors give "temperror" results, never a pass.
+ * Only the first MAX_DKIM_SIGNATURES DKIM signatures are checked.
  *
  * @param {Buffer|string} message - the raw message
  * @param {object} options
@@ -272,7 +331,11 @@ export function normalizeAuthOutput(output = {}, options = {}) {
  * @param {string} [options.sender] - envelope sender (MAIL FROM)
  * @param {string} [options.mta] - this server's hostname, for the headers
  * @param {Function} [options.resolver] - custom DNS resolver (name, type)
- * @param {number} [options.timeout] - DNS timeout in milliseconds
+ * @param {number} [options.timeout] - milliseconds for a DNS lookup, and for
+ *   all of the message's: no lookup is sent, nor waited for, after this long
+ *   (and 100 ms more)
+ * @param {number} [options.maxDnsQueries] - DNS lookups allowed for the
+ *   message (MAX_DNS_QUERIES); any more fail with a temporary error
  * @param {string[]} [options.dnsServers] - name servers to use
  * @param {string[]} [options.trustedArcSealers] - forwarders (such as a
  *   mailing list's domain) whose ARC seal is believed: a message they passed
@@ -293,9 +356,17 @@ export async function authenticate(message, options = {}) {
 
 	try {
 		const {authenticate: run} = await getMailauth();
-		const resolver = options.resolver || createResolver(timeout, options.dnsServers);
-		const raw = Buffer.isBuffer(message) ? message : Buffer.from(String(message));
-		const output = await run(raw, {
+		const resolver = limitResolver(options.resolver || createResolver(timeout, options.dnsServers), {
+			maxQueries: options.maxDnsQueries ?? MAX_DNS_QUERIES,
+			// (a little after `timeout`, so a caller that waits that long for the
+			//  result, as scan() does, has its answer first)
+			deadline: Date.now() + timeout + 100,
+		});
+		// (with its address fields bounded, as the parser bounds them, only its
+		//  first MAX_DKIM_SIGNATURES DKIM signatures, and a header that would
+		//  take mailauth too long cut down)
+		const bounded = boundedForAuth(Buffer.isBuffer(message) ? message : Buffer.from(String(message)));
+		const output = await run(bounded.raw, {
 			ip,
 			helo: helo || undefined,
 			sender: sender ?? undefined,
@@ -303,6 +374,13 @@ export async function authenticate(message, options = {}) {
 			resolver,
 		});
 		Object.assign(result, normalizeAuthOutput(output, {trustedArcSealers: options.trustedArcSealers}));
+		// (a From field cut, or left out of a header cut down, was not read
+		//  whole: DMARC cannot pass for what mailauth did not read, and its
+		//  headers would say what it read)
+		if (bounded.fromCut) {
+			result.dmarc = {...result.dmarc, status: {result: 'fail', comment: 'From field too long to read whole'}};
+			result.headers = '';
+		}
 	} catch (error) {
 		debug('authentication failed: %s', error.message);
 		result.error = error.message;
@@ -375,9 +453,28 @@ export function calculateAuthScore(auth, weights = {}) {
 	return {score: tests.reduce((sum, test) => sum + test.score, 0), tests};
 }
 
+// An Authentication-Results value with as many of its results as fit in
+// MAX_AUTH_RESULTS_LENGTH, whole (one longer than that alone is left out).
+function limitResults(value) {
+	if (value.length <= MAX_AUTH_RESULTS_LENGTH) {
+		return value;
+	}
+
+	const [server, ...results] = value.split(/;(?=\s*(?:dkim|spf|dmarc|arc|bimi)=)/i);
+	let kept = server;
+	for (const result of results) {
+		if (kept.length + 1 + result.length <= MAX_AUTH_RESULTS_LENGTH) {
+			kept += `;${result}`;
+		}
+	}
+
+	return kept;
+}
+
 /**
  * The Authentication-Results header (RFC 8601) for a result, without the
- * header name. mailauth's own headers are used when present.
+ * header name. mailauth's own headers are used when present, with as many
+ * of their results as fit in 8 KiB.
  * @param {object} auth
  * @param {string} [hostname]
  * @returns {string}
@@ -386,7 +483,7 @@ export function formatAuthResultsHeader(auth, hostname) {
 	if (typeof auth?.headers === 'string') {
 		const match = auth.headers.match(/^authentication-results:[ \t]*([\s\S]*?)(?=\r?\n\S|(?![\s\S]))/im);
 		if (match) {
-			const value = match[1].replaceAll(/\r?\n/g, '\r\n').trim();
+			const value = limitResults(match[1].replaceAll(/\r?\n/g, '\r\n').trim());
 			// The first word is the name of the server that checked the message.
 			return hostname ? value.replace(/^[^;\s]+/, hostname) : value;
 		}

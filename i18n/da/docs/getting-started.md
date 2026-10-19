@@ -1,4 +1,4 @@
-<!-- source: 1a2009efd1f9 -->
+<!-- source: e64ba1432e54 -->
 
 # Kom i gang
 
@@ -26,7 +26,7 @@ Som selvstændig binærfil til Linux eller macOS med Node.js og modellen indbygg
 curl -fsSL https://github.com/spamscanner/spamscanner/releases/latest/download/install.sh | bash
 ```
 
-Scriptet kontrollerer binærfilen mod udgivelsens `SHA256SUMS`-fil, før det installerer den. Binærfilerne til Linux kræver glibc, så på Alpine og andre musl-baserede systemer skal du installere med npm i stedet.
+Scriptet kontrollerer binærfilen mod udgivelsens `SHA256SUMS`-fil, de hashes, som udgivelsens builds beregnede, før det installerer den, og installerer den eksekverbar for alle og, under sudo, ejet af root. Hver binærfil har også en signeret attestering af byggeproveniens: `gh attestation verify spamscanner-linux-x64 --repo spamscanner/spamscanner` kontrollerer, at GitHub Actions byggede den fra dette repository. Binærfilerne til Linux kræver glibc, så på Alpine og andre musl-baserede systemer skal du installere med npm i stedet.
 
 Binærfiler til Linux (x64 og arm64), macOS (Intel og Apple silicon) og Windows er vedhæftet hver [udgivelse](https://github.com/spamscanner/spamscanner/releases).
 

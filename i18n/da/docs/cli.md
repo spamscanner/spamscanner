@@ -1,4 +1,4 @@
-<!-- source: f8a77c318b83 -->
+<!-- source: ff86d06bdcd0 -->
 
 # Kommandolinje
 
@@ -44,8 +44,13 @@ spamscanner scan message.eml --subject-tag "[SPAM]" > tagged.eml
 | `--no-classifier`          | Brug ikke klassifikatoren                                 |
 | `--config <file>`          | En JSON-fil med [biblioteksindstillinger](api.md#options) |
 | `--allow-language <codes>` | Accepterede sprog, for eksempel `en,de,fr`                |
+| `--max-size <bytes>`       | Største besked, der læses (standard 26214400, 25 MiB)     |
 
 Afslutningskoder: 0 ham, 1 spam, 2 fejl.
+
+`scan` og `learn` læser højst `--max-size` bytes af en besked, fra en fil eller standardinput; serverne har samme grænse. En større besked er en fejl (afslutningskode 2), og resten af den læses ikke.
+
+Standardoutput indeholder kun resultatet (eller beskeden): alt, hvad et bibliotek udskriver, mens en kommando kører, såsom mailauths bemærkninger om DKIM-brødtekstlængder, går til standardfejl.
 
 ### SMTP-session
 
@@ -106,8 +111,11 @@ spamscanner filter -f "$sender" -- "$recipient"
 | `--reject`            | Send post ved afvisningsgrænsen retur i stedet for at sende den videre      |
 | `--discard`           | Kassér post ved afvisningsgrænsen i stedet for at sende den videre          |
 | `--on-error <answer>` | For post, der ikke kunne scannes helt: `tempfail` (standard) eller `accept` |
+| `--max-size <bytes>`  | Største besked, der scannes (standard 26214400, 25 MiB)                     |
 
 Afslutningskoderne følger sendmails konventioner, som Postfix læser: 0 leveret (eller kasseret), 64 ingen modtagere angivet, 69 afvist som spam (Postfix sender den retur), 75 enhver fejl, så Postfix beholder beskeden og prøver igen senere. En besked med en vedhæftning, ClamAV ikke kunne scanne, er også en fejl. Med `--on-error accept` sendes en sådan besked, eller en hvis scanning fejlede, videre med `X-Spam-Virus-Scan: failed` og uden de `X-Spam-*`-headers, afsenderen tilføjede.
+
+En besked større end `--max-size` scannes ikke og holdes ikke hel i hukommelsen. Den udsættes (75), eller, med `--on-error accept`, sendes den videre uscannet, efterhånden som den læses, markeret og uden afsenderens `X-Spam-*`-headere som ovenfor. Postfix' `message_size_limit` (10 MB som standard) holder post under standardgrænsen; hvis du hæver den over 25 MiB, så hæv også `--max-size`.
 
 
 ## milter, http, server og spamd
@@ -123,21 +131,23 @@ HTTP-API'et læser sit token fra miljøvariablen `SPAMSCANNER_TOKEN`. `--token` 
 
 Port 783 er den port, SpamAssassin-klienter bruger som standard. Porte under 1024 kræver root eller kapabiliteten `CAP_NET_BIND_SERVICE`; brug en anden port, for eksempel `--port 7833`, og fortæl klienten det.
 
-| Indstilling           | Betydning                                                                           |
-| --------------------- | ----------------------------------------------------------------------------------- |
-| `--port <n>`          | TCP-port                                                                            |
-| `--host <ip>`         | Adresse, der lyttes på (standard 127.0.0.1)                                         |
-| `--socket <path>`     | Lyt i stedet på en Unix-socket                                                      |
-| `--reject`            | Milter: afvis post ved afvisningsgrænsen                                            |
-| `--reject-code <n>`   | Milter: en 4xx-kode, prøv igen senere (451, standard), eller en 5xx-kode såsom 550  |
-| `--quarantine`        | Milter: hold spam tilbage i mailserverens karantæne                                 |
-| `--on-error <answer>` | Milter: for post, der ikke kunne scannes helt, `tempfail` (standard) eller `accept` |
-| `--name <hostname>`   | Milter: denne servers navn i Authentication-Results                                 |
-| `--token <secret>`    | HTTP: kræv `Authorization: Bearer <secret>`; nødvendigt for `/learn`                |
-| `--allow-tell`        | spamd: acceptér TELL-forespørgsler (`spamc -L spam`) til indlæring                  |
-| `--out <file>`        | HTTP og spamd: gem det indlærte i denne modelfil                                    |
-| `--subject-tag <tag>` | Milter og spamd: sæt et præfiks foran emnet på spam                                 |
-| `--verbose`           | Milter: log hver scanning. TCP-server: svar med én tekstlinje                       |
+| Indstilling             | Betydning                                                                                                                                                                                                        |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--port <n>`            | TCP-port                                                                                                                                                                                                         |
+| `--host <ip>`           | Adresse, der lyttes på (standard 127.0.0.1)                                                                                                                                                                      |
+| `--socket <path>`       | Lyt i stedet på en Unix-socket                                                                                                                                                                                   |
+| `--max-size <bytes>`    | Største besked, der accepteres (standard 26214400, 25 MiB). Milteren scanner starten af en længere brødtekst og svarer som ved en mislykket scanning (`--on-error`), når konvolutten og headerne alene er større |
+| `--max-connections <n>` | Forbindelser åbne på én gang (standard 200); flere lukkes straks. HTTP: også forespørgsler, der behandles på én gang, flere får `503`                                                                            |
+| `--reject`              | Milter: afvis post ved afvisningsgrænsen                                                                                                                                                                         |
+| `--reject-code <n>`     | Milter: en 4xx-kode, prøv igen senere (451, standard), eller en 5xx-kode såsom 550                                                                                                                               |
+| `--quarantine`          | Milter: hold spam tilbage i mailserverens karantæne                                                                                                                                                              |
+| `--on-error <answer>`   | Milter: for post, der ikke kunne scannes helt, `tempfail` (standard) eller `accept`                                                                                                                              |
+| `--name <hostname>`     | Milter: denne servers navn i Authentication-Results                                                                                                                                                              |
+| `--token <secret>`      | HTTP: kræv `Authorization: Bearer <secret>`; nødvendigt for `/learn`                                                                                                                                             |
+| `--allow-tell`          | spamd: acceptér TELL-forespørgsler (`spamc -L spam`) til indlæring                                                                                                                                               |
+| `--out <file>`          | HTTP og spamd: gem det indlærte i denne modelfil                                                                                                                                                                 |
+| `--subject-tag <tag>`   | Milter og spamd: sæt et præfiks foran emnet på spam                                                                                                                                                              |
+| `--verbose`             | Milter: log hver scanning. TCP-server: svar med én tekstlinje                                                                                                                                                    |
 
 Scanningsindstillingerne ovenfor gælder også for serverne. [Milteren](postfix.md#milter), [HTTP API'et, TCP-serveren og spamd](http-api.md).
 

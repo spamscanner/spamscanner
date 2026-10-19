@@ -1,4 +1,4 @@
-<!-- source: 9caf3ffb803a -->
+<!-- source: 665fbc0d5adc -->
 
 # HTTP API, máy chủ TCP và spamd
 
@@ -37,7 +37,7 @@ Không có `ip`, các kiểm tra SPF, DKIM, DMARC, ARC và danh sách chặn IP 
 
 `/check` cũng trả về `X-Spam-Flag`, `X-Spam-Score` và `X-Spam-Action` dưới dạng header phản hồi, nên client có thể quyết định mà không cần phân tích thư.
 
-Thư lớn hơn 25 MB nhận `413`. Lần quét thất bại nhận `500` với `{"error": "..."}`.
+Thư lớn hơn 25 MiB (`--max-size`) nhận `413`, trước khi phần thân được đọc nếu `Content-Length` cho biết kích thước. Lần quét thất bại nhận `500` với `{"error": "..."}`. Máy chủ xử lý tối đa 200 yêu cầu cùng lúc (`--max-connections`), kể cả các yêu cầu pipeline; các yêu cầu vượt quá nhận `503` với `Retry-After: 1`.
 
 ```sh
 curl -s -X POST -H "Authorization: Bearer $SPAMSCANNER_TOKEN" \
@@ -86,7 +86,7 @@ nc -N 127.0.0.1 7830 < message.eml
 
 Với `--verbose`, câu trả lời thay vào đó là một dòng văn bản: `SPAM 16.3/5.0 BAYES_999,PHISHING_LOOKALIKE_DOMAIN,DECEPTIVE_LINK,FROM_NAME_BRAND` hoặc `HAM -2.5/5.0 BAYES_00`.
 
-Máy chủ TCP không biết địa chỉ IP của client, nên `--auth` và `--dnsbl` không có tác dụng. Nó đóng các kết nối không gửi gì trong 60 giây và trả lời lỗi cho thư lớn hơn 25 MB.
+Máy chủ TCP không biết địa chỉ IP của client, nên `--auth` và `--dnsbl` không có tác dụng. Nó chỉ trả lời khi client đóng phía gửi của mình (`nc -N` hoặc `nc -q 1`, hoặc `shutdown(SHUT_WR)` trên một socket); client giữ phía đó mở sẽ không nhận được trả lời, và kết nối bị đóng sau 60 giây không có dữ liệu. Nó trả lời lỗi cho thư lớn hơn 25 MiB (`--max-size`).
 
 
 ## spamd
@@ -111,4 +111,4 @@ Một máy chủ tương thích SpamAssassin cho spamc, Exim, Haraka và các cl
 
 Yêu cầu nén (`Compress: zlib`) bị từ chối.
 
-Client spamd cũng không gửi địa chỉ IP của client, nên `--auth` và `--dnsbl` không có tác dụng. Thư lớn hơn 25 MB nhận `65` (`EX_DATAERR`), thư ngắn hơn `Content-length` của nó nhận `76` (`EX_PROTOCOL`), và các kết nối không gửi gì trong 60 giây sẽ bị đóng.
+Client spamd cũng không gửi địa chỉ IP của client, nên `--auth` và `--dnsbl` không có tác dụng. Thư lớn hơn 25 MiB (`--max-size`) nhận `65` (`EX_DATAERR`), thư ngắn hơn `Content-length` của nó nhận `76` (`EX_PROTOCOL`), và các kết nối không gửi gì trong 60 giây sẽ bị đóng.

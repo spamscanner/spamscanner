@@ -48,7 +48,7 @@ function exchange(address, write, timeout) {
 
 		// (one deadline for the whole exchange: a clamd that sends a byte now
 		//  and then does not keep it open)
-		const timer = setTimeout(() => finish(new Error(`clamd did not answer within ${timeout} ms`)), timeout);
+		const timer = setTimeout(() => finish(Object.assign(new Error(`clamd did not answer within ${timeout} ms`), {code: 'ETIMEDOUT', timedOut: true})), timeout);
 		socket.on('connect', () => write(socket));
 		socket.on('data', chunk => chunks.push(chunk));
 		socket.on('end', () => finish(null, Buffer.concat(chunks).toString('utf8').replaceAll('\0', '').trim()));

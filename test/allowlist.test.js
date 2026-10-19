@@ -40,8 +40,10 @@ function domains() {
 		throw error;
 	};
 
+	// (one signing time: mailauth otherwise reads the clock for t= when it
+	//  signs and again when it writes the header, and a second may pass)
 	const sign = async (raw, domain, extra = {}) => (await dkimSign(raw, {
-		canonicalization: 'relaxed/relaxed', signatureData: [{
+		canonicalization: 'relaxed/relaxed', signTime: new Date(), signatureData: [{
 			signingDomain: domain, selector: 's1', privateKey: keys[domain], ...extra,
 		}],
 	})).signatures + raw;

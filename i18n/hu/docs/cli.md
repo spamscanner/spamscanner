@@ -1,4 +1,4 @@
-<!-- source: f8a77c318b83 -->
+<!-- source: ff86d06bdcd0 -->
 
 # Parancssor
 
@@ -44,8 +44,13 @@ spamscanner scan message.eml --subject-tag "[SPAM]" > tagged.eml
 | `--no-classifier`          | Az osztályozó mellőzése                                                 |
 | `--config <file>`          | [Könyvtári beállításokat](api.md#options) tartalmazó JSON-fájl          |
 | `--allow-language <codes>` | Elfogadott nyelvek, például `en,de,fr`                                  |
+| `--max-size <bytes>`       | A legnagyobb beolvasott levél (alapértelmezés: 26214400, 25 MiB)        |
 
 Kilépési kódok: 0 ham, 1 spam, 2 hiba.
+
+A `scan` és a `learn` legfeljebb `--max-size` bájtot olvas be egy levélből, fájlból vagy a szabványos bemenetről; a szervereknek ugyanez a korlátjuk. A nagyobb levél hiba (2-es kilépési kód), és a maradékát nem olvassa be.
+
+A szabványos kimenet csak az eredményt (vagy a levelet) tartalmazza: mindaz, amit egy könyvtár egy parancs futása közben kiír, például a mailauth megjegyzései a DKIM-törzshosszokról, a szabványos hibakimenetre kerül.
 
 ### SMTP-munkamenet
 
@@ -106,8 +111,11 @@ spamscanner filter -f "$sender" -- "$recipient"
 | `--reject`            | Az elutasítási küszöböt elérő levél visszapattintása továbbadás helyett           |
 | `--discard`           | Az elutasítási küszöböt elérő levél eldobása továbbadás helyett                   |
 | `--on-error <answer>` | A nem teljesen átvizsgálható levelekre: `tempfail` (alapértelmezés) vagy `accept` |
+| `--max-size <bytes>`  | A legnagyobb átvizsgált levél (alapértelmezés: 26214400, 25 MiB)                  |
 
 A kilépési kódok a sendmail konvencióit követik, amelyeket a Postfix értelmez: 0 kézbesítve (vagy eldobva), 64 nincs megadva címzett, 69 spamként elutasítva (a Postfix visszapattintja), 75 bármilyen hiba, így a Postfix megtartja a levelet, és később újra próbálkozik. Az olyan levél is hibának számít, amelynek egy mellékletét a ClamAV nem tudta átvizsgálni. A `--on-error accept` kapcsolóval az ilyen levél, illetve az, amelynek a vizsgálata sikertelen volt, `X-Spam-Virus-Scan: failed` fejléccel továbbmegy, a feladó által hozzáadott `X-Spam-*` fejlécek nélkül.
+
+A `--max-size` értéknél nagyobb levelet nem vizsgálja át, és nem tartja egészében a memóriában. A levél halasztást kap (75), vagy `--on-error accept` mellett átvizsgálás nélkül, beolvasás közben továbbítja, a fentiek szerint megjelölve és a feladó `X-Spam-*` fejlécei nélkül. A Postfix `message_size_limit` beállítása (alapértelmezés szerint 10 MB) az alapértelmezett korlát alatt tartja a leveleket; ha 25 MiB fölé emeli, emelje meg a `--max-size` értéket is.
 
 
 ## milter, http, server és spamd
@@ -123,21 +131,23 @@ A HTTP API a tokenjét a `SPAMSCANNER_TOKEN` környezeti változóból olvassa. 
 
 A 783-as port az, amelyet a SpamAssassin-kliensek alapértelmezetten használnak. Az 1024 alatti portokhoz root jogosultság vagy a `CAP_NET_BIND_SERVICE` képesség szükséges; ehelyett használható egy másik port, például `--port 7833`, amelyet a kliensnek is meg kell adni.
 
-| Kapcsoló              | Jelentés                                                                                  |
-| --------------------- | ----------------------------------------------------------------------------------------- |
-| `--port <n>`          | TCP-port                                                                                  |
-| `--host <ip>`         | A figyelési cím (alapértelmezés: 127.0.0.1)                                               |
-| `--socket <path>`     | Figyelés ehelyett Unix-socketen                                                           |
-| `--reject`            | Milter: az elutasítási küszöböt elérő levelek visszautasítása                             |
-| `--reject-code <n>`   | Milter: egy 4xx kód, próbálja később (451, alapértelmezés), vagy egy 5xx kód, például 550 |
-| `--quarantine`        | Milter: a spam visszatartása a levelezőszerver karanténjában                              |
-| `--on-error <answer>` | Milter: a nem teljesen átvizsgálható levelekre `tempfail` (alapértelmezés) vagy `accept`  |
-| `--name <hostname>`   | Milter: ennek a szervernek a neve az Authentication-Results fejlécben                     |
-| `--token <secret>`    | HTTP: `Authorization: Bearer <secret>` megkövetelése; a `/learn` igényli                  |
-| `--allow-tell`        | spamd: TELL kérések (`spamc -L spam`) elfogadása tanuláshoz                               |
-| `--out <file>`        | HTTP és spamd: a tanultak mentése ebbe a modellfájlba                                     |
-| `--subject-tag <tag>` | Milter és spamd: a spam tárgyának előtaggal való ellátása                                 |
-| `--verbose`           | Milter: minden vizsgálat naplózása. TCP-szerver: válasz egyetlen szövegsorban             |
+| Kapcsoló                | Jelentés                                                                                                                                                                                                                                         |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `--port <n>`            | TCP-port                                                                                                                                                                                                                                         |
+| `--host <ip>`           | A figyelési cím (alapértelmezés: 127.0.0.1)                                                                                                                                                                                                      |
+| `--socket <path>`       | Figyelés ehelyett Unix-socketen                                                                                                                                                                                                                  |
+| `--max-size <bytes>`    | A legnagyobb elfogadott levél (alapértelmezés: 26214400, 25 MiB). A milter egy hosszabb törzsnek az elejét vizsgálja át, és úgy válaszol, mint egy sikertelen vizsgálatra (`--on-error`), ha már a boríték és a fejlécek önmagukban is nagyobbak |
+| `--max-connections <n>` | Az egyszerre nyitott kapcsolatok (alapértelmezés: 200); a továbbiakat azonnal bezárja. HTTP: az egyszerre kezelt kérések is, a továbbiak `503` választ kapnak                                                                                    |
+| `--reject`              | Milter: az elutasítási küszöböt elérő levelek visszautasítása                                                                                                                                                                                    |
+| `--reject-code <n>`     | Milter: egy 4xx kód, próbálja később (451, alapértelmezés), vagy egy 5xx kód, például 550                                                                                                                                                        |
+| `--quarantine`          | Milter: a spam visszatartása a levelezőszerver karanténjában                                                                                                                                                                                     |
+| `--on-error <answer>`   | Milter: a nem teljesen átvizsgálható levelekre `tempfail` (alapértelmezés) vagy `accept`                                                                                                                                                         |
+| `--name <hostname>`     | Milter: ennek a szervernek a neve az Authentication-Results fejlécben                                                                                                                                                                            |
+| `--token <secret>`      | HTTP: `Authorization: Bearer <secret>` megkövetelése; a `/learn` igényli                                                                                                                                                                         |
+| `--allow-tell`          | spamd: TELL kérések (`spamc -L spam`) elfogadása tanuláshoz                                                                                                                                                                                      |
+| `--out <file>`          | HTTP és spamd: a tanultak mentése ebbe a modellfájlba                                                                                                                                                                                            |
+| `--subject-tag <tag>`   | Milter és spamd: a spam tárgyának előtaggal való ellátása                                                                                                                                                                                        |
+| `--verbose`             | Milter: minden vizsgálat naplózása. TCP-szerver: válasz egyetlen szövegsorban                                                                                                                                                                    |
 
 A fenti vizsgálati kapcsolók a szerverekre is vonatkoznak. [A milter](postfix.md#milter), [a HTTP API, a TCP-szerver és a spamd](http-api.md).
 

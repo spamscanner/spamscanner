@@ -1,4 +1,4 @@
-<!-- source: 9caf3ffb803a -->
+<!-- source: 665fbc0d5adc -->
 
 # API HTTP, servidor TCP y spamd
 
@@ -37,7 +37,7 @@ Sin `ip`, se omiten las comprobaciones de SPF, DKIM, DMARC, ARC y listas de bloq
 
 `/check` también devuelve `X-Spam-Flag`, `X-Spam-Score` y `X-Spam-Action` como encabezados de la respuesta, así que un cliente puede decidir sin procesar el mensaje.
 
-Los mensajes de más de 25 MB reciben `413`. Un análisis que falla recibe `500` con `{"error": "..."}`.
+Los mensajes de más de 25 MiB (`--max-size`) reciben `413`, antes de leer el cuerpo cuando `Content-Length` indica el tamaño. Un análisis que falla recibe `500` con `{"error": "..."}`. El servidor atiende como máximo 200 peticiones a la vez (`--max-connections`), incluidas las enviadas en pipeline; las demás reciben `503` con `Retry-After: 1`.
 
 ```sh
 curl -s -X POST -H "Authorization: Bearer $SPAMSCANNER_TOKEN" \
@@ -86,7 +86,7 @@ nc -N 127.0.0.1 7830 < message.eml
 
 Con `--verbose`, la respuesta es en cambio una línea de texto: `SPAM 16.3/5.0 BAYES_999,PHISHING_LOOKALIKE_DOMAIN,DECEPTIVE_LINK,FROM_NAME_BRAND` o `HAM -2.5/5.0 BAYES_00`.
 
-El servidor TCP no conoce la dirección IP del cliente, así que `--auth` y `--dnsbl` no tienen efecto. Cierra las conexiones que no envían nada durante 60 segundos y responde con un error a los mensajes de más de 25 MB.
+El servidor TCP no conoce la dirección IP del cliente, así que `--auth` y `--dnsbl` no tienen efecto. Solo responde cuando el cliente cierra su lado de envío (`nc -N` o `nc -q 1`, o `shutdown(SHUT_WR)` en un socket); un cliente que lo mantiene abierto no recibe respuesta, y la conexión se cierra tras 60 segundos sin datos. Responde con un error a los mensajes de más de 25 MiB (`--max-size`).
 
 
 ## spamd
@@ -111,4 +111,4 @@ Un servidor compatible con SpamAssassin para spamc, Exim, Haraka y otros cliente
 
 Las peticiones comprimidas (`Compress: zlib`) se rechazan.
 
-Los clientes de spamd tampoco envían la dirección IP del cliente, así que `--auth` y `--dnsbl` no tienen efecto. Un mensaje de más de 25 MB recibe `65` (`EX_DATAERR`), un mensaje más corto que su `Content-length` recibe `76` (`EX_PROTOCOL`), y las conexiones que no envían nada durante 60 segundos se cierran.
+Los clientes de spamd tampoco envían la dirección IP del cliente, así que `--auth` y `--dnsbl` no tienen efecto. Un mensaje de más de 25 MiB (`--max-size`) recibe `65` (`EX_DATAERR`), un mensaje más corto que su `Content-length` recibe `76` (`EX_PROTOCOL`), y las conexiones que no envían nada durante 60 segundos se cierran.

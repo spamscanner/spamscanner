@@ -35,7 +35,7 @@ Without `ip`, SPF, DKIM, DMARC, ARC and IP blocklist checks (`--auth`, `--dnsbl`
 
 `/check` also returns `X-Spam-Flag`, `X-Spam-Score` and `X-Spam-Action` as response headers, so a client can decide without parsing the message.
 
-Messages larger than 25 MB get `413`. A scan that fails gets `500` with `{"error": "..."}`.
+Messages larger than 25 MiB (`--max-size`) get `413`, before the body is read when `Content-Length` gives the size. A scan that fails gets `500` with `{"error": "..."}`. The server handles at most 200 requests at once (`--max-connections`), pipelined ones included; more get `503` with `Retry-After: 1`.
 
 ```sh
 curl -s -X POST -H "Authorization: Bearer $SPAMSCANNER_TOKEN" \
@@ -84,7 +84,7 @@ nc -N 127.0.0.1 7830 < message.eml
 
 With `--verbose`, the answer is a line of text instead: `SPAM 16.3/5.0 BAYES_999,PHISHING_LOOKALIKE_DOMAIN,DECEPTIVE_LINK,FROM_NAME_BRAND` or `HAM -2.5/5.0 BAYES_00`.
 
-The TCP server does not know the client's IP address, so `--auth` and `--dnsbl` have no effect. It closes connections that send nothing for 60 seconds, and answers messages larger than 25 MB with an error.
+The TCP server does not know the client's IP address, so `--auth` and `--dnsbl` have no effect. It answers only once the client closes its sending side (`nc -N` or `nc -q 1`, or `shutdown(SHUT_WR)` on a socket); a client that keeps it open gets no answer, and the connection is closed after 60 seconds without data. It answers messages larger than 25 MiB (`--max-size`) with an error.
 
 
 ## spamd
@@ -109,4 +109,4 @@ A SpamAssassin-compatible server for spamc, Exim, Haraka and other SpamAssassin 
 
 Compressed requests (`Compress: zlib`) are refused.
 
-spamd clients do not send the client's IP address either, so `--auth` and `--dnsbl` have no effect. A message larger than 25 MB gets `65` (`EX_DATAERR`), a message shorter than its `Content-length` gets `76` (`EX_PROTOCOL`), and connections that send nothing for 60 seconds are closed.
+spamd clients do not send the client's IP address either, so `--auth` and `--dnsbl` have no effect. A message larger than 25 MiB (`--max-size`) gets `65` (`EX_DATAERR`), a message shorter than its `Content-length` gets `76` (`EX_PROTOCOL`), and connections that send nothing for 60 seconds are closed.

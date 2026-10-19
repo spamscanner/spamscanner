@@ -1,4 +1,4 @@
-<!-- source: 1a2009efd1f9 -->
+<!-- source: e64ba1432e54 -->
 
 # はじめに
 
@@ -26,7 +26,7 @@ Node.jsとモデルを組み込んだ、LinuxまたはmacOS向けのスタンド
 curl -fsSL https://github.com/spamscanner/spamscanner/releases/latest/download/install.sh | bash
 ```
 
-スクリプトはインストール前に、リリースの`SHA256SUMS`ファイルでバイナリを検証します。Linux向けのバイナリはglibcを必要とするため、Alpineなどmuslベースのシステムではnpmでインストールしてください。
+スクリプトはインストール前に、リリースの`SHA256SUMS`ファイル（リリースのビルドが計算したハッシュ）でバイナリを検証し、全員が実行できる形で、sudoの下ではrootの所有としてインストールします。各バイナリには署名付きのビルド来歴証明（build provenance attestation）もあり、`gh attestation verify spamscanner-linux-x64 --repo spamscanner/spamscanner`で、GitHub Actionsがこのリポジトリからビルドしたことを確認できます。Linux向けのバイナリはglibcを必要とするため、Alpineなどmuslベースのシステムではnpmでインストールしてください。
 
 Linux（x64とarm64）、macOS（IntelとApple silicon）、Windows向けのバイナリは、各[リリース](https://github.com/spamscanner/spamscanner/releases)に添付されています。
 

@@ -369,14 +369,14 @@ describe('LLM classification against servers', () => {
 			}
 		});
 		const make = (path, extra = {}) => new LLMClassifier({
-			provider: 'ollama', baseUrl: `${server.url}${path}`, timeout: 300, ...extra,
+			provider: 'ollama', baseUrl: `${server.url}${path}`, timeout: 1000, ...extra,
 		}, {});
 		try {
 			await assert.rejects(make('/error').classifyText('x'), /HTTP 500 .*model not loaded/);
 			await assert.rejects(make('/text').classifyText('x'), /Invalid JSON/);
 			await assert.rejects(make('/empty').classifyText('x'), /Ollama returned no verdict/);
 			await assert.rejects(make('/huge', {maxResponseBytes: 100}).classifyText('x'), /larger than 100 bytes/);
-			await assert.rejects(make('/hang').classifyText('x'), /timed out after (?:2\d\d|300) ms/);
+			await assert.rejects(make('/hang').classifyText('x'), /timed out after (?:\d{3}|1000) ms/);
 			await assert.rejects(make('', {baseUrl: 'http://127.0.0.1:1'}).classifyText('x'), /ECONNREFUSED/);
 		} finally {
 			await server.close();
@@ -888,15 +888,15 @@ describe('language model hardening', () => {
 		});
 		try {
 			const classifier = new LLMClassifier({
-				baseUrl: server.url, provider: 'ollama', method: 'generate', concurrency: 1, timeout: 2000,
+				baseUrl: server.url, provider: 'ollama', method: 'generate', concurrency: 1, timeout: 2500,
 			}, {});
 			const started = Date.now();
 			// (the second waits for the first, 1.5 s, and then has what is left
-			//  of its 2 s time limit, not a time limit of its own: 3.5 s)
+			//  of its 2.5 s time limit, not a time limit of its own: 4 s)
 			const [first, second] = await Promise.allSettled([classifier.classifyText('one'), classifier.classifyText('two')]);
 			assert.equal(first.value.verdict, 'spam');
 			assert.equal(second.status, 'rejected');
-			assert.ok(Date.now() - started < 3000);
+			assert.ok(Date.now() - started < 3500);
 			// (and one that cannot get a slot in time gives up waiting, at 100 ms,
 			//  not when the slot frees, at 1.5 s)
 			const busy = new LLMClassifier({

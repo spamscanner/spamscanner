@@ -1,4 +1,4 @@
-<!-- source: 1a2009efd1f9 -->
+<!-- source: e64ba1432e54 -->
 
 # Memulai
 
@@ -26,7 +26,7 @@ Sebagai binary mandiri untuk Linux atau macOS, dengan Node.js dan model yang sud
 curl -fsSL https://github.com/spamscanner/spamscanner/releases/latest/download/install.sh | bash
 ```
 
-Skrip memeriksa binary terhadap berkas `SHA256SUMS` dari rilis tersebut sebelum memasangnya. Binary Linux memerlukan glibc, jadi di Alpine dan sistem berbasis musl lainnya, pasang dengan npm saja.
+Skrip memeriksa binary terhadap berkas `SHA256SUMS` dari rilis tersebut, yaitu hash yang dihitung oleh build rilis, sebelum memasangnya, lalu memasangnya agar dapat dieksekusi oleh semua pengguna dan, di bawah sudo, dimiliki oleh root. Setiap binary juga memiliki atestasi asal build (build provenance attestation) yang ditandatangani: `gh attestation verify spamscanner-linux-x64 --repo spamscanner/spamscanner` memeriksa bahwa GitHub Actions membangunnya dari repositori ini. Binary Linux memerlukan glibc, jadi di Alpine dan sistem berbasis musl lainnya, pasang dengan npm saja.
 
 Binary untuk Linux (x64 dan arm64), macOS (Intel dan Apple silicon), dan Windows dilampirkan pada setiap [rilis](https://github.com/spamscanner/spamscanner/releases).
 

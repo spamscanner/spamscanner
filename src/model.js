@@ -1,5 +1,5 @@
 import {
-	existsSync, readFileSync, writeFileSync, mkdirSync, renameSync, rmSync, statSync,
+	closeSync, existsSync, fchmodSync, fsyncSync, openSync, readFileSync, writeFileSync, mkdirSync, renameSync, rmSync, statSync,
 } from 'node:fs';
 import {randomBytes} from 'node:crypto';
 import {createRequire} from 'node:module';
@@ -120,8 +120,9 @@ export function loadModel(file, options = {}) {
 
 /**
  * Write a classifier to a file, creating its directory. The model is written
- * to a temporary file next to it first, then renamed, so a process loading
- * the file never reads half of it.
+ * to a new temporary file next to it first, flushed to disk, then renamed, so
+ * a process loading the file, or one reading it after a crash, never reads
+ * half of it. A file replaced keeps its permissions.
  * @param {Classifier} classifier
  * @param {string} file
  * @param {object} [options] - see Classifier#toJSON
@@ -132,8 +133,21 @@ export function saveModel(classifier, file, options = {}) {
 	// (with a random part: two saves in one process, as from two worker
 	//  threads, must not write the same temporary file)
 	const temporary = `${resolved}.${process.pid}.${randomBytes(6).toString('hex')}.tmp`;
+	const mode = statSync(resolved, {throwIfNoEntry: false})?.mode;
+	// (a new file, never one already there under that name)
+	const fd = openSync(temporary, 'wx');
 	try {
-		writeFileSync(temporary, `${JSON.stringify(classifier.toJSON(options))}\n`);
+		try {
+			if (mode !== undefined) {
+				fchmodSync(fd, mode % 0o1000);
+			}
+
+			writeFileSync(fd, `${JSON.stringify(classifier.toJSON(options))}\n`);
+			fsyncSync(fd);
+		} finally {
+			closeSync(fd);
+		}
+
 		renameSync(temporary, resolved);
 	} catch (error) {
 		// (a failed write or rename leaves no temporary file behind)

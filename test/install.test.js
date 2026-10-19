@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {execFile, execFileSync} from 'node:child_process';
 import {
-	existsSync, mkdirSync, readFileSync, rmSync, writeFileSync,
+	existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync,
 } from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
@@ -66,6 +66,14 @@ describe('install.sh', {skip}, () => {
 		assert.ok(existsSync(path.join(bin, 'spamscanner')));
 	});
 
+	it('installs the binary executable by all, whatever the umask', async () => {
+		const bin = path.join(dir, 'umask-bin');
+		mkdirSync(bin);
+		const {code, output} = await install(release(path.join(dir, 'umask')), bin, {source: `umask 077\n${readFileSync(script, 'utf8')}`});
+		assert.equal(code, 0, output);
+		assert.equal(statSync(path.join(bin, 'spamscanner')).mode & 0o777, 0o755);
+	});
+
 	it('creates the directory when it does not exist', async () => {
 		const bin = path.join(dir, 'new-bin', 'nested');
 		const {code, output} = await install(release(path.join(dir, 'new')), bin);
@@ -85,8 +93,9 @@ describe('install.sh', {skip}, () => {
 		const {code, output} = await install(release(path.join(dir, 'sudo')), bin, {env: {PATH: `${stubs}:${process.env.PATH}`}});
 		assert.equal(code, 0, output);
 		assert.match(output, /Requesting sudo access/);
-		assert.equal(readFileSync(log, 'utf8'), 'mkdir\nmv\n');
-		assert.ok(existsSync(path.join(bin, 'spamscanner')));
+		// (installed as a new file, which sudo makes root's, never moved)
+		assert.equal(readFileSync(log, 'utf8'), 'mkdir\ninstall\n');
+		assert.equal(statSync(path.join(bin, 'spamscanner')).mode & 0o777, 0o755);
 	});
 
 	it('installs nothing when the checksum does not match, is missing, or SHA256SUMS is absent', async () => {

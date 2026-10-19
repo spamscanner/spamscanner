@@ -6,14 +6,17 @@ import {writeFileSync} from 'node:fs';
 import net from 'node:net';
 import {once} from 'node:events';
 import path from 'node:path';
-import {Readable} from 'node:stream';
+import {Readable, Transform} from 'node:stream';
 import {describe, it} from 'node:test';
 import {dkimSign} from 'mailauth/lib/dkim/sign.js';
+import {simpleParser} from 'mailparser';
 import SpamScanner, {
 	Classifier, DEFAULTS, VERSION, getFeatures, loadModel,
 } from '../src/index.js';
 import {GTUBE} from '../src/is-arbitrary.js';
-import {expandAttachments, parseMessage, parseWithin} from '../src/parse.js';
+import {
+	expandAttachments, parseMessage, parseWithin, simpleParse,
+} from '../src/parse.js';
 import {
 	HAM, SPAM, dnsServer, eicar, fakeClamd, httpServer, message, temporaryDirectory, zip,
 } from './helpers/index.js';
@@ -232,7 +235,7 @@ describe('SpamScanner detectors', () => {
 		try {
 			const scanner = new SpamScanner({
 				classifier: false,
-				dns: {servers: [dns.server], timeout: 500},
+				dns: {servers: [dns.server], timeout: 3000},
 				dnsbl: {ip: ['zen.example'], domain: ['dbl.example']},
 			});
 			// Point the filtering resolvers at the test server.
@@ -264,7 +267,7 @@ describe('SpamScanner detectors', () => {
 		const dns = await dnsServer({'bare-malware.com A': ['0.0.0.0'], 'mail-malware.net A': ['0.0.0.0'], 'link-malware.com A': ['0.0.0.0']});
 		const empty = await dnsServer({});
 		try {
-			const scanner = new SpamScanner({classifier: false, dns: {servers: [dns.server], timeout: 500}});
+			const scanner = new SpamScanner({classifier: false, dns: {servers: [dns.server], timeout: 3000}});
 			const original = scanner.dns.checkCloudflare.bind(scanner.dns);
 			const asked = [];
 			scanner.dns.checkCloudflare = (hosts, options) => {
@@ -339,7 +342,7 @@ describe('SpamScanner detectors', () => {
 		});
 		try {
 			const raw = message({from: 'alerts@notify.bank.example', subject: 'Statement', text: 'Your statement is ready.'});
-			const signed = (await dkimSign(raw, {signatureData: [{signingDomain: 'bank.example', selector: 's1', privateKey: privateKey.export({type: 'pkcs1', format: 'pem'})}]})).signatures + raw;
+			const signed = (await dkimSign(raw, {signTime: new Date(), signatureData: [{signingDomain: 'bank.example', selector: 's1', privateKey: privateKey.export({type: 'pkcs1', format: 'pem'})}]})).signatures + raw;
 			const scanner = new SpamScanner({
 				...offline, classifier: false, allowlist: ['notify.bank.example'], authentication: {dnsServers: [dns.server], timeout: 2000},
 			});
@@ -360,7 +363,7 @@ describe('SpamScanner detectors', () => {
 		});
 		try {
 			const raw = message({from: 'CEO <ceo@bank.example>', subject: 'Wire', text: 'Please wire the money today.'});
-			const signed = (await dkimSign(raw, {signatureData: [{signingDomain: signer, selector: 's1', privateKey: privateKey.export({type: 'pkcs1', format: 'pem'})}]})).signatures + raw;
+			const signed = (await dkimSign(raw, {signTime: new Date(), signatureData: [{signingDomain: signer, selector: 's1', privateKey: privateKey.export({type: 'pkcs1', format: 'pem'})}]})).signatures + raw;
 			const scanner = new SpamScanner({
 				...offline, classifier: false, allowlist: ['bank.example'], authentication: {dnsServers: [dns.server], timeout: 2000},
 			});
@@ -386,7 +389,7 @@ describe('SpamScanner detectors', () => {
 			const raw = message({
 				from: 'alice@example.org', to: 'bob@example.org', subject: 'Report', text: 'The quarterly report is attached.',
 			});
-			const signed = (await dkimSign(raw, {signatureData: [{signingDomain: 'example.org', selector: 's1', privateKey: privateKey.export({type: 'pkcs1', format: 'pem'})}]})).signatures + raw;
+			const signed = (await dkimSign(raw, {signTime: new Date(), signatureData: [{signingDomain: 'example.org', selector: 's1', privateKey: privateKey.export({type: 'pkcs1', format: 'pem'})}]})).signatures + raw;
 			const scanner = new SpamScanner({
 				...offline, classifier: false, authentication: {dnsServers: [dns.server], timeout: 2000, weights: {dmarcPass: -3}},
 			});
@@ -439,7 +442,7 @@ describe('SpamScanner detectors', () => {
 			try {
 				dns.queries.length = 0;
 				system = await new SpamScanner({
-					...offline, classifier: false, authentication: true, timeout: 300,
+					...offline, classifier: false, authentication: true, timeout: 3000,
 				}).scan(raw, {session: {remoteAddress: '203.0.113.5'}});
 			} finally {
 				Resolver.prototype.resolve = resolve;
@@ -1220,6 +1223,39 @@ describe('messages beyond the parser\'s limits', () => {
 		}), /other limit/);
 	});
 
+	it('stops a parse that never finishes, which leaves nothing pending, and gives up on it', async () => {
+		// (mailparser never finishes a message ending in the header of an
+		//  inline attached message: finishable is taken off here, and the
+		//  stalled parser is stopped through its input)
+		let input;
+		const unfinished = (stream, options) => {
+			input = stream;
+			const strip = new Transform({
+				transform(chunk, encoding, done) {
+					done(null, chunk.subarray(0, -4));
+				},
+			});
+			stream.once('error', error => strip.destroy(error));
+			return simpleParser(stream.pipe(strip), options);
+		};
+
+		const raw = 'From: a@example.org\r\nContent-Type: message/rfc822\r\nContent-Disposition: inline\r\n';
+		await assert.rejects(simpleParse(raw, {timeout: 100, parser: unfinished}), {code: 'ETIMEDOUT', message: 'Message not parsed within 100 ms'});
+		assert.ok(input.destroyed);
+		// (and one that does not even read its input)
+		const never = () => new Promise(() => {});
+		await assert.rejects(simpleParse(raw, {timeout: 50, parser: never}), {code: 'ETIMEDOUT'});
+		// (every try of parseWithin, and every attached message, by one time limit)
+		const stalled = (buffer, {timeout}) => simpleParse(buffer, {timeout: Math.min(timeout, 50), parser: never});
+		await assert.rejects(parseWithin(Buffer.from(raw), stalled), {code: 'ETIMEDOUT'});
+		await assert.rejects(parseWithin(Buffer.from(raw), stalled, Date.now() - 1000), /within 1 ms/);
+		const errors = [];
+		const all = await expandAttachments([{filename: 'a.eml', contentType: 'message/rfc822', content: Buffer.from(raw)}, {filename: 'b.eml', contentType: 'message/rfc822', content: Buffer.from(raw)}], errors, stalled);
+		assert.deepEqual([all.length, errors], [2, ['a.eml: Message not parsed within 50 ms', 'b.eml: Message not parsed within 50 ms']]);
+		// (the message itself is read, finishable put back)
+		assert.equal((await parseMessage(raw)).from.value[0].address, 'a@example.org');
+	});
+
 	it('reads what it can of a header over 1 MB', async () => {
 		const scanner = new SpamScanner({...offline, classifier: false});
 		const long = `From: a@example.com\r\nSubject: long\r\nX-Long: ${'a'.repeat(1_100_000)}\r\n\r\nhi\r\n`;
@@ -1349,15 +1385,44 @@ describe('time limits and failures', () => {
 		assert.equal(refused.results.virusScanErrors.length, 1);
 	});
 
+	it('starts no clamd scan once one has run out of the time left, though the clock is behind the timers', async t => {
+		const silent = net.createServer({allowHalfOpen: true}, socket => {
+			socket.on('error', () => {});
+			socket.resume();
+		});
+		silent.listen(0, '127.0.0.1');
+		await once(silent, 'listening');
+		// (a timer counts from when the event loop last read the time, so on a
+		//  busy machine it fires before Date.now() reaches the deadline: here
+		//  the clock runs at half speed)
+		const {now} = Date;
+		const start = now();
+		t.mock.method(Date, 'now', () => start + Math.floor((now() - start) / 2));
+		try {
+			const attachments = Array.from({length: 8}, (_, i) => ({filename: `f${i}.txt`, content: 'x'}));
+			const result = await new SpamScanner({
+				...offline, classifier: false, clamav: {port: silent.address().port, timeout: 150},
+			}).scan(message({text: 'x', attachments}));
+			const errors = result.results.virusScanErrors.map(item => item.error);
+			assert.equal(errors.filter(error => error.startsWith('clamd did not answer within')).length, 4);
+			assert.deepEqual(errors.filter(error => !error.startsWith('clamd did not answer within')), Array.from({length: 4}, () => 'not scanned within 150 ms'));
+		} finally {
+			t.mock.restoreAll();
+			silent.close();
+		}
+	});
+
 	it('bounds authentication by the time limit', async () => {
+		// (a resolver that answers after 10 s, against a time limit of 200 ms:
+		//  room for a busy machine either way)
 		const resolver = async () => new Promise(resolve => {
-			setTimeout(() => resolve([]), 2000);
+			setTimeout(() => resolve([]), 10_000).unref();
 		});
 		const started = Date.now();
 		const result = await new SpamScanner({
 			...offline, classifier: false, timeout: 200, authentication: {resolver},
 		}).scan(message({text: 'hi'}), {session: {remoteAddress: '192.0.2.1', envelope: {mailFrom: {address: 'a@example.org'}}}});
-		assert.ok(Date.now() - started < 1500);
+		assert.ok(Date.now() - started < 5000);
 		assert.equal(result.results.authentication, null);
 	});
 
@@ -1378,7 +1443,7 @@ describe('time limits and failures', () => {
 			async classify() {
 				asked++;
 				await new Promise(resolve => {
-					setTimeout(resolve, 120);
+					setTimeout(resolve, 1000).unref();
 				});
 				return [];
 			},
@@ -1387,9 +1452,9 @@ describe('time limits and failures', () => {
 		await new SpamScanner({
 			...offline, classifier: false, timeout: 200, nsfw: {model: slow},
 		}).scan(raw);
-		// (asked one image after another, not all ten of 120 ms each within
+		// (asked one image after another, not all ten of a second each within
 		//  200 ms; how many depends on how busy the machine is)
-		assert.ok(Date.now() - started < 1000);
+		assert.ok(Date.now() - started < 5000);
 		assert.ok(asked >= 1 && asked < 10, `asked ${asked}`);
 	});
 

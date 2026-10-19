@@ -1,4 +1,4 @@
-<!-- source: 1a2009efd1f9 -->
+<!-- source: e64ba1432e54 -->
 
 # Bắt đầu
 
@@ -26,7 +26,7 @@ Dưới dạng tệp nhị phân độc lập cho Linux hoặc macOS, đã tích
 curl -fsSL https://github.com/spamscanner/spamscanner/releases/latest/download/install.sh | bash
 ```
 
-Tập lệnh kiểm tra tệp nhị phân với tệp `SHA256SUMS` của bản phát hành trước khi cài đặt. Tệp nhị phân cho Linux cần glibc, nên trên Alpine và các hệ thống dựa trên musl khác, hãy cài đặt bằng npm.
+Tập lệnh kiểm tra tệp nhị phân với tệp `SHA256SUMS` của bản phát hành, chứa các mã băm mà các bản dựng của bản phát hành đã tính, trước khi cài đặt, và cài đặt nó ở dạng mọi người đều chạy được và, khi dùng sudo, thuộc sở hữu của root. Mỗi tệp nhị phân cũng có một chứng thực nguồn gốc bản dựng đã ký: `gh attestation verify spamscanner-linux-x64 --repo spamscanner/spamscanner` kiểm tra rằng GitHub Actions đã dựng nó từ kho mã này. Tệp nhị phân cho Linux cần glibc, nên trên Alpine và các hệ thống dựa trên musl khác, hãy cài đặt bằng npm.
 
 Tệp nhị phân cho Linux (x64 và arm64), macOS (Intel và Apple silicon) và Windows được đính kèm trong mỗi [bản phát hành](https://github.com/spamscanner/spamscanner/releases).
 

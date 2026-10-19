@@ -1,4 +1,4 @@
-<!-- source: 1a2009efd1f9 -->
+<!-- source: e64ba1432e54 -->
 
 # Aloittaminen
 
@@ -26,7 +26,7 @@ Erillisenä binäärinä Linuxille tai macOS:lle, Node.js ja malli sisäänraken
 curl -fsSL https://github.com/spamscanner/spamscanner/releases/latest/download/install.sh | bash
 ```
 
-Skripti tarkistaa binäärin julkaisun `SHA256SUMS`-tiedostoa vasten ennen asentamista. Linux-binäärit tarvitsevat glibc:n, joten asenna Alpinessa ja muissa musl-pohjaisissa järjestelmissä npm:llä.
+Skripti tarkistaa binäärin julkaisun `SHA256SUMS`-tiedostoa vasten, eli julkaisun käännösten laskemia tiivisteitä vasten, ennen asentamista, ja asentaa sen kaikkien suoritettavaksi ja sudolla asennettaessa rootin omistamaksi. Jokaisella binäärillä on myös allekirjoitettu käännöksen alkuperäattestaatio: `gh attestation verify spamscanner-linux-x64 --repo spamscanner/spamscanner` tarkistaa, että GitHub Actions käänsi sen tästä repositoriosta. Linux-binäärit tarvitsevat glibc:n, joten asenna Alpinessa ja muissa musl-pohjaisissa järjestelmissä npm:llä.
 
 Binäärit Linuxille (x64 ja arm64), macOS:lle (Intel ja Apple silicon) ja Windowsille on liitetty jokaiseen [julkaisuun](https://github.com/spamscanner/spamscanner/releases).
 

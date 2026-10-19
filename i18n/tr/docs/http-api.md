@@ -1,4 +1,4 @@
-<!-- source: 9caf3ffb803a -->
+<!-- source: 665fbc0d5adc -->
 
 # HTTP API, TCP sunucusu ve spamd
 
@@ -37,7 +37,7 @@ Sorgu parametreleri SMTP oturumunu tanımlar:
 
 `/check` ayrıca `X-Spam-Flag`, `X-Spam-Score` ve `X-Spam-Action` değerlerini yanıt üst bilgileri olarak döndürür; böylece bir istemci iletiyi ayrıştırmadan karar verebilir.
 
-25 MB'tan büyük iletiler `413` alır. Başarısız olan bir tarama `{"error": "..."}` ile birlikte `500` alır.
+25 MiB'tan (`--max-size`) büyük iletiler, `Content-Length` boyutu verdiğinde gövde okunmadan önce, `413` alır. Başarısız olan bir tarama `{"error": "..."}` ile birlikte `500` alır. Sunucu aynı anda en fazla 200 isteği (`--max-connections`), ardışık (pipelined) olanlar dahil, işler; fazlası `Retry-After: 1` ile birlikte `503` alır.
 
 ```sh
 curl -s -X POST -H "Authorization: Bearer $SPAMSCANNER_TOKEN" \
@@ -86,7 +86,7 @@ nc -N 127.0.0.1 7830 < message.eml
 
 `--verbose` ile yanıt bunun yerine bir metin satırıdır: `SPAM 16.3/5.0 BAYES_999,PHISHING_LOOKALIKE_DOMAIN,DECEPTIVE_LINK,FROM_NAME_BRAND` veya `HAM -2.5/5.0 BAYES_00`.
 
-TCP sunucusu istemcinin IP adresini bilmez, bu yüzden `--auth` ve `--dnsbl` etkisizdir. 60 saniye boyunca hiçbir şey göndermeyen bağlantıları kapatır ve 25 MB'tan büyük iletilere hatayla yanıt verir.
+TCP sunucusu istemcinin IP adresini bilmez, bu yüzden `--auth` ve `--dnsbl` etkisizdir. Yalnızca istemci gönderme tarafını kapattığında yanıt verir (`nc -N` ya da `nc -q 1` veya bir sokette `shutdown(SHUT_WR)`); onu açık tutan bir istemci yanıt almaz ve bağlantı 60 saniye veri gelmezse kapatılır. 25 MiB'tan (`--max-size`) büyük iletilere hatayla yanıt verir.
 
 
 ## spamd
@@ -111,4 +111,4 @@ spamc, Exim, Haraka ve diğer SpamAssassin istemcileri için SpamAssassin uyumlu
 
 Sıkıştırılmış istekler (`Compress: zlib`) reddedilir.
 
-spamd istemcileri de istemcinin IP adresini göndermez, bu yüzden `--auth` ve `--dnsbl` etkisizdir. 25 MB'tan büyük bir ileti `65` (`EX_DATAERR`), `Content-length` değerinden kısa bir ileti `76` (`EX_PROTOCOL`) alır ve 60 saniye boyunca hiçbir şey göndermeyen bağlantılar kapatılır.
+spamd istemcileri de istemcinin IP adresini göndermez, bu yüzden `--auth` ve `--dnsbl` etkisizdir. 25 MiB'tan (`--max-size`) büyük bir ileti `65` (`EX_DATAERR`), `Content-length` değerinden kısa bir ileti `76` (`EX_PROTOCOL`) alır ve 60 saniye boyunca hiçbir şey göndermeyen bağlantılar kapatılır.

@@ -1,4 +1,4 @@
-<!-- source: f8a77c318b83 -->
+<!-- source: ff86d06bdcd0 -->
 
 # Opdrachtregel
 
@@ -32,20 +32,25 @@ spamscanner scan message.eml --headers > tagged.eml
 spamscanner scan message.eml --subject-tag "[SPAM]" > tagged.eml
 ```
 
-| Optie                      | Betekenis                                                     |
-| -------------------------- | ------------------------------------------------------------- |
-| `--json`                   | Toont het volledige resultaat als JSON                        |
-| `--headers`                | Toont het bericht met toegevoegde `X-Spam-*`-headers          |
-| `--subject-tag <tag>`      | Zet ook een voorvoegsel voor het onderwerp van spam           |
-| `--verbose`                | Toont elke test en de sterkste aanwijzingen van de classifier |
-| `--threshold <n>`          | Score waarbij mail spam is (standaard 5)                      |
-| `--reject-threshold <n>`   | Score waarbij mail wordt geweigerd (standaard 15)             |
-| `--model <file>`           | Een modelbestand in plaats van het meegeleverde model         |
-| `--no-classifier`          | Gebruikt de classifier niet                                   |
-| `--config <file>`          | Een JSON-bestand met [bibliotheekopties](api.md#options)      |
-| `--allow-language <codes>` | Geaccepteerde talen, bijvoorbeeld `en,de,fr`                  |
+| Optie                      | Betekenis                                                       |
+| -------------------------- | --------------------------------------------------------------- |
+| `--json`                   | Toont het volledige resultaat als JSON                          |
+| `--headers`                | Toont het bericht met toegevoegde `X-Spam-*`-headers            |
+| `--subject-tag <tag>`      | Zet ook een voorvoegsel voor het onderwerp van spam             |
+| `--verbose`                | Toont elke test en de sterkste aanwijzingen van de classifier   |
+| `--threshold <n>`          | Score waarbij mail spam is (standaard 5)                        |
+| `--reject-threshold <n>`   | Score waarbij mail wordt geweigerd (standaard 15)               |
+| `--model <file>`           | Een modelbestand in plaats van het meegeleverde model           |
+| `--no-classifier`          | Gebruikt de classifier niet                                     |
+| `--config <file>`          | Een JSON-bestand met [bibliotheekopties](api.md#options)        |
+| `--allow-language <codes>` | Geaccepteerde talen, bijvoorbeeld `en,de,fr`                    |
+| `--max-size <bytes>`       | Grootste bericht dat wordt gelezen (standaard 26214400, 25 MiB) |
 
 Exitcodes: 0 ham, 1 spam, 2 fout.
+
+`scan` en `learn` lezen hoogstens `--max-size` bytes van een bericht, uit een bestand of standaardinvoer; de servers hebben dezelfde limiet. Een groter bericht is een fout (exitcode 2), en de rest ervan wordt niet gelezen.
+
+Standaarduitvoer bevat alleen het resultaat (of het bericht): alles wat een bibliotheek afdrukt terwijl een commando draait, zoals de opmerkingen van mailauth over DKIM-bodylengtes, gaat naar standaardfout.
 
 ### SMTP-sessie
 
@@ -106,8 +111,11 @@ spamscanner filter -f "$sender" -- "$recipient"
 | `--reject`            | Stuurt mail op de weigerdrempel terug in plaats van hem door te geven                 |
 | `--discard`           | Gooit mail op de weigerdrempel weg in plaats van hem door te geven                    |
 | `--on-error <answer>` | Voor mail die niet volledig gescand kon worden: `tempfail` (de standaard) of `accept` |
+| `--max-size <bytes>`  | Grootste bericht dat wordt gescand (standaard 26214400, 25 MiB)                       |
 
 Exitcodes volgen de conventies van sendmail, die Postfix leest: 0 bezorgd (of weggegooid), 64 geen ontvangers opgegeven, 69 geweigerd als spam (Postfix stuurt het terug), 75 elke andere fout, zodat Postfix het bericht vasthoudt en het later opnieuw probeert. Een bericht met een bijlage die ClamAV niet kon scannen, geldt ook als fout. Met `--on-error accept` wordt zo'n bericht, of een bericht waarvan de scan mislukte, doorgegeven met `X-Spam-Virus-Scan: failed` en zonder `X-Spam-*`-headers die de afzender toevoegde.
+
+Een bericht groter dan `--max-size` wordt niet gescand en niet in zijn geheel in het geheugen gehouden. Het wordt uitgesteld (75), of met `--on-error accept` ongescand doorgegeven terwijl het wordt gelezen, gemarkeerd en zonder de `X-Spam-*`-headers van de afzender zoals hierboven. De `message_size_limit` van Postfix (standaard 10 MB) houdt mail onder de standaardlimiet; als je die boven 25 MiB zet, verhoog dan ook `--max-size`.
 
 
 ## milter, http, server en spamd
@@ -123,21 +131,23 @@ De HTTP-API leest zijn token uit de omgevingsvariabele `SPAMSCANNER_TOKEN`. `--t
 
 Poort 783 is de poort die SpamAssassin-clients standaard gebruiken. Poorten onder 1024 vereisen root of de capability `CAP_NET_BIND_SERVICE`; gebruik een andere poort, zoals `--port 7833`, en geef die aan de client door.
 
-| Optie                 | Betekenis                                                                                     |
-| --------------------- | --------------------------------------------------------------------------------------------- |
-| `--port <n>`          | TCP-poort                                                                                     |
-| `--host <ip>`         | Adres waarop wordt geluisterd (standaard 127.0.0.1)                                           |
-| `--socket <path>`     | Luistert in plaats daarvan op een Unix-socket                                                 |
-| `--reject`            | Milter: weigert mail op de weigerdrempel                                                      |
-| `--reject-code <n>`   | Milter: een 4xx-code, later opnieuw proberen (451, de standaard), of een 5xx-code zoals 550   |
-| `--quarantine`        | Milter: houdt spam vast in de quarantaine van de mailserver                                   |
-| `--on-error <answer>` | Milter: voor mail die niet volledig gescand kon worden, `tempfail` (de standaard) of `accept` |
-| `--name <hostname>`   | Milter: de naam van deze server in Authentication-Results                                     |
-| `--token <secret>`    | HTTP: vereist `Authorization: Bearer <secret>`; nodig voor `/learn`                           |
-| `--allow-tell`        | spamd: accepteert TELL-verzoeken (`spamc -L spam`) om te leren                                |
-| `--out <file>`        | HTTP en spamd: slaat het geleerde op in dit modelbestand                                      |
-| `--subject-tag <tag>` | Milter en spamd: zet een voorvoegsel voor het onderwerp van spam                              |
-| `--verbose`           | Milter: logt elke scan. TCP-server: antwoordt met één regel tekst                             |
+| Optie                   | Betekenis                                                                                                                                                                                                                          |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--port <n>`            | TCP-poort                                                                                                                                                                                                                          |
+| `--host <ip>`           | Adres waarop wordt geluisterd (standaard 127.0.0.1)                                                                                                                                                                                |
+| `--socket <path>`       | Luistert in plaats daarvan op een Unix-socket                                                                                                                                                                                      |
+| `--max-size <bytes>`    | Grootste bericht dat wordt geaccepteerd (standaard 26214400, 25 MiB). De milter scant het begin van een langere body, en antwoordt zoals bij een mislukte scan (`--on-error`) wanneer de envelope en headers alleen al groter zijn |
+| `--max-connections <n>` | Verbindingen die tegelijk open zijn (standaard 200); meer worden meteen gesloten. HTTP: ook verzoeken die tegelijk worden afgehandeld, meer krijgen `503`                                                                          |
+| `--reject`              | Milter: weigert mail op de weigerdrempel                                                                                                                                                                                           |
+| `--reject-code <n>`     | Milter: een 4xx-code, later opnieuw proberen (451, de standaard), of een 5xx-code zoals 550                                                                                                                                        |
+| `--quarantine`          | Milter: houdt spam vast in de quarantaine van de mailserver                                                                                                                                                                        |
+| `--on-error <answer>`   | Milter: voor mail die niet volledig gescand kon worden, `tempfail` (de standaard) of `accept`                                                                                                                                      |
+| `--name <hostname>`     | Milter: de naam van deze server in Authentication-Results                                                                                                                                                                          |
+| `--token <secret>`      | HTTP: vereist `Authorization: Bearer <secret>`; nodig voor `/learn`                                                                                                                                                                |
+| `--allow-tell`          | spamd: accepteert TELL-verzoeken (`spamc -L spam`) om te leren                                                                                                                                                                     |
+| `--out <file>`          | HTTP en spamd: slaat het geleerde op in dit modelbestand                                                                                                                                                                           |
+| `--subject-tag <tag>`   | Milter en spamd: zet een voorvoegsel voor het onderwerp van spam                                                                                                                                                                   |
+| `--verbose`             | Milter: logt elke scan. TCP-server: antwoordt met één regel tekst                                                                                                                                                                  |
 
 De scanopties hierboven gelden ook voor de servers. [De milter](postfix.md#milter), [de HTTP API, de TCP-server en spamd](http-api.md).
 

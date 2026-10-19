@@ -1,4 +1,4 @@
-<!-- source: 1a2009efd1f9 -->
+<!-- source: e64ba1432e54 -->
 
 # Začínáme
 
@@ -26,7 +26,7 @@ Jako samostatná binárka pro Linux nebo macOS s vestavěným Node.js a modelem:
 curl -fsSL https://github.com/spamscanner/spamscanner/releases/latest/download/install.sh | bash
 ```
 
-Skript před instalací ověří binárku podle souboru `SHA256SUMS` daného vydání. Binárky pro Linux potřebují glibc, takže na Alpine a dalších systémech s musl instalujte raději přes npm.
+Skript před instalací ověří binárku podle souboru `SHA256SUMS` daného vydání, tedy hashů, které spočítala sestavení vydání, a nainstaluje ji spustitelnou pro všechny a pod sudo s vlastníkem root. Každá binárka má také podepsanou atestaci původu sestavení: `gh attestation verify spamscanner-linux-x64 --repo spamscanner/spamscanner` ověří, že ji z tohoto repozitáře sestavily GitHub Actions. Binárky pro Linux potřebují glibc, takže na Alpine a dalších systémech s musl instalujte raději přes npm.
 
 Binárky pro Linux (x64 a arm64), macOS (Intel a Apple silicon) a Windows jsou přiložené ke každému [vydání](https://github.com/spamscanner/spamscanner/releases).
 

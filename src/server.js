@@ -6,6 +6,21 @@ import {rewriteMessage, spamHeaders} from './headers.js';
 import {VERSION} from './version.js';
 
 /**
+ * The largest message the servers and the command line read by default, in
+ * bytes (25 MiB): above Postfix's default message_size_limit (10 MB) and the
+ * limits of most mail services.
+ */
+export const MAX_MESSAGE_SIZE = 25 * 1024 * 1024;
+
+/**
+ * The most connections each server keeps open at once by default (and, for
+ * the HTTP API, requests it handles at once): each may hold a message of up
+ * to MAX_MESSAGE_SIZE bytes while it is scanned. Postfix runs at most 100
+ * smtpd and 100 cleanup processes by default, each with one milter connection.
+ */
+export const MAX_CONNECTIONS = 200;
+
+/**
  * A scan result without the parsed message and word list, for sending over
  * the network or printing.
  * @param {object} result
@@ -111,11 +126,17 @@ function readBody(request, limit) {
  * @param {string} [options.token] - required as "Authorization: Bearer <token>" when set
  * @param {number} [options.maxSize] - largest message accepted, in bytes
  * @param {string} [options.modelPath] - where /learn saves the classifier
+ * @param {number} [options.maxConnections] - connections kept open, and requests handled, at once
  * @returns {http.Server}
  */
 export function createHttpServer(scanner, options = {}) {
-	const {token = null, maxSize = 25 * 1024 * 1024, modelPath = null} = options;
-	return http.createServer(async (request, response) => {
+	const {
+		token = null, maxSize = MAX_MESSAGE_SIZE, modelPath = null, maxConnections = MAX_CONNECTIONS,
+	} = options;
+	// Requests being read or scanned. Pipelined requests on one connection are
+	// handled at the same time, so the connection limit alone does not bound them.
+	let active = 0;
+	const server = http.createServer(async (request, response) => {
 		const send = (status, body, headers = {}) => {
 			const isBuffer = Buffer.isBuffer(body);
 			response.writeHead(status, {'content-type': isBuffer ? 'message/rfc822' : 'application/json; charset=utf-8', 'cache-control': 'no-store', ...headers});
@@ -152,30 +173,50 @@ export function createHttpServer(scanner, options = {}) {
 				return;
 			}
 
-			const raw = await readBody(request, maxSize);
-			if (learn) {
-				await scanner.learn(raw, learn[1]);
-				if (modelPath) {
-					scanner.saveModel(modelPath);
+			// (refused before the body is read, and the connection closed, so a
+			//  client gets the answer without sending the message first)
+			const length = request.headers['content-length'];
+			if (length !== undefined && Number(length) > maxSize) {
+				send(413, {error: `Message larger than ${maxSize} bytes`}, {connection: 'close'});
+				return;
+			}
+
+			if (active >= maxConnections) {
+				send(503, {error: 'Too many requests at once'}, {connection: 'close', 'retry-after': '1'});
+				return;
+			}
+
+			active++;
+			try {
+				const raw = await readBody(request, maxSize);
+				if (learn) {
+					await scanner.learn(raw, learn[1]);
+					if (modelPath) {
+						scanner.saveModel(modelPath);
+					}
+
+					send(200, {ok: true, learned: learn[1]});
+					return;
 				}
 
-				send(200, {ok: true, learned: learn[1]});
-				return;
-			}
+				const result = await scanner.scan(raw, {session: sessionFromQuery(url.searchParams)});
+				if (url.pathname === '/scan') {
+					send(200, serializeResult(result, {verbose: url.searchParams.get('verbose') === '1'}));
+					return;
+				}
 
-			const result = await scanner.scan(raw, {session: sessionFromQuery(url.searchParams)});
-			if (url.pathname === '/scan') {
-				send(200, serializeResult(result, {verbose: url.searchParams.get('verbose') === '1'}));
-				return;
+				const tag = url.searchParams.get('subjectTag');
+				const rewritten = rewriteMessage(raw, spamHeaders(result, {version: VERSION}), {subjectTag: result.isSpam && tag ? tag : null});
+				send(200, rewritten, {'x-spam-flag': result.isSpam ? 'YES' : 'NO', 'x-spam-score': result.score.toFixed(1), 'x-spam-action': result.action});
+			} finally {
+				active--;
 			}
-
-			const tag = url.searchParams.get('subjectTag');
-			const rewritten = rewriteMessage(raw, spamHeaders(result, {version: VERSION}), {subjectTag: result.isSpam && tag ? tag : null});
-			send(200, rewritten, {'x-spam-flag': result.isSpam ? 'YES' : 'NO', 'x-spam-score': result.score.toFixed(1), 'x-spam-action': result.action});
 		} catch (error) {
 			send(error.statusCode || 500, {error: error.message});
 		}
 	});
+	server.maxConnections = maxConnections;
+	return server;
 }
 
 /**
@@ -190,13 +231,16 @@ export function createHttpServer(scanner, options = {}) {
  * @param {boolean} [options.json] - answer in JSON (default true)
  * @param {number} [options.maxSize]
  * @param {number} [options.timeout] - close a connection that sends nothing for this many milliseconds (default 60000)
+ * @param {number} [options.maxConnections] - connections kept open at once; more are closed at once
  * @returns {net.Server}
  */
 export function createTcpServer(scanner, options = {}) {
-	const {json = true, maxSize = 25 * 1024 * 1024, timeout = 60_000} = options;
+	const {
+		json = true, maxSize = MAX_MESSAGE_SIZE, timeout = 60_000, maxConnections = MAX_CONNECTIONS,
+	} = options;
 	// Half-open: the client closes its side to mark the end of the message and
 	// still reads the answer.
-	return net.createServer({allowHalfOpen: true}, socket => {
+	const server = net.createServer({allowHalfOpen: true}, socket => {
 		const chunks = [];
 		let size = 0;
 		socket.setTimeout(timeout, () => socket.destroy());
@@ -228,4 +272,6 @@ export function createTcpServer(scanner, options = {}) {
 		socket.on('end', onEnd);
 		socket.on('error', () => {});
 	});
+	server.maxConnections = maxConnections;
+	return server;
 }

@@ -1,4 +1,4 @@
-<!-- source: 1a2009efd1f9 -->
+<!-- source: e64ba1432e54 -->
 
 # Начало работы
 
@@ -26,7 +26,7 @@ npm install spamscanner
 curl -fsSL https://github.com/spamscanner/spamscanner/releases/latest/download/install.sh | bash
 ```
 
-Перед установкой скрипт проверяет исполняемый файл по файлу `SHA256SUMS` того же релиза. Исполняемым файлам для Linux нужна glibc, поэтому в Alpine и других системах на основе musl устанавливайте через npm.
+Перед установкой скрипт проверяет исполняемый файл по файлу `SHA256SUMS` того же релиза, где записаны хеши, вычисленные сборками релиза, и устанавливает его исполняемым для всех, а под sudo — с владельцем root. У каждого исполняемого файла есть и подписанная аттестация происхождения сборки: `gh attestation verify spamscanner-linux-x64 --repo spamscanner/spamscanner` проверяет, что его собрал GitHub Actions из этого репозитория. Исполняемым файлам для Linux нужна glibc, поэтому в Alpine и других системах на основе musl устанавливайте через npm.
 
 Исполняемые файлы для Linux (x64 и arm64), macOS (Intel и Apple silicon) и Windows прикреплены к каждому [релизу](https://github.com/spamscanner/spamscanner/releases).
 

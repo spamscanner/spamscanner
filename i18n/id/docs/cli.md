@@ -1,4 +1,4 @@
-<!-- source: f8a77c318b83 -->
+<!-- source: ff86d06bdcd0 -->
 
 # Baris perintah
 
@@ -44,8 +44,13 @@ spamscanner scan message.eml --subject-tag "[SPAM]" > tagged.eml
 | `--no-classifier`          | Tidak menggunakan pengklasifikasi                            |
 | `--config <file>`          | File JSON berisi [opsi pustaka](api.md#options)              |
 | `--allow-language <codes>` | Bahasa yang diterima, misalnya `en,de,fr`                    |
+| `--max-size <bytes>`       | Pesan terbesar yang dibaca (bawaan 26214400, 25 MiB)         |
 
 Kode keluar: 0 ham, 1 spam, 2 galat.
+
+`scan` dan `learn` membaca paling banyak `--max-size` byte dari sebuah pesan, dari file atau input standar; server memiliki batas yang sama. Pesan yang lebih besar adalah galat (kode keluar 2), dan sisanya tidak dibaca.
+
+Output standar hanya berisi hasil (atau pesan): apa pun yang dicetak pustaka saat perintah berjalan, seperti catatan mailauth tentang panjang isi DKIM, dikirim ke error standar.
 
 ### Sesi SMTP
 
@@ -106,8 +111,11 @@ spamscanner filter -f "$sender" -- "$recipient"
 | `--reject`            | Memantulkan email yang mencapai ambang tolak alih-alih meneruskannya                |
 | `--discard`           | Membuang email yang mencapai ambang tolak alih-alih meneruskannya                   |
 | `--on-error <answer>` | Untuk email yang tidak dapat dipindai sepenuhnya: `tempfail` (bawaan) atau `accept` |
+| `--max-size <bytes>`  | Pesan terbesar yang dipindai (bawaan 26214400, 25 MiB)                              |
 
 Kode keluar mengikuti konvensi sendmail, yang dibaca Postfix: 0 terkirim (atau dibuang), 64 tidak ada penerima yang diberikan, 69 ditolak sebagai spam (Postfix memantulkannya), 75 kegagalan apa pun, sehingga Postfix menyimpan pesan dan mencoba lagi nanti. Pesan dengan lampiran yang tidak dapat dipindai ClamAV juga merupakan kegagalan. Dengan `--on-error accept`, pesan seperti itu, atau pesan yang pemindaiannya gagal, diteruskan dengan `X-Spam-Virus-Scan: failed`, dan tanpa header `X-Spam-*` apa pun yang ditambahkan pengirim.
+
+Pesan yang lebih besar dari `--max-size` tidak dipindai, dan tidak disimpan utuh di memori. Pesan itu ditunda (75), atau, dengan `--on-error accept`, diteruskan tanpa dipindai sambil dibaca, ditandai dan tanpa header `X-Spam-*` dari pengirim seperti di atas. `message_size_limit` Postfix (10 MB secara bawaan) menjaga email di bawah batas bawaan; jika Anda menaikkannya di atas 25 MiB, naikkan juga `--max-size`.
 
 
 ## milter, http, server, dan spamd
@@ -123,21 +131,23 @@ API HTTP membaca tokennya dari variabel lingkungan `SPAMSCANNER_TOKEN`. `--token
 
 Port 783 adalah port yang dipakai klien SpamAssassin secara bawaan. Port di bawah 1024 memerlukan root atau capability `CAP_NET_BIND_SERVICE`; gunakan port lain, seperti `--port 7833`, dan beri tahu kliennya.
 
-| Opsi                  | Arti                                                                                        |
-| --------------------- | ------------------------------------------------------------------------------------------- |
-| `--port <n>`          | Port TCP                                                                                    |
-| `--host <ip>`         | Alamat yang didengarkan (bawaan 127.0.0.1)                                                  |
-| `--socket <path>`     | Mendengarkan di soket Unix sebagai gantinya                                                 |
-| `--reject`            | Milter: menolak email yang mencapai ambang tolak                                            |
-| `--reject-code <n>`   | Milter: kode 4xx, coba lagi nanti (451, bawaan), atau kode 5xx seperti 550                  |
-| `--quarantine`        | Milter: menahan spam di karantina server email                                              |
-| `--on-error <answer>` | Milter: untuk email yang tidak dapat dipindai sepenuhnya, `tempfail` (bawaan) atau `accept` |
-| `--name <hostname>`   | Milter: nama server ini di Authentication-Results                                           |
-| `--token <secret>`    | HTTP: mensyaratkan `Authorization: Bearer <secret>`; diperlukan untuk `/learn`              |
-| `--allow-tell`        | spamd: menerima permintaan TELL (`spamc -L spam`) untuk pembelajaran                        |
-| `--out <file>`        | HTTP dan spamd: menyimpan hasil pembelajaran ke file model ini                              |
-| `--subject-tag <tag>` | Milter dan spamd: menambahkan awalan pada subjek spam                                       |
-| `--verbose`           | Milter: mencatat setiap pemindaian. Server TCP: menjawab dengan satu baris teks             |
+| Opsi                    | Arti                                                                                                                                                                                                                 |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--port <n>`            | Port TCP                                                                                                                                                                                                             |
+| `--host <ip>`           | Alamat yang didengarkan (bawaan 127.0.0.1)                                                                                                                                                                           |
+| `--socket <path>`       | Mendengarkan di soket Unix sebagai gantinya                                                                                                                                                                          |
+| `--max-size <bytes>`    | Pesan terbesar yang diterima (bawaan 26214400, 25 MiB). Milter memindai awal isi yang lebih panjang, dan menjawab seperti untuk pemindaian yang gagal (`--on-error`) ketika amplop dan header saja sudah lebih besar |
+| `--max-connections <n>` | Koneksi yang terbuka sekaligus (bawaan 200); koneksi berikutnya langsung ditutup. HTTP: juga permintaan yang ditangani sekaligus, permintaan berikutnya mendapat `503`                                               |
+| `--reject`              | Milter: menolak email yang mencapai ambang tolak                                                                                                                                                                     |
+| `--reject-code <n>`     | Milter: kode 4xx, coba lagi nanti (451, bawaan), atau kode 5xx seperti 550                                                                                                                                           |
+| `--quarantine`          | Milter: menahan spam di karantina server email                                                                                                                                                                       |
+| `--on-error <answer>`   | Milter: untuk email yang tidak dapat dipindai sepenuhnya, `tempfail` (bawaan) atau `accept`                                                                                                                          |
+| `--name <hostname>`     | Milter: nama server ini di Authentication-Results                                                                                                                                                                    |
+| `--token <secret>`      | HTTP: mensyaratkan `Authorization: Bearer <secret>`; diperlukan untuk `/learn`                                                                                                                                       |
+| `--allow-tell`          | spamd: menerima permintaan TELL (`spamc -L spam`) untuk pembelajaran                                                                                                                                                 |
+| `--out <file>`          | HTTP dan spamd: menyimpan hasil pembelajaran ke file model ini                                                                                                                                                       |
+| `--subject-tag <tag>`   | Milter dan spamd: menambahkan awalan pada subjek spam                                                                                                                                                                |
+| `--verbose`             | Milter: mencatat setiap pemindaian. Server TCP: menjawab dengan satu baris teks                                                                                                                                      |
 
 Opsi pemindaian di atas juga berlaku untuk server. [Milter](postfix.md#milter), [HTTP API, server TCP, dan spamd](http-api.md).
 

@@ -4,13 +4,15 @@ import {once} from 'node:events';
 import {readFileSync} from 'node:fs';
 import net from 'node:net';
 import path from 'node:path';
+import {Readable} from 'node:stream';
 import {describe, it} from 'node:test';
 import {setTimeout as delay} from 'node:timers/promises';
 import SpamScanner from '../src/index.js';
 import {GTUBE} from '../src/is-arbitrary.js';
 import {
-	createHttpServer, createTcpServer, serializeResult, sessionFromQuery,
+	MAX_CONNECTIONS, MAX_MESSAGE_SIZE, createHttpServer, createTcpServer, serializeResult, sessionFromQuery,
 } from '../src/server.js';
+import {createSpamdServer} from '../src/spamd.js';
 import {VERSION} from '../src/version.js';
 import {message, temporaryDirectory} from './helpers/index.js';
 
@@ -177,6 +179,72 @@ describe('HTTP server', () => {
 		}
 	});
 
+	it('refuses a message whose Content-Length is too large before reading it', async () => {
+		const server = await listen(createHttpServer(scanner(), {maxSize: 1000}));
+		try {
+			const socket = net.createConnection(server.port, '127.0.0.1');
+			await once(socket, 'connect');
+			const chunks = [];
+			socket.on('data', chunk => chunks.push(chunk));
+			// (the headers only: the body never comes)
+			socket.write('POST /scan HTTP/1.1\r\nHost: x\r\nContent-Length: 100000000\r\n\r\n');
+			const closed = await Promise.race([once(socket, 'close'), delay(2000, 'still open')]);
+			socket.destroy();
+			assert.notEqual(closed, 'still open');
+			const text = Buffer.concat(chunks).toString();
+			assert.match(text, /^HTTP\/1\.1 413 /);
+			assert.match(text, /\r\nconnection: close\r\n/i);
+			assert.ok(text.includes('{"error":"Message larger than 1000 bytes"}\n'));
+			// A body without a Content-Length is read, and dropped past the limit.
+			const chunked = await fetch(`${server.url}/scan`, {method: 'POST', body: Readable.from([Buffer.alloc(800, 'a'), Buffer.alloc(800, 'a')]), duplex: 'half'});
+			assert.equal(chunked.status, 413);
+			assert.deepEqual(await chunked.json(), {error: 'Message larger than 1000 bytes'});
+		} finally {
+			await server.close();
+		}
+	});
+
+	it('limits connections, and requests at once, pipelined ones too', async () => {
+		let active = 0;
+		let most = 0;
+		const slow = scanner();
+		const server = await listen(createHttpServer({
+			async scan(...arguments_) {
+				active++;
+				most = Math.max(most, active);
+				await delay(200);
+				active--;
+				return slow.scan(...arguments_);
+			},
+		}, {maxConnections: 2}));
+		try {
+			const socket = net.createConnection(server.port, '127.0.0.1');
+			await once(socket, 'connect');
+			const chunks = [];
+			socket.on('data', chunk => chunks.push(chunk));
+			const request = `POST /scan HTTP/1.1\r\nHost: x\r\nContent-Length: ${Buffer.byteLength(ham)}\r\n\r\n${ham}`;
+			socket.write(request.repeat(5));
+			await once(socket, 'close');
+			assert.equal(most, 2);
+			const statuses = Buffer.concat(chunks).toString().match(/^HTTP\/1\.1 \d+/gm);
+			assert.deepEqual(statuses, ['HTTP/1.1 200', 'HTTP/1.1 200', 'HTTP/1.1 503']);
+			assert.match(Buffer.concat(chunks).toString(), /retry-after: 1\r\n[\s\S]*too many requests at once/i);
+			// (and the health check is always answered)
+			assert.equal((await fetch(`${server.url}/health`)).status, 200);
+		} finally {
+			await server.close();
+		}
+	});
+
+	it('limits connections by default', () => {
+		assert.equal(MAX_CONNECTIONS, 200);
+		assert.equal(MAX_MESSAGE_SIZE, 25 * 1024 * 1024);
+		for (const create of [createHttpServer, createTcpServer, createSpamdServer]) {
+			assert.equal(create(scanner()).maxConnections, MAX_CONNECTIONS);
+			assert.equal(create(scanner(), {maxConnections: 5}).maxConnections, 5);
+		}
+	});
+
 	it('answers 500 when a scan fails', async () => {
 		const server = await listen(createHttpServer({
 			async scan() {
@@ -259,6 +327,44 @@ describe('TCP server', () => {
 			socket.destroy();
 		} finally {
 			await small.close();
+		}
+	});
+
+	it('closes connections beyond the limit at once', async () => {
+		const server = await listen(createTcpServer(scanner(), {maxConnections: 1}));
+		try {
+			const first = net.createConnection({port: server.port, host: '127.0.0.1', allowHalfOpen: true});
+			await once(first, 'connect');
+			const answer = [];
+			first.on('data', chunk => answer.push(chunk));
+			first.write(ham.slice(0, 10));
+			await delay(50);
+			assert.equal(await tcp(server.port, ham), '');
+			first.end(ham.slice(10));
+			await once(first, 'close');
+			assert.equal(JSON.parse(Buffer.concat(answer).toString()).isSpam, false);
+		} finally {
+			await server.close();
+		}
+	});
+
+	it('answers a client that half-closes after writing in pieces, as nc -N does', async () => {
+		const server = await listen(createTcpServer(scanner()));
+		try {
+			const socket = net.createConnection({port: server.port, host: '127.0.0.1', allowHalfOpen: true});
+			await once(socket, 'connect');
+			const chunks = [];
+			socket.on('data', chunk => chunks.push(chunk));
+			for (let offset = 0; offset < ham.length; offset += 7) {
+				socket.write(ham.slice(offset, offset + 7));
+				await delay(1);
+			}
+
+			socket.end();
+			await once(socket, 'close');
+			assert.equal(JSON.parse(Buffer.concat(chunks).toString()).isSpam, false);
+		} finally {
+			await server.close();
 		}
 	});
 

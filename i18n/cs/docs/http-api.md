@@ -1,4 +1,4 @@
-<!-- source: 9caf3ffb803a -->
+<!-- source: 665fbc0d5adc -->
 
 # HTTP API, TCP server a spamd
 
@@ -37,7 +37,7 @@ Bez `ip` se kontroly SPF, DKIM, DMARC, ARC a IP blocklistů (`--auth`, `--dnsbl`
 
 `/check` vrací také `X-Spam-Flag`, `X-Spam-Score` a `X-Spam-Action` jako hlavičky odpovědi, takže klient se může rozhodnout bez rozebírání zprávy.
 
-Zprávy větší než 25 MB dostanou `413`. Kontrola, která selže, dostane `500` s `{"error": "..."}`.
+Zprávy větší než 25 MiB (`--max-size`) dostanou `413`, a to ještě před přečtením těla, když velikost udává `Content-Length`. Kontrola, která selže, dostane `500` s `{"error": "..."}`. Server zpracovává nejvýše 200 požadavků najednou (`--max-connections`), včetně zřetězených (pipelining); další dostanou `503` s `Retry-After: 1`.
 
 ```sh
 curl -s -X POST -H "Authorization: Bearer $SPAMSCANNER_TOKEN" \
@@ -86,7 +86,7 @@ nc -N 127.0.0.1 7830 < message.eml
 
 S `--verbose` je odpovědí místo toho řádek textu: `SPAM 16.3/5.0 BAYES_999,PHISHING_LOOKALIKE_DOMAIN,DECEPTIVE_LINK,FROM_NAME_BRAND` nebo `HAM -2.5/5.0 BAYES_00`.
 
-TCP server nezná IP adresu klienta, takže `--auth` a `--dnsbl` nemají žádný účinek. Zavírá spojení, která 60 sekund nic neposílají, a na zprávy větší než 25 MB odpoví chybou.
+TCP server nezná IP adresu klienta, takže `--auth` a `--dnsbl` nemají žádný účinek. Odpoví až poté, co klient zavře svou odesílací stranu (`nc -N` nebo `nc -q 1`, nebo `shutdown(SHUT_WR)` na socketu); klient, který ji nechá otevřenou, nedostane žádnou odpověď a spojení se zavře po 60 sekundách bez dat. Na zprávy větší než 25 MiB (`--max-size`) odpoví chybou.
 
 
 ## spamd
@@ -111,4 +111,4 @@ Server kompatibilní se SpamAssassinem pro spamc, Exim, Haraka a další klienty
 
 Komprimované požadavky (`Compress: zlib`) se odmítají.
 
-Ani klienti spamd neposílají IP adresu klienta, takže `--auth` a `--dnsbl` nemají žádný účinek. Zpráva větší než 25 MB dostane `65` (`EX_DATAERR`), zpráva kratší, než udává její `Content-length`, dostane `76` (`EX_PROTOCOL`) a spojení, která 60 sekund nic neposílají, se zavřou.
+Ani klienti spamd neposílají IP adresu klienta, takže `--auth` a `--dnsbl` nemají žádný účinek. Zpráva větší než 25 MiB (`--max-size`) dostane `65` (`EX_DATAERR`), zpráva kratší, než udává její `Content-length`, dostane `76` (`EX_PROTOCOL`) a spojení, která 60 sekund nic neposílají, se zavřou.

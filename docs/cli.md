@@ -42,8 +42,13 @@ spamscanner scan message.eml --subject-tag "[SPAM]" > tagged.eml
 | `--no-classifier`          | Do not use the classifier                             |
 | `--config <file>`          | A JSON file with [library options](api.md#options)    |
 | `--allow-language <codes>` | Accepted languages, for example `en,de,fr`            |
+| `--max-size <bytes>`       | Largest message read (default 26214400, 25 MiB)       |
 
 Exit codes: 0 ham, 1 spam, 2 error.
+
+`scan` and `learn` read at most `--max-size` bytes of a message, from a file or standard input; the servers have the same limit. A larger message is an error (exit code 2), and the rest of it is not read.
+
+Standard output carries only the result (or the message): anything a library prints while a command runs, such as mailauth's notes on DKIM body lengths, goes to standard error.
 
 ### SMTP session
 
@@ -104,8 +109,11 @@ spamscanner filter -f "$sender" -- "$recipient"
 | `--reject`            | Bounce mail at the reject threshold instead of passing it on                   |
 | `--discard`           | Drop mail at the reject threshold instead of passing it on                     |
 | `--on-error <answer>` | For mail that could not be fully scanned: `tempfail` (the default) or `accept` |
+| `--max-size <bytes>`  | Largest message scanned (default 26214400, 25 MiB)                             |
 
 Exit codes follow sendmail's conventions, which Postfix reads: 0 delivered (or discarded), 64 no recipients given, 69 rejected as spam (Postfix bounces it), 75 any failure, so Postfix keeps the message and tries again later. A message with an attachment ClamAV could not scan is a failure too. With `--on-error accept`, such a message, or one whose scan failed, is passed on with `X-Spam-Virus-Scan: failed`, and without any `X-Spam-*` headers the sender added.
+
+A message larger than `--max-size` is not scanned, and not held in memory whole. It is deferred (75), or, with `--on-error accept`, passed on unscanned as it is read, marked and without the sender's `X-Spam-*` headers as above. Postfix's `message_size_limit` (10 MB by default) keeps mail below the default limit; if you raise it above 25 MiB, raise `--max-size` too.
 
 
 ## milter, http, server and spamd
@@ -121,21 +129,23 @@ The HTTP API reads its token from the `SPAMSCANNER_TOKEN` environment variable. 
 
 Port 783 is the port SpamAssassin clients use by default. Ports below 1024 need root or the `CAP_NET_BIND_SERVICE` capability; use another port, such as `--port 7833`, and tell the client.
 
-| Option                | Meaning                                                                                |
-| --------------------- | -------------------------------------------------------------------------------------- |
-| `--port <n>`          | TCP port                                                                               |
-| `--host <ip>`         | Address to listen on (default 127.0.0.1)                                               |
-| `--socket <path>`     | Listen on a Unix socket instead                                                        |
-| `--reject`            | Milter: refuse mail at the reject threshold                                            |
-| `--reject-code <n>`   | Milter: a 4xx code, try again later (451, the default), or a 5xx code such as 550      |
-| `--quarantine`        | Milter: hold spam in the mail server's quarantine                                      |
-| `--on-error <answer>` | Milter: for mail that could not be fully scanned, `tempfail` (the default) or `accept` |
-| `--name <hostname>`   | Milter: this server's name in Authentication-Results                                   |
-| `--token <secret>`    | HTTP: require `Authorization: Bearer <secret>`; needed for `/learn`                    |
-| `--allow-tell`        | spamd: accept TELL requests (`spamc -L spam`) to learn                                 |
-| `--out <file>`        | HTTP and spamd: save what is learned to this model file                                |
-| `--subject-tag <tag>` | Milter and spamd: prefix the subject of spam                                           |
-| `--verbose`           | Milter: log every scan. TCP server: answer with one text line                          |
+| Option                  | Meaning                                                                                                                                                                                          |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `--port <n>`            | TCP port                                                                                                                                                                                         |
+| `--host <ip>`           | Address to listen on (default 127.0.0.1)                                                                                                                                                         |
+| `--socket <path>`       | Listen on a Unix socket instead                                                                                                                                                                  |
+| `--max-size <bytes>`    | Largest message accepted (default 26214400, 25 MiB). The milter scans the start of a longer body, and answers as for a failed scan (`--on-error`) when the envelope and headers alone are larger |
+| `--max-connections <n>` | Connections open at once (default 200); more are closed at once. HTTP: also requests handled at once, more get `503`                                                                             |
+| `--reject`              | Milter: refuse mail at the reject threshold                                                                                                                                                      |
+| `--reject-code <n>`     | Milter: a 4xx code, try again later (451, the default), or a 5xx code such as 550                                                                                                                |
+| `--quarantine`          | Milter: hold spam in the mail server's quarantine                                                                                                                                                |
+| `--on-error <answer>`   | Milter: for mail that could not be fully scanned, `tempfail` (the default) or `accept`                                                                                                           |
+| `--name <hostname>`     | Milter: this server's name in Authentication-Results                                                                                                                                             |
+| `--token <secret>`      | HTTP: require `Authorization: Bearer <secret>`; needed for `/learn`                                                                                                                              |
+| `--allow-tell`          | spamd: accept TELL requests (`spamc -L spam`) to learn                                                                                                                                           |
+| `--out <file>`          | HTTP and spamd: save what is learned to this model file                                                                                                                                          |
+| `--subject-tag <tag>`   | Milter and spamd: prefix the subject of spam                                                                                                                                                     |
+| `--verbose`             | Milter: log every scan. TCP server: answer with one text line                                                                                                                                    |
 
 The scan options above apply to the servers too. [The milter](postfix.md#milter), [the HTTP API, the TCP server and spamd](http-api.md).
 

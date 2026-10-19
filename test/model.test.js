@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {
-	existsSync, mkdirSync, readFileSync, readdirSync, utimesSync, writeFileSync,
+	chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync, utimesSync, writeFileSync,
 } from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
@@ -73,6 +73,19 @@ describe('model files', () => {
 		saveModel(more, file);
 		assert.equal(loadModel(file).nspam, 2);
 		assert.equal(JSON.parse(readFileSync(file, 'utf8')).type, 'spamscanner-classifier');
+	});
+
+	it('keeps the permissions of the file it replaces', {skip: process.platform === 'win32'}, () => {
+		const directory = temporaryDirectory();
+		const file = path.join(directory, 'model.json');
+		saveModel(trained(), file);
+		chmodSync(file, 0o640);
+		saveModel(trained(), file);
+		assert.equal(statSync(file).mode & 0o777, 0o640);
+		chmodSync(file, 0o600);
+		saveModel(trained(), file);
+		assert.equal(statSync(file).mode & 0o777, 0o600);
+		assert.deepEqual(readdirSync(directory), ['model.json']);
 	});
 
 	it('leaves no temporary file when a model cannot be saved', () => {

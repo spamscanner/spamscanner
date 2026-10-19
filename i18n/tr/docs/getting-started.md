@@ -1,4 +1,4 @@
-<!-- source: 1a2009efd1f9 -->
+<!-- source: e64ba1432e54 -->
 
 # Başlarken
 
@@ -26,7 +26,7 @@ Node.js'i ve modeli içeren, Linux veya macOS için bağımsız bir ikili dosya 
 curl -fsSL https://github.com/spamscanner/spamscanner/releases/latest/download/install.sh | bash
 ```
 
-Betik, ikili dosyayı kurmadan önce sürümün `SHA256SUMS` dosyasıyla doğrular. Linux ikili dosyaları glibc gerektirir; Alpine ve musl tabanlı diğer sistemlerde npm ile kurun.
+Betik, ikili dosyayı kurmadan önce sürümün `SHA256SUMS` dosyasıyla, yani sürüm derlemelerinin hesapladığı özetlerle doğrular ve onu herkes tarafından çalıştırılabilir, sudo altında da sahibi root olacak şekilde kurar. Her ikili dosyanın ayrıca imzalı bir derleme kökeni onayı (build provenance attestation) vardır: `gh attestation verify spamscanner-linux-x64 --repo spamscanner/spamscanner`, onu GitHub Actions'ın bu depodan derlediğini denetler. Linux ikili dosyaları glibc gerektirir; Alpine ve musl tabanlı diğer sistemlerde npm ile kurun.
 
 Linux (x64 ve arm64), macOS (Intel ve Apple silicon) ve Windows ikili dosyaları her [sürüme](https://github.com/spamscanner/spamscanner/releases) eklenir.
 

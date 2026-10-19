@@ -122,6 +122,61 @@ describe('zipEntries', () => {
 	});
 });
 
+// A central directory of `count` entries named `nameLength` bytes (ending
+// ".exe"), and `records` end records after it, each one's comment running to
+// the end of the file and each pointing at a different entry, so that their
+// directories overlap.
+function overlapping(count, nameLength, records = 1) {
+	const entries = [];
+	const offsets = [];
+	let position = 30;
+	for (let i = 0; i < count; i++) {
+		const entry = Buffer.alloc(46 + nameLength, 0x61);
+		entry.writeUInt32LE(0x02_01_4B_50, 0);
+		entry.fill(0, 4, 46);
+		entry.writeUInt32LE(1, 24);
+		entry.writeUInt16LE(nameLength, 28);
+		entry.write('.exe', entry.length - 4, 'latin1');
+		entries.push(entry);
+		offsets.push(position);
+		position += entry.length;
+	}
+
+	const total = position + (records * 22);
+	const ends = Array.from({length: records}, (_, j) => {
+		const end = Buffer.alloc(22);
+		end.writeUInt32LE(0x06_05_4B_50, 0);
+		end.writeUInt32LE(100, 12);
+		end.writeUInt32LE(offsets[j], 16);
+		end.writeUInt16LE(total - (position + (j * 22) + 22), 20);
+		return end;
+	});
+	return Buffer.concat([Buffer.from('PK\u0003\u0004'.padEnd(30, '\0'), 'latin1'), ...entries, ...ends]);
+}
+
+describe('zipEntries limits', () => {
+	it('reads each entry once, however many directories overlap it, and long names in part', () => {
+		const archive = overlapping(30, 65_535, 30);
+		const entries = zipEntries(archive);
+		assert.equal(entries.length, 30);
+		for (const entry of entries) {
+			assert.equal(entry.name.length, 1025);
+			assert.match(entry.name, /^a{512}…a{508}\.exe$/);
+		}
+
+		const [finding] = inspectAttachments([{filename: 'files.zip', content: archive}]);
+		assert.equal(finding.type, 'executable_in_archive');
+		assert.ok(finding.message.length < 400, `${finding.message.length} characters`);
+		assert.match(finding.message, /contains 30 programs \(a{59}…a{36}\.exe, /);
+	});
+
+	it('stops after 1 MiB of names', () => {
+		assert.equal(zipEntries(overlapping(1100, 2000)).length, 1024);
+		assert.equal(zipEntries(overlapping(1100, 1000)).length, 1048);
+		assert.equal(zipEntries(overlapping(3, 100))[0].name, `${'a'.repeat(96)}.exe`);
+	});
+});
+
 // A ZIP64 archive: the end record's offset and size in a ZIP64 end record
 // that a locator points to (`shift` moves the offsets, as data in front
 // does).

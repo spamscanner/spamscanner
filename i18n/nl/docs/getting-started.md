@@ -1,4 +1,4 @@
-<!-- source: 1a2009efd1f9 -->
+<!-- source: e64ba1432e54 -->
 
 # Aan de slag
 
@@ -26,7 +26,7 @@ Als standalone binary voor Linux of macOS, met Node.js en het model ingebouwd:
 curl -fsSL https://github.com/spamscanner/spamscanner/releases/latest/download/install.sh | bash
 ```
 
-Het script controleert de binary vóór installatie aan de hand van het `SHA256SUMS`-bestand van de release. De Linux-binaries hebben glibc nodig, dus installeer op Alpine en andere op musl gebaseerde systemen met npm.
+Het script controleert de binary vóór installatie aan de hand van het `SHA256SUMS`-bestand van de release, de hashes die de release-builds berekenden, en installeert hem uitvoerbaar voor iedereen en, onder sudo, met root als eigenaar. Elke binary heeft ook een ondertekende attestatie van de build-herkomst: `gh attestation verify spamscanner-linux-x64 --repo spamscanner/spamscanner` controleert dat GitHub Actions hem vanuit deze repository heeft gebouwd. De Linux-binaries hebben glibc nodig, dus installeer op Alpine en andere op musl gebaseerde systemen met npm.
 
 Binaries voor Linux (x64 en arm64), macOS (Intel en Apple silicon) en Windows zijn bij elke [release](https://github.com/spamscanner/spamscanner/releases) gevoegd.
 

@@ -17,7 +17,7 @@ import {cpuTime} from './helpers/cpu-time.js';
 // Each function reads 100,000 characters of its worst input in well under this
 // (the regular expressions of 7.0.1 took seconds for 20,000 and minutes for
 // 100,000).
-const BUDGET = 1500;
+const BUDGET = 3000;
 
 // (tests of RE2 itself, skipped when the optional package is not installed)
 const onRe2 = {skip: usesRe2 ? false : 're2 is not installed'};

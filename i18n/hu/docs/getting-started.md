@@ -1,4 +1,4 @@
-<!-- source: 1a2009efd1f9 -->
+<!-- source: e64ba1432e54 -->
 
 # Első lépések
 
@@ -26,7 +26,7 @@ npm install spamscanner
 curl -fsSL https://github.com/spamscanner/spamscanner/releases/latest/download/install.sh | bash
 ```
 
-A szkript telepítés előtt ellenőrzi a bináris fájlt a kiadás `SHA256SUMS` fájlja alapján. A linuxos bináris fájlokhoz glibc kell, ezért Alpine-on és más musl-alapú rendszereken npm-mel telepítsen.
+A szkript telepítés előtt ellenőrzi a bináris fájlt a kiadás `SHA256SUMS` fájlja alapján, amely a kiadás buildjei által kiszámított hash-eket tartalmazza, majd mindenki számára futtathatóként, sudo alatt pedig root tulajdonában telepíti. Minden bináris fájlhoz aláírt build-eredetigazolás (build provenance attestation) is tartozik: a `gh attestation verify spamscanner-linux-x64 --repo spamscanner/spamscanner` ellenőrzi, hogy a GitHub Actions ebből a tárolóból építette. A linuxos bináris fájlokhoz glibc kell, ezért Alpine-on és más musl-alapú rendszereken npm-mel telepítsen.
 
 A Linuxra (x64 és arm64), macOS-re (Intel és Apple silicon) és Windowsra készült bináris fájlok minden [kiadáshoz](https://github.com/spamscanner/spamscanner/releases) csatolva vannak.
 

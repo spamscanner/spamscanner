@@ -3,6 +3,7 @@ import {EventEmitter} from 'node:events';
 import net from 'node:net';
 import {spamHeaders, taggedSubject} from './headers.js';
 import {formatAuthResultsHeader} from './auth.js';
+import {MAX_CONNECTIONS, MAX_MESSAGE_SIZE} from './server.js';
 import {VERSION} from './version.js';
 
 // Milter protocol (version 6), as spoken by Postfix and Sendmail.
@@ -101,6 +102,17 @@ export class MilterSession {
 		this.body = [];
 		this.size = 0;
 		this.truncated = false;
+		// Bytes of envelope addresses and headers kept, which have a limit too.
+		this.headerSize = 0;
+	}
+
+	// The envelope and headers are kept whole for the scan, so beyond the
+	// message size limit the message is not scanned (see onError).
+	keep(data) {
+		this.headerSize += data.length;
+		if (this.headerSize > this.server.options.maxSize) {
+			throw new Error(`Message headers larger than ${this.server.options.maxSize} bytes`);
+		}
 	}
 
 	send(command, data) {
@@ -218,18 +230,21 @@ export class MilterSession {
 
 			case COMMANDS.MAIL: {
 				this.resetMessage();
+				this.keep(data);
 				this.envelope.mailFrom = {address: address(cstrings(data)[0])};
 				this.send(RESPONSES.CONTINUE);
 				break;
 			}
 
 			case COMMANDS.RCPT: {
+				this.keep(data);
 				this.envelope.rcptTo.push({address: address(cstrings(data)[0])});
 				this.send(RESPONSES.CONTINUE);
 				break;
 			}
 
 			case COMMANDS.HEADER: {
+				this.keep(data);
 				const [name, value = ''] = cstrings(data);
 				this.headers.push([name, value]);
 				this.send(RESPONSES.CONTINUE);
@@ -251,7 +266,15 @@ export class MilterSession {
 			}
 
 			case COMMANDS.BODYEOB: {
-				await this.endOfMessage();
+				// The MTA waits for the answer; anything else it sends meanwhile
+				// stays in the socket rather than piling up here.
+				this.socket.pause();
+				try {
+					await this.endOfMessage();
+				} finally {
+					this.socket.resume();
+				}
+
 				break;
 			}
 
@@ -403,14 +426,16 @@ export class MilterServer extends EventEmitter {
 	 * @param {boolean} [options.quarantine] - hold spam in the MTA's quarantine
 	 * @param {string|null} [options.subjectTag] - e.g. "[SPAM]"
 	 * @param {string} [options.hostname] - this server's name, for Authentication-Results
-	 * @param {number} [options.maxSize] - body bytes kept for scanning
+	 * @param {number} [options.maxSize] - body bytes kept for scanning (and the
+	 *   most bytes of envelope and headers: beyond them a message is not scanned)
 	 * @param {'tempfail'|'accept'} [options.onError] - answer when a scan fails
+	 * @param {number} [options.maxConnections] - connections kept open at once; more are closed at once
 	 */
 	constructor(scanner, options = {}) {
 		super();
 		this.scanner = scanner;
 		this.options = {
-			reject: false, rejectCode: 451, rejectMessage: 'Message rejected as spam', quarantine: false, subjectTag: null, hostname: 'spamscanner', maxSize: 25 * 1024 * 1024, onError: 'tempfail', ...options,
+			reject: false, rejectCode: 451, rejectMessage: 'Message rejected as spam', quarantine: false, subjectTag: null, hostname: 'spamscanner', maxSize: MAX_MESSAGE_SIZE, onError: 'tempfail', maxConnections: MAX_CONNECTIONS, ...options,
 		};
 		if (!/^[45]\d\d$/.test(String(this.options.rejectCode))) {
 			throw new RangeError(`rejectCode must be a 4xx or 5xx SMTP code, not ${this.options.rejectCode}`);
@@ -422,6 +447,7 @@ export class MilterServer extends EventEmitter {
 			socket.on('close', () => this.sockets.delete(socket));
 			return new MilterSession(socket, this);
 		});
+		this.server.maxConnections = this.options.maxConnections;
 		this.server.on('error', error => this.report(error));
 	}
 

@@ -2,11 +2,13 @@
 // the command-line bundle and the standalone bundle. `npm test` builds first.
 import assert from 'node:assert/strict';
 import {Buffer} from 'node:buffer';
-import {execFile} from 'node:child_process';
+import {execFile, spawn} from 'node:child_process';
+import {once} from 'node:events';
 import {
 	existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync,
 } from 'node:fs';
 import {createRequire} from 'node:module';
+import net from 'node:net';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
@@ -67,6 +69,36 @@ describe('built package', () => {
 		const scanned = run(process.execPath, ['dist/standalone/cli.cjs', 'scan', '-', '--no-cloudflare']);
 		scanned.child.stdin.end(message({text: GTUBE}));
 		await assert.rejects(scanned, error => error.code === 1 && error.stdout.startsWith('SPAM'));
+	});
+
+	// Issue #32: version 6 closed the connection when the client closed its
+	// side, before the answer, so clients that half-close got nothing.
+	it('answers TCP clients that close their side after the message, from both bundles', {timeout: 60_000}, async () => {
+		for (const file of ['dist/esm/cli.js', 'dist/standalone/cli.cjs']) {
+			const child = spawn(process.execPath, [file, 'server', '--port', '0', '--no-cloudflare'], {stdio: ['ignore', 'ignore', 'pipe']});
+			try {
+				let stderr = '';
+				child.stderr.on('data', chunk => {
+					stderr += chunk;
+				});
+				while (!/Listening on [\d.]+:\d+\n/.test(stderr)) {
+					await once(child.stderr, 'data');
+				}
+
+				const port = Number(/:(\d+)\n/.exec(stderr)[1]);
+				const socket = net.createConnection({port, host: '127.0.0.1', allowHalfOpen: true});
+				await once(socket, 'connect');
+				const chunks = [];
+				socket.on('data', chunk => chunks.push(chunk));
+				socket.end(message({text: GTUBE}));
+				await once(socket, 'close');
+				const result = JSON.parse(Buffer.concat(chunks).toString());
+				assert.equal(result.isSpam, true, file);
+				assert.equal(result.action, 'reject');
+			} finally {
+				child.kill();
+			}
+		}
 	});
 
 	it('has type declarations that TypeScript accepts for require() and import', async () => {

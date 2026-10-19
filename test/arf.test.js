@@ -36,6 +36,17 @@ function report({fields, encoding, originalType = 'message/rfc822', originalBody
 }
 
 describe('ARF reports', () => {
+	it('reads a Uint8Array as the bytes it holds', async () => {
+		const bytes = Buffer.from(report());
+		// (a view into the middle of a larger buffer)
+		const padded = new Uint8Array(bytes.length + 8);
+		padded.set(bytes, 4);
+		const result = await parse(padded.subarray(4, 4 + bytes.length));
+		assert.equal(result.humanReadable, 'This is an email abuse report.');
+		assert.equal(result.originalMessage.trim(), original.trim());
+		assert.equal(result.originalHeaders.subject, 'Buy now');
+	});
+
 	it('parses every field of a report, with folded lines and repeated fields', async () => {
 		const result = await parse(report({
 			fields: [

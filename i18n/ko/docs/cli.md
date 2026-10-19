@@ -1,4 +1,4 @@
-<!-- source: f8a77c318b83 -->
+<!-- source: ff86d06bdcd0 -->
 
 # 명령줄
 
@@ -44,8 +44,13 @@ spamscanner scan message.eml --subject-tag "[SPAM]" > tagged.eml
 | `--no-classifier`          | 분류기를 사용하지 않습니다                         |
 | `--config <file>`          | [라이브러리 옵션](api.md#options)을 담은 JSON 파일 |
 | `--allow-language <codes>` | 허용할 언어. 예: `en,de,fr`                  |
+| `--max-size <bytes>`       | 읽는 최대 메시지 크기(기본값 26214400, 25 MiB)     |
 
 종료 코드: 0은 ham, 1은 스팸, 2는 오류.
+
+`scan`과 `learn`은 파일이나 표준 입력에서 메시지를 최대 `--max-size` 바이트까지 읽습니다. 서버에도 같은 한도가 있습니다. 더 큰 메시지는 오류(종료 코드 2)이며, 나머지 부분은 읽지 않습니다.
+
+표준 출력에는 결과(또는 메시지)만 나옵니다. 명령이 실행되는 동안 라이브러리가 출력하는 것, 예를 들어 DKIM 본문 길이에 대한 mailauth의 안내는 표준 오류로 갑니다.
 
 ### SMTP 세션
 
@@ -106,8 +111,11 @@ spamscanner filter -f "$sender" -- "$recipient"
 | `--reject`            | 거부 임계값에 이른 메일을 넘겨주지 않고 반송합니다                       |
 | `--discard`           | 거부 임계값에 이른 메일을 넘겨주지 않고 버립니다                        |
 | `--on-error <answer>` | 완전히 검사하지 못한 메일에 대한 응답: `tempfail`(기본값) 또는 `accept` |
+| `--max-size <bytes>`  | 검사하는 최대 메시지 크기(기본값 26214400, 25 MiB)               |
 
 종료 코드는 Postfix가 읽는 sendmail의 규칙을 따릅니다. 0은 전달(또는 폐기), 64는 수신자 미지정, 69는 스팸으로 거부(Postfix가 반송), 75는 모든 종류의 실패로, 이 경우 Postfix가 메시지를 보관하고 나중에 다시 시도합니다. ClamAV가 검사하지 못한 첨부 파일이 있는 메시지도 실패로 처리합니다. `--on-error accept`를 사용하면 이런 메시지나 검사에 실패한 메시지에 `X-Spam-Virus-Scan: failed`를 붙이고, 발신자가 추가한 `X-Spam-*` 헤더는 모두 뺀 채 넘겨줍니다.
+
+`--max-size`보다 큰 메시지는 검사하지 않으며, 메모리에 통째로 담지도 않습니다. 이런 메시지는 일시적으로 거부(75)하거나, `--on-error accept`를 사용하면 읽는 대로 검사 없이, 위와 같이 표시를 붙이고 발신자의 `X-Spam-*` 헤더는 뺀 채 넘겨줍니다. Postfix의 `message_size_limit`(기본값 10 MB)는 메일을 기본 한도 아래로 유지합니다. 이를 25 MiB보다 크게 올리면 `--max-size`도 올리십시오.
 
 
 ## milter, http, server, spamd
@@ -123,21 +131,23 @@ HTTP API는 토큰을 환경 변수 `SPAMSCANNER_TOKEN`에서 읽습니다. `--t
 
 포트 783은 SpamAssassin 클라이언트가 기본으로 쓰는 포트입니다. 1024 미만 포트에는 root 권한이나 `CAP_NET_BIND_SERVICE` 기능이 필요합니다. `--port 7833`처럼 다른 포트를 사용하고 클라이언트에 알려 주십시오.
 
-| 옵션                    | 의미                                                          |
-| --------------------- | ----------------------------------------------------------- |
-| `--port <n>`          | TCP 포트                                                      |
-| `--host <ip>`         | 수신할 주소(기본값 127.0.0.1)                                       |
-| `--socket <path>`     | 대신 Unix 소켓에서 수신합니다                                          |
-| `--reject`            | milter: 거부 임계값에 이른 메일을 거부합니다                                |
-| `--reject-code <n>`   | milter: 4xx 코드(나중에 다시 시도, 기본값 451) 또는 550 같은 5xx 코드         |
-| `--quarantine`        | milter: 스팸을 메일 서버의 격리 영역에 보류합니다                             |
-| `--on-error <answer>` | milter: 완전히 검사하지 못한 메일에 대한 응답, `tempfail`(기본값) 또는 `accept`  |
-| `--name <hostname>`   | milter: Authentication-Results에 쓸 이 서버의 이름                  |
-| `--token <secret>`    | HTTP: `Authorization: Bearer <secret>`을 요구합니다. `/learn`에 필요 |
-| `--allow-tell`        | spamd: 학습용 TELL 요청(`spamc -L spam`)을 받습니다                   |
-| `--out <file>`        | HTTP와 spamd: 학습한 내용을 이 모델 파일에 저장합니다                         |
-| `--subject-tag <tag>` | milter와 spamd: 스팸의 제목 앞에 태그를 붙입니다                           |
-| `--verbose`           | milter: 모든 검사를 기록합니다. TCP 서버: 텍스트 한 줄로 응답합니다                |
+| 옵션                      | 의미                                                                                                              |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `--port <n>`            | TCP 포트                                                                                                          |
+| `--host <ip>`           | 수신할 주소(기본값 127.0.0.1)                                                                                           |
+| `--socket <path>`       | 대신 Unix 소켓에서 수신합니다                                                                                              |
+| `--max-size <bytes>`    | 받는 최대 메시지 크기(기본값 26214400, 25 MiB). milter는 더 긴 본문의 앞부분을 검사하며, 봉투와 헤더만으로도 더 크면 검사에 실패한 경우처럼(`--on-error`) 응답합니다 |
+| `--max-connections <n>` | 동시에 열 수 있는 연결 수(기본값 200). 그보다 많은 연결은 즉시 닫습니다. HTTP: 동시에 처리하는 요청 수이기도 하며, 그보다 많은 요청은 `503`을 받습니다                 |
+| `--reject`              | milter: 거부 임계값에 이른 메일을 거부합니다                                                                                    |
+| `--reject-code <n>`     | milter: 4xx 코드(나중에 다시 시도, 기본값 451) 또는 550 같은 5xx 코드                                                             |
+| `--quarantine`          | milter: 스팸을 메일 서버의 격리 영역에 보류합니다                                                                                 |
+| `--on-error <answer>`   | milter: 완전히 검사하지 못한 메일에 대한 응답, `tempfail`(기본값) 또는 `accept`                                                      |
+| `--name <hostname>`     | milter: Authentication-Results에 쓸 이 서버의 이름                                                                      |
+| `--token <secret>`      | HTTP: `Authorization: Bearer <secret>`을 요구합니다. `/learn`에 필요                                                     |
+| `--allow-tell`          | spamd: 학습용 TELL 요청(`spamc -L spam`)을 받습니다                                                                       |
+| `--out <file>`          | HTTP와 spamd: 학습한 내용을 이 모델 파일에 저장합니다                                                                             |
+| `--subject-tag <tag>`   | milter와 spamd: 스팸의 제목 앞에 태그를 붙입니다                                                                               |
+| `--verbose`             | milter: 모든 검사를 기록합니다. TCP 서버: 텍스트 한 줄로 응답합니다                                                                    |
 
 위의 검사 옵션은 서버에도 적용됩니다. [milter](postfix.md#milter), [HTTP API, TCP 서버, spamd](http-api.md).
 

@@ -1,4 +1,4 @@
-<!-- source: 1a2009efd1f9 -->
+<!-- source: e64ba1432e54 -->
 
 # Pierwsze kroki
 
@@ -26,7 +26,7 @@ Jako samodzielny plik binarny dla Linux lub macOS, z wbudowanym Node.js i modele
 curl -fsSL https://github.com/spamscanner/spamscanner/releases/latest/download/install.sh | bash
 ```
 
-Skrypt przed instalacją sprawdza plik binarny z plikiem `SHA256SUMS` danego wydania. Pliki binarne dla Linux wymagają glibc, więc w Alpine i innych systemach opartych na musl zainstaluj pakiet przez npm.
+Skrypt przed instalacją sprawdza plik binarny z plikiem `SHA256SUMS` danego wydania, czyli skrótami obliczonymi przez kompilacje wydania, i instaluje go jako wykonywalny dla wszystkich, a pod sudo jako należący do roota. Każdy plik binarny ma też podpisane poświadczenie pochodzenia kompilacji: `gh attestation verify spamscanner-linux-x64 --repo spamscanner/spamscanner` sprawdza, czy zbudował go GitHub Actions z tego repozytorium. Pliki binarne dla Linux wymagają glibc, więc w Alpine i innych systemach opartych na musl zainstaluj pakiet przez npm.
 
 Pliki binarne dla Linux (x64 i arm64), macOS (Intel i Apple silicon) oraz Windows są dołączone do każdego [wydania](https://github.com/spamscanner/spamscanner/releases).
 

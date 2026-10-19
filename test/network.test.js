@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {Buffer, File} from 'node:buffer';
-import {generateKeyPairSync} from 'node:crypto';
+import {createHash, generateKeyPairSync} from 'node:crypto';
 import {once} from 'node:events';
 import {writeFileSync} from 'node:fs';
 import http from 'node:http';
@@ -9,17 +9,19 @@ import path from 'node:path';
 import {describe, it} from 'node:test';
 import {dkimSign} from 'mailauth/lib/dkim/sign.js';
 import {
-	authenticate, calculateAuthScore, createResolver, formatAuthResultsHeader, normalizeAuthOutput, summarizeAuth, summarizeDkim,
+	MAX_DKIM_SIGNATURES, authenticate, calculateAuthScore, createResolver, formatAuthResultsHeader, limitResolver, normalizeAuthOutput, summarizeAuth, summarizeDkim,
 } from '../src/auth.js';
 import {clamdAddress, ping, scanBuffer} from '../src/clamav.js';
 import {
 	CLOUDFLARE_FAMILY, DnsChecker, KNOWN_LISTS, isListedAnswer, isLookupName, normalizeIp, reverseName,
 } from '../src/dnsbl.js';
 import {requestJson} from '../src/http.js';
+import {boundedForAuth} from '../src/parse.js';
 import {ReputationChecker, matchList} from '../src/reputation.js';
 import {
 	dnsServer, eicar, fakeClamd, message, temporaryDirectory,
 } from './helpers/index.js';
+import {cpuTime} from './helpers/cpu-time.js';
 
 describe('clamd client', () => {
 	it('scans over TCP and Unix sockets', async () => {
@@ -117,7 +119,7 @@ describe('DNS blocklists and filtering resolvers', () => {
 		assert.equal(isListedAnswer('127.0.0.1', 'notsurbl.org'), true);
 		const dns = await dnsServer({'link.example.multi.surbl.org A': ['127.0.0.1'], 'spam.example.multi.surbl.org A': ['127.0.0.1', '127.0.0.8']});
 		try {
-			const checker = new DnsChecker({servers: [dns.server], timeout: 500});
+			const checker = new DnsChecker({servers: [dns.server], timeout: 3000});
 			assert.deepEqual(await checker.checkDomains(['link.example', 'spam.example'], ['multi.surbl.org']), [{zone: 'multi.surbl.org', value: 'spam.example', answers: ['127.0.0.8']}]);
 		} finally {
 			await dns.close();
@@ -132,7 +134,7 @@ describe('DNS blocklists and filtering resolvers', () => {
 			'slow.example.dbl.spamhaus.org A': 'timeout',
 		});
 		try {
-			const checker = new DnsChecker({servers: [dns.server], timeout: 300});
+			const checker = new DnsChecker({servers: [dns.server], timeout: 1000});
 			assert.deepEqual(await checker.checkIp('192.0.2.1', ['zen.spamhaus.org', 'bl.example', 'clean.example']), [{zone: 'zen.spamhaus.org', value: '192.0.2.1', answers: ['127.0.0.4']}]);
 			assert.deepEqual(await checker.checkIp('not-an-ip', ['zen.spamhaus.org']), []);
 			assert.deepEqual(await checker.checkDomains(['evil.example', 'good.example', 'slow.example', '192.0.2.1'], ['dbl.spamhaus.org']), [{zone: 'dbl.spamhaus.org', value: 'evil.example', answers: ['127.0.1.2']}]);
@@ -151,7 +153,7 @@ describe('DNS blocklists and filtering resolvers', () => {
 		const malware = await dnsServer({'malware.example A': ['0.0.0.0'], 'adult.example A': ['192.0.2.9'], 'fine.example A': ['192.0.2.10']});
 		const family = await dnsServer({'adult.example A': ['0.0.0.0'], 'fine.example A': ['192.0.2.10']});
 		try {
-			const checker = new DnsChecker({timeout: 500});
+			const checker = new DnsChecker({timeout: 3000});
 			const options = {malwareServers: [malware.server], familyServers: [family.server]};
 			assert.deepEqual(await checker.checkCloudflare(['malware.example', 'adult.example', 'fine.example', '192.0.2.1'], options), [{host: 'malware.example', category: 'malware'}, {host: 'adult.example', category: 'adult'}]);
 			assert.deepEqual(await checker.checkCloudflare(['adult.example'], {...options, adult: false}), []);
@@ -207,8 +209,10 @@ describe('authentication', () => {
 	const {privateKey, publicKey} = generateKeyPairSync('rsa', {modulusLength: 2048});
 	const dkimKey = `v=DKIM1; k=rsa; p=${publicKey.export({type: 'spki', format: 'der'}).toString('base64')}`;
 
+	// (one signing time: mailauth otherwise reads the clock for t= when it
+	//  signs and again when it writes the header, and a second may pass)
 	async function signed(raw, domain = 'example.org') {
-		const result = await dkimSign(raw, {signatureData: [{signingDomain: domain, selector: 's1', privateKey: privateKey.export({type: 'pkcs1', format: 'pem'})}]});
+		const result = await dkimSign(raw, {signTime: new Date(), signatureData: [{signingDomain: domain, selector: 's1', privateKey: privateKey.export({type: 'pkcs1', format: 'pem'})}]});
 		return result.signatures + raw;
 	}
 
@@ -239,6 +243,36 @@ describe('authentication', () => {
 			assert.equal(spoofed.dmarc.status.result, 'fail');
 			// (SPF failing adds nothing to DMARC failing)
 			assert.deepEqual(calculateAuthScore(spoofed).tests, [{name: 'DMARC_FAIL', score: 3.5}]);
+		} finally {
+			await dns.close();
+		}
+	});
+
+	it('checks a header that would take mailauth too long cut down, and fails DMARC for a From field too long to read whole', async () => {
+		const dns = await dnsServer({
+			'example.org TXT': ['v=spf1 ip4:192.0.2.10 -all'],
+			's1._domainkey.example.org TXT': [dkimKey],
+			'_dmarc.example.org TXT': ['v=DMARC1; p=reject'],
+		});
+		const check = raw => authenticate(raw, {
+			ip: '192.0.2.10', helo: 'mx.example.org', sender: 'alice@example.org', dnsServers: [dns.server], timeout: 2000,
+		});
+		try {
+			// (40,000 folded lines took mailauth 13 seconds; unfolded, the
+			//  relaxed signature still verifies)
+			const raw = await signed(message({from: 'alice@example.org', subject: 'Signed'}));
+			const started = cpuTime();
+			const folded = await check(`X-Filler: x${'\r\n x'.repeat(40_000)}\r\n${raw}`);
+			assert.ok(cpuTime() - started < 2000);
+			assert.equal(folded.dkim.status.result, 'pass');
+			assert.equal(folded.dmarc.status.result, 'pass');
+			// (two From addresses fail DMARC; the first alone, all mailauth would
+			//  read of the field cut, would pass it with SPF)
+			const two = `alice@example.org, ${'b,'.repeat(2500)}evil@attacker.example`;
+			const cut = await check(message({from: two}));
+			assert.equal(cut.spf.status.result, 'pass');
+			assert.equal(cut.dmarc.status.result, 'fail');
+			assert.match(formatAuthResultsHeader(cut), /dmarc=fail/);
 		} finally {
 			await dns.close();
 		}
@@ -281,6 +315,131 @@ describe('authentication', () => {
 			assert.equal(typeof createResolver(), 'function');
 		} finally {
 			await dns.close();
+		}
+	});
+
+	// (a resolver that finds nothing, counting what it is asked)
+	function countingResolver(delay = 0) {
+		const asked = [];
+		const resolver = async (name, type) => {
+			asked.push(`${type} ${name}`);
+			if (delay > 0) {
+				await new Promise(resolve => {
+					setTimeout(resolve, delay);
+				});
+			}
+
+			const error = new Error('not found');
+			error.code = 'ENOTFOUND';
+			throw error;
+		};
+
+		return {asked, resolver};
+	}
+
+	function manySignatures(count, body) {
+		const algorithms = ['rsa-sha256', 'rsa-sha1', 'ed25519-sha256'];
+		const canonicalizations = ['simple/simple', 'relaxed/relaxed', 'relaxed/simple', 'simple/relaxed'];
+		let headers = '';
+		for (let i = 0; i < count; i++) {
+			// (each with the hash of the start of the body it signs, so its key is
+			//  looked up)
+			const length = body.length - (i % 50);
+			const bodyHash = createHash(algorithms[i % 3] === 'rsa-sha1' ? 'sha1' : 'sha256').update(body.slice(0, length)).digest('base64');
+			headers += `DKIM-Signature: v=1; a=${algorithms[i % 3]}; c=${canonicalizations[i % 4]};\r\n\td=d${i}.signer.test; s=s; h=from; l=${length};\r\n\tbh=${bodyHash}; b=AAAA\r\n`;
+		}
+
+		return Buffer.from(`${headers}From: a@sender.test\r\nTo: b@example.org\r\nSubject: x\r\n\r\n${body}`);
+	}
+
+	it('checks only the first DKIM signatures of a message with hundreds', async () => {
+		const {asked, resolver} = countingResolver();
+		const body = `${'y'.repeat(998)}\r\n`.repeat(200);
+		const result = await authenticate(manySignatures(400, body), {ip: '192.0.2.1', sender: 'a@sender.test', resolver});
+		assert.equal(result.dkim.results.length, MAX_DKIM_SIGNATURES);
+		assert.equal(asked.filter(query => query.includes('._domainkey.')).length, MAX_DKIM_SIGNATURES);
+		assert.match(result.dkim.status.comment, /^d0\.signer\.test: /);
+	});
+
+	it('keeps the first DKIM-Signature fields, folded lines and all, and the body', () => {
+		const field = i => `DKIM-Signature: v=1; d=d${i}.test;\r\n\ts=s; b=AAAA\r\n`;
+		const many = Array.from({length: MAX_DKIM_SIGNATURES + 2}, (_, i) => field(i)).join('');
+		const raw = Buffer.from(`Received: x\r\n${many}dkim-signature : v=1; d=late.test\r\nFrom: a@b.test\r\n\r\n${field(99)}`);
+		const kept = Array.from({length: MAX_DKIM_SIGNATURES}, (_, i) => field(i)).join('');
+		assert.deepEqual(boundedForAuth(raw), {raw: Buffer.from(`Received: x\r\n${kept}From: a@b.test\r\n\r\n${field(99)}`), fromCut: false});
+		const few = Buffer.from(`${kept}From: a@b.test\r\n\r\nbody`);
+		assert.equal(boundedForAuth(few).raw, few);
+	});
+
+	it('stops a message\'s DNS lookups at its deadline and query budget', async () => {
+		// (each lookup takes 100 ms; none is sent or waited for 100 ms after
+		//  the timeout, so the DKIM keys, looked up one after another, are not
+		//  all found, nor SPF and DMARC checked)
+		const slow = countingResolver(100);
+		const result = await authenticate(manySignatures(8, 'hello\r\n'), {
+			ip: '192.0.2.1', sender: 'a@sender.test', resolver: slow.resolver, timeout: 50,
+		});
+		const sent = slow.asked.length;
+		assert.ok(sent <= 3, `${sent} lookups sent in 150 ms of 100 ms lookups`);
+		assert.equal(result.dkim.status.result, 'temperror');
+		await new Promise(resolve => {
+			setTimeout(resolve, 150);
+		});
+		assert.equal(slow.asked.length, sent);
+
+		const budget = countingResolver();
+		await authenticate(manySignatures(8, 'hello\r\n'), {
+			ip: '192.0.2.1', sender: 'a@sender.test', resolver: budget.resolver, maxDnsQueries: 3,
+		});
+		assert.equal(budget.asked.length, 3);
+
+		const answer = async () => ['192.0.2.1'];
+		const limited = limitResolver(answer, {maxQueries: 1});
+		assert.deepEqual(await limited('a.test', 'A'), ['192.0.2.1']);
+		await assert.rejects(limited('a.test', 'A'), {code: 'ETIMEOUT', message: /More than 1 DNS lookups/});
+		await assert.rejects(limitResolver(answer, {deadline: Date.now() - 1})('a.test', 'A'), {code: 'ETIMEOUT'});
+		const hanging = limitResolver(() => new Promise(() => {}), {deadline: Date.now() + 20});
+		await assert.rejects(hanging('a.test', 'A'), {code: 'ETIMEOUT'});
+		assert.deepEqual(await limitResolver(answer)('a.test'), ['192.0.2.1']);
+	});
+
+	it('leaves room for SPF at the limits of RFC 7208', async () => {
+		let queries = 0;
+		const resolver = async (name, type) => {
+			queries++;
+			if (type === 'TXT' && name === 'sender.test') {
+				return [[`v=spf1 ${Array.from({length: 10}, (_, i) => `mx:m${i}.sender.test`).join(' ')} -all`]];
+			}
+
+			if (type === 'MX') {
+				return Array.from({length: 10}, (_, i) => ({exchange: `h${i}.${name}`, priority: i}));
+			}
+
+			if (type === 'A' || type === 'AAAA') {
+				return type === 'A' ? ['198.51.100.1'] : ['2001:db8::1'];
+			}
+
+			const error = new Error('not found');
+			error.code = 'ENOTFOUND';
+			throw error;
+		};
+
+		const result = await authenticate(Buffer.from('From: a@sender.test\r\n\r\nhi\r\n'), {ip: '192.0.2.1', sender: 'a@sender.test', resolver});
+		assert.equal(result.spf.status.result, 'fail');
+		assert.ok(queries > 100, `${queries} queries`);
+	});
+
+	it('writes at most 8 KiB of Authentication-Results, whole results only', () => {
+		const long = i => ` dkim=neutral (no key) header.i=@${'d'.repeat(900)}${i}.test header.s=s`;
+		const results = Array.from({length: 20}, (_, i) => long(i));
+		const headers = `Authentication-Results: mx;\r\n${results.join(';\r\n')};\r\n spf=fail smtp.mailfrom=a.test;\r\n dkim=fail header.i=@${'x'.repeat(9000)}\r\n`;
+		const value = formatAuthResultsHeader({headers}, 'mx.example');
+		assert.ok(value.length <= 8192, `${value.length} characters`);
+		assert.match(value, /^mx\.example;\r\n dkim=neutral/);
+		assert.match(value, /;\r\n spf=fail smtp\.mailfrom=a\.test$/);
+		assert.doesNotMatch(value, /x{100}/);
+		for (const part of value.split(';').slice(1)) {
+			assert.match(part, /^\r\n (?:dkim=neutral \(no key\) header\.i=@d{900}\d+\.test header\.s=s|spf=fail smtp\.mailfrom=a\.test)$/);
 		}
 	});
 

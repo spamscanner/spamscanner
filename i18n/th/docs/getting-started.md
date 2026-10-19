@@ -1,4 +1,4 @@
-<!-- source: 1a2009efd1f9 -->
+<!-- source: e64ba1432e54 -->
 
 # เริ่มต้นใช้งาน
 
@@ -26,7 +26,7 @@ npm install spamscanner
 curl -fsSL https://github.com/spamscanner/spamscanner/releases/latest/download/install.sh | bash
 ```
 
-สคริปต์จะตรวจสอบไบนารีกับไฟล์ `SHA256SUMS` ของรุ่นที่เผยแพร่นั้นก่อนติดตั้ง ไบนารีสำหรับ Linux ต้องใช้ glibc ดังนั้นบน Alpine และระบบอื่นที่ใช้ musl ให้ติดตั้งด้วย npm แทน
+สคริปต์จะตรวจสอบไบนารีกับไฟล์ `SHA256SUMS` ของรุ่นที่เผยแพร่นั้น ซึ่งเป็นค่าแฮชที่การบิลด์ของรุ่นนั้นคำนวณไว้ ก่อนติดตั้ง และติดตั้งให้ทุกคนเรียกใช้ได้ และเมื่อใช้ sudo จะให้ root เป็นเจ้าของ ไบนารีแต่ละตัวยังมีการรับรองที่มาของบิลด์ (build provenance attestation) ที่ลงนามไว้ด้วย `gh attestation verify spamscanner-linux-x64 --repo spamscanner/spamscanner` จะตรวจว่า GitHub Actions บิลด์ไบนารีนั้นจากรีโพสิทอรีนี้ ไบนารีสำหรับ Linux ต้องใช้ glibc ดังนั้นบน Alpine และระบบอื่นที่ใช้ musl ให้ติดตั้งด้วย npm แทน
 
 ไบนารีสำหรับ Linux (x64 และ arm64), macOS (Intel และ Apple silicon) และ Windows แนบอยู่กับทุก [รุ่นที่เผยแพร่](https://github.com/spamscanner/spamscanner/releases)
 

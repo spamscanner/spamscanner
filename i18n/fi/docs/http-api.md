@@ -1,4 +1,4 @@
-<!-- source: 9caf3ffb803a -->
+<!-- source: 665fbc0d5adc -->
 
 # HTTP API, TCP-palvelin ja spamd
 
@@ -37,7 +37,7 @@ Ilman parametria `ip` SPF-, DKIM-, DMARC-, ARC- ja IP-estolistatarkistukset (`--
 
 `/check` palauttaa myös `X-Spam-Flag`-, `X-Spam-Score`- ja `X-Spam-Action`-otsakkeet vastauksen otsakkeina, joten asiakas voi päättää jäsentämättä viestiä.
 
-Yli 25 Mt:n viestit saavat vastauksen `413`. Epäonnistunut tarkistus saa vastauksen `500` ja rungon `{"error": "..."}`.
+Yli 25 MiB:n (`--max-size`) viestit saavat vastauksen `413`, jo ennen rungon lukemista, kun `Content-Length` kertoo koon. Epäonnistunut tarkistus saa vastauksen `500` ja rungon `{"error": "..."}`. Palvelin käsittelee enintään 200 pyyntöä kerrallaan (`--max-connections`), putkitetut mukaan lukien; ylimääräiset saavat vastauksen `503` ja otsakkeen `Retry-After: 1`.
 
 ```sh
 curl -s -X POST -H "Authorization: Bearer $SPAMSCANNER_TOKEN" \
@@ -86,7 +86,7 @@ nc -N 127.0.0.1 7830 < message.eml
 
 Valitsimella `--verbose` vastaus on sen sijaan tekstirivi: `SPAM 16.3/5.0 BAYES_999,PHISHING_LOOKALIKE_DOMAIN,DECEPTIVE_LINK,FROM_NAME_BRAND` tai `HAM -2.5/5.0 BAYES_00`.
 
-TCP-palvelin ei tiedä asiakkaan IP-osoitetta, joten `--auth` ja `--dnsbl` eivät vaikuta. Se sulkee yhteydet, jotka eivät lähetä mitään 60 sekuntiin, ja vastaa yli 25 Mt:n viesteihin virheellä.
+TCP-palvelin ei tiedä asiakkaan IP-osoitetta, joten `--auth` ja `--dnsbl` eivät vaikuta. Se vastaa vasta, kun asiakas sulkee lähettävän puolensa (`nc -N` tai `nc -q 1`, tai `shutdown(SHUT_WR)` socketissa); asiakas, joka pitää sen auki, ei saa vastausta, ja yhteys suljetaan 60 sekunnin kuluttua ilman dataa. Yli 25 MiB:n (`--max-size`) viesteihin se vastaa virheellä.
 
 
 ## spamd
@@ -111,4 +111,4 @@ SpamAssassin-yhteensopiva palvelin spamc:lle, Eximille, Harakalle ja muille Spam
 
 Pakatut pyynnöt (`Compress: zlib`) hylätään.
 
-Myöskään spamd-asiakkaat eivät lähetä asiakkaan IP-osoitetta, joten `--auth` ja `--dnsbl` eivät vaikuta. Yli 25 Mt:n viesti saa vastauksen `65` (`EX_DATAERR`), otsakkeen `Content-length` ilmoittamaa lyhyempi viesti saa vastauksen `76` (`EX_PROTOCOL`), ja yhteydet, jotka eivät lähetä mitään 60 sekuntiin, suljetaan.
+Myöskään spamd-asiakkaat eivät lähetä asiakkaan IP-osoitetta, joten `--auth` ja `--dnsbl` eivät vaikuta. Yli 25 MiB:n (`--max-size`) viesti saa vastauksen `65` (`EX_DATAERR`), otsakkeen `Content-length` ilmoittamaa lyhyempi viesti saa vastauksen `76` (`EX_PROTOCOL`), ja yhteydet, jotka eivät lähetä mitään 60 sekuntiin, suljetaan.

@@ -732,6 +732,10 @@ export class SpamScanner {
 		//  message on every try)
 		const budget = settings.timeout ?? CLAMAV_TIMEOUT;
 		const deadline = Date.now() + budget;
+		// (set when a scan runs out of the time left: a timer may fire a little
+		//  before Date.now() reaches the deadline, as timers count from the
+		//  time the event loop last read, and no scan starts after one has)
+		let expired = false;
 		const viruses = [];
 		const errors = [];
 		const skipped = [];
@@ -753,7 +757,7 @@ export class SpamScanner {
 			while (queue.length > 0) {
 				const attachment = queue.shift();
 				const filename = attachment.filename || 'unnamed attachment';
-				if (deadline <= Date.now()) {
+				if (expired || deadline <= Date.now()) {
 					errors.push({filename, error: `not scanned within ${budget} ms`});
 					continue;
 				}
@@ -774,6 +778,7 @@ export class SpamScanner {
 					}
 				} catch (error) {
 					debug('virus scan failed: %s', error.message);
+					expired ||= Boolean(error.timedOut);
 					// (an attachment larger than clamd accepts is not scanned, as
 					//  clamav-milter skips one over its MaxFileSize: the same on
 					//  every try, it is not a failure to try again)

@@ -1,4 +1,4 @@
-<!-- source: 9caf3ffb803a -->
+<!-- source: 665fbc0d5adc -->
 
 # HTTP API, TCP-server og spamd
 
@@ -37,7 +37,7 @@ Uden `ip` springes SPF-, DKIM-, DMARC-, ARC- og IP-blokeringslistetjek (`--auth`
 
 `/check` returnerer også `X-Spam-Flag`, `X-Spam-Score` og `X-Spam-Action` som svarheadere, så en klient kan træffe en afgørelse uden at fortolke beskeden.
 
-Beskeder større end 25 MB får `413`. En scanning, der fejler, får `500` med `{"error": "..."}`.
+Beskeder større end 25 MiB (`--max-size`) får `413`, før brødteksten læses, når `Content-Length` angiver størrelsen. En scanning, der fejler, får `500` med `{"error": "..."}`. Serveren behandler højst 200 forespørgsler på én gang (`--max-connections`), inklusive pipelinede; flere får `503` med `Retry-After: 1`.
 
 ```sh
 curl -s -X POST -H "Authorization: Bearer $SPAMSCANNER_TOKEN" \
@@ -86,7 +86,7 @@ nc -N 127.0.0.1 7830 < message.eml
 
 Med `--verbose` er svaret i stedet en tekstlinje: `SPAM 16.3/5.0 BAYES_999,PHISHING_LOOKALIKE_DOMAIN,DECEPTIVE_LINK,FROM_NAME_BRAND` eller `HAM -2.5/5.0 BAYES_00`.
 
-TCP-serveren kender ikke klientens IP-adresse, så `--auth` og `--dnsbl` har ingen virkning. Den lukker forbindelser, der ikke sender noget i 60 sekunder, og svarer med en fejl på beskeder større end 25 MB.
+TCP-serveren kender ikke klientens IP-adresse, så `--auth` og `--dnsbl` har ingen virkning. Den svarer først, når klienten lukker sin afsendende side (`nc -N` eller `nc -q 1`, eller `shutdown(SHUT_WR)` på en socket); en klient, der holder den åben, får intet svar, og forbindelsen lukkes efter 60 sekunder uden data. Den svarer med en fejl på beskeder større end 25 MiB (`--max-size`).
 
 
 ## spamd
@@ -111,4 +111,4 @@ En SpamAssassin-kompatibel server til spamc, Exim, Haraka og andre SpamAssassin-
 
 Komprimerede forespørgsler (`Compress: zlib`) afvises.
 
-spamd-klienter sender heller ikke klientens IP-adresse, så `--auth` og `--dnsbl` har ingen virkning. En besked større end 25 MB får `65` (`EX_DATAERR`), en besked kortere end dens `Content-length` får `76` (`EX_PROTOCOL`), og forbindelser, der ikke sender noget i 60 sekunder, lukkes.
+spamd-klienter sender heller ikke klientens IP-adresse, så `--auth` og `--dnsbl` har ingen virkning. En besked større end 25 MiB (`--max-size`) får `65` (`EX_DATAERR`), en besked kortere end dens `Content-length` får `76` (`EX_PROTOCOL`), og forbindelser, der ikke sender noget i 60 sekunder, lukkes.

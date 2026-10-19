@@ -1,4 +1,4 @@
-<!-- source: f8a77c318b83 -->
+<!-- source: ff86d06bdcd0 -->
 
 # Komut satırı
 
@@ -44,8 +44,13 @@ spamscanner scan message.eml --subject-tag "[SPAM]" > tagged.eml
 | `--no-classifier`          | Sınıflandırıcıyı kullanmaz                                       |
 | `--config <file>`          | [Kitaplık seçeneklerini](api.md#options) içeren bir JSON dosyası |
 | `--allow-language <codes>` | Kabul edilen diller, örneğin `en,de,fr`                          |
+| `--max-size <bytes>`       | Okunan en büyük ileti (varsayılan 26214400, 25 MiB)              |
 
 Çıkış kodları: 0 ham, 1 spam, 2 hata.
+
+`scan` ve `learn`, bir dosyadan ya da standart girdiden bir iletinin en fazla `--max-size` baytını okur; sunucularda da aynı sınır vardır. Daha büyük bir ileti bir hatadır (çıkış kodu 2) ve geri kalanı okunmaz.
+
+Standart çıktı yalnızca sonucu (ya da iletiyi) taşır: bir komut çalışırken bir kitaplığın yazdırdığı her şey, örneğin mailauth'un DKIM gövde uzunluklarıyla ilgili notları, standart hataya gider.
 
 ### SMTP oturumu
 
@@ -106,8 +111,11 @@ spamscanner filter -f "$sender" -- "$recipient"
 | `--reject`            | Reddetme eşiğindeki postayı aktarmak yerine geri döndürür                |
 | `--discard`           | Reddetme eşiğindeki postayı aktarmak yerine atar                         |
 | `--on-error <answer>` | Tam olarak taranamayan posta için: `tempfail` (varsayılan) veya `accept` |
+| `--max-size <bytes>`  | Taranan en büyük ileti (varsayılan 26214400, 25 MiB)                     |
 
 Çıkış kodları, Postfix'in okuduğu sendmail kurallarını izler: 0 teslim edildi (veya atıldı), 64 alıcı belirtilmedi, 69 spam olarak reddedildi (Postfix iletiyi geri döndürür), 75 herhangi bir hata; böylece Postfix iletiyi saklar ve daha sonra yeniden dener. ClamAV'ın tarayamadığı bir ek içeren ileti de bir hatadır. `--on-error accept` ile böyle bir ileti ya da taraması başarısız olan bir ileti `X-Spam-Virus-Scan: failed` ile ve göndericinin eklediği hiçbir `X-Spam-*` başlığı olmadan aktarılır.
+
+`--max-size` değerinden büyük bir ileti taranmaz ve bellekte bütünüyle tutulmaz. Ertelenir (75) ya da `--on-error accept` ile, okundukça taranmadan, yukarıdaki gibi işaretlenerek ve göndericinin `X-Spam-*` başlıkları olmadan aktarılır. Postfix'in `message_size_limit` değeri (varsayılan olarak 10 MB) postayı varsayılan sınırın altında tutar; bunu 25 MiB'ın üstüne çıkarırsanız `--max-size` değerini de yükseltin.
 
 
 ## milter, http, server ve spamd
@@ -123,21 +131,23 @@ HTTP API'si belirtecini `SPAMSCANNER_TOKEN` ortam değişkeninden okur. `--token
 
 783, SpamAssassin istemcilerinin varsayılan olarak kullandığı bağlantı noktasıdır. 1024'ün altındaki bağlantı noktaları root yetkisi veya `CAP_NET_BIND_SERVICE` yeteneği gerektirir; `--port 7833` gibi başka bir bağlantı noktası kullanın ve bunu istemciye bildirin.
 
-| Seçenek               | Anlamı                                                                                     |
-| --------------------- | ------------------------------------------------------------------------------------------ |
-| `--port <n>`          | TCP bağlantı noktası                                                                       |
-| `--host <ip>`         | Dinlenecek adres (varsayılan 127.0.0.1)                                                    |
-| `--socket <path>`     | Bunun yerine bir Unix soketini dinler                                                      |
-| `--reject`            | Milter: reddetme eşiğindeki postayı geri çevirir                                           |
-| `--reject-code <n>`   | Milter: bir 4xx kodu, daha sonra yeniden dene (451, varsayılan) veya 550 gibi bir 5xx kodu |
-| `--quarantine`        | Milter: spamı posta sunucusunun karantinasında bekletir                                    |
-| `--on-error <answer>` | Milter: tam olarak taranamayan posta için `tempfail` (varsayılan) veya `accept`            |
-| `--name <hostname>`   | Milter: Authentication-Results içinde bu sunucunun adı                                     |
-| `--token <secret>`    | HTTP: `Authorization: Bearer <secret>` gerektirir; `/learn` için zorunludur                |
-| `--allow-tell`        | spamd: öğrenmek için TELL isteklerini (`spamc -L spam`) kabul eder                         |
-| `--out <file>`        | HTTP ve spamd: öğrenilenleri bu model dosyasına kaydeder                                   |
-| `--subject-tag <tag>` | Milter ve spamd: spamın konusunun başına ekler                                             |
-| `--verbose`           | Milter: her taramayı günlüğe yazar. TCP sunucusu: tek bir metin satırıyla yanıt verir      |
+| Seçenek                 | Anlamı                                                                                                                                                                                                       |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `--port <n>`            | TCP bağlantı noktası                                                                                                                                                                                         |
+| `--host <ip>`           | Dinlenecek adres (varsayılan 127.0.0.1)                                                                                                                                                                      |
+| `--socket <path>`       | Bunun yerine bir Unix soketini dinler                                                                                                                                                                        |
+| `--max-size <bytes>`    | Kabul edilen en büyük ileti (varsayılan 26214400, 25 MiB). Milter daha uzun bir gövdenin başını tarar; yalnızca zarf ve başlıklar bile daha büyükse başarısız bir taramadaki gibi yanıt verir (`--on-error`) |
+| `--max-connections <n>` | Aynı anda açık bağlantılar (varsayılan 200); fazlası hemen kapatılır. HTTP: aynı anda işlenen istekler de; fazlası `503` alır                                                                                |
+| `--reject`              | Milter: reddetme eşiğindeki postayı geri çevirir                                                                                                                                                             |
+| `--reject-code <n>`     | Milter: bir 4xx kodu, daha sonra yeniden dene (451, varsayılan) veya 550 gibi bir 5xx kodu                                                                                                                   |
+| `--quarantine`          | Milter: spamı posta sunucusunun karantinasında bekletir                                                                                                                                                      |
+| `--on-error <answer>`   | Milter: tam olarak taranamayan posta için `tempfail` (varsayılan) veya `accept`                                                                                                                              |
+| `--name <hostname>`     | Milter: Authentication-Results içinde bu sunucunun adı                                                                                                                                                       |
+| `--token <secret>`      | HTTP: `Authorization: Bearer <secret>` gerektirir; `/learn` için zorunludur                                                                                                                                  |
+| `--allow-tell`          | spamd: öğrenmek için TELL isteklerini (`spamc -L spam`) kabul eder                                                                                                                                           |
+| `--out <file>`          | HTTP ve spamd: öğrenilenleri bu model dosyasına kaydeder                                                                                                                                                     |
+| `--subject-tag <tag>`   | Milter ve spamd: spamın konusunun başına ekler                                                                                                                                                               |
+| `--verbose`             | Milter: her taramayı günlüğe yazar. TCP sunucusu: tek bir metin satırıyla yanıt verir                                                                                                                        |
 
 Yukarıdaki tarama seçenekleri sunucular için de geçerlidir. [Milter](postfix.md#milter), [HTTP API, TCP sunucusu ve spamd](http-api.md).
 

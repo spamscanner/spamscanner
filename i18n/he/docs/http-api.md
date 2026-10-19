@@ -1,4 +1,4 @@
-<!-- source: 9caf3ffb803a -->
+<!-- source: 665fbc0d5adc -->
 
 # HTTP API, שרת TCP ו-spamd
 
@@ -37,7 +37,7 @@ spamscanner http --port 7832    # token in SPAMSCANNER_TOKEN
 
 `/check` מחזיר גם את `X-Spam-Flag`, ‏`X-Spam-Score` ו-`X-Spam-Action` ככותרות תגובה, כך שלקוח יכול להחליט בלי לפענח את ההודעה.
 
-הודעות גדולות מ-25 MB מקבלות `413`. סריקה שנכשלת מקבלת `500` עם `{"error": "..."}`.
+הודעות גדולות מ-25 MiB ‏(`--max-size`) מקבלות `413`, לפני שהגוף נקרא כאשר `Content-Length` מציין את הגודל. סריקה שנכשלת מקבלת `500` עם `{"error": "..."}`. השרת מטפל לכל היותר ב-200 בקשות בו-זמנית (`--max-connections`), כולל בקשות ב-pipeline; בקשות נוספות מקבלות `503` עם `Retry-After: 1`.
 
 ```sh
 curl -s -X POST -H "Authorization: Bearer $SPAMSCANNER_TOKEN" \
@@ -86,7 +86,7 @@ nc -N 127.0.0.1 7830 < message.eml
 
 עם `--verbose`, התשובה היא שורת טקסט: `SPAM 16.3/5.0 BAYES_999,PHISHING_LOOKALIKE_DOMAIN,DECEPTIVE_LINK,FROM_NAME_BRAND` או `HAM -2.5/5.0 BAYES_00`.
 
-שרת ה-TCP אינו יודע את כתובת ה-IP של הלקוח, ולכן ל-`--auth` ול-`--dnsbl` אין השפעה. הוא סוגר חיבורים שאינם שולחים דבר במשך 60 שניות, ועונה בשגיאה על הודעות גדולות מ-25 MB.
+שרת ה-TCP אינו יודע את כתובת ה-IP של הלקוח, ולכן ל-`--auth` ול-`--dnsbl` אין השפעה. הוא עונה רק אחרי שהלקוח סוגר את צד השליחה שלו (`nc -N` או `nc -q 1`, או `shutdown(SHUT_WR)` על socket); לקוח שמשאיר אותו פתוח אינו מקבל תשובה, והחיבור נסגר אחרי 60 שניות בלי נתונים. הוא עונה בשגיאה על הודעות גדולות מ-25 MiB ‏(`--max-size`).
 
 
 ## spamd
@@ -111,4 +111,4 @@ spamscanner spamd --port 783
 
 בקשות דחוסות (`Compress: zlib`) נדחות.
 
-גם לקוחות spamd אינם שולחים את כתובת ה-IP של הלקוח, ולכן ל-`--auth` ול-`--dnsbl` אין השפעה. הודעה גדולה מ-25 MB מקבלת `65` (`EX_DATAERR`), הודעה קצרה מה-`Content-length` שלה מקבלת `76` (`EX_PROTOCOL`), וחיבורים שאינם שולחים דבר במשך 60 שניות נסגרים.
+גם לקוחות spamd אינם שולחים את כתובת ה-IP של הלקוח, ולכן ל-`--auth` ול-`--dnsbl` אין השפעה. הודעה גדולה מ-25 MiB ‏(`--max-size`) מקבלת `65` (`EX_DATAERR`), הודעה קצרה מה-`Content-length` שלה מקבלת `76` (`EX_PROTOCOL`), וחיבורים שאינם שולחים דבר במשך 60 שניות נסגרים.

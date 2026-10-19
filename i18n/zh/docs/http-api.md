@@ -1,4 +1,4 @@
-<!-- source: 9caf3ffb803a -->
+<!-- source: 665fbc0d5adc -->
 
 # HTTP API、TCP 服务器和 spamd
 
@@ -37,7 +37,7 @@ HTTP API 从环境变量 `SPAMSCANNER_TOKEN` 读取令牌。`--token` 也可以�
 
 `/check` 还会把 `X-Spam-Flag`、`X-Spam-Score` 和 `X-Spam-Action` 作为响应头返回，因此客户端无需解析邮件即可作出决定。
 
-大于 25 MB 的邮件会得到 `413`。扫描失败会得到 `500` 和 `{"error": "..."}`。
+大于 25 MiB（`--max-size`）的邮件会得到 `413`；当 `Content-Length` 给出大小时，会在读取请求体之前返回。扫描失败会得到 `500` 和 `{"error": "..."}`。服务器最多同时处理 200 个请求（`--max-connections`），包括流水线请求；超出的请求得到 `503` 和 `Retry-After: 1`。
 
 ```sh
 curl -s -X POST -H "Authorization: Bearer $SPAMSCANNER_TOKEN" \
@@ -86,7 +86,7 @@ nc -N 127.0.0.1 7830 < message.eml
 
 使用 `--verbose` 时，响应改为一行文本：`SPAM 16.3/5.0 BAYES_999,PHISHING_LOOKALIKE_DOMAIN,DECEPTIVE_LINK,FROM_NAME_BRAND` 或 `HAM -2.5/5.0 BAYES_00`。
 
-TCP 服务器不知道客户端的 IP 地址，因此 `--auth` 和 `--dnsbl` 不起作用。它会关闭 60 秒内没有发送任何内容的连接，并对大于 25 MB 的邮件返回错误。
+TCP 服务器不知道客户端的 IP 地址，因此 `--auth` 和 `--dnsbl` 不起作用。它只在客户端关闭其发送端后才答复（`nc -N` 或 `nc -q 1`，或对套接字调用 `shutdown(SHUT_WR)`）；保持发送端打开的客户端得不到答复，连接在 60 秒没有数据后关闭。它对大于 25 MiB（`--max-size`）的邮件返回错误。
 
 
 ## spamd
@@ -111,4 +111,4 @@ spamscanner spamd --port 783
 
 压缩请求（`Compress: zlib`）会被拒绝。
 
-spamd 客户端同样不发送客户端的 IP 地址，因此 `--auth` 和 `--dnsbl` 不起作用。大于 25 MB 的邮件得到 `65`（`EX_DATAERR`），比其 `Content-length` 短的邮件得到 `76`（`EX_PROTOCOL`），60 秒内没有发送任何内容的连接会被关闭。
+spamd 客户端同样不发送客户端的 IP 地址，因此 `--auth` 和 `--dnsbl` 不起作用。大于 25 MiB（`--max-size`）的邮件得到 `65`（`EX_DATAERR`），比其 `Content-length` 短的邮件得到 `76`（`EX_PROTOCOL`），60 秒内没有发送任何内容的连接会被关闭。

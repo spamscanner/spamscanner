@@ -1,6 +1,7 @@
 import {Buffer} from 'node:buffer';
 import net from 'node:net';
 import {rewriteMessage, spamHeaders, splitMessage} from './headers.js';
+import {MAX_CONNECTIONS, MAX_MESSAGE_SIZE} from './server.js';
 import {VERSION} from './version.js';
 
 // SpamAssassin's spamd protocol, as spoken by spamc, Exim's "spam" ACL
@@ -153,13 +154,14 @@ export async function answer(scanner, request, message, options) {
  * @param {string} [options.modelPath] - where TELL saves the classifier
  * @param {string|null} [options.subjectTag] - tag for spam in PROCESS and HEADERS answers
  * @param {number} [options.timeout] - close a connection that sends nothing for this many milliseconds (default 60000)
+ * @param {number} [options.maxConnections] - connections kept open at once; more are closed at once
  * @returns {net.Server}
  */
 export function createSpamdServer(scanner, options = {}) {
 	const settings = {
-		maxSize: 25 * 1024 * 1024, allowTell: false, modelPath: null, subjectTag: null, timeout: 60_000, ...options,
+		maxSize: MAX_MESSAGE_SIZE, allowTell: false, modelPath: null, subjectTag: null, timeout: 60_000, maxConnections: MAX_CONNECTIONS, ...options,
 	};
-	return net.createServer({allowHalfOpen: true}, socket => {
+	const server = net.createServer({allowHalfOpen: true}, socket => {
 		let head = Buffer.alloc(0);
 		const chunks = [];
 		let size = 0;
@@ -259,6 +261,8 @@ export function createSpamdServer(scanner, options = {}) {
 		});
 		socket.on('error', () => {});
 	});
+	server.maxConnections = settings.maxConnections;
+	return server;
 }
 
 export const SPAMD_EXIT_CODES = {

@@ -374,7 +374,8 @@ const sameDomain = (a, b) => a !== null && a === asciiHostname(b);
  * domain itself vouches for it. A DKIM signature of part of the body (l=
  * shorter than the body, mailauth's underSized) vouches for nothing, nor
  * does a DMARC pass that rests on one alone, and no signature vouches for a
- * From address when DMARC fails.
+ * From address when DMARC fails, nor for one of a From field too long to read
+ * whole (`mail.from.truncated`).
  * @param {object} mail - parsed message
  * @param {object} [session] - remoteAddress, resolvedClientHostname, envelope
  * @param {object|null} [authentication] - SPF, DKIM and DMARC results
@@ -408,7 +409,8 @@ export function trustedReputationValues(mail = {}, session = {}, authentication 
 		...[spfAligned].filter(signer => signer !== null && (alignment?.spf?.strict !== true || signer === domain)),
 	])];
 	const fromValues = [];
-	for (const {address} of mail.from?.value || []) {
+	// (nor a From field cut, which was not read whole: see parseMessage)
+	for (const {address} of mail.from?.truncated ? [] : mail.from?.value || []) {
 		const domain = domainOf(address);
 		const values = reputationValues({from: {value: [{address}]}});
 		if (domain !== null && dmarcDomain !== null && (domain === dmarcDomain || registrableDomain(domain) === dmarcDomain)) {

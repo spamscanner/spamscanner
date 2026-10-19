@@ -1,4 +1,4 @@
-<!-- source: f8a77c318b83 -->
+<!-- source: ff86d06bdcd0 -->
 
 # Linha de comando
 
@@ -44,8 +44,13 @@ spamscanner scan message.eml --subject-tag "[SPAM]" > tagged.eml
 | `--no-classifier`          | Não usa o classificador                                         |
 | `--config <file>`          | Um arquivo JSON com [opções da biblioteca](api.md#options)      |
 | `--allow-language <codes>` | Idiomas aceitos, por exemplo `en,de,fr`                         |
+| `--max-size <bytes>`       | Maior mensagem lida (padrão 26214400, 25 MiB)                   |
 
 Códigos de saída: 0 ham, 1 spam, 2 erro.
+
+`scan` e `learn` leem no máximo `--max-size` bytes de uma mensagem, de um arquivo ou da entrada padrão; os servidores têm o mesmo limite. Uma mensagem maior é um erro (código de saída 2), e o resto dela não é lido.
+
+A saída padrão traz apenas o resultado (ou a mensagem): tudo o que uma biblioteca imprime enquanto um comando é executado, como as notas do mailauth sobre comprimentos de corpo do DKIM, vai para a saída de erro padrão.
 
 ### Sessão SMTP
 
@@ -106,8 +111,11 @@ spamscanner filter -f "$sender" -- "$recipient"
 | `--reject`            | Devolve os e-mails que atingem o limite de rejeição em vez de repassá-los                 |
 | `--discard`           | Descarta os e-mails que atingem o limite de rejeição em vez de repassá-los                |
 | `--on-error <answer>` | Para e-mails que não puderam ser totalmente analisados: `tempfail` (o padrão) ou `accept` |
+| `--max-size <bytes>`  | Maior mensagem analisada (padrão 26214400, 25 MiB)                                        |
 
 Os códigos de saída seguem as convenções do sendmail, que o Postfix lê: 0, entregue (ou descartado); 64, nenhum destinatário informado; 69, rejeitado como spam (o Postfix o devolve); 75, qualquer falha, então o Postfix guarda a mensagem e tenta de novo mais tarde. Uma mensagem com um anexo que o ClamAV não conseguiu verificar também é uma falha. Com `--on-error accept`, uma mensagem assim, ou uma cuja análise falhou, é repassada com `X-Spam-Virus-Scan: failed` e sem nenhum cabeçalho `X-Spam-*` que o remetente tenha adicionado.
+
+Uma mensagem maior que `--max-size` não é analisada nem mantida inteira na memória. Ela é adiada (75) ou, com `--on-error accept`, repassada sem análise à medida que é lida, marcada e sem os cabeçalhos `X-Spam-*` do remetente, como acima. O `message_size_limit` do Postfix (10 MB por padrão) mantém o e-mail abaixo do limite padrão; se você aumentá-lo para mais de 25 MiB, aumente também `--max-size`.
 
 
 ## milter, http, server e spamd
@@ -123,21 +131,23 @@ A API HTTP lê seu token da variável de ambiente `SPAMSCANNER_TOKEN`. `--token`
 
 A porta 783 é a que os clientes do SpamAssassin usam por padrão. Portas abaixo de 1024 exigem root ou a capability `CAP_NET_BIND_SERVICE`; use outra porta, como `--port 7833`, e informe-a ao cliente.
 
-| Opção                 | Significado                                                                                       |
-| --------------------- | ------------------------------------------------------------------------------------------------- |
-| `--port <n>`          | Porta TCP                                                                                         |
-| `--host <ip>`         | Endereço em que escutar (padrão 127.0.0.1)                                                        |
-| `--socket <path>`     | Escuta em um socket Unix                                                                          |
-| `--reject`            | Milter: recusa os e-mails que atingem o limite de rejeição                                        |
-| `--reject-code <n>`   | Milter: um código 4xx, tente de novo mais tarde (451, o padrão), ou um código 5xx como 550        |
-| `--quarantine`        | Milter: retém o spam na quarentena do servidor de e-mail                                          |
-| `--on-error <answer>` | Milter: para e-mails que não puderam ser totalmente analisados, `tempfail` (o padrão) ou `accept` |
-| `--name <hostname>`   | Milter: o nome deste servidor no Authentication-Results                                           |
-| `--token <secret>`    | HTTP: exige `Authorization: Bearer <secret>`; necessário para `/learn`                            |
-| `--allow-tell`        | spamd: aceita requisições TELL (`spamc -L spam`) para aprendizado                                 |
-| `--out <file>`        | HTTP e spamd: salva o que é aprendido neste arquivo de modelo                                     |
-| `--subject-tag <tag>` | Milter e spamd: adiciona um prefixo ao assunto do spam                                            |
-| `--verbose`           | Milter: registra cada análise. Servidor TCP: responde com uma linha de texto                      |
+| Opção                   | Significado                                                                                                                                                                                                      |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--port <n>`            | Porta TCP                                                                                                                                                                                                        |
+| `--host <ip>`           | Endereço em que escutar (padrão 127.0.0.1)                                                                                                                                                                       |
+| `--socket <path>`       | Escuta em um socket Unix                                                                                                                                                                                         |
+| `--max-size <bytes>`    | Maior mensagem aceita (padrão 26214400, 25 MiB). O milter analisa o início de um corpo mais longo e responde como para uma análise que falhou (`--on-error`) quando só o envelope e os cabeçalhos já são maiores |
+| `--max-connections <n>` | Conexões abertas ao mesmo tempo (padrão 200); as excedentes são fechadas na hora. HTTP: também requisições atendidas ao mesmo tempo, as excedentes recebem `503`                                                 |
+| `--reject`              | Milter: recusa os e-mails que atingem o limite de rejeição                                                                                                                                                       |
+| `--reject-code <n>`     | Milter: um código 4xx, tente de novo mais tarde (451, o padrão), ou um código 5xx como 550                                                                                                                       |
+| `--quarantine`          | Milter: retém o spam na quarentena do servidor de e-mail                                                                                                                                                         |
+| `--on-error <answer>`   | Milter: para e-mails que não puderam ser totalmente analisados, `tempfail` (o padrão) ou `accept`                                                                                                                |
+| `--name <hostname>`     | Milter: o nome deste servidor no Authentication-Results                                                                                                                                                          |
+| `--token <secret>`      | HTTP: exige `Authorization: Bearer <secret>`; necessário para `/learn`                                                                                                                                           |
+| `--allow-tell`          | spamd: aceita requisições TELL (`spamc -L spam`) para aprendizado                                                                                                                                                |
+| `--out <file>`          | HTTP e spamd: salva o que é aprendido neste arquivo de modelo                                                                                                                                                    |
+| `--subject-tag <tag>`   | Milter e spamd: adiciona um prefixo ao assunto do spam                                                                                                                                                           |
+| `--verbose`             | Milter: registra cada análise. Servidor TCP: responde com uma linha de texto                                                                                                                                     |
 
 As opções de análise acima também valem para os servidores. [O milter](postfix.md#milter), [a API HTTP, o servidor TCP e o spamd](http-api.md).
 
