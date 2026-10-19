@@ -1,4 +1,4 @@
-<!-- source: dc9016edd59e -->
+<!-- source: c70584655c0e -->
 
 # Forward Email
 
@@ -45,7 +45,7 @@ async function onData(stream, session, callback) {
 }
 ```
 
-`scanner.scan()` מקבלת את זרם ה-SMTP ישירות. כשתוצאות [mailauth](https://github.com/postalsys/mailauth) כבר זמינות, אפשר לוותר על `authentication` ולהעביר רק את כתובת ה-IP.
+`scanner.scan()` מקבלת את זרם ה-SMTP ישירות. כשתוצאות [mailauth](https://github.com/postalsys/mailauth) כבר זמינות, אפשר להעביר אותן ב-`authenticationResults`: הן מקבלות ניקוד במקום להיבדק מחדש.
 
 תשובה של 421 או 451 גורמת לשרת השולח להכניס את ההודעה לתור ולנסות שוב מאוחר יותר. כללי דחייה חדשים יכולים להתחיל בקוד זמני ולעבור ל-550 אחרי שהתוצאות שלהם נבדקו, בלי לאבד דואר בינתיים.
 

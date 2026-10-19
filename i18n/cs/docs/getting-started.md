@@ -1,4 +1,4 @@
-<!-- source: 8263c06f1dab -->
+<!-- source: 1a2009efd1f9 -->
 
 # Začínáme
 
@@ -25,6 +25,8 @@ Jako samostatná binárka pro Linux nebo macOS s vestavěným Node.js a modelem:
 ```sh
 curl -fsSL https://github.com/spamscanner/spamscanner/releases/latest/download/install.sh | bash
 ```
+
+Skript před instalací ověří binárku podle souboru `SHA256SUMS` daného vydání. Binárky pro Linux potřebují glibc, takže na Alpine a dalších systémech s musl instalujte raději přes npm.
 
 Binárky pro Linux (x64 a arm64), macOS (Intel a Apple silicon) a Windows jsou přiložené ke každému [vydání](https://github.com/spamscanner/spamscanner/releases).
 
@@ -75,6 +77,8 @@ Funguje i CommonJS:
 const SpamScanner = require('spamscanner');
 ```
 
+Deklarace typů jsou součástí balíčku, pro TypeScript 4.7 nebo novější (5.3 nebo novější s `require`).
+
 `scan()` přijímá surovou zprávu jako Buffer, řetězec, Uint8Array nebo čitelný stream. Řetězec je vždy text zprávy: Spam Scanner nikdy nečte soubor jen proto, že řetězec vypadá jako cesta. Pro soubory použijte `scanner.scanFile(path)`.
 
 
@@ -113,7 +117,7 @@ spamscanner scan message.eml --ip 203.0.113.5 --helo mail.example.com \
 | SPF, DKIM, DMARC, ARC           | `authentication: true`                           | `--auth`                    |
 | Blocklist IP adres              | `dnsbl: {ip: ['zen.spamhaus.org']}`              | `--dnsbl zen.spamhaus.org`  |
 | Blocklist domén v odkazech      | `dnsbl: {domain: ['dbl.spamhaus.org']}`          | `--uribl dbl.spamhaus.org`  |
-| ClamAV                          | `clamav: true` nebo `clamav: {socket}`           | `--clamav [socket]`         |
+| ClamAV                          | `clamav: true` nebo `clamav: {socket}`           | `--clamav[=socket]`         |
 | Jazykový model                  | `llm: {provider: 'ollama', model: 'qwen3.5:4b'}` | `--llm ollama`              |
 | Seznamy povolených a zakázaných | `allowlist: [...]`, `denylist: [...]`            | `--allowlist`, `--denylist` |
 

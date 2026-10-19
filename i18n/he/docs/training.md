@@ -1,4 +1,4 @@
-<!-- source: 7cc30ff4ad91 -->
+<!-- source: 4d7afeb36844 -->
 
 # אימון
 
@@ -15,12 +15,12 @@ spamscanner train --spam ~/Maildir/.Junk --ham ~/Maildir/cur --ham ~/Maildir/.Ar
 
 המקורות יכולים להיות:
 
-* קובצי **mbox**, גם דחוסים ב-gzip‏ (`.mbox.gz`),
+* קובצי **mbox**, גם דחוסים ב-gzip‏ (`.mbox.gz`; קובצי `.gz` אחרים מדולגים),
 * **Maildir** (התיקיות `cur` ו-`new` שלו נקראות, ו-`tmp` מדולגת),
 * **תיקייה** של קובצי `.eml`, שנקראת באופן רקורסיבי,
-* **מאגר נתונים**: קובץ CSV או JSON Lines עם עמודת טקסט ועמודת תווית (`--dataset`). עמודות בשם `text`, ‏`message`, ‏`body`, ‏`email` או `content`, ו-`label`, ‏`category`, ‏`class`, ‏`spam` או `is_spam` מזוהות לבד; אחרת יש להשתמש ב-`--text-column` וב-`--label-column`. תוויות כמו `spam`, ‏`1`, ‏`phishing` ו-`ham`, ‏`0`, ‏`not_spam`, ‏`legitimate` מובנות.
+* **מאגר נתונים**: קובץ CSV או JSON Lines עם עמודת טקסט ועמודת תווית (`--dataset`). עמודות, או שדות JSON, בשם `text`, ‏`message`, ‏`body`, ‏`email text`, ‏`email`, ‏`content`, ‏`sms` או `v2`, ו-`label`, ‏`category`, ‏`is_spam`, ‏`spam`, ‏`email type`, ‏`class`, ‏`type`, ‏`label_text`, ‏`v1` או `labels`, בכל צורת אותיות, מזוהות לבד (ב-JSON Lines, ‏`label_text` לפני `label`); אחרת יש להשתמש ב-`--text-column` וב-`--label-column`. שורת JSON שאינה אובייקט מדולגת. תוויות כמו `spam`, ‏`1`, ‏`phishing` ו-`ham`, ‏`0`, ‏`not_spam`, ‏`legitimate` מובנות.
 
-הודעות כפולות נספרות פעם אחת. כדי לבנות על המודל המצורף במקום להתחיל ממודל ריק, מוסיפים `--merge`.
+הודעות כפולות נספרות פעם אחת. הודעה שנמצאת גם במקורות ה-spam וגם במקורות ה-ham נשמרת כ-spam, כי מקורות ה-spam נקראים ראשונים. כדי לבנות על המודל המצורף במקום להתחיל ממודל ריק, מוסיפים `--merge`.
 
 שימוש במודל:
 

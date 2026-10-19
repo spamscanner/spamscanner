@@ -1,4 +1,4 @@
-<!-- source: 79e50e309869 -->
+<!-- source: 7564838c2408 -->
 
 # Modelos de lenguaje
 
@@ -114,11 +114,11 @@ Son servicios alojados, así que los datos personales se eliminan antes de envia
 | `always`                | En todos los mensajes                                                                                                                             |
 | `off`                   | Nunca                                                                                                                                             |
 
-`minScore` y `maxScore` cambian el rango de `auto`. El spam claro y el ham claro nunca llegan al modelo.
+`minScore` y `maxScore` cambian el rango de `auto`. El spam claro y el ham claro nunca llegan al modelo. Cualquier otro `mode` es un error, y `llm: false` en un solo `scan()` no consulta ningún modelo.
 
 El veredicto es `spam`, `phishing`, `scam`, `malware` o `ham`. Con `decision`, spam, phishing, estafa y malware cuentan juntos frente a ham: un mensaje al que el modelo asigna un 30 % de spam, un 30 % de phishing y un 40 % de ham es no deseado al 60 %, y el veredicto es el tipo más probable. Un veredicto de spam suma hasta 6 puntos (`LLM_SPAM`, `LLM_PHISHING`, `LLM_SCAM`, `LLM_MALWARE`); un veredicto de ham resta hasta 3 (`LLM_HAM`), en ambos casos multiplicados por la confianza. Un modelo no puede marcar por sí solo un mensaje como spam salvo que esté seguro: 6 puntos con un 85 % de confianza son 5.1, justo por encima del umbral. Si el modelo falla o se agota su tiempo de espera, el análisis continúa sin él y `results.llm.error` indica el motivo.
 
-Las respuestas se guardan en caché por mensaje, así que sobre el mismo mensaje enviado a muchos destinatarios se consulta una sola vez.
+Las respuestas se guardan en caché por mensaje, así que sobre el mismo mensaje enviado a muchos destinatarios se consulta una sola vez, también cuando sus copias se analizan al mismo tiempo. `timeout` cubre la espera de un hueco libre para peticiones (`concurrency`) además de las peticiones de un mensaje: un modelo que sigue ocupado durante ese tiempo se omite para ese mensaje.
 
 
 ## Proveedores
@@ -188,7 +188,7 @@ const scanner = new SpamScanner({
     username: 'spam', password: '…', // with auth: 'basic'
     headers: {'x-team': 'mail'},
     ca: fs.readFileSync('internal-ca.pem'), // a private certificate authority
-    timeout: 30_000,
+    timeout: 30_000,                 // waiting and requests, per message
     concurrency: 4,                  // requests at once
     cacheSize: 1000,                 // answers kept in memory
     keepAlive: '24h',                // Ollama: keep the model loaded between messages
@@ -259,7 +259,7 @@ spamscanner milter --llm ollama --llm-policy "We never send invoices by email. A
 
 El modelo ve un resumen de los encabezados (From, Reply-To, To y Subject), los enlaces (primero los que muestran una dirección y llevan a otra), los nombres y tipos de los adjuntos, los resultados de autenticación, cuánto texto oculta el HTML cuando oculta más que el texto de vista previa, y el cuerpo tal como lo muestra un cliente de correo (del HTML cuando lo hay, sin texto oculto, caracteres invisibles ni letras estilizadas), recortado a 6000 caracteres (`maxInputChars`).
 
-Para los proveedores de fuera de tu red, primero se eliminan los datos personales: la parte local de las direcciones de correo electrónico (el dominio se mantiene, porque importa para el phishing), los números de tarjeta y de cuenta, los números de teléfono y los valores de los parámetros de consulta de los enlaces, que a menudo llevan tokens de inicio de sesión. Esto está activado de forma predeterminada para los proveedores remotos, incluidos los modelos de decisión, y desactivado para los locales (Ollama, LM Studio, llama.cpp, vLLM, LocalAI, Jan, TEI y cualquier servidor en localhost). `redact: true` o `false` (`--llm-redact`, `--no-llm-redact`) cambia este comportamiento.
+Para los proveedores de fuera de tu red, primero se eliminan los datos personales: la parte local de las direcciones de correo electrónico (el dominio se mantiene, porque importa para el phishing), los números de tarjeta y de cuenta, los números de teléfono internacionales (escritos con + o 00) y los valores de los parámetros de consulta de los enlaces, que a menudo llevan tokens de inicio de sesión. Esto está activado de forma predeterminada para los proveedores remotos, incluidos los modelos de decisión, y desactivado para los locales (Ollama, LM Studio, llama.cpp, vLLM, LocalAI, Jan, TEI) en esta máquina o en una red privada (una dirección privada, un nombre sin punto o un nombre bajo .local, .internal, .lan o .home.arpa), y para cualquier servidor en localhost. Un proveedor local que apunta a un host en otro lugar recibe el correo con los datos personales eliminados. `redact: true` o `false` (`--llm-redact`, `--no-llm-redact`) cambia este comportamiento.
 
 Revisa las condiciones de conservación de datos de tu proveedor antes de enviarle correo. Un modelo local evita la cuestión.
 

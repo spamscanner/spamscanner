@@ -1,4 +1,4 @@
-<!-- source: 9537a0e62eb0 -->
+<!-- source: 5d22e36f3f16 -->
 
 # Lingue
 
@@ -9,7 +9,7 @@ Lo spam arriva in ogni lingua, e così la posta normale. Spam Scanner legge entr
 
 * **Parole.** Il testo viene suddiviso con `Intl.Segmenter`, che segue le regole Unicode sui confini delle parole e usa dizionari per cinese, giapponese, thailandese, lao, khmer e birmano, lingue scritte senza spazi. I testi lunghi vengono prima divisi in parti, perché il segmentatore di Node.js 18 rallenta sulle stringhe molto lunghe.
 * **Normalizzazione.** La forma Unicode NFKC trasforma le lettere a larghezza piena e la maggior parte delle lettere stilizzate (𝐅𝐑𝐄𝐄, Ⓕⓡⓔⓔ) in lettere normali. Il testo viene convertito in minuscolo secondo le regole Unicode.
-* **Camuffamenti.** I caratteri invisibili dentro le parole (`free` con uno spazio a larghezza zero tra due lettere, trattini morbidi) vengono rimossi e contati. Le parole che mescolano alfabeti, come `pаypal` con una а cirillica, vengono ricondotte a un solo alfabeto e contate. Le cifre usate come lettere (`v1agra`) vengono convertite. Ogni camuffamento è una feature a sé, e tre o più caratteri invisibili, o due o più parole miste, aggiungono anche punti.
+* **Camuffamenti.** I caratteri invisibili dentro le parole (`free` con uno spazio a larghezza zero tra due lettere, o `v1agra` con tali caratteri intorno all'1) vengono rimossi e contati, ma non quelli tra cifre, che i mittenti inseriscono nei numeri perché i telefoni non li trasformino in link, né uno spazio a larghezza zero tra lettere thailandesi, lao, khmer, birmane o tibetane, che chi scrive in queste scritture mette dove finisce una parola. I joiner (U+200C, U+200D), di cui hanno bisogno il persiano, le scritture indiane e le emoji, contano solo tra lettere latine. I trattini morbidi, e i segni di direzione, gli incorporamenti e gli isolamenti di cui hanno bisogno i testi in ebraico e in arabo, vengono rimossi senza essere contati; gli override che mostrano le lettere in un altro ordine (U+202D, U+202E) contano in qualsiasi testo. Le parole che mescolano alfabeti, come `pаypal` con una а cirillica, vengono ricondotte all'alfabeto a cui appartiene la maggior parte delle loro lettere e contate; una desinenza di caso russa dopo il nome di un marchio e un apostrofo (`iPhone'ы`) non mescola nulla. Le cifre usate come lettere (`v1agra`) vengono convertite. Ogni camuffamento è una feature a sé, e tre o più caratteri invisibili, o due o più parole miste, aggiungono anche punti.
 
 
 ## Rilevare la lingua
@@ -17,7 +17,7 @@ Lo spam arriva in ogni lingua, e così la posta normale. Spam Scanner legge entr
 La lingua di ogni messaggio viene rilevata dal suo sistema di scrittura e, per i sistemi condivisi da molte lingue, dalle sue lettere:
 
 * L'hangul è coreano; hiragana e katakana indicano il giapponese; thailandese, greco, ebraico, armeno, georgiano, bengali, tamil e gli altri sistemi di scrittura usati da una sola lingua la identificano direttamente.
-* Le lettere cirilliche presenti in una sola lingua decidono tra ucraino (і, ї, є, ґ), bielorusso (ў), serbo (ђ, ћ, џ), macedone (ѓ, ќ, ѕ) e russo (ы, э, ё).
+* Le lettere cirilliche presenti in una sola lingua decidono tra ucraino (і, ї, є, ґ), bielorusso (ў), serbo (ђ, ћ, џ), macedone (ѓ, ќ, ѕ) e russo (ы, э, ё) nelle parole diverse dai nomi (parole con solo l'iniziale maiuscola non all'inizio di una frase o di una riga, non parole tutte in maiuscolo, le cui lettere contano solo in un testo troppo breve per il rilevatore statistico: un testo bulgaro che nomina "господин Рыскулов" è bulgaro), a meno che il testo non contenga anche lettere del kazako, uzbeko, kirghiso, tagico, tataro, baschiro o mongolo (ә, ө, ү, ұ, қ, ғ, ң, һ, ҳ, ҷ e altre), i cui alfabeti condividono alcune di quelle lettere: allora decide il rilevatore statistico, e quando risponde con una lingua slava (un testo russo o bulgaro con dentro un nome o una parola kazaka), decidono come sopra le parole senza quelle lettere, nomi esclusi.
 * Il testo nei sistemi di scrittura condivisi da più lingue (latino, cirillico, arabo, devanagari e altri), quando è abbastanza lungo da poter essere valutato, passa a [franc](https://github.com/wooorm/franc), limitato alle lingue comuni nella posta elettronica perché i messaggi brevi non vengano etichettati con lingue rare.
 
 La lingua è riportata come `result.language`, e `allowedLanguages: ['en', 'de']` (`--allow-language en,de`) aggiunge 3 punti alla posta rilevata con sicurezza in qualsiasi altra lingua.
@@ -31,7 +31,7 @@ Un classificatore impara dagli esempi. I dataset pubblici di spam contengono mol
 2. **Le parole vengono pesate all'interno della loro lingua.** La probabilità di spam di una parola viene calcolata rispetto al numero di messaggi di spam e di ham che il classificatore ha visto nella lingua del messaggio, non in tutte le lingue. Una parola portoghese di uso comune, in un modello che ha visto soprattutto spam in portoghese, resta neutra.
 3. **La confidenza segue la copertura.** Il risultato viene spinto verso "incerto" in proporzione a quanti messaggi di ciascun tipo il classificatore ha visto in quella lingua: la piena confidenza richiede 1.000 messaggi di ciascun tipo (o il 2% della classe più piccola, per i piccoli modelli personali). Una lingua senza ham nei dati di addestramento riceve sempre "incerto".
 
-Il modello incluso non ha mai visto la [SMS Spam Multilingual Collection](https://huggingface.co/datasets/dbarbedillo/SMS_Spam_Multilingual_Collection_Dataset), una raccolta di SMS tradotti automaticamente in 21 lingue. Prima di queste regole, segnava come spam il 5,7% di quell'ham, compreso il 55% di quello in portoghese e il 41% di quello in francese. Con queste regole, lo 0,18%: nessuno in cinese, arabo, coreano, giapponese, hindi, portoghese, francese o altre 20 lingue, e lo 0,27% in inglese.
+Il modello incluso non ha mai visto la [SMS Spam Multilingual Collection](https://huggingface.co/datasets/dbarbedillo/SMS_Spam_Multilingual_Collection_Dataset), una raccolta di SMS tradotti automaticamente in 21 lingue. Prima di queste regole, segnava come spam il 5,7% di quell'ham, compreso il 55% di quello in portoghese e il 41% di quello in francese. Con queste regole, lo 0,18%: nessuno in cinese, arabo, coreano, giapponese, hindi, portoghese, francese o altre 13 lingue, e lo 0,27% in inglese.
 
 
 ## Intercettare lo spam in quelle lingue

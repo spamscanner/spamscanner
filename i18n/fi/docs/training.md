@@ -1,4 +1,4 @@
-<!-- source: 7cc30ff4ad91 -->
+<!-- source: 4d7afeb36844 -->
 
 # Koulutus
 
@@ -15,12 +15,12 @@ spamscanner train --spam ~/Maildir/.Junk --ham ~/Maildir/cur --ham ~/Maildir/.Ar
 
 Lähteet voivat olla:
 
-* **mbox**-tiedostoja, myös gzip-pakattuja (`.mbox.gz`),
+* **mbox**-tiedostoja, myös gzip-pakattuja (`.mbox.gz`; muut `.gz`-tiedostot ohitetaan),
 * **Maildir** (sen `cur`- ja `new`-kansiot luetaan, `tmp` ohitetaan),
 * `.eml`-tiedostojen **kansio**, luettuna rekursiivisesti,
-* **aineisto**: CSV- tai JSON Lines -tiedosto, jossa on tekstisarake ja luokkasarake (`--dataset`). Sarakkeet, joiden nimi on `text`, `message`, `body`, `email` tai `content`, sekä `label`, `category`, `class`, `spam` tai `is_spam`, löydetään automaattisesti; muussa tapauksessa käytä valitsimia `--text-column` ja `--label-column`. Luokat kuten `spam`, `1`, `phishing` ja `ham`, `0`, `not_spam`, `legitimate` ymmärretään.
+* **aineisto**: CSV- tai JSON Lines -tiedosto, jossa on tekstisarake ja luokkasarake (`--dataset`). Sarakkeet tai JSON-kentät, joiden nimi on `text`, `message`, `body`, `email text`, `email`, `content`, `sms` tai `v2`, sekä `label`, `category`, `is_spam`, `spam`, `email type`, `class`, `type`, `label_text`, `v1` tai `labels`, kirjainkoosta riippumatta, löydetään automaattisesti (JSON Linesissa `label_text` ennen `label`-kenttää); muussa tapauksessa käytä valitsimia `--text-column` ja `--label-column`. JSON-rivi, joka ei ole olio, ohitetaan. Luokat kuten `spam`, `1`, `phishing` ja `ham`, `0`, `not_spam`, `legitimate` ymmärretään.
 
-Päällekkäiset viestit lasketaan kerran. Jos haluat rakentaa mukana tulevan mallin päälle tyhjästä aloittamisen sijaan, lisää `--merge`.
+Päällekkäiset viestit lasketaan kerran. Viesti, joka on sekä roskaposti- että ham-lähteissä, säilytetään roskapostina, koska roskapostilähteet luetaan ensin. Jos haluat rakentaa mukana tulevan mallin päälle tyhjästä aloittamisen sijaan, lisää `--merge`.
 
 Mallin käyttäminen:
 

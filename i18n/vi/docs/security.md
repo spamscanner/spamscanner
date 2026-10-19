@@ -1,4 +1,4 @@
-<!-- source: 60f00f92b5aa -->
+<!-- source: df3e980c3ef1 -->
 
 # Bảo mật và quyền riêng tư
 
@@ -11,13 +11,13 @@ Theo mặc định, chỉ một thứ: **tên máy chủ của các liên kết*
 
 Mọi thứ khác đều tắt cho đến khi được cấu hình:
 
-| Phép kiểm tra       | Gửi gì                                                                             | Đến đâu                                                                     |
-| ------------------- | ---------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| `authentication`    | Truy vấn DNS cho các bản ghi SPF, DKIM, DMARC và ARC của người gửi                 | Resolver của bạn, hoặc `dnsServers`                                         |
-| `dnsbl`             | Địa chỉ IP của client, đảo ngược, và tên miền của liên kết, dưới dạng truy vấn DNS | Name server của các danh sách chặn, qua resolver của bạn hoặc `dns.servers` |
-| `llm`               | Bản tóm tắt thư, đã xóa dữ liệu cá nhân với các nhà cung cấp từ xa                 | Máy chủ mô hình ngôn ngữ do bạn chỉ định ([quyền riêng tư](llm.md#privacy)) |
-| `reputation.apiUrl` | Địa chỉ IP, tên miền và địa chỉ của người gửi                                      | Dịch vụ do bạn chỉ định                                                     |
-| `clamav`            | Tệp đính kèm                                                                       | clamd của bạn, qua socket của nó                                            |
+| Phép kiểm tra       | Gửi gì                                                                                                                            | Đến đâu                                                                     |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| `authentication`    | Truy vấn DNS cho các bản ghi SPF, DKIM, DMARC và ARC của người gửi                                                                | Resolver của bạn, hoặc `dnsServers`                                         |
+| `dnsbl`             | Địa chỉ IP của client, đảo ngược, và tên miền của liên kết, dưới dạng truy vấn DNS                                                | Name server của các danh sách chặn, qua resolver của bạn hoặc `dns.servers` |
+| `llm`               | Bản tóm tắt thư, đã xóa dữ liệu cá nhân với các nhà cung cấp từ xa                                                                | Máy chủ mô hình ngôn ngữ do bạn chỉ định ([quyền riêng tư](llm.md#privacy)) |
+| `reputation.apiUrl` | Địa chỉ IP và tên máy chủ đã xác minh của máy khách, cùng các địa chỉ From, người gửi phong bì và Reply-To kèm tên miền của chúng | Dịch vụ do bạn chỉ định                                                     |
+| `clamav`            | Tệp đính kèm                                                                                                                      | clamd của bạn, qua socket của nó                                            |
 
 Không thu thập dữ liệu sử dụng (telemetry), không kiểm tra cập nhật và không tải gì về khi chạy. Mô hình được đóng gói sẵn trong gói.
 
@@ -26,14 +26,15 @@ Không thu thập dữ liệu sử dụng (telemetry), không kiểm tra cập n
 
 Không gì cả, trừ khi được yêu cầu. Các lần quét không được ghi nhật ký hay lưu trữ. `learn()` thay đổi bộ phân loại trong bộ nhớ; nó chỉ được ghi ra đĩa bởi `saveModel()`, `spamscanner learn`, hoặc tùy chọn `--out` của các máy chủ. Tệp mô hình chứa số đếm đặc trưng đã băm, không chứa từ ngữ hay nội dung thư.
 
-Câu trả lời của mô hình ngôn ngữ được lưu đệm trong bộ nhớ, với khóa là giá trị băm của những gì đã gửi, nên các bản sao lặp lại của cùng một thư chỉ được hỏi một lần. Câu trả lời DNS được lưu đệm trong bộ nhớ trong mười phút.
+Câu trả lời của mô hình ngôn ngữ được lưu đệm trong bộ nhớ, với khóa là giá trị băm của những gì đã gửi, nên các bản sao lặp lại của cùng một thư chỉ được hỏi một lần. Câu trả lời DNS được lưu đệm trong bộ nhớ trong mười phút, và câu trả lời của dịch vụ uy tín trong năm phút (`reputation.cacheTtl`; yêu cầu thất bại trong một phút).
 
 
 ## Đầu vào có ý đồ xấu
 
-* Tệp đính kèm được nhận diện qua các byte của chúng, không bao giờ được thực thi hay mở bằng chương trình khác. Tệp nén ZIP được đọc từ central directory, có giới hạn số mục; tệp nén lồng nhau không được giải nén.
-* Nội dung thư được đọc tối đa `maxLength` (100.000 ký tự) và các máy chủ chấp nhận thư tối đa 25 MB.
-* Mọi phép kiểm tra qua mạng đều có thời gian chờ (`timeout`, mặc định 10 giây). Phép kiểm tra thất bại hoặc hết thời gian chờ sẽ bị bỏ qua và lần quét hoàn tất mà không có nó.
+* Tệp đính kèm được nhận diện qua các byte của chúng, không bao giờ được thực thi hay mở bằng chương trình khác. Tệp nén ZIP được đọc từ central directory, có giới hạn số mục; tệp nén lồng nhau không được giải nén. Thư được đính kèm (`message/rfc822`, hoặc tệp đính kèm có tên tệp kết thúc bằng `.eml`) được mở sâu tối đa ba cấp, cho tối đa 100 tệp đính kèm của chúng và tổng cộng 25 MB thư được đính kèm; các tệp đính kèm của chính thư luôn được kiểm tra hết. Thư vượt quá giới hạn của trình phân tích MIME (hơn 1000 phần, hoặc header của một phần quá 1 MB) được đọc đến mức trình phân tích cho phép (các phần đầu tiên, với header quá lớn được cắt bớt để người gửi vẫn được tính) và nhận `MIME_TOO_COMPLEX`, điểm mà không khoản trừ nào bù lại được; ClamAV đọc toàn bộ thư. Thư được đính kèm mà trình phân tích không đọc được cũng nhận điểm này, và không bao giờ làm lần quét thất bại. HTML được đọc bằng trình phân tích riêng của Spam Scanner, trong thời gian tuyến tính, dù lồng sâu đến đâu.
+* Nội dung thư được đọc tối đa `maxLength` (100.000 ký tự) và các máy chủ chấp nhận thư tối đa 25 MB. Liên kết được đọc tối đa `phishing.maxLength` (1.000.000 ký tự).
+* Mọi phép kiểm tra qua mạng đều có thời gian chờ (`timeout`, mặc định 10 giây). Phép kiểm tra thất bại hoặc hết thời gian chờ sẽ bị bỏ qua và lần quét hoàn tất mà không có nó. Xác thực và mô hình hình ảnh (10 hình đầu tiên) đều hoàn tất toàn bộ trong thời hạn này. ClamAV (bốn tệp đính kèm mỗi lần) có giới hạn riêng cho tất cả tệp đính kèm của một thư (`clamav.timeout`, 60 giây), và các tệp đính kèm nó không quét được được liệt kê trong `results.virusScanErrors`. Mô hình ngôn ngữ có thời hạn riêng (`llm.timeout`).
+* Danh sách cho phép chỉ tin những gì người gửi không thể giả mạo: địa chỉ và tên máy chủ đã xác minh của máy khách, và tên miền người gửi được xác thực xác nhận. [Danh sách cho phép và danh sách chặn](api.md#allowlist-and-denylist)
 * Các header `X-Spam-*` đã có sẵn trong thư bị xóa bởi milter, content filter và `--headers`, nên người gửi không thể tự đánh dấu thư của mình là sạch.
 * Các header kết luận spam của Microsoft chỉ được tin cậy khi thư đến trực tiếp từ máy chủ của Microsoft, và header Received không bao giờ được dùng để xác định thư đến từ đâu.
 * Văn bản nhắm vào bộ lọc AI được chấm điểm là spam, và mô hình ngôn ngữ được báo rằng thư là dữ liệu, không phải chỉ dẫn. [Prompt injection](llm.md#prompt-injection)

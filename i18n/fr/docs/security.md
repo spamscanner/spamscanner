@@ -1,4 +1,4 @@
-<!-- source: 60f00f92b5aa -->
+<!-- source: df3e980c3ef1 -->
 
 # Sécurité et confidentialité
 
@@ -11,13 +11,13 @@ Par défaut, une seule chose : les **noms d’hôte des liens** d’un message 
 
 Tout le reste est désactivé tant qu’il n’est pas configuré :
 
-| Vérification        | Envoie                                                                                           | À                                                                                     |
-| ------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------- |
-| `authentication`    | Des requêtes DNS pour les enregistrements SPF, DKIM, DMARC et ARC de l’expéditeur                | Votre résolveur, ou `dnsServers`                                                      |
-| `dnsbl`             | L’adresse IP du client, inversée, et les domaines des liens, sous forme de requêtes DNS          | Les serveurs de noms des listes de blocage, via votre résolveur ou `dns.servers`      |
-| `llm`               | Un résumé du message, dont les données personnelles sont retirées pour les fournisseurs distants | Le serveur de modèle de langage que vous indiquez ([confidentialité](llm.md#privacy)) |
-| `reputation.apiUrl` | L’adresse IP, le domaine et l’adresse de l’expéditeur                                            | Le service que vous indiquez                                                          |
-| `clamav`            | Les pièces jointes                                                                               | Votre clamd, via son socket                                                           |
+| Vérification        | Envoie                                                                                                                                  | À                                                                                     |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `authentication`    | Des requêtes DNS pour les enregistrements SPF, DKIM, DMARC et ARC de l’expéditeur                                                       | Votre résolveur, ou `dnsServers`                                                      |
+| `dnsbl`             | L’adresse IP du client, inversée, et les domaines des liens, sous forme de requêtes DNS                                                 | Les serveurs de noms des listes de blocage, via votre résolveur ou `dns.servers`      |
+| `llm`               | Un résumé du message, dont les données personnelles sont retirées pour les fournisseurs distants                                        | Le serveur de modèle de langage que vous indiquez ([confidentialité](llm.md#privacy)) |
+| `reputation.apiUrl` | L’adresse IP et le nom d’hôte vérifié du client, ainsi que les adresses From, d’expéditeur d’enveloppe et Reply-To, avec leurs domaines | Le service que vous indiquez                                                          |
+| `clamav`            | Les pièces jointes                                                                                                                      | Votre clamd, via son socket                                                           |
 
 Il n’y a aucune télémétrie, aucune vérification de mise à jour et aucun téléchargement à l’exécution. Le modèle est livré dans le paquet.
 
@@ -26,14 +26,15 @@ Il n’y a aucune télémétrie, aucune vérification de mise à jour et aucun t
 
 Rien, sauf demande. Les analyses ne sont ni journalisées ni stockées. `learn()` modifie le classifieur en mémoire ; il n’est écrit sur le disque que par `saveModel()`, `spamscanner learn` ou l’option `--out` des serveurs. Un fichier de modèle contient des décomptes de caractéristiques hachées, pas des mots ni le texte des messages.
 
-Les réponses du modèle de langage sont mises en cache en mémoire, indexées par un hachage de ce qui a été envoyé : les copies répétées d’un même message ne sont soumises qu’une seule fois. Les réponses DNS sont mises en cache en mémoire pendant dix minutes.
+Les réponses du modèle de langage sont mises en cache en mémoire, indexées par un hachage de ce qui a été envoyé : les copies répétées d’un même message ne sont soumises qu’une seule fois. Les réponses DNS sont mises en cache en mémoire pendant dix minutes, et celles d’un service de réputation pendant cinq (`reputation.cacheTtl` ; une requête échouée pendant une minute).
 
 
 ## Entrées hostiles
 
-* Les pièces jointes sont identifiées par leurs octets, jamais exécutées ni ouvertes par un autre programme. Les archives ZIP sont lues à partir de leur répertoire central, avec une limite sur le nombre d’entrées ; les archives imbriquées ne sont pas décompressées.
-* Le corps du message est lu jusqu’à `maxLength` (100 000 caractères) et les serveurs acceptent les messages jusqu’à 25 Mo.
-* Chaque vérification réseau a un délai maximal (`timeout`, 10 secondes par défaut). Une vérification qui échoue ou dépasse le délai est ignorée et l’analyse se termine sans elle.
+* Les pièces jointes sont identifiées par leurs octets, jamais exécutées ni ouvertes par un autre programme. Les archives ZIP sont lues à partir de leur répertoire central, avec une limite sur le nombre d’entrées ; les archives imbriquées ne sont pas décompressées. Les messages joints (`message/rfc822`, ou pièces jointes dont le nom de fichier se termine par `.eml`) sont ouverts jusqu'à trois niveaux de profondeur, pour au plus 100 de leurs pièces jointes et 25 Mo de messages joints au total ; les pièces jointes du message lui-même sont toujours toutes inspectées. Un message qui dépasse les limites de l’analyseur MIME (plus de 1000 parties, ou l’en-tête d’une partie de plus de 1 Mo) est lu aussi loin que l’analyseur le permet (ses premières parties, avec un en-tête trop grand réduit pour que son expéditeur compte encore) et reçoit `MIME_TOO_COMPLEX`, qu’aucun crédit ne compense ; ClamAV le lit en entier. Un message joint sur lequel l’analyseur échoue le reçoit aussi, et ne fait jamais échouer l’analyse. Le HTML est lu par l’analyseur propre à Spam Scanner, en temps linéaire, quelle que soit la profondeur de son imbrication.
+* Le corps du message est lu jusqu’à `maxLength` (100 000 caractères) et les serveurs acceptent les messages jusqu’à 25 Mo. Les liens sont lus jusqu'à `phishing.maxLength` (1 000 000 caractères).
+* Chaque vérification réseau a un délai maximal (`timeout`, 10 secondes par défaut). Une vérification qui échoue ou dépasse le délai est ignorée et l’analyse se termine sans elle. L'authentification et le modèle d'images (les 10 premières images) se terminent chacun dans ce délai au total. ClamAV (quatre pièces jointes à la fois) a sa propre limite pour toutes les pièces jointes d’un message (`clamav.timeout`, 60 secondes), et les pièces jointes qu’il n’a pas pu analyser sont listées dans `results.virusScanErrors`. Le modèle de langage a son propre délai (`llm.timeout`).
+* La liste d'autorisation ne fait confiance qu'à ce qu'un expéditeur ne peut pas falsifier : l'adresse et le nom d'hôte vérifié du client, et les domaines d'expéditeur que l'authentification confirme. [Listes d'autorisation et de blocage](api.md#allowlist-and-denylist)
 * Les en-têtes `X-Spam-*` déjà présents dans un message sont supprimés par le milter, le filtre de contenu et `--headers` : les expéditeurs ne peuvent pas marquer leur propre courrier comme sain.
 * Les en-têtes de verdict de spam de Microsoft ne sont pris en compte que si le message provient directement des serveurs de Microsoft, et les en-têtes Received ne servent jamais à déterminer la provenance d’un message.
 * Le texte qui s’adresse aux filtres d’IA est noté comme du spam, et le modèle de langage est averti que le message est une donnée, pas une instruction. [Injection de prompt](llm.md#prompt-injection)

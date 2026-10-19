@@ -1,4 +1,4 @@
-<!-- source: 7cc30ff4ad91 -->
+<!-- source: 4d7afeb36844 -->
 
 # Trénování
 
@@ -15,12 +15,12 @@ spamscanner train --spam ~/Maildir/.Junk --ham ~/Maildir/cur --ham ~/Maildir/.Ar
 
 Zdrojem mohou být:
 
-* soubory **mbox**, i komprimované gzipem (`.mbox.gz`),
+* soubory **mbox**, i komprimované gzipem (`.mbox.gz`; jiné soubory `.gz` se přeskočí),
 * **Maildir** (čtou se jeho složky `cur` a `new`, `tmp` se přeskakuje),
 * **složka** souborů `.eml`, čtená rekurzivně,
-* **datová sada**: soubor CSV nebo JSON Lines se sloupcem textu a sloupcem štítku (`--dataset`). Sloupce pojmenované `text`, `message`, `body`, `email` nebo `content` a `label`, `category`, `class`, `spam` nebo `is_spam` se najdou samy; jinak použijte `--text-column` a `--label-column`. Rozumí štítkům jako `spam`, `1`, `phishing` a `ham`, `0`, `not_spam`, `legitimate`.
+* **datová sada**: soubor CSV nebo JSON Lines se sloupcem textu a sloupcem štítku (`--dataset`). Sloupce nebo pole JSON pojmenované `text`, `message`, `body`, `email text`, `email`, `content`, `sms` nebo `v2` a `label`, `category`, `is_spam`, `spam`, `email type`, `class`, `type`, `label_text`, `v1` nebo `labels`, bez ohledu na velikost písmen, se najdou samy (v JSON Lines `label_text` před `label`); jinak použijte `--text-column` a `--label-column`. Řádek JSON, který není objektem, se přeskočí. Rozumí štítkům jako `spam`, `1`, `phishing` a `ham`, `0`, `not_spam`, `legitimate`.
 
-Duplicitní zprávy se počítají jednou. Chcete-li stavět na přibaleném modelu místo začátku od nuly, přidejte `--merge`.
+Duplicitní zprávy se počítají jednou. Zpráva, která je ve zdrojích spamu i hamu, se ponechá jako spam, protože zdroje spamu se čtou první. Chcete-li stavět na přibaleném modelu místo začátku od nuly, přidejte `--merge`.
 
 Použití modelu:
 

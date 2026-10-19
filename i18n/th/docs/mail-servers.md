@@ -1,4 +1,4 @@
-<!-- source: 1151282f29d3 -->
+<!-- source: 84dca86d95ea -->
 
 # เซิร์ฟเวอร์อีเมลอื่น ๆ
 
@@ -20,8 +20,10 @@ Spam Scanner รองรับสี่โปรโตคอล ซอฟต์
 
 ```sh
 sudo systemctl disable --now spamd    # or spamassassin, depending on the distribution
-spamscanner spamd --port 783 --auth
+spamscanner spamd --port 783
 ```
+
+ไคลเอนต์ spamd ไม่ส่งที่อยู่ IP ของไคลเอนต์ที่ส่งข้อความมา ดังนั้น SPF, DKIM, DMARC และ ARC (`--auth`) และรายการบล็อก IP (`--dnsbl`) จึงทำงานที่นี่ไม่ได้ ให้ใช้ [milter](postfix.md#milter) สำหรับสิ่งเหล่านี้หากเซิร์ฟเวอร์อีเมลรองรับ
 
 ใช้กับ spamc:
 
@@ -87,7 +89,7 @@ if header :is "X-Spam-Flag" "YES" {
 เมื่อใช้ IMAPSieve การย้ายข้อความเข้าหรือออกจาก Junk จะสอนโมเดลได้ เริ่ม HTTP API พร้อมโทเค็นและไฟล์โมเดล:
 
 ```sh
-spamscanner http --port 7832 --token "$SPAMSCANNER_TOKEN" --out /var/lib/spamscanner/model.json
+spamscanner http --port 7832 --out /var/lib/spamscanner/model.json    # token in SPAMSCANNER_TOKEN
 ```
 
 แล้วชี้ milter หรือเซิร์ฟเวอร์ spamd ไปที่โมเดลเดียวกันด้วย `--model /var/lib/spamscanner/model.json` (หรือ `SPAMSCANNER_MODEL`) รีสตาร์ตเป็นระยะเพื่อให้โหลดสิ่งที่เรียนรู้ไว้ สคริปต์ที่ `sieve_pipe` รันจะส่งข้อความไปด้วย POST:
@@ -132,7 +134,7 @@ if (/^X-Spam-Flag: YES/)
 โปรแกรมใดก็ได้ที่ส่งคำขอ HTTP ได้สามารถสแกนอีเมลได้:
 
 ```sh
-spamscanner http --port 7832 --token "$SPAMSCANNER_TOKEN"
+spamscanner http --port 7832    # token in SPAMSCANNER_TOKEN
 
 curl -s -X POST -H "Authorization: Bearer $SPAMSCANNER_TOKEN" \
   --data-binary @message.eml "http://127.0.0.1:7832/scan?ip=203.0.113.5&from=alice@example.com&to=bob@example.org"

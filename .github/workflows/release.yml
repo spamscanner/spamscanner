@@ -1,8 +1,10 @@
 name: Release binaries
 
 # Builds a standalone binary for each platform (a Node.js single executable
-# application with the classifier model embedded) and attaches it, with the
-# install script, to the GitHub release.
+# application with the classifier model embedded) and attaches it to the
+# GitHub release. The install script is attached first, so its download link
+# works at once (it asks users to try again later while SHA256SUMS is missing);
+# SHA256SUMS is attached once every build has finished.
 
 on:
   release:
@@ -11,8 +13,38 @@ on:
 permissions:
   contents: read
 
+env:
+  # postject is installed with npx at this exact version.
+  POSTJECT: postject@1.0.0-alpha.6
+
 jobs:
+  # The release tag must name the version in package.json, which the binaries report.
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - name: Check the release tag
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          if [ "$TAG" != "v$version" ]; then
+            echo "::error::Release tag $TAG does not match package.json version v$version"
+            exit 1
+          fi
+      - name: Attach install.sh to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: gh release upload "$TAG" scripts/install.sh --clobber --repo "$GITHUB_REPOSITORY"
+
   build:
+    needs: check
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     permissions:
@@ -31,6 +63,8 @@ jobs:
             artifact: spamscanner-darwin-arm64
           - os: windows-latest
             artifact: spamscanner-win-x64.exe
+    env:
+      ARTIFACT: ${{ matrix.artifact }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
@@ -57,42 +91,48 @@ jobs:
       - name: Create the binary (Linux)
         if: runner.os == 'Linux'
         run: |
-          cp "$(command -v node)" "${{ matrix.artifact }}"
-          npx --yes postject "${{ matrix.artifact }}" NODE_SEA_BLOB sea-prep.blob --sentinel-fuse NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2
-          chmod +x "${{ matrix.artifact }}"
+          cp "$(command -v node)" "$ARTIFACT"
+          npx --yes "$POSTJECT" "$ARTIFACT" NODE_SEA_BLOB sea-prep.blob --sentinel-fuse NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2
+          chmod +x "$ARTIFACT"
       - name: Create the binary (macOS)
         if: runner.os == 'macOS'
         run: |
-          cp "$(command -v node)" "${{ matrix.artifact }}"
-          codesign --remove-signature "${{ matrix.artifact }}"
-          npx --yes postject "${{ matrix.artifact }}" NODE_SEA_BLOB sea-prep.blob --sentinel-fuse NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2 --macho-segment-name NODE_SEA
-          codesign --sign - "${{ matrix.artifact }}"
-          chmod +x "${{ matrix.artifact }}"
+          cp "$(command -v node)" "$ARTIFACT"
+          codesign --remove-signature "$ARTIFACT"
+          npx --yes "$POSTJECT" "$ARTIFACT" NODE_SEA_BLOB sea-prep.blob --sentinel-fuse NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2 --macho-segment-name NODE_SEA
+          codesign --sign - "$ARTIFACT"
+          chmod +x "$ARTIFACT"
       - name: Create the binary (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          Copy-Item (Get-Command node).Source -Destination "${{ matrix.artifact }}"
-          npx --yes postject "${{ matrix.artifact }}" NODE_SEA_BLOB sea-prep.blob --sentinel-fuse NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2
+          Copy-Item (Get-Command node).Source -Destination $env:ARTIFACT
+          npx --yes $env:POSTJECT $env:ARTIFACT NODE_SEA_BLOB sea-prep.blob --sentinel-fuse NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2
       # The binary must run, find its embedded model and catch the GTUBE test string.
       - name: Test the binary
         shell: bash
         run: |
-          ./${{ matrix.artifact }} version
+          "./$ARTIFACT" version
           printf 'From: a@example.com\r\nSubject: Test\r\n\r\nXJS*C4JDBQADN1.NSBN3*2IDNEN*GTUBE-STANDARD-ANTI-UBE-TEST-EMAIL*C.34X\r\n' > gtube.eml
           set +e
-          ./${{ matrix.artifact }} scan gtube.eml --no-cloudflare
+          "./$ARTIFACT" scan gtube.eml --no-cloudflare
           code=$?
           set -e
           test "$code" = 1
-          ./${{ matrix.artifact }} scan gtube.eml --no-cloudflare --json | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const r=JSON.parse(s);if(!r.tests.some(t=>t.name.startsWith('BAYES_')))process.exit(1)})"
+          "./$ARTIFACT" scan gtube.eml --no-cloudflare --json | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const r=JSON.parse(s);if(!r.tests.some(t=>t.name.startsWith('BAYES_')))process.exit(1)})"
       - name: Attach to the release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "${{ github.event.release.tag_name }}" "${{ matrix.artifact }}" --clobber
+          TAG: ${{ github.event.release.tag_name }}
+        run: gh release upload "$TAG" "$ARTIFACT" --clobber --repo "$GITHUB_REPOSITORY"
 
-  install-script:
+  # Runs after every build, even a failed one, over the binaries that were
+  # attached, and then fails if any build did. Re-running a failed build
+  # re-runs this job, which replaces SHA256SUMS.
+  checksums:
+    needs: [check, build]
+    if: ${{ !cancelled() && needs.check.result == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -101,7 +141,22 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           persist-credentials: false
-      - name: Attach install.sh to the release
+      - name: Attach SHA256SUMS to the release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "${{ github.event.release.tag_name }}" scripts/install.sh --clobber --repo "${{ github.repository }}"
+          TAG: ${{ github.event.release.tag_name }}
+          BUILD_RESULT: ${{ needs.build.result }}
+        run: |
+          mkdir assets
+          # (with no binaries attached at all there is nothing to download)
+          if ! gh release download "$TAG" --pattern 'spamscanner-*' --dir assets --repo "$GITHUB_REPOSITORY"; then
+            test "$BUILD_RESULT" != success
+          fi
+          if compgen -G 'assets/spamscanner-*' > /dev/null; then
+            (cd assets && sha256sum spamscanner-* > SHA256SUMS && cat SHA256SUMS)
+            gh release upload "$TAG" assets/SHA256SUMS --clobber --repo "$GITHUB_REPOSITORY"
+          fi
+          if [ "$BUILD_RESULT" != success ]; then
+            echo "::error::Some binaries were not built ($BUILD_RESULT); SHA256SUMS lists only those attached. Re-run the failed builds."
+            exit 1
+          fi

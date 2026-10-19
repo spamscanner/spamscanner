@@ -1,4 +1,4 @@
-<!-- source: f1043eb5fc58 -->
+<!-- source: 6675649d593a -->
 
 # PostfixとSendmail
 
@@ -13,11 +13,13 @@ Spam ScannerをPostfixに接続する方法は2つあります。
 X-Spam-Flag: YES
 X-Spam-Score: 8.0
 X-Spam-Level: ********
-X-Spam-Status: Yes, score=8.0 required=5.0 tests=BAYES_99,DECEPTIVE_LINK version=7.0.0
+X-Spam-Status: Yes, score=8.0 required=5.0 tests=BAYES_99,DECEPTIVE_LINK version=7.0.3
 X-Spam-Action: tag
 ```
 
 メッセージにすでにある`X-Spam-*`ヘッダーは先に削除されるため、送信者が自分のメールを問題なしと偽ることはできません。
+
+ClamAVがスキャンできなかった添付ファイルを含むメッセージはウイルスを含むかもしれないため、どちらもスキャンが失敗したときと同じく、そのメッセージを延期します（Postfixか送信者が後で再試行します）。`--on-error accept`を指定すると、`X-Spam-Virus-Scan: failed`を追加して渡します。
 
 
 ## milter
@@ -29,7 +31,7 @@ npm install --global spamscanner
 spamscanner milter --port 7831 --auth --subject-tag "[SPAM]" --verbose
 ```
 
-`--reject`を指定すると、拒否のしきい値（15点）に達したメッセージは`451 4.7.1 Message rejected as spam`で拒否されます。451は一時的なエラーです。送信者は後で再送し、誤りがあっても設定を変えれば修正できます。結果が正しいと確認できたら、`--reject-code 550`で恒久的に拒否できます。`--quarantine`を指定すると、スパムは代わりにPostfixの保留キューに入ります。
+`--reject`を指定すると、拒否のしきい値（15点）に達したメッセージは`451 4.7.1 Message rejected as spam`で拒否されます。451は一時的なエラーです。送信者は後で再送し、誤りがあっても設定を変えれば修正できます。結果が正しいと確認できたら、`--reject-code 550`で恒久的に拒否できます。`--quarantine`を指定すると、スパムは代わりにPostfixの保留キューに入ります。milterが完全にはスキャンできなかったメッセージには4xxの応答を返します。`--on-error accept`を指定すると、代わりに通過させます。
 
 systemdのサービスにする場合は、`/etc/systemd/system/spamscanner-milter.service`に次のように記述します。
 
@@ -101,7 +103,7 @@ smtp      inet  n       -       n       -       -       smtpd
   -o content_filter=spamscanner:dummy
 spamscanner unix -      n       n       -       10      pipe
   flags=Rq user=spamscanner null_sender=
-  argv=/usr/bin/node /usr/local/lib/node_modules/spamscanner/dist/esm/cli.js filter --subject-tag [SPAM] -f ${sender} -- ${recipient}
+  argv=/usr/bin/node /usr/local/lib/node_modules/spamscanner/dist/esm/cli.js filter --subject-tag [SPAM] --from=${sender} -- ${recipient}
 ```
 
 Postfixはほとんど空の環境でフィルターを実行するため、`argv`ではNode.jsとスクリプトをフルパスで指定します（`command -v node`と`npm root --global`で確認できます）。その後、次を実行します。
@@ -112,7 +114,7 @@ sudo postfix reload
 
 フィルターは`sendmail -G -i`でメッセージを戻します。この方法で投入されたメールは再び`smtp`リスナーを通らないため、二重にフィルタリングされることはありません。
 
-終了コードでPostfixに結果を伝えます。0は配送済み、69は拒否（`--reject`指定時。Postfixが送信者にバウンスする）、75は一時的な失敗（Postfixがメッセージを保持して再試行する）です。スキャンや配送の失敗はすべて75になるため、設定が壊れていてもメールが失われたりバウンスしたりすることはありません。
+終了コードでPostfixに結果を伝えます。0は配送済み、69は拒否（`--reject`指定時。Postfixが送信者にバウンスする）、75は一時的な失敗（Postfixがメッセージを保持して再試行する）です。スキャンや配送の失敗はすべて75になり、ClamAVがスキャンできなかった添付ファイルを含むメッセージも75になるため、設定が壊れていてもメールが失われたりバウンスしたりすることはありません。`--on-error accept`を指定すると、スキャンに失敗したメッセージや、ClamAVが完全にはスキャンできなかったメッセージは、代わりに`X-Spam-Virus-Scan: failed`を付けて渡されます（[CLI](cli.md#filter)を参照）。
 
 
 ## Sendmail
@@ -124,6 +126,12 @@ INPUT_MAIL_FILTER(`spamscanner', `S=inet:7831@127.0.0.1, F=T, T=S:30s;R:30s;E:5m
 ```
 
 `F=T`を指定すると、milterを利用できない間、Sendmailは一時的な失敗で応答します。代わりにメールをフィルタリングせずに受け入れるには、これを外してください。`sendmail.cf`を再生成し、Sendmailを再起動します。
+
+クライアントのホスト名でメッセージを許可リストに載せられるのは、そのホスト名が検証済みの場合だけです。Postfix は、クライアントの逆引き DNS 名がそのアドレスに正引きで戻る場合にだけホスト名を送り、そうでなければ `unknown` を送ります。Sendmail は、逆引き DNS 名が正引きで戻らない場合でもそれを送り（自分のアドレスの逆引き DNS を持つ人なら誰でも選べる名前です）、その旨を `{client_resolve}` マクロで示しますが、このマクロはデフォルトでは送りません。`INPUT_MAIL_FILTER` の前で、接続時に送るマクロにこれを追加し、`OK` と示されたホスト名だけが使われるようにします。
+
+```text
+define(`confMILTER_MACROS_CONNECT', `j, _, {daemon_name}, {if_name}, {if_addr}, {client_resolve}')
+```
 
 
 ## スパムを迷惑メールフォルダーに振り分ける

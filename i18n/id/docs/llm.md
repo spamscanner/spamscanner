@@ -1,4 +1,4 @@
-<!-- source: 79e50e309869 -->
+<!-- source: 7564838c2408 -->
 
 # Model bahasa
 
@@ -114,11 +114,11 @@ Ini adalah layanan yang di-hosting, sehingga data pribadi dihapus sebelum pesan 
 | `always`        | Setiap pesan                                                                                                        |
 | `off`           | Tidak pernah                                                                                                        |
 
-`minScore` dan `maxScore` mengubah rentang untuk `auto`. Spam yang jelas dan ham yang jelas tidak pernah sampai ke model.
+`minScore` dan `maxScore` mengubah rentang untuk `auto`. Spam yang jelas dan ham yang jelas tidak pernah sampai ke model. `mode` lain apa pun adalah galat, dan `llm: false` untuk satu `scan()` tidak menanyai model mana pun.
 
 Vonisnya adalah `spam`, `phishing`, `scam`, `malware`, atau `ham`. Dengan `decision`, spam, phishing, penipuan, dan malware dihitung bersama melawan ham: pesan yang dinilai model 30% spam, 30% phishing, dan 40% ham tidak diinginkan pada 60%, dan vonisnya adalah jenis yang paling mungkin. Vonis spam menambahkan hingga 6 poin (`LLM_SPAM`, `LLM_PHISHING`, `LLM_SCAM`, `LLM_MALWARE`); vonis ham mengurangi hingga 3 (`LLM_HAM`), masing-masing dikalikan tingkat keyakinannya. Satu model tidak dapat menandai pesan sebagai spam seorang diri kecuali jika yakin: 6 poin pada keyakinan 85% adalah 5,1, sedikit di atas ambang batas. Jika model gagal atau melewati batas waktu, pemindaian berlanjut tanpanya dan `results.llm.error` menyebutkan alasannya.
 
-Jawaban di-cache per pesan, sehingga pesan yang sama yang dikirim ke banyak penerima hanya ditanyakan sekali.
+Jawaban di-cache per pesan, sehingga pesan yang sama yang dikirim ke banyak penerima hanya ditanyakan sekali, juga ketika salinannya dipindai pada saat yang sama. `timeout` mencakup waktu menunggu slot permintaan yang kosong (`concurrency`) sekaligus permintaan untuk sebuah pesan: model yang tetap sibuk selama itu dilewati untuk pesan tersebut.
 
 
 ## Penyedia
@@ -188,7 +188,7 @@ const scanner = new SpamScanner({
     username: 'spam', password: '…', // with auth: 'basic'
     headers: {'x-team': 'mail'},
     ca: fs.readFileSync('internal-ca.pem'), // a private certificate authority
-    timeout: 30_000,
+    timeout: 30_000,                 // waiting and requests, per message
     concurrency: 4,                  // requests at once
     cacheSize: 1000,                 // answers kept in memory
     keepAlive: '24h',                // Ollama: keep the model loaded between messages
@@ -259,7 +259,7 @@ spamscanner milter --llm ollama --llm-policy "We never send invoices by email. A
 
 Model melihat ringkasan header (From, Reply-To, To, dan Subject), tautan (yang menampilkan satu alamat tetapi menuju alamat lain didahulukan), nama dan jenis lampiran, hasil autentikasi, seberapa banyak teks yang disembunyikan HTML jika lebih dari teks pratinjau, dan isi pesan sebagaimana ditampilkan klien email (dari HTML jika ada, tanpa teks tersembunyi, karakter tak terlihat, atau huruf bergaya), dipotong hingga 6.000 karakter (`maxInputChars`).
 
-Untuk penyedia di luar jaringan Anda, data pribadi dihapus terlebih dahulu: bagian lokal alamat email (domainnya tetap, karena penting untuk phishing), nomor kartu dan rekening, nomor telepon, serta nilai parameter kueri dalam tautan, yang sering membawa token login. Penghapusan ini aktif secara bawaan untuk penyedia jarak jauh, termasuk model keputusan, dan nonaktif untuk penyedia lokal (Ollama, LM Studio, llama.cpp, vLLM, LocalAI, Jan, TEI, dan server apa pun di localhost). `redact: true` atau `false` (`--llm-redact`, `--no-llm-redact`) menimpa pengaturan ini.
+Untuk penyedia di luar jaringan Anda, data pribadi dihapus terlebih dahulu: bagian lokal alamat email (domainnya tetap, karena penting untuk phishing), nomor kartu dan rekening, nomor telepon internasional (ditulis dengan + atau 00), serta nilai parameter kueri dalam tautan, yang sering membawa token login. Penghapusan ini aktif secara bawaan untuk penyedia jarak jauh, termasuk model keputusan, dan nonaktif untuk penyedia lokal (Ollama, LM Studio, llama.cpp, vLLM, LocalAI, Jan, TEI) di mesin ini atau di jaringan privat (alamat privat, nama tanpa titik, atau nama di bawah .local, .internal, .lan, atau .home.arpa), serta untuk server apa pun di localhost. Penyedia lokal yang diarahkan ke host di tempat lain menerima email yang data pribadinya sudah dihapus. `redact: true` atau `false` (`--llm-redact`, `--no-llm-redact`) menimpa pengaturan ini.
 
 Periksa ketentuan retensi data penyedia Anda sebelum mengirim email kepadanya. Model lokal menghindari persoalan ini.
 

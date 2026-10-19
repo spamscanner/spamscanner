@@ -1,4 +1,4 @@
-<!-- source: 8a788c19971e -->
+<!-- source: a7dfb7c0fde2 -->
 
 # Jak to funguje
 
@@ -19,9 +19,9 @@ Spam Scanner si z počítání slov ponechává to, co funguje, tedy statistiku,
 
 ### Co počítá
 
-Čte se text, který zobrazí poštovní klient: text HTML části, pokud existuje (prostá textová část vedle ní se zobrazí jen tam, kde HTML zobrazit nelze, takže neškodná textová část nemůže mluvit za HTML), bez značek, komentářů, skriptů a stylů, přičemž řádkové značky spojují slovo tak, jak ho spojí prohlížeč (`Free Sp<span>ins</span>`), a bez textu, který HTML skrývá, ten se ale počítá: skrytého prvkem, který skrývá svůj obsah (display, opacity, atribut hidden, oříznutý rámeček nulové velikosti, text posunutý mimo stránku), nebo neviditelného, průhledného či v písmu o velikosti jednoho pixelu nebo menším přímo tam, kde je (což může vnořený prvek znovu nastavit, jak to dělají responzivní šablony). Styly se čtou tak, jak je čtou prohlížeče (vyhrává poslední deklarace, komentáře, odkazy na znaky); barvy na pozadí a třídy ze stylů ne, takže takový text se čte tak, jak se zobrazí. HTML, které zobrazí méně než 20 slov, například obrázek zprávy, se čte spolu se svou prostou textovou částí. Odkazy a názvy hostitelů se čtou z obou částí i ze skrytého textu.
+Čte se text, který zobrazí poštovní klient: text HTML části, pokud existuje (prostá textová část vedle ní se zobrazí jen tam, kde HTML zobrazit nelze, takže neškodná textová část nemůže mluvit za HTML), bez značek, komentářů, skriptů a stylů, přičemž řádkové značky spojují slovo tak, jak ho spojí prohlížeč (`Free Sp<span>ins</span>`), bloky, buňky a zalomení řádků ho rozdělují (také prvek, který styl zobrazí jako blok, blok, který prohlížeč ukončí sám, a blok skrytý na svém místě, ale ne takový, který nezabírá žádné místo), a bez textu, který HTML skrývá, ten se ale počítá: skrytého prvkem, který skrývá svůj obsah (display, opacity, atribut hidden, oříznutý rámeček nulové velikosti, text posunutý mimo stránku), nebo neviditelného, průhledného či v písmu o velikosti jednoho pixelu nebo menším přímo tam, kde je (což může vnořený prvek znovu nastavit, jak to dělají responzivní šablony). Styly se čtou tak, jak je čtou prohlížeče (vyhrává poslední deklarace, komentáře, odkazy na znaky); barvy na pozadí a třídy ze stylů ne, takže takový text se čte tak, jak se zobrazí. HTML, které zobrazí méně než 20 slov, například obrázek zprávy, se čte spolu se svou prostou textovou částí. Odkazy se čtou z obou částí, ze skrytého textu i z textu, který HTML zobrazí, kde se adresa rozdělená řádkovými značkami (`https://www.pay<b></b>pa1.com/`) čte jako jedna. Názvy hostitelů zapsané bez odkazu se čtou z předmětu, z čteného textu a z prosté textové části vedle HTML.
 
-Text se nejprve normalizuje: Unicode NFKC převede stylizovaná písmena a písmena plné šířky na obyčejná, neviditelné znaky se odstraní a spočítají, podobně vypadající písmena uvnitř jinak latinkových nebo cyrilických slov se převedou zpět a číslice použité místo písmen (`v1agra`) se nahradí. Slova se pak dělí pomocí `Intl.Segmenter`, tedy pravidel Unicode pro hranice slov se slovníky pro čínštinu, japonštinu, thajštinu, laoštinu, khmerštinu a barmštinu.
+Text se nejprve normalizuje: Unicode NFKC převede stylizovaná písmena a písmena plné šířky na obyčejná, neviditelné znaky se odstraní a spočítají (ne mezera nulové šířky mezi písmeny thajského, laoského, khmerského, barmského nebo tibetského písma, která tam odděluje slova, a spojovače jen mezi latinkovými písmeny), podobně vypadající písmena ve slově, které míchá latinková, cyrilická nebo řecká písmena, se převedou na písmo, ke kterému patří většina jeho písmen (`рaypal` s cyrilickým р se stane `paypal`, `пpивет` s latinkovým p se stane `привет`), části slova mezi apostrofy se čtou zvlášť (`iPhone'ы`, ruská pádová koncovka, nic nemíchá) a číslice použité místo písmen (`v1agra`) se nahradí. Slova se pak dělí pomocí `Intl.Segmenter`, tedy pravidel Unicode pro hranice slov se slovníky pro čínštinu, japonštinu, thajštinu, laoštinu, khmerštinu a barmštinu.
 
 Z toho vytáhne:
 
@@ -63,22 +63,23 @@ Balíček obsahuje model natrénovaný na veřejných datových sadách s otevř
 Kontroluje se každý odkaz:
 
 * **Podobně vypadající domény.** Každá doména se pomocí tabulky zaměnitelných znaků Unicode zredukuje na kostru, takže `pаypal.com` (cyrilické а), `paypa1.com`, `rnicrosoft.com` a `xn--pple-43d.com` všechny odpovídají značce, kterou napodobují. Smíšená písma v jednom návěští, názvy značek v subdoménách (`paypal.com.example.net`) a překlepy o jedno písmeno se bodují méně. Vestavěno je téměř 100 často napodobovaných značek a další lze přidat.
-* **Klamavé odkazy.** Odkazy v HTML, jejichž viditelný text je jiná adresa než cíl.
+* **Klamavé odkazy.** Odkazy v HTML, jejichž viditelný text je jiná adresa než cíl: celý text, nebo adresa s `http://` či `https://` uvnitř (`Sign in at https://www.paypal.com`). Název souboru nebo název webu ve větě (`Download report.zip`, `Read why Booking.com switched`) adresou není. Odkaz přes sledování kliknutí rozesílací služby (SendGrid, Mailchimp, Amazon SES, Kit, Brevo, beehiiv, Substack a další) nebo přes bezpečnostní bránu, která přepisuje odkazy (Microsoft Safe Links, Proofpoint, Mimecast, Barracuda, Cisco), vede jinam záměrně, proto se počítá jen tehdy, když je jeho text úplnou adresou značky, bez cesty nebo s cestou k přihlášení (nejde o odkaz na sociální síť, produkt obchodu nebo mapu), a odesílatel není tou značkou ani jednou z jejích rozesílacích domén. Kde odkaz brány obsahuje adresu, na kterou pokračuje (Safe Links, Proofpoint), porovnává se místo něj tato adresa.
 * **Filtrovací resolvery Cloudflare.** Hostitelé z odkazů se vyhledají na 1.1.1.2, který pro známý malware a phishing odpovídá `0.0.0.0`, a na 1.1.1.3, který blokuje i obsah pro dospělé.
 * **Zobrazovaná jména.** Jméno jako „PayPal Security“ z adresy v jiné doméně nebo jméno, které obsahuje jinou e-mailovou adresu.
 
 
 ## Přílohy
 
-Přílohy se rozpoznávají podle bajtů, ne podle názvů nebo deklarovaných typů:
+Přílohy se rozpoznávají podle svých bajtů a názvů, ne podle deklarovaných typů:
 
 * spustitelné soubory, zástupce a skripty pro Windows, Linux a macOS, i když jsou přejmenované na `.pdf` nebo `.jpg`
 * dvojité přípony (`invoice.pdf.exe`) a znaky pro přepnutí směru textu zprava doleva, které skrývají skutečnou příponu
 * spustitelné soubory uvnitř archivů ZIP a šifrované archivy, které skenery nedokážou otevřít
 * soubory Office s makry, PDF s JavaScriptem nebo akcemi spuštění, soubory RTF s vloženými objekty
 * přílohy HTML, kterými phishing offline zobrazuje falešnou přihlašovací stránku
+* přílohy přiložených zpráv (`message/rfc822`, `.eml`), až do hloubky tří úrovní a 100 příloh (vlastní přílohy zprávy se vždy kontrolují všechny)
 
-S ClamAV se přílohy kontrolují také pomocí `clamd` přes jeho socket.
+S ClamAV se přílohy kontrolují také pomocí `clamd` přes jeho socket. Kontrolují se čtyři najednou, všechny v rámci `clamav.timeout` (60 sekund), a ty, které nešlo zkontrolovat, jsou uvedeny v `results.virusScanErrors`. Ty, které jsou větší, než clamd přijme (jeho `StreamMaxLength`), jsou místo toho uvedeny v `results.virusScanSkipped`: clamd je odmítne při každém pokusu.
 
 
 ## Ověření

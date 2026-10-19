@@ -1,4 +1,4 @@
-<!-- source: dc9016edd59e -->
+<!-- source: c70584655c0e -->
 
 # Forward Email
 
@@ -45,7 +45,7 @@ async function onData(stream, session, callback) {
 }
 ```
 
-`scanner.scan()` tar imot SMTP-strømmen direkte. Hvis du allerede har resultater fra [mailauth](https://github.com/postalsys/mailauth), kan du hoppe over `authentication` og bare sende med IP-adressen.
+`scanner.scan()` tar imot SMTP-strømmen direkte. Hvis du allerede har resultater fra [mailauth](https://github.com/postalsys/mailauth), kan du sende dem med som `authenticationResults`: da blir de poengsatt i stedet for å sjekkes på nytt.
 
 Et svar med 421 eller 451 får avsenderserveren til å legge meldingen i kø og prøve igjen senere. Nye avvisningsregler kan starte med en midlertidig kode og gå over til 550 når resultatene er kontrollert, uten at e-post går tapt i mellomtiden.
 

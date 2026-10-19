@@ -1,4 +1,4 @@
-<!-- source: 79e50e309869 -->
+<!-- source: 7564838c2408 -->
 
 # Nyelvi modellek
 
@@ -114,11 +114,11 @@ Ezek szolgáltatói szolgáltatások, ezért a levél elküldése előtt a szem�
 | `always`                | Minden levélnél                                                                                                                                |
 | `off`                   | Soha                                                                                                                                           |
 
-A `minScore` és a `maxScore` módosítja az `auto` tartományát. Az egyértelmű spam és az egyértelmű ham soha nem jut el a modellig.
+A `minScore` és a `maxScore` módosítja az `auto` tartományát. Az egyértelmű spam és az egyértelmű ham soha nem jut el a modellig. Bármely más `mode` hibát okoz, és egyetlen `scan()` hívásnál a `llm: false` egyik modellt sem kérdezi.
 
 Az ítélet `spam`, `phishing`, `scam`, `malware` vagy `ham`. A `decision` módszernél a spam, az adathalászat, a csalás és a kártevő együtt számít a hammel szemben: az a levél, amelyet a modell 30% spamnek, 30% adathalászatnak és 40% hamnek ítél, 60%-ban nem kívánt, az ítélet pedig a legvalószínűbb fajta. A spamítélet legfeljebb 6 pontot ad hozzá (`LLM_SPAM`, `LLM_PHISHING`, `LLM_SCAM`, `LLM_MALWARE`), a hamítélet legfeljebb 3-at von le (`LLM_HAM`), mindkettő a magabiztossággal megszorozva. Egy modell önmagában csak akkor jelölhet spamnek egy levelet, ha magabiztos: 6 pont 85%-os magabiztossággal 5,1, éppen a küszöb felett. Ha a modell hibát ad vagy túllépi az időkorlátot, a vizsgálat nélküle folytatódik, és a `results.llm.error` megadja az okát.
 
-A válaszokat levelenként gyorsítótárazza, így a sok címzettnek elküldött ugyanazon levélről csak egyszer kérdez.
+A válaszokat levelenként gyorsítótárazza, így a sok címzettnek elküldött ugyanazon levélről csak egyszer kérdez, akkor is, ha a másolatait egyszerre vizsgálja. A `timeout` a szabad kéréshelyre (`concurrency`) való várakozást és a levélhez tartozó kéréseket is lefedi: az ennyi ideig foglalt modellt az adott levélnél kihagyja.
 
 
 ## Szolgáltatók
@@ -188,7 +188,7 @@ const scanner = new SpamScanner({
     username: 'spam', password: '…', // with auth: 'basic'
     headers: {'x-team': 'mail'},
     ca: fs.readFileSync('internal-ca.pem'), // a private certificate authority
-    timeout: 30_000,
+    timeout: 30_000,                 // waiting and requests, per message
     concurrency: 4,                  // requests at once
     cacheSize: 1000,                 // answers kept in memory
     keepAlive: '24h',                // Ollama: keep the model loaded between messages
@@ -259,7 +259,7 @@ spamscanner milter --llm ollama --llm-policy "We never send invoices by email. A
 
 A modell a fejlécek összefoglalóját (From, Reply-To, To és Subject), a hivatkozásokat (elöl azokat, amelyek egy címet mutatnak, de egy másikra visznek), a mellékletek nevét és típusát, a hitelesítési eredményeket, azt, hogy a HTML mennyi szöveget rejt el, ha többet rejt el az előnézeti szövegnél, valamint a levéltörzset látja úgy, ahogy egy levelezőprogram megjeleníti (a HTML-ét, ha van, rejtett szöveg, láthatatlan karakterek és díszített betűk nélkül), 6000 karakterre vágva (`maxInputChars`).
 
-A saját hálózaton kívüli szolgáltatóknál előbb eltávolítja a személyes adatokat: az e-mail-címek helyi részét (a domain megmarad, mert az adathalászat szempontjából fontos), a kártya- és számlaszámokat, a telefonszámokat és a hivatkozások lekérdezési paramétereinek értékét, amelyek gyakran bejelentkezési tokeneket hordoznak. Ez távoli szolgáltatóknál alapértelmezetten be van kapcsolva, a döntési modelleket is beleértve, helyieknél (Ollama, LM Studio, llama.cpp, vLLM, LocalAI, Jan, TEI és bármely localhoston futó szerver) ki. A `redact: true` vagy `false` (`--llm-redact`, `--no-llm-redact`) felülírja ezt.
+A saját hálózaton kívüli szolgáltatóknál előbb eltávolítja a személyes adatokat: az e-mail-címek helyi részét (a domain megmarad, mert az adathalászat szempontjából fontos), a kártya- és számlaszámokat, a nemzetközi telefonszámokat (+ vagy 00 előtaggal írva) és a hivatkozások lekérdezési paramétereinek értékét, amelyek gyakran bejelentkezési tokeneket hordoznak. Ez távoli szolgáltatóknál alapértelmezetten be van kapcsolva, a döntési modelleket is beleértve, helyieknél (Ollama, LM Studio, llama.cpp, vLLM, LocalAI, Jan, TEI) ezen a gépen vagy magánhálózatban (privát cím, pont nélküli név, vagy .local, .internal, .lan vagy .home.arpa alatti név), valamint bármely localhoston futó szervernél ki. A máshol lévő gépre irányított helyi szolgáltató a személyes adatoktól megtisztított leveleket kapja. A `redact: true` vagy `false` (`--llm-redact`, `--no-llm-redact`) felülírja ezt.
 
 Mielőtt leveleket küldene egy szolgáltatónak, ellenőrizze annak adatmegőrzési feltételeit. Egy helyi modellel ez a kérdés fel sem merül.
 

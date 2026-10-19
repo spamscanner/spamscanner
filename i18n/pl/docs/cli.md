@@ -1,4 +1,4 @@
-<!-- source: c061da9312ad -->
+<!-- source: f8a77c318b83 -->
 
 # Wiersz poleceń
 
@@ -59,16 +59,16 @@ Kody wyjścia: 0 ham, 1 spam, 2 błąd.
 
 ### Kontrole
 
-| Opcja                 | Znaczenie                                                                      |
-| --------------------- | ------------------------------------------------------------------------------ |
-| `--auth`              | Sprawdza SPF, DKIM, DMARC i ARC (wymaga `--ip`)                                |
-| `--dnsbl <zone>`      | Czarna lista IP, na przykład `zen.spamhaus.org`; można powtarzać               |
-| `--uribl <zone>`      | Czarna lista domen dla linków, na przykład `dbl.spamhaus.org`; można powtarzać |
-| `--dns-server <ip>`   | Serwer nazw dla kontroli DNS; można powtarzać                                  |
-| `--no-cloudflare`     | Nie pyta filtrujących resolverów Cloudflare o linki                            |
-| `--clamav [socket]`   | Skanuje załączniki przez clamd, na domyślnym gnieździe lub podanym             |
-| `--allowlist <value>` | Zawsze przyjmuje ten adres IP, domenę lub adres e-mail; można powtarzać        |
-| `--denylist <value>`  | Zawsze odrzuca ten adres IP, domenę lub adres e-mail; można powtarzać          |
+| Opcja                 | Znaczenie                                                                                                                                          |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--auth`              | Sprawdza SPF, DKIM, DMARC i ARC (wymaga `--ip`)                                                                                                    |
+| `--dnsbl <zone>`      | Czarna lista IP, na przykład `zen.spamhaus.org`; można powtarzać                                                                                   |
+| `--uribl <zone>`      | Czarna lista domen dla linków, na przykład `dbl.spamhaus.org`; można powtarzać                                                                     |
+| `--dns-server <ip>`   | Serwer nazw dla kontroli DNS; można powtarzać                                                                                                      |
+| `--no-cloudflare`     | Nie pyta filtrujących resolverów Cloudflare o linki                                                                                                |
+| `--clamav[=socket]`   | Skanuje załączniki przez clamd, na domyślnym gnieździe lub podanym                                                                                 |
+| `--allowlist <value>` | Zawsze akceptuj ten adres IP lub nazwę hosta klienta albo tę domenę lub adres, gdy uwierzytelnianie potwierdza nadawcę (`--auth`); można powtarzać |
+| `--denylist <value>`  | Zawsze odrzuca ten adres IP, domenę lub adres e-mail; można powtarzać                                                                              |
 
 ### Model językowy
 
@@ -85,7 +85,7 @@ Kody wyjścia: 0 ham, 1 spam, 2 błąd.
 | `--llm-auth-header <name>`                                 | Nagłówek z kluczem, przy `--llm-auth header`                                                                                                                 |
 | `--llm-username`, `--llm-password`                         | Dla `--llm-auth basic`                                                                                                                                       |
 | `--llm-header "Name: value"`                               | Dodatkowy nagłówek żądania; można powtarzać                                                                                                                  |
-| `--llm-mode <mode>`                                        | `auto` (tylko trudne przypadki, domyślnie) lub `always`                                                                                                      |
+| `--llm-mode <mode>`                                        | `auto` (tylko trudne przypadki, domyślnie), `always` lub `off`                                                                                               |
 | `--llm-timeout <ms>`                                       | Domyślnie 30000                                                                                                                                              |
 | `--llm-policy <text>`                                      | Dodatkowe reguły dla modelu, na przykład „Nigdy nie wysyłamy faktur”                                                                                         |
 | `--llm-redact`, `--no-llm-redact`                          | Najpierw usuwa dane osobowe; domyślnie włączone dla zdalnych dostawców                                                                                       |
@@ -99,43 +99,49 @@ Kody wyjścia: 0 ham, 1 spam, 2 błąd.
 spamscanner filter -f "$sender" -- "$recipient"
 ```
 
-| Opcja                 | Znaczenie                                                       |
-| --------------------- | --------------------------------------------------------------- |
-| `--sendmail <path>`   | Domyślnie `/usr/sbin/sendmail`                                  |
-| `--subject-tag <tag>` | Dopisuje prefiks do tematu spamu                                |
-| `--reject`            | Odbija pocztę na progu odrzucenia zamiast przekazywać ją dalej  |
-| `--discard`           | Porzuca pocztę na progu odrzucenia zamiast przekazywać ją dalej |
+| Opcja                 | Znaczenie                                                                                  |
+| --------------------- | ------------------------------------------------------------------------------------------ |
+| `--sendmail <path>`   | Domyślnie `/usr/sbin/sendmail`                                                             |
+| `--subject-tag <tag>` | Dopisuje prefiks do tematu spamu                                                           |
+| `--reject`            | Odbija pocztę na progu odrzucenia zamiast przekazywać ją dalej                             |
+| `--discard`           | Porzuca pocztę na progu odrzucenia zamiast przekazywać ją dalej                            |
+| `--on-error <answer>` | Dla poczty, której nie udało się w pełni przeskanować: `tempfail` (domyślnie) lub `accept` |
 
-Kody wyjścia są zgodne z konwencjami sendmail, które odczytuje Postfix: 0 dostarczono (lub porzucono), 64 nie podano odbiorców, 69 odrzucono jako spam (Postfix ją odbija), 75 dowolny błąd, więc Postfix zatrzymuje wiadomość i ponawia próbę później.
+Kody wyjścia są zgodne z konwencjami sendmail, które odczytuje Postfix: 0 dostarczono (lub porzucono), 64 nie podano odbiorców, 69 odrzucono jako spam (Postfix ją odbija), 75 dowolny błąd, więc Postfix zatrzymuje wiadomość i ponawia próbę później. Wiadomość z załącznikiem, którego ClamAV nie zdołał przeskanować, to również błąd. Z `--on-error accept` taka wiadomość albo wiadomość, której skanowanie się nie powiodło, jest przekazywana dalej z `X-Spam-Virus-Scan: failed` i bez żadnych nagłówków `X-Spam-*` dodanych przez nadawcę.
 
 
 ## milter, http, server i spamd
 
 ```sh
 spamscanner milter --port 7831 --reject --subject-tag "[SPAM]"
-spamscanner http --port 7832 --token "$SPAMSCANNER_TOKEN"
+spamscanner http --port 7832    # token in SPAMSCANNER_TOKEN
 spamscanner server --port 7830
 spamscanner spamd --port 783
 ```
 
+API HTTP odczytuje swój token ze zmiennej środowiskowej `SPAMSCANNER_TOKEN`. `--token` też działa, ale inni użytkownicy komputera widzą opcje wiersza poleceń w `ps`.
+
 Port 783 to port, którego klienci SpamAssassin używają domyślnie. Porty poniżej 1024 wymagają uprawnień roota lub uprawnienia `CAP_NET_BIND_SERVICE`; użyj innego portu, na przykład `--port 7833`, i podaj go klientowi.
 
-| Opcja                 | Znaczenie                                                                 |
-| --------------------- | ------------------------------------------------------------------------- |
-| `--port <n>`          | Port TCP                                                                  |
-| `--host <ip>`         | Adres nasłuchiwania (domyślnie 127.0.0.1)                                 |
-| `--socket <path>`     | Nasłuchuje zamiast tego na gnieździe Unix                                 |
-| `--reject`            | Milter: odrzuca pocztę na progu odrzucenia                                |
-| `--reject-code <n>`   | Milter: 451, spróbuj ponownie później (domyślnie), lub 550                |
-| `--quarantine`        | Milter: zatrzymuje spam w kwarantannie serwera pocztowego                 |
-| `--name <hostname>`   | Milter: nazwa tego serwera w Authentication-Results                       |
-| `--token <secret>`    | HTTP: wymaga `Authorization: Bearer <secret>`; potrzebne dla `/learn`     |
-| `--allow-tell`        | spamd: przyjmuje żądania TELL (`spamc -L spam`) do nauki                  |
-| `--out <file>`        | HTTP i spamd: zapisuje to, czego się nauczył, do tego pliku modelu        |
-| `--subject-tag <tag>` | Milter i spamd: dopisuje prefiks do tematu spamu                          |
-| `--verbose`           | Milter: loguje każde skanowanie. Serwer TCP: odpowiada jedną linią tekstu |
+| Opcja                 | Znaczenie                                                                                          |
+| --------------------- | -------------------------------------------------------------------------------------------------- |
+| `--port <n>`          | Port TCP                                                                                           |
+| `--host <ip>`         | Adres nasłuchiwania (domyślnie 127.0.0.1)                                                          |
+| `--socket <path>`     | Nasłuchuje zamiast tego na gnieździe Unix                                                          |
+| `--reject`            | Milter: odrzuca pocztę na progu odrzucenia                                                         |
+| `--reject-code <n>`   | Milter: kod 4xx, spróbuj ponownie później (451, domyślnie), lub kod 5xx, taki jak 550              |
+| `--quarantine`        | Milter: zatrzymuje spam w kwarantannie serwera pocztowego                                          |
+| `--on-error <answer>` | Milter: dla poczty, której nie udało się w pełni przeskanować, `tempfail` (domyślnie) lub `accept` |
+| `--name <hostname>`   | Milter: nazwa tego serwera w Authentication-Results                                                |
+| `--token <secret>`    | HTTP: wymaga `Authorization: Bearer <secret>`; potrzebne dla `/learn`                              |
+| `--allow-tell`        | spamd: przyjmuje żądania TELL (`spamc -L spam`) do nauki                                           |
+| `--out <file>`        | HTTP i spamd: zapisuje to, czego się nauczył, do tego pliku modelu                                 |
+| `--subject-tag <tag>` | Milter i spamd: dopisuje prefiks do tematu spamu                                                   |
+| `--verbose`           | Milter: loguje każde skanowanie. Serwer TCP: odpowiada jedną linią tekstu                          |
 
 Powyższe opcje skanowania dotyczą też serwerów. [Milter](postfix.md#milter), [HTTP API, serwer TCP i spamd](http-api.md).
+
+Klienci spamd i TCP nie wysyłają adresu IP klienta, który nadał wiadomość, a klienci HTTP wysyłają go tylko z `?ip=`, więc `--auth` i `--dnsbl` działają tylko z milterem i z żądaniami HTTP, które go podają. Serwery informują o tym, gdy uruchamia się je z tymi opcjami.
 
 
 ## train, eval i learn
@@ -157,6 +163,8 @@ spamscanner learn spam message.eml --model my-model.json
 
 `learn` aktualizuje plik modelu w miejscu, a za pierwszym razem tworzy go z dołączonego modelu. [Trenowanie](training.md)
 
+Gdy podano zarówno `--model`, jak i `--out`, `learn` zaczyna od pliku `--model` i zapisuje wynik do `--out`.
+
 
 ## llm-test i models
 
@@ -165,7 +173,7 @@ spamscanner models
 spamscanner llm-test --llm ollama --llm-model qwen3.5:4b
 ```
 
-`llm-test` wysyła do modelu jedną zwykłą wiadomość i dwa oszustwa, po angielsku i po włosku, wypisuje jego werdykty, czas każdego z nich, użytą metodę i sprzęt, i kończy z kodem 0 tylko wtedy, gdy wszystkie trzy są poprawne.
+`llm-test` wysyła do modelu jedną zwykłą wiadomość i dwa oszustwa, po angielsku i po włosku, wypisuje jego werdykty, czas każdego z nich, użytą metodę oraz, dla modelu na tym komputerze, sprzęt, i kończy z kodem 0 tylko wtedy, gdy wszystkie trzy są poprawne.
 
 
 ## Plik konfiguracyjny

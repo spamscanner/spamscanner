@@ -1,4 +1,4 @@
-<!-- source: 1562b843d858 -->
+<!-- source: e38668f057b9 -->
 
 <!--
 label: SpamAssassin 替代方案
@@ -17,7 +17,7 @@ Spam Scanner 响应 SpamAssassin 的 spamd 协议，因此为 SpamAssassin 编�
 ```sh
 sudo systemctl disable --now spamd       # or spamassassin
 npm install --global spamscanner
-spamscanner spamd --port 783 --auth
+spamscanner spamd --port 783
 ```
 
 ```sh

@@ -1,4 +1,4 @@
-<!-- source: c061da9312ad -->
+<!-- source: f8a77c318b83 -->
 
 # 命令行
 
@@ -59,16 +59,16 @@ spamscanner scan message.eml --subject-tag "[SPAM]" > tagged.eml
 
 ### 检查
 
-| 选项                    | 含义                                  |
-| --------------------- | ----------------------------------- |
-| `--auth`              | 检查 SPF、DKIM、DMARC 和 ARC（需要 `--ip`）  |
-| `--dnsbl <zone>`      | IP 黑名单，例如 `zen.spamhaus.org`；可重复使用  |
-| `--uribl <zone>`      | 链接域名黑名单，例如 `dbl.spamhaus.org`；可重复使用 |
-| `--dns-server <ip>`   | DNS 检查使用的域名服务器；可重复使用                |
-| `--no-cloudflare`     | 不向 Cloudflare 的过滤解析器查询链接            |
-| `--clamav [socket]`   | 用 clamd 扫描附件，使用其默认套接字或指定的套接字        |
-| `--allowlist <value>` | 始终接收此 IP 地址、域名或地址；可重复使用             |
-| `--denylist <value>`  | 始终拒收此 IP 地址、域名或地址；可重复使用             |
+| 选项                    | 含义                                                    |
+| --------------------- | ----------------------------------------------------- |
+| `--auth`              | 检查 SPF、DKIM、DMARC 和 ARC（需要 `--ip`）                    |
+| `--dnsbl <zone>`      | IP 黑名单，例如 `zen.spamhaus.org`；可重复使用                    |
+| `--uribl <zone>`      | 链接域名黑名单，例如 `dbl.spamhaus.org`；可重复使用                   |
+| `--dns-server <ip>`   | DNS 检查使用的域名服务器；可重复使用                                  |
+| `--no-cloudflare`     | 不向 Cloudflare 的过滤解析器查询链接                              |
+| `--clamav[=socket]`   | 用 clamd 扫描附件，使用其默认套接字或指定的套接字                          |
+| `--allowlist <value>` | 始终接受此客户端 IP 地址或主机名，或在身份验证确认发件人时接受此域名或地址（`--auth`）；可重复 |
+| `--denylist <value>`  | 始终拒收此 IP 地址、域名或地址；可重复使用                               |
 
 ### 语言模型
 
@@ -85,7 +85,7 @@ spamscanner scan message.eml --subject-tag "[SPAM]" > tagged.eml
 | `--llm-auth-header <name>`                              | 存放密钥的请求头，配合 `--llm-auth header` 使用                                                   |
 | `--llm-username`、`--llm-password`                       | 用于 `--llm-auth basic`                                                                |
 | `--llm-header "Name: value"`                            | 额外的请求头；可重复使用                                                                         |
-| `--llm-mode <mode>`                                     | `auto`（仅限难以判断的邮件，默认）或 `always`                                                       |
+| `--llm-mode <mode>`                                     | `auto`（仅限难以判断的邮件，默认）、`always` 或 `off`                                                |
 | `--llm-timeout <ms>`                                    | 默认 30000                                                                             |
 | `--llm-policy <text>`                                   | 给模型的额外规则，例如“我们从不发送账单”                                                                |
 | `--llm-redact`、`--no-llm-redact`                        | 先移除个人数据；对远程服务商默认开启                                                                   |
@@ -99,24 +99,27 @@ spamscanner scan message.eml --subject-tag "[SPAM]" > tagged.eml
 spamscanner filter -f "$sender" -- "$recipient"
 ```
 
-| 选项                    | 含义                      |
-| --------------------- | ----------------------- |
-| `--sendmail <path>`   | 默认 `/usr/sbin/sendmail` |
-| `--subject-tag <tag>` | 为垃圾邮件的主题添加前缀            |
-| `--reject`            | 达到拒收阈值的邮件会被退回，而不是传递下去   |
-| `--discard`           | 达到拒收阈值的邮件会被丢弃，而不是传递下去   |
+| 选项                    | 含义                                   |
+| --------------------- | ------------------------------------ |
+| `--sendmail <path>`   | 默认 `/usr/sbin/sendmail`              |
+| `--subject-tag <tag>` | 为垃圾邮件的主题添加前缀                         |
+| `--reject`            | 达到拒收阈值的邮件会被退回，而不是传递下去                |
+| `--discard`           | 达到拒收阈值的邮件会被丢弃，而不是传递下去                |
+| `--on-error <answer>` | 对于未能完整扫描的邮件：`tempfail`（默认）或 `accept` |
 
-退出码遵循 Postfix 能读取的 sendmail 约定：0 表示已投递（或已丢弃），64 表示未提供收件人，69 表示作为垃圾邮件被拒收（Postfix 会退信），75 表示任何失败，此时 Postfix 会保留邮件并稍后重试。
+退出码遵循 Postfix 能读取的 sendmail 约定：0 表示已投递（或已丢弃），64 表示未提供收件人，69 表示作为垃圾邮件被拒收（Postfix 会退信），75 表示任何失败，此时 Postfix 会保留邮件并稍后重试。带有 ClamAV 未能扫描的附件的邮件同样算作失败。使用 `--on-error accept` 时，这样的邮件或扫描失败的邮件会加上 `X-Spam-Virus-Scan: failed` 并去掉发件人添加的所有 `X-Spam-*` 头后被传递下去。
 
 
 ## milter、http、server 和 spamd
 
 ```sh
 spamscanner milter --port 7831 --reject --subject-tag "[SPAM]"
-spamscanner http --port 7832 --token "$SPAMSCANNER_TOKEN"
+spamscanner http --port 7832    # token in SPAMSCANNER_TOKEN
 spamscanner server --port 7830
 spamscanner spamd --port 783
 ```
+
+HTTP API 从环境变量 `SPAMSCANNER_TOKEN` 读取令牌。`--token` 也可以用，但本机的其他用户能在 `ps` 中看到命令行选项。
 
 端口 783 是 SpamAssassin 客户端默认使用的端口。低于 1024 的端口需要 root 权限或 `CAP_NET_BIND_SERVICE` 能力；也可以使用其他端口，例如 `--port 7833`，并告知客户端。
 
@@ -126,8 +129,9 @@ spamscanner spamd --port 783
 | `--host <ip>`         | 监听的地址（默认 127.0.0.1）                                   |
 | `--socket <path>`     | 改为监听 Unix 套接字                                         |
 | `--reject`            | Milter：拒收达到拒收阈值的邮件                                    |
-| `--reject-code <n>`   | Milter：451，稍后重试（默认），或 550                             |
+| `--reject-code <n>`   | Milter：4xx 代码，稍后重试（451，默认），或 5xx 代码，如 550             |
 | `--quarantine`        | Milter：把垃圾邮件扣留在邮件服务器的隔离区中                             |
+| `--on-error <answer>` | Milter：对于未能完整扫描的邮件，`tempfail`（默认）或 `accept`           |
 | `--name <hostname>`   | Milter：本服务器在 Authentication-Results 中的名称              |
 | `--token <secret>`    | HTTP：要求 `Authorization: Bearer <secret>`；`/learn` 需要它 |
 | `--allow-tell`        | spamd：接受用于学习的 TELL 请求（`spamc -L spam`）                |
@@ -136,6 +140,8 @@ spamscanner spamd --port 783
 | `--verbose`           | Milter：记录每次扫描。TCP 服务器：以一行文本作答                         |
 
 上面的扫描选项同样适用于服务器。[milter](postfix.md#milter)，[HTTP API、TCP 服务器和 spamd](http-api.md)。
+
+spamd 和 TCP 客户端不会发送投递邮件的客户端的 IP 地址，HTTP 客户端只有带上 `?ip=` 时才发送，因此 `--auth` 和 `--dnsbl` 只对 milter 以及提供了该地址的 HTTP 请求有效。用这些选项启动时，服务器会给出提示。
 
 
 ## train、eval 和 learn
@@ -157,6 +163,8 @@ spamscanner learn spam message.eml --model my-model.json
 
 `learn` 原地更新模型文件，第一次使用时会基于内置模型创建该文件。[训练](training.md)
 
+同时给出 `--model` 和 `--out` 时，`learn` 从 `--model` 文件开始，并把结果写入 `--out`。
+
 
 ## llm-test 和 models
 
@@ -165,7 +173,7 @@ spamscanner models
 spamscanner llm-test --llm ollama --llm-model qwen3.5:4b
 ```
 
-`llm-test` 向模型发送一封普通邮件和两封诈骗邮件，使用英语和意大利语，输出模型的判定、每封邮件所用的时间、使用的方法和硬件，只有三者全部正确时才以 0 退出。
+`llm-test` 向模型发送一封普通邮件和两封诈骗邮件，使用英语和意大利语，输出模型的判定、每封邮件所用的时间、使用的方法，以及（对于本机上的模型）硬件，只有三者全部正确时才以 0 退出。
 
 
 ## 配置文件

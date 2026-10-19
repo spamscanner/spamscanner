@@ -1,4 +1,4 @@
-<!-- source: 79e50e309869 -->
+<!-- source: 7564838c2408 -->
 
 # Taalmodellen
 
@@ -114,11 +114,11 @@ Dit zijn gehoste diensten, dus persoonsgegevens worden verwijderd voordat een be
 | `always`           | Elk bericht                                                                                                                  |
 | `off`              | Nooit                                                                                                                        |
 
-`minScore` en `maxScore` wijzigen het bereik voor `auto`. Duidelijke spam en duidelijke ham komen nooit bij het model.
+`minScore` en `maxScore` wijzigen het bereik voor `auto`. Duidelijke spam en duidelijke ham komen nooit bij het model. Elke andere `mode` is een fout, en `llm: false` voor één `scan()` vraagt geen enkel model.
 
 Het oordeel is `spam`, `phishing`, `scam`, `malware` of `ham`. Met `decision` tellen spam, phishing, oplichting en malware samen op tegen ham: een bericht dat het model op 30% spam, 30% phishing en 40% ham zet, is voor 60% ongewenst, en het oordeel is de waarschijnlijkste soort. Een spamoordeel voegt tot 6 punten toe (`LLM_SPAM`, `LLM_PHISHING`, `LLM_SCAM`, `LLM_MALWARE`); een hamoordeel trekt er tot 3 af (`LLM_HAM`), telkens maal de zekerheid. Eén model kan een bericht niet op eigen kracht als spam markeren, tenzij het zeker is: 6 punten bij 85% is 5,1, net boven de drempel. Als het model faalt of een time-out krijgt, gaat de scan zonder het model verder en zegt `results.llm.error` waarom.
 
-Antwoorden worden per bericht gecachet, zodat hetzelfde bericht dat naar veel ontvangers gaat maar één keer wordt voorgelegd.
+Antwoorden worden per bericht gecachet, zodat hetzelfde bericht dat naar veel ontvangers gaat maar één keer wordt voorgelegd, ook als de kopieën tegelijk worden gescand. `timeout` omvat het wachten op een vrije plek voor verzoeken (`concurrency`) en ook de verzoeken voor een bericht: een model dat zo lang bezet blijft, wordt voor dat bericht overgeslagen.
 
 
 ## Aanbieders
@@ -188,7 +188,7 @@ const scanner = new SpamScanner({
     username: 'spam', password: '…', // with auth: 'basic'
     headers: {'x-team': 'mail'},
     ca: fs.readFileSync('internal-ca.pem'), // a private certificate authority
-    timeout: 30_000,
+    timeout: 30_000,                 // waiting and requests, per message
     concurrency: 4,                  // requests at once
     cacheSize: 1000,                 // answers kept in memory
     keepAlive: '24h',                // Ollama: keep the model loaded between messages
@@ -259,7 +259,7 @@ spamscanner milter --llm ollama --llm-policy "We never send invoices by email. A
 
 Het model ziet een samenvatting van de headers (From, Reply-To, To en Subject), de links (eerst die welke het ene adres tonen en naar een ander gaan), de namen en typen van bijlagen, de authenticatieresultaten, hoeveel tekst de HTML verbergt als die meer verbergt dan previewtekst, en de body zoals een mailclient die toont (van de HTML als die er is, zonder verborgen tekst, onzichtbare tekens of opgemaakte letters), ingekort tot 6.000 tekens (`maxInputChars`).
 
-Bij aanbieders buiten je netwerk worden persoonsgegevens eerst verwijderd: het lokale deel van e-mailadressen (het domein blijft, omdat dat voor phishing ertoe doet), kaart- en rekeningnummers, telefoonnummers en de waarden van queryparameters in links, die vaak inlogtokens bevatten. Dit staat standaard aan voor externe aanbieders, beslismodellen inbegrepen, en uit voor lokale (Ollama, LM Studio, llama.cpp, vLLM, LocalAI, Jan, TEI en elke server op localhost). `redact: true` of `false` (`--llm-redact`, `--no-llm-redact`) overschrijft dit.
+Bij aanbieders buiten je netwerk worden persoonsgegevens eerst verwijderd: het lokale deel van e-mailadressen (het domein blijft, omdat dat voor phishing ertoe doet), kaart- en rekeningnummers, internationale telefoonnummers (geschreven met + of 00) en de waarden van queryparameters in links, die vaak inlogtokens bevatten. Dit staat standaard aan voor externe aanbieders, beslismodellen inbegrepen, en uit voor lokale (Ollama, LM Studio, llama.cpp, vLLM, LocalAI, Jan, TEI) op deze machine of in een privénetwerk (een privéadres, een naam zonder punt, of een naam onder .local, .internal, .lan of .home.arpa), en voor elke server op localhost. Een lokale aanbieder die naar een host elders wijst, krijgt mail zonder persoonsgegevens. `redact: true` of `false` (`--llm-redact`, `--no-llm-redact`) overschrijft dit.
 
 Controleer de bewaartermijnen van je aanbieder voordat je er mail naartoe stuurt. Een lokaal model voorkomt die vraag.
 

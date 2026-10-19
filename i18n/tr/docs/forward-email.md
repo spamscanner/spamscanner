@@ -1,4 +1,4 @@
-<!-- source: dc9016edd59e -->
+<!-- source: c70584655c0e -->
 
 # Forward Email
 
@@ -45,7 +45,7 @@ async function onData(stream, session, callback) {
 }
 ```
 
-`scanner.scan()` SMTP akışını doğrudan kabul eder. [mailauth](https://github.com/postalsys/mailauth) sonuçları zaten elinizdeyse `authentication` seçeneğini atlayın ve yalnızca IP adresini verin.
+`scanner.scan()` SMTP akışını doğrudan kabul eder. [mailauth](https://github.com/postalsys/mailauth) sonuçları zaten elinizdeyse bunları `authenticationResults` olarak verin: yeniden denetlenmek yerine puanlanırlar.
 
 421 veya 451 yanıtı, gönderen sunucunun iletiyi kuyruğa almasını ve daha sonra yeniden denemesini sağlar. Yeni reddetme kuralları geçici bir kodla başlayabilir ve sonuçları denetlendikten sonra arada posta kaybetmeden 550'ye geçebilir.
 

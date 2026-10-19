@@ -1,4 +1,4 @@
-<!-- source: 8263c06f1dab -->
+<!-- source: 1a2009efd1f9 -->
 
 # はじめに
 
@@ -25,6 +25,8 @@ Node.jsとモデルを組み込んだ、LinuxまたはmacOS向けのスタンド
 ```sh
 curl -fsSL https://github.com/spamscanner/spamscanner/releases/latest/download/install.sh | bash
 ```
+
+スクリプトはインストール前に、リリースの`SHA256SUMS`ファイルでバイナリを検証します。Linux向けのバイナリはglibcを必要とするため、Alpineなどmuslベースのシステムではnpmでインストールしてください。
 
 Linux（x64とarm64）、macOS（IntelとApple silicon）、Windows向けのバイナリは、各[リリース](https://github.com/spamscanner/spamscanner/releases)に添付されています。
 
@@ -75,6 +77,8 @@ CommonJSでも使えます。
 const SpamScanner = require('spamscanner');
 ```
 
+型定義も含まれており、TypeScript 4.7以降（`require`では5.3以降）で使えます。
+
 `scan()`は生のメッセージをBuffer、文字列、Uint8Array、読み取り可能なストリームとして受け取ります。文字列は常にメッセージのテキストとして扱います。文字列がパスのように見えても、Spam Scannerがファイルを読むことはありません。ファイルには`scanner.scanFile(path)`を使ってください。
 
 
@@ -113,7 +117,7 @@ spamscanner scan message.eml --ip 203.0.113.5 --helo mail.example.com \
 | SPF、DKIM、DMARC、ARC | `authentication: true`                           | `--auth`                   |
 | IPブロックリスト          | `dnsbl: {ip: ['zen.spamhaus.org']}`              | `--dnsbl zen.spamhaus.org` |
 | リンク用のドメインブロックリスト   | `dnsbl: {domain: ['dbl.spamhaus.org']}`          | `--uribl dbl.spamhaus.org` |
-| ClamAV             | `clamav: true`または`clamav: {socket}`              | `--clamav [socket]`        |
+| ClamAV             | `clamav: true`または`clamav: {socket}`              | `--clamav[=socket]`        |
 | 言語モデル              | `llm: {provider: 'ollama', model: 'qwen3.5:4b'}` | `--llm ollama`             |
 | 許可リストと拒否リスト        | `allowlist: [...]`、`denylist: [...]`             | `--allowlist`、`--denylist` |
 

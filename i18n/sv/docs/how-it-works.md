@@ -1,4 +1,4 @@
-<!-- source: 8a788c19971e -->
+<!-- source: a7dfb7c0fde2 -->
 
 # Så fungerar det
 
@@ -19,9 +19,9 @@ Spam Scanner behåller det som fungerar i ordräkning, statistiken, och ändrar 
 
 ### Vad det räknar
 
-Texten som läses är den som ett e-postprogram visar: HTML-delens när det finns en (en textdel bredvid den visas bara där HTML inte kan visas, så en harmlös textdel kan inte tala för HTML-delen), utan taggar, kommentarer, skript och stilar, med inline-taggar som fogar ihop ett ord så som en webbläsare gör (`Free Sp<span>ins</span>`), och med text som HTML-koden döljer utelämnad och räknad: dold av ett element som döljer det som det innehåller (display, opacity, attributet hidden, en beskuren ruta utan storlek, text flyttad utanför sidan), eller osynlig, genomskinlig eller i ett typsnitt på en pixel eller mindre där den står (vilket ett element inuti kan ställa tillbaka, som responsiva mallar gör). Stilar läses som webbläsare läser dem (den sista deklarationen vinner, kommentarer, teckenreferenser); färger mot en bakgrund och klasser i stilmallar läses inte, så sådan text läses som den visas. HTML som visar färre än 20 ord, till exempel en bild av meddelandet, läses tillsammans med sin textdel. Länkar och värdnamn läses från båda delarna och från dold text.
+Texten som läses är den som ett e-postprogram visar: HTML-delens när det finns en (en textdel bredvid den visas bara där HTML inte kan visas, så en harmlös textdel kan inte tala för HTML-delen), utan taggar, kommentarer, skript och stilar, med inline-taggar som fogar ihop ett ord så som en webbläsare gör (`Free Sp<span>ins</span>`), med block, celler och radbrytningar som bryter det (även ett element som en stil visar som ett block, ett block som en webbläsare avslutar av sig självt och ett block som är dolt på sin plats, men inte ett som inte tar någon plats), och med text som HTML-koden döljer utelämnad och räknad: dold av ett element som döljer det som det innehåller (display, opacity, attributet hidden, en beskuren ruta utan storlek, text flyttad utanför sidan), eller osynlig, genomskinlig eller i ett typsnitt på en pixel eller mindre där den står (vilket ett element inuti kan ställa tillbaka, som responsiva mallar gör). Stilar läses som webbläsare läser dem (den sista deklarationen vinner, kommentarer, teckenreferenser); färger mot en bakgrund och klasser i stilmallar läses inte, så sådan text läses som den visas. HTML som visar färre än 20 ord, till exempel en bild av meddelandet, läses tillsammans med sin textdel. Länkar läses från båda delarna, från dold text och från texten som HTML-koden visar, där en adress som delats av inline-taggar (`https://www.pay<b></b>pa1.com/`) läses som en. Värdnamn som skrivits utan länk läses från ämnesraden, texten som läses och en textdel bredvid HTML-delen.
 
-Texten normaliseras först: Unicode NFKC viker stiliserade bokstäver och fullbreddsbokstäver till vanliga, osynliga tecken tas bort och räknas, förväxlingsbara bokstäver i annars latinska eller kyrilliska ord förs tillbaka och siffror som används som bokstäver (`v1agra`) viks ihop. Orden segmenteras sedan med `Intl.Segmenter`, Unicode-reglerna för ordgränser med ordlistor för kinesiska, japanska, thailändska, laotiska, khmer och burmesiska.
+Texten normaliseras först: Unicode NFKC viker stiliserade bokstäver och fullbreddsbokstäver till vanliga, osynliga tecken tas bort och räknas (inte ett nollbreddsmellanslag mellan bokstäver i thailändska, laotiska, khmer, burmesiska eller tibetanska, som skiljer ord åt där, och sammanfogare bara mellan latinska bokstäver), förväxlingsbara bokstäver i ett ord som blandar latinska, kyrilliska eller grekiska bokstäver förs till den skrift som de flesta av dess bokstäver tillhör (`рaypal` med ett kyrilliskt р blir `paypal`, `пpивет` med ett latinskt p blir `привет`), delar av ett ord mellan apostrofer läses var för sig (`iPhone'ы`, en rysk kasusändelse, blandar ingenting) och siffror som används som bokstäver (`v1agra`) viks ihop. Orden segmenteras sedan med `Intl.Segmenter`, Unicode-reglerna för ordgränser med ordlistor för kinesiska, japanska, thailändska, laotiska, khmer och burmesiska.
 
 Ur det extraheras:
 
@@ -63,22 +63,23 @@ Paketet innehåller en modell som tränats på offentliga dataset med öppna lic
 Varje länk kontrolleras:
 
 * **Förväxlingsbara domäner.** Varje domän reduceras till ett skelett med Unicodes tabell över förväxlingsbara tecken, så `pаypal.com` (kyrilliskt а), `paypa1.com`, `rnicrosoft.com` och `xn--pple-43d.com` matchar alla det varumärke de imiterar. Blandade skriftsystem i en etikett, varumärken i underdomäner (`paypal.com.example.net`) och stavfel på en bokstav ger lägre poäng. Nästan 100 varumärken som ofta utges för är inbyggda, och fler kan läggas till.
-* **Vilseledande länkar.** HTML-länkar vars synliga text är en annan adress än målet.
+* **Vilseledande länkar.** HTML-länkar vars synliga text är en annan adress än målet: hela texten, eller en adress med `http://` eller `https://` i sig (`Sign in at https://www.paypal.com`). Ett filnamn eller en webbplats namn i en mening (`Download report.zip`, `Read why Booking.com switched`) är ingen adress. En länk via en utskickstjänsts klickspårning (SendGrid, Mailchimp, Amazon SES, Kit, Brevo, beehiiv, Substack med flera) eller en säkerhetsgateway som skriver om länkar (Microsoft Safe Links, Proofpoint, Mimecast, Barracuda, Cisco) går med avsikt någon annanstans, så den räknas bara när dess text är ett varumärkes fullständiga adress, utan sökväg eller med en inloggningssökväg (inte en länk till ett socialt nätverk, en butiks produkt eller en karta), och avsändaren inte är det varumärket eller någon av dess avsändardomäner. Där en gateways länk innehåller adressen den går vidare till (Safe Links, Proofpoint) jämförs den adressen i stället.
 * **Cloudflares filtrerande resolvrar.** Länkarnas värdar slås upp hos 1.1.1.2, som svarar `0.0.0.0` för kända webbplatser med skadlig kod och nätfiske, och 1.1.1.3, som även blockerar vuxeninnehåll.
 * **Visningsnamn.** Ett namn som ”PayPal Security” från en adress på en annan domän, eller ett namn som innehåller en annan e-postadress.
 
 
 ## Bilagor
 
-Bilagor identifieras utifrån sina byte, inte sina namn eller angivna typer:
+Bilagor identifieras utifrån sina byte och sina namn, inte sina angivna typer:
 
 * körbara filer, genvägar och skript för Windows, Linux och macOS, även när de bytt namn till `.pdf` eller `.jpg`
 * dubbla filändelser (`invoice.pdf.exe`) och tecken för höger-till-vänster-åsidosättning som döljer den verkliga filändelsen
 * körbara filer i ZIP-arkiv, och krypterade arkiv som skannrar inte kan öppna
 * Office-filer med makron, PDF-filer med JavaScript eller startåtgärder, RTF-filer med inbäddade objekt
 * HTML-bilagor, som nätfiske använder för att visa en falsk inloggningssida offline
+* bilagor i bifogade meddelanden (`message/rfc822`, `.eml`), upp till tre nivåer djupt och högst 100 bilagor (meddelandets egna bilagor granskas alltid samtliga)
 
-Med ClamAV skannas bilagor också med `clamd` över dess socket.
+Med ClamAV skannas bilagor också med `clamd` över dess socket. Fyra skannas åt gången, alla inom `clamav.timeout` (60 sekunder), och de som inte kunde skannas listas i `results.virusScanErrors`. De som är större än clamd accepterar (dess `StreamMaxLength`) listas i stället i `results.virusScanSkipped`: clamd nekar dem vid varje försök.
 
 
 ## Autentisering

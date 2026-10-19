@@ -15,7 +15,7 @@ Spam Scanner answers SpamAssassin's spamd protocol, so software written for Spam
 ```sh
 sudo systemctl disable --now spamd       # or spamassassin
 npm install --global spamscanner
-spamscanner spamd --port 783 --auth
+spamscanner spamd --port 783
 ```
 
 ```sh

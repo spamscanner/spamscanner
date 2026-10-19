@@ -1,4 +1,4 @@
-<!-- source: 8263c06f1dab -->
+<!-- source: 1a2009efd1f9 -->
 
 # Erste Schritte
 
@@ -25,6 +25,8 @@ Als eigenständige Binärdatei für Linux oder macOS, mit eingebautem Node.js un
 ```sh
 curl -fsSL https://github.com/spamscanner/spamscanner/releases/latest/download/install.sh | bash
 ```
+
+Das Skript prüft die Binärdatei vor der Installation anhand der Datei `SHA256SUMS` des Releases. Die Linux-Binärdateien benötigen glibc; installieren Sie auf Alpine und anderen musl-basierten Systemen stattdessen mit npm.
 
 Binärdateien für Linux (x64 und arm64), macOS (Intel und Apple Silicon) und Windows hängen an jedem [Release](https://github.com/spamscanner/spamscanner/releases).
 
@@ -75,6 +77,8 @@ CommonJS funktioniert ebenfalls:
 const SpamScanner = require('spamscanner');
 ```
 
+Typdeklarationen sind enthalten, für TypeScript 4.7 oder neuer (5.3 oder neuer mit `require`).
+
 `scan()` nimmt die rohe Nachricht als Buffer, String, Uint8Array oder lesbaren Stream entgegen. Ein String ist immer Nachrichtentext: Spam Scanner liest nie eine Datei, nur weil ein String wie ein Pfad aussieht. Für Dateien gibt es `scanner.scanFile(path)`.
 
 
@@ -113,7 +117,7 @@ Keine davon ist standardmäßig aktiv, denn jede braucht einen Dienst oder eine 
 | SPF, DKIM, DMARC, ARC       | `authentication: true`                           | `--auth`                    |
 | IP-Blockliste               | `dnsbl: {ip: ['zen.spamhaus.org']}`              | `--dnsbl zen.spamhaus.org`  |
 | Domain-Blockliste für Links | `dnsbl: {domain: ['dbl.spamhaus.org']}`          | `--uribl dbl.spamhaus.org`  |
-| ClamAV                      | `clamav: true` oder `clamav: {socket}`           | `--clamav [socket]`         |
+| ClamAV                      | `clamav: true` oder `clamav: {socket}`           | `--clamav[=socket]`         |
 | Ein Sprachmodell            | `llm: {provider: 'ollama', model: 'qwen3.5:4b'}` | `--llm ollama`              |
 | Erlaubt- und Sperrlisten    | `allowlist: [...]`, `denylist: [...]`            | `--allowlist`, `--denylist` |
 

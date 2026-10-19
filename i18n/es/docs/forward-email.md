@@ -1,4 +1,4 @@
-<!-- source: dc9016edd59e -->
+<!-- source: c70584655c0e -->
 
 # Forward Email
 
@@ -45,7 +45,7 @@ async function onData(stream, session, callback) {
 }
 ```
 
-`scanner.scan()` acepta directamente el flujo SMTP. Si ya tienes a mano los resultados de [mailauth](https://github.com/postalsys/mailauth), omite `authentication` y pasa solo la dirección IP.
+`scanner.scan()` acepta directamente el flujo SMTP. Si ya tienes a mano los resultados de [mailauth](https://github.com/postalsys/mailauth), pásalos como `authenticationResults`: se puntúan en lugar de comprobarse de nuevo.
 
 Una respuesta 421 o 451 hace que el servidor remitente ponga el mensaje en cola y vuelva a intentarlo más tarde. Las reglas de rechazo nuevas pueden empezar con un código temporal y pasar a 550 cuando se hayan revisado sus resultados, sin perder correo entretanto.
 

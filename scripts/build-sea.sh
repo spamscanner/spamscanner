@@ -4,6 +4,9 @@
 
 set -e
 
+# postject, run with npx, at the exact version the release workflow uses.
+POSTJECT="postject@1.0.0-alpha.6"
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 cd "$PROJECT_DIR"
@@ -75,13 +78,13 @@ cp "$(which node)" "$BINARY_NAME"
 if [[ "$OS" == "darwin" ]]; then
   # macOS: Remove signature, inject blob, re-sign
   codesign --remove-signature "$BINARY_NAME" 2>/dev/null || true
-  npx postject "$BINARY_NAME" NODE_SEA_BLOB sea-prep.blob \
+  npx --yes "$POSTJECT" "$BINARY_NAME" NODE_SEA_BLOB sea-prep.blob \
     --sentinel-fuse NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2 \
     --macho-segment-name NODE_SEA
   codesign --sign - "$BINARY_NAME" 2>/dev/null || true
 else
   # Linux: Just inject blob
-  npx postject "$BINARY_NAME" NODE_SEA_BLOB sea-prep.blob \
+  npx --yes "$POSTJECT" "$BINARY_NAME" NODE_SEA_BLOB sea-prep.blob \
     --sentinel-fuse NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2
 fi
 
@@ -99,13 +102,19 @@ echo "Help (first 10 lines):"
 
 echo ""
 echo "Scan test:"
+# Exit code 0 is ham and 1 is spam; anything else is an error.
+status=0
 echo "From: test@example.com
 To: recipient@example.net
 Subject: Test Email
 Date: Thu, 1 Jan 2024 00:00:00 +0000
 Message-ID: <test@example.com>
 
-This is a test email." | ./"$BINARY_NAME" scan - --no-cloudflare || echo "Scan completed"
+This is a test email." | ./"$BINARY_NAME" scan - --no-cloudflare || status=$?
+if [ "$status" -gt 1 ]; then
+  echo "Scan failed with exit code $status"
+  exit 1
+fi
 
 # Cleanup
 rm -f sea-config.json sea-prep.blob

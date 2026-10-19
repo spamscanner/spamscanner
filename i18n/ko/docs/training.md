@@ -1,4 +1,4 @@
-<!-- source: 7cc30ff4ad91 -->
+<!-- source: 4d7afeb36844 -->
 
 # 학습
 
@@ -15,12 +15,12 @@ spamscanner train --spam ~/Maildir/.Junk --ham ~/Maildir/cur --ham ~/Maildir/.Ar
 
 다음을 입력으로 사용할 수 있습니다.
 
-* **mbox** 파일(gzip으로 압축한 `.mbox.gz` 포함),
+* **mbox** 파일(gzip으로 압축한 `.mbox.gz` 포함. 다른 `.gz` 파일은 건너뜁니다),
 * **Maildir**(`cur`와 `new` 폴더를 읽고 `tmp`는 건너뜁니다),
 * `.eml` 파일이 든 **폴더**(하위 폴더까지 읽습니다),
-* **데이터 세트**: 텍스트 열과 레이블 열이 있는 CSV 또는 JSON Lines 파일(`--dataset`). 이름이 `text`, `message`, `body`, `email`, `content`인 열과 `label`, `category`, `class`, `spam`, `is_spam`인 열은 자동으로 찾습니다. 그렇지 않으면 `--text-column`과 `--label-column`을 사용합니다. `spam`, `1`, `phishing`과 `ham`, `0`, `not_spam`, `legitimate` 같은 레이블을 인식합니다.
+* **데이터 세트**: 텍스트 열과 레이블 열이 있는 CSV 또는 JSON Lines 파일(`--dataset`). 이름이 `text`, `message`, `body`, `email text`, `email`, `content`, `sms`, `v2`인 열이나 JSON 필드와 `label`, `category`, `is_spam`, `spam`, `email type`, `class`, `type`, `label_text`, `v1`, `labels`인 열이나 JSON 필드는 대소문자에 관계없이 자동으로 찾습니다(JSON Lines에서는 `label_text`를 `label`보다 먼저 찾습니다). 그렇지 않으면 `--text-column`과 `--label-column`을 사용합니다. 객체가 아닌 JSON 줄은 건너뜁니다. `spam`, `1`, `phishing`과 `ham`, `0`, `not_spam`, `legitimate` 같은 레이블을 인식합니다.
 
-중복 메시지는 한 번만 셉니다. 빈 모델에서 시작하지 않고 번들 모델 위에 학습하려면 `--merge`를 추가합니다.
+중복 메시지는 한 번만 셉니다. 스팸 출처와 햄 출처 양쪽에 있는 메시지는 스팸 출처를 먼저 읽으므로 스팸으로 남습니다. 빈 모델에서 시작하지 않고 번들 모델 위에 학습하려면 `--merge`를 추가합니다.
 
 모델 사용:
 

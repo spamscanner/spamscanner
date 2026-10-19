@@ -1,4 +1,4 @@
-<!-- source: c061da9312ad -->
+<!-- source: f8a77c318b83 -->
 
 # Opdrachtregel
 
@@ -59,16 +59,16 @@ Exitcodes: 0 ham, 1 spam, 2 fout.
 
 ### Controles
 
-| Optie                 | Betekenis                                                                |
-| --------------------- | ------------------------------------------------------------------------ |
-| `--auth`              | Controleert SPF, DKIM, DMARC en ARC (vereist `--ip`)                     |
-| `--dnsbl <zone>`      | IP-blocklist, bijvoorbeeld `zen.spamhaus.org`; herhaalbaar               |
-| `--uribl <zone>`      | Domeinblocklist voor links, bijvoorbeeld `dbl.spamhaus.org`; herhaalbaar |
-| `--dns-server <ip>`   | Nameserver voor DNS-controles; herhaalbaar                               |
-| `--no-cloudflare`     | Vraagt de filterende resolvers van Cloudflare niet naar links            |
-| `--clamav [socket]`   | Scant bijlagen met clamd, op de standaardsocket of de opgegeven socket   |
-| `--allowlist <value>` | Accepteert dit IP-adres, domein of adres altijd; herhaalbaar             |
-| `--denylist <value>`  | Weigert dit IP-adres, domein of adres altijd; herhaalbaar                |
+| Optie                 | Betekenis                                                                                                                                             |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--auth`              | Controleert SPF, DKIM, DMARC en ARC (vereist `--ip`)                                                                                                  |
+| `--dnsbl <zone>`      | IP-blocklist, bijvoorbeeld `zen.spamhaus.org`; herhaalbaar                                                                                            |
+| `--uribl <zone>`      | Domeinblocklist voor links, bijvoorbeeld `dbl.spamhaus.org`; herhaalbaar                                                                              |
+| `--dns-server <ip>`   | Nameserver voor DNS-controles; herhaalbaar                                                                                                            |
+| `--no-cloudflare`     | Vraagt de filterende resolvers van Cloudflare niet naar links                                                                                         |
+| `--clamav[=socket]`   | Scant bijlagen met clamd, op de standaardsocket of de opgegeven socket                                                                                |
+| `--allowlist <value>` | Dit client-IP-adres of deze hostnaam altijd accepteren, of dit domein of adres wanneer de authenticatie de afzender bevestigt (`--auth`); herhaalbaar |
+| `--denylist <value>`  | Weigert dit IP-adres, domein of adres altijd; herhaalbaar                                                                                             |
 
 ### Taalmodel
 
@@ -85,7 +85,7 @@ Exitcodes: 0 ham, 1 spam, 2 fout.
 | `--llm-auth-header <name>`                                 | Header voor de sleutel, met `--llm-auth header`                                                                                              |
 | `--llm-username`, `--llm-password`                         | Voor `--llm-auth basic`                                                                                                                      |
 | `--llm-header "Name: value"`                               | Extra request-header; herhaalbaar                                                                                                            |
-| `--llm-mode <mode>`                                        | `auto` (alleen twijfelgevallen, de standaard) of `always`                                                                                    |
+| `--llm-mode <mode>`                                        | `auto` (alleen twijfelgevallen, de standaard), `always` of `off`                                                                             |
 | `--llm-timeout <ms>`                                       | Standaard 30000                                                                                                                              |
 | `--llm-policy <text>`                                      | Extra regels voor het model, bijvoorbeeld „We never send invoices”                                                                           |
 | `--llm-redact`, `--no-llm-redact`                          | Verwijdert eerst persoonsgegevens; standaard aan bij externe aanbieders                                                                      |
@@ -99,43 +99,49 @@ Een [contentfilter voor Postfix](postfix.md#content-filter). Het leest een beric
 spamscanner filter -f "$sender" -- "$recipient"
 ```
 
-| Optie                 | Betekenis                                                             |
-| --------------------- | --------------------------------------------------------------------- |
-| `--sendmail <path>`   | Standaard `/usr/sbin/sendmail`                                        |
-| `--subject-tag <tag>` | Zet een voorvoegsel voor het onderwerp van spam                       |
-| `--reject`            | Stuurt mail op de weigerdrempel terug in plaats van hem door te geven |
-| `--discard`           | Gooit mail op de weigerdrempel weg in plaats van hem door te geven    |
+| Optie                 | Betekenis                                                                             |
+| --------------------- | ------------------------------------------------------------------------------------- |
+| `--sendmail <path>`   | Standaard `/usr/sbin/sendmail`                                                        |
+| `--subject-tag <tag>` | Zet een voorvoegsel voor het onderwerp van spam                                       |
+| `--reject`            | Stuurt mail op de weigerdrempel terug in plaats van hem door te geven                 |
+| `--discard`           | Gooit mail op de weigerdrempel weg in plaats van hem door te geven                    |
+| `--on-error <answer>` | Voor mail die niet volledig gescand kon worden: `tempfail` (de standaard) of `accept` |
 
-Exitcodes volgen de conventies van sendmail, die Postfix leest: 0 bezorgd (of weggegooid), 64 geen ontvangers opgegeven, 69 geweigerd als spam (Postfix stuurt het terug), 75 elke andere fout, zodat Postfix het bericht vasthoudt en het later opnieuw probeert.
+Exitcodes volgen de conventies van sendmail, die Postfix leest: 0 bezorgd (of weggegooid), 64 geen ontvangers opgegeven, 69 geweigerd als spam (Postfix stuurt het terug), 75 elke andere fout, zodat Postfix het bericht vasthoudt en het later opnieuw probeert. Een bericht met een bijlage die ClamAV niet kon scannen, geldt ook als fout. Met `--on-error accept` wordt zo'n bericht, of een bericht waarvan de scan mislukte, doorgegeven met `X-Spam-Virus-Scan: failed` en zonder `X-Spam-*`-headers die de afzender toevoegde.
 
 
 ## milter, http, server en spamd
 
 ```sh
 spamscanner milter --port 7831 --reject --subject-tag "[SPAM]"
-spamscanner http --port 7832 --token "$SPAMSCANNER_TOKEN"
+spamscanner http --port 7832    # token in SPAMSCANNER_TOKEN
 spamscanner server --port 7830
 spamscanner spamd --port 783
 ```
 
+De HTTP-API leest zijn token uit de omgevingsvariabele `SPAMSCANNER_TOKEN`. `--token` werkt ook, maar andere gebruikers van de machine kunnen opdrachtregelopties zien in `ps`.
+
 Poort 783 is de poort die SpamAssassin-clients standaard gebruiken. Poorten onder 1024 vereisen root of de capability `CAP_NET_BIND_SERVICE`; gebruik een andere poort, zoals `--port 7833`, en geef die aan de client door.
 
-| Optie                 | Betekenis                                                           |
-| --------------------- | ------------------------------------------------------------------- |
-| `--port <n>`          | TCP-poort                                                           |
-| `--host <ip>`         | Adres waarop wordt geluisterd (standaard 127.0.0.1)                 |
-| `--socket <path>`     | Luistert in plaats daarvan op een Unix-socket                       |
-| `--reject`            | Milter: weigert mail op de weigerdrempel                            |
-| `--reject-code <n>`   | Milter: 451, later opnieuw proberen (de standaard), of 550          |
-| `--quarantine`        | Milter: houdt spam vast in de quarantaine van de mailserver         |
-| `--name <hostname>`   | Milter: de naam van deze server in Authentication-Results           |
-| `--token <secret>`    | HTTP: vereist `Authorization: Bearer <secret>`; nodig voor `/learn` |
-| `--allow-tell`        | spamd: accepteert TELL-verzoeken (`spamc -L spam`) om te leren      |
-| `--out <file>`        | HTTP en spamd: slaat het geleerde op in dit modelbestand            |
-| `--subject-tag <tag>` | Milter en spamd: zet een voorvoegsel voor het onderwerp van spam    |
-| `--verbose`           | Milter: logt elke scan. TCP-server: antwoordt met één regel tekst   |
+| Optie                 | Betekenis                                                                                     |
+| --------------------- | --------------------------------------------------------------------------------------------- |
+| `--port <n>`          | TCP-poort                                                                                     |
+| `--host <ip>`         | Adres waarop wordt geluisterd (standaard 127.0.0.1)                                           |
+| `--socket <path>`     | Luistert in plaats daarvan op een Unix-socket                                                 |
+| `--reject`            | Milter: weigert mail op de weigerdrempel                                                      |
+| `--reject-code <n>`   | Milter: een 4xx-code, later opnieuw proberen (451, de standaard), of een 5xx-code zoals 550   |
+| `--quarantine`        | Milter: houdt spam vast in de quarantaine van de mailserver                                   |
+| `--on-error <answer>` | Milter: voor mail die niet volledig gescand kon worden, `tempfail` (de standaard) of `accept` |
+| `--name <hostname>`   | Milter: de naam van deze server in Authentication-Results                                     |
+| `--token <secret>`    | HTTP: vereist `Authorization: Bearer <secret>`; nodig voor `/learn`                           |
+| `--allow-tell`        | spamd: accepteert TELL-verzoeken (`spamc -L spam`) om te leren                                |
+| `--out <file>`        | HTTP en spamd: slaat het geleerde op in dit modelbestand                                      |
+| `--subject-tag <tag>` | Milter en spamd: zet een voorvoegsel voor het onderwerp van spam                              |
+| `--verbose`           | Milter: logt elke scan. TCP-server: antwoordt met één regel tekst                             |
 
 De scanopties hierboven gelden ook voor de servers. [De milter](postfix.md#milter), [de HTTP API, de TCP-server en spamd](http-api.md).
+
+spamd- en TCP-clients sturen het IP-adres van de client die het bericht verstuurde niet mee, en HTTP-clients alleen met `?ip=`, dus `--auth` en `--dnsbl` werken alleen met de milter en met HTTP-verzoeken die het meegeven. De servers melden dit als ze met deze opties starten.
 
 
 ## train, eval en learn
@@ -157,6 +163,8 @@ spamscanner learn spam message.eml --model my-model.json
 
 `learn` werkt het modelbestand ter plekke bij en maakt het de eerste keer aan vanuit het meegeleverde model. [Training](training.md)
 
+Met zowel `--model` als `--out` begint `learn` bij het `--model`-bestand en schrijft het resultaat naar `--out`.
+
 
 ## llm-test en models
 
@@ -165,7 +173,7 @@ spamscanner models
 spamscanner llm-test --llm ollama --llm-model qwen3.5:4b
 ```
 
-`llm-test` stuurt één gewoon bericht en twee oplichtingsberichten, in het Engels en Italiaans, naar het model, toont de oordelen, de tijd die elk kostte, de gebruikte methode en de hardware, en eindigt alleen met 0 als alle drie kloppen.
+`llm-test` stuurt één gewoon bericht en twee oplichtingsberichten, in het Engels en Italiaans, naar het model, toont de oordelen, de tijd die elk kostte, de gebruikte methode en, voor een model op deze machine, de hardware, en eindigt alleen met 0 als alle drie kloppen.
 
 
 ## Configuratiebestand

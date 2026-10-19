@@ -1,4 +1,4 @@
-<!-- source: dc9016edd59e -->
+<!-- source: c70584655c0e -->
 
 # Forward Email
 
@@ -45,7 +45,7 @@ async function onData(stream, session, callback) {
 }
 ```
 
-`scanner.scan()`은 SMTP 스트림을 직접 받습니다. 이미 [mailauth](https://github.com/postalsys/mailauth) 결과가 있다면 `authentication`은 생략하고 IP 주소만 전달하십시오.
+`scanner.scan()`은 SMTP 스트림을 직접 받습니다. 이미 [mailauth](https://github.com/postalsys/mailauth) 결과가 있다면 `authenticationResults`로 전달하십시오. 다시 검사하지 않고 그 결과로 점수를 매깁니다.
 
 421 또는 451로 응답하면 발신 서버는 메시지를 큐에 넣고 나중에 다시 시도합니다. 새 거부 규칙은 일시적 코드로 시작했다가 결과를 확인한 뒤 550으로 바꿀 수 있으며, 그동안 메일을 잃지 않습니다.
 

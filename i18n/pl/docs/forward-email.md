@@ -1,4 +1,4 @@
-<!-- source: dc9016edd59e -->
+<!-- source: c70584655c0e -->
 
 # Forward Email
 
@@ -45,7 +45,7 @@ async function onData(stream, session, callback) {
 }
 ```
 
-`scanner.scan()` przyjmuje bezpośrednio strumień SMTP. Jeśli wyniki z [mailauth](https://github.com/postalsys/mailauth) są już dostępne, pomiń `authentication` i przekaż tylko adres IP.
+`scanner.scan()` przyjmuje bezpośrednio strumień SMTP. Jeśli wyniki z [mailauth](https://github.com/postalsys/mailauth) są już dostępne, przekaż je jako `authenticationResults`: zostaną ocenione punktowo zamiast ponownie sprawdzone.
 
 Odpowiedź 421 lub 451 sprawia, że serwer wysyłający umieszcza wiadomość w kolejce i ponawia próbę później. Nowe reguły odrzucania mogą zaczynać od kodu tymczasowego i przejść na 550, gdy ich wyniki zostaną sprawdzone, bez utraty poczty w międzyczasie.
 

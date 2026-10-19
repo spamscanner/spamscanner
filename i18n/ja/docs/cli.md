@@ -1,4 +1,4 @@
-<!-- source: c061da9312ad -->
+<!-- source: f8a77c318b83 -->
 
 # コマンドライン
 
@@ -59,16 +59,16 @@ spamscanner scan message.eml --subject-tag "[SPAM]" > tagged.eml
 
 ### 検査
 
-| オプション                 | 意味                                            |
-| --------------------- | --------------------------------------------- |
-| `--auth`              | SPF、DKIM、DMARC、ARCを検査する（`--ip`が必要）            |
-| `--dnsbl <zone>`      | IPブロックリスト。例：`zen.spamhaus.org`。繰り返し指定可        |
-| `--uribl <zone>`      | リンク用のドメインブロックリスト。例：`dbl.spamhaus.org`。繰り返し指定可 |
-| `--dns-server <ip>`   | DNS検査に使うネームサーバー。繰り返し指定可                       |
-| `--no-cloudflare`     | リンクについてCloudflareのフィルタリング用リゾルバーに問い合わせない       |
-| `--clamav [socket]`   | clamdで添付ファイルをスキャンする。デフォルトのソケットか指定したソケットを使う    |
-| `--allowlist <value>` | このIPアドレス、ドメイン、アドレスを常に受け入れる。繰り返し指定可            |
-| `--denylist <value>`  | このIPアドレス、ドメイン、アドレスを常に拒否する。繰り返し指定可             |
+| オプション                 | 意味                                                                            |
+| --------------------- | ----------------------------------------------------------------------------- |
+| `--auth`              | SPF、DKIM、DMARC、ARCを検査する（`--ip`が必要）                                            |
+| `--dnsbl <zone>`      | IPブロックリスト。例：`zen.spamhaus.org`。繰り返し指定可                                        |
+| `--uribl <zone>`      | リンク用のドメインブロックリスト。例：`dbl.spamhaus.org`。繰り返し指定可                                 |
+| `--dns-server <ip>`   | DNS検査に使うネームサーバー。繰り返し指定可                                                       |
+| `--no-cloudflare`     | リンクについてCloudflareのフィルタリング用リゾルバーに問い合わせない                                       |
+| `--clamav[=socket]`   | clamdで添付ファイルをスキャンする。デフォルトのソケットか指定したソケットを使う                                    |
+| `--allowlist <value>` | このクライアント IP アドレスやホスト名、または認証で送信者が確認されたときのこのドメインやアドレス（`--auth`）を常に受け入れる。繰り返し指定可 |
+| `--denylist <value>`  | このIPアドレス、ドメイン、アドレスを常に拒否する。繰り返し指定可                                             |
 
 ### 言語モデル
 
@@ -85,7 +85,7 @@ spamscanner scan message.eml --subject-tag "[SPAM]" > tagged.eml
 | `--llm-auth-header <name>`                              | キーを入れるヘッダー。`--llm-auth header`と併用                                                         |
 | `--llm-username`、`--llm-password`                       | `--llm-auth basic`用                                                                       |
 | `--llm-header "Name: value"`                            | 追加のリクエストヘッダー。繰り返し指定可                                                                      |
-| `--llm-mode <mode>`                                     | `auto`（際どい判定のみ、デフォルト）または`always`                                                          |
+| `--llm-mode <mode>`                                     | `auto`（際どい判定のみ、デフォルト）、`always`、または`off`                                                   |
 | `--llm-timeout <ms>`                                    | デフォルトは30000                                                                               |
 | `--llm-policy <text>`                                   | モデル向けの追加ルール。例：「請求書をメールで送ることはない」                                                           |
 | `--llm-redact`、`--no-llm-redact`                        | 先に個人データを削除する。リモートのプロバイダーではデフォルトで有効                                                        |
@@ -99,43 +99,49 @@ spamscanner scan message.eml --subject-tag "[SPAM]" > tagged.eml
 spamscanner filter -f "$sender" -- "$recipient"
 ```
 
-| オプション                 | 意味                         |
-| --------------------- | -------------------------- |
-| `--sendmail <path>`   | デフォルトは`/usr/sbin/sendmail` |
-| `--subject-tag <tag>` | スパムの件名の先頭に付ける              |
-| `--reject`            | 拒否のしきい値に達したメールを、渡さずにバウンスする |
-| `--discard`           | 拒否のしきい値に達したメールを、渡さずに破棄する   |
+| オプション                 | 意味                                                |
+| --------------------- | ------------------------------------------------- |
+| `--sendmail <path>`   | デフォルトは`/usr/sbin/sendmail`                        |
+| `--subject-tag <tag>` | スパムの件名の先頭に付ける                                     |
+| `--reject`            | 拒否のしきい値に達したメールを、渡さずにバウンスする                        |
+| `--discard`           | 拒否のしきい値に達したメールを、渡さずに破棄する                          |
+| `--on-error <answer>` | 完全にはスキャンできなかったメールの扱い。`tempfail`（デフォルト）または`accept` |
 
-終了コードは、Postfixが読み取るsendmailの慣例に従います。0は配送済み（または破棄済み）、64は受信者の指定なし、69はスパムとして拒否（Postfixがバウンスする）、75はなんらかの失敗です。75の場合、Postfixはメッセージを保持して後で再試行します。
+終了コードは、Postfixが読み取るsendmailの慣例に従います。0は配送済み（または破棄済み）、64は受信者の指定なし、69はスパムとして拒否（Postfixがバウンスする）、75はなんらかの失敗です。75の場合、Postfixはメッセージを保持して後で再試行します。ClamAVがスキャンできなかった添付ファイルを含むメッセージも失敗として扱います。`--on-error accept`を指定すると、そのようなメッセージやスキャンに失敗したメッセージは、`X-Spam-Virus-Scan: failed`を付け、送信者が付けた`X-Spam-*`ヘッダーを除いて渡されます。
 
 
 ## milter、http、server、spamd
 
 ```sh
 spamscanner milter --port 7831 --reject --subject-tag "[SPAM]"
-spamscanner http --port 7832 --token "$SPAMSCANNER_TOKEN"
+spamscanner http --port 7832    # token in SPAMSCANNER_TOKEN
 spamscanner server --port 7830
 spamscanner spamd --port 783
 ```
 
+HTTP API はトークンを環境変数 `SPAMSCANNER_TOKEN` から読み込みます。`--token` も使えますが、同じマシンの他のユーザーは `ps` でコマンドラインオプションを見ることができます。
+
 ポート783は、SpamAssassinのクライアントがデフォルトで使うポートです。1024未満のポートにはrootか`CAP_NET_BIND_SERVICE`ケーパビリティが必要です。`--port 7833`のような別のポートを使い、クライアントにそれを指定してください。
 
-| オプション                 | 意味                                                      |
-| --------------------- | ------------------------------------------------------- |
-| `--port <n>`          | TCPポート                                                  |
-| `--host <ip>`         | 待ち受けるアドレス（デフォルトは127.0.0.1）                              |
-| `--socket <path>`     | 代わりにUnixソケットで待ち受ける                                      |
-| `--reject`            | milter：拒否のしきい値に達したメールを拒否する                              |
-| `--reject-code <n>`   | milter：451（後で再試行、デフォルト）または550                           |
-| `--quarantine`        | milter：スパムをメールサーバーの隔離領域に保留する                            |
-| `--name <hostname>`   | milter：Authentication-Resultsに記載するこのサーバーの名前             |
-| `--token <secret>`    | HTTP：`Authorization: Bearer <secret>`を必須にする。`/learn`に必要 |
-| `--allow-tell`        | spamd：学習用のTELLリクエスト（`spamc -L spam`）を受け付ける              |
-| `--out <file>`        | HTTPとspamd：学習した内容をこのモデルファイルに保存する                        |
-| `--subject-tag <tag>` | milterとspamd：スパムの件名の先頭に付ける                              |
-| `--verbose`           | milter：すべてのスキャンをログに記録する。TCPサーバー：1行のテキストで応答する            |
+| オプション                 | 意味                                                       |
+| --------------------- | -------------------------------------------------------- |
+| `--port <n>`          | TCPポート                                                   |
+| `--host <ip>`         | 待ち受けるアドレス（デフォルトは127.0.0.1）                               |
+| `--socket <path>`     | 代わりにUnixソケットで待ち受ける                                       |
+| `--reject`            | milter：拒否のしきい値に達したメールを拒否する                               |
+| `--reject-code <n>`   | milter：4xxコード（後で再試行、451がデフォルト）、または550などの5xxコード           |
+| `--quarantine`        | milter：スパムをメールサーバーの隔離領域に保留する                             |
+| `--on-error <answer>` | milter：完全にはスキャンできなかったメールの扱い。`tempfail`（デフォルト）または`accept` |
+| `--name <hostname>`   | milter：Authentication-Resultsに記載するこのサーバーの名前              |
+| `--token <secret>`    | HTTP：`Authorization: Bearer <secret>`を必須にする。`/learn`に必要  |
+| `--allow-tell`        | spamd：学習用のTELLリクエスト（`spamc -L spam`）を受け付ける               |
+| `--out <file>`        | HTTPとspamd：学習した内容をこのモデルファイルに保存する                         |
+| `--subject-tag <tag>` | milterとspamd：スパムの件名の先頭に付ける                               |
+| `--verbose`           | milter：すべてのスキャンをログに記録する。TCPサーバー：1行のテキストで応答する             |
 
 上記のスキャンのオプションはサーバーにも適用されます。[milter](postfix.md#milter)、[HTTP API、TCPサーバー、spamd](http-api.md)を参照してください。
+
+spamd と TCP のクライアントはメッセージを送ってきたクライアントの IP アドレスを送らず、HTTP クライアントも `?ip=` を付けたときだけ送ります。そのため `--auth` と `--dnsbl` が働くのは、milter と、IP アドレスを渡す HTTP リクエストだけです。これらのオプションを付けて起動すると、サーバーがその旨を表示します。
 
 
 ## train、eval、learn
@@ -157,6 +163,8 @@ spamscanner learn spam message.eml --model my-model.json
 
 `learn`はモデルファイルをその場で更新し、初回は同梱モデルからファイルを作ります。[学習](training.md)
 
+`--model` と `--out` の両方を指定すると、`learn` は `--model` のファイルから始めて、結果を `--out` に書き込みます。
+
 
 ## llm-testとmodels
 
@@ -165,7 +173,7 @@ spamscanner models
 spamscanner llm-test --llm ollama --llm-model qwen3.5:4b
 ```
 
-`llm-test`は、英語とイタリア語で、普通のメッセージ1通と詐欺のメッセージ2通をモデルに送り、その判定、それぞれにかかった時間、使った方式、ハードウェアを表示します。3通すべてが正しい場合にだけ0で終了します。
+`llm-test`は、英語とイタリア語で、普通のメッセージ1通と詐欺のメッセージ2通をモデルに送り、その判定、それぞれにかかった時間、使った方式、そしてこのマシン上のモデルであればハードウェアを表示します。3通すべてが正しい場合にだけ0で終了します。
 
 
 ## 設定ファイル

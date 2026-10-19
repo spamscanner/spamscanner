@@ -1,4 +1,4 @@
-<!-- source: 60f00f92b5aa -->
+<!-- source: df3e980c3ef1 -->
 
 # Sicurezza e privacy
 
@@ -11,13 +11,13 @@ Per impostazione predefinita, una cosa sola: i **nomi host dei link** in un mess
 
 Tutto il resto è disattivato finché non viene configurato:
 
-| Controllo           | Invia                                                                          | A                                                                         |
-| ------------------- | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------- |
-| `authentication`    | Query DNS per i record SPF, DKIM, DMARC e ARC del mittente                     | Il tuo resolver, o `dnsServers`                                           |
-| `dnsbl`             | L'indirizzo IP del client, invertito, e i domini dei link, come query DNS      | I name server delle blocklist, tramite il tuo resolver o `dns.servers`    |
-| `llm`               | Un riassunto del messaggio, con i dati personali rimossi per i provider remoti | Il server del modello linguistico che indichi ([privacy](llm.md#privacy)) |
-| `reputation.apiUrl` | L'indirizzo IP, il dominio e l'indirizzo del mittente                          | Il servizio che indichi                                                   |
-| `clamav`            | Gli allegati                                                                   | Il tuo clamd, tramite il suo socket                                       |
+| Controllo           | Invia                                                                                                                             | A                                                                         |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| `authentication`    | Query DNS per i record SPF, DKIM, DMARC e ARC del mittente                                                                        | Il tuo resolver, o `dnsServers`                                           |
+| `dnsbl`             | L'indirizzo IP del client, invertito, e i domini dei link, come query DNS                                                         | I name server delle blocklist, tramite il tuo resolver o `dns.servers`    |
+| `llm`               | Un riassunto del messaggio, con i dati personali rimossi per i provider remoti                                                    | Il server del modello linguistico che indichi ([privacy](llm.md#privacy)) |
+| `reputation.apiUrl` | L'indirizzo IP e il nome host verificato del client, e gli indirizzi From, del mittente della busta e Reply-To, con i loro domini | Il servizio che indichi                                                   |
+| `clamav`            | Gli allegati                                                                                                                      | Il tuo clamd, tramite il suo socket                                       |
 
 Non c'è telemetria, nessun controllo degli aggiornamenti e nessun download durante l'esecuzione. Il modello è incluso nel pacchetto.
 
@@ -26,14 +26,15 @@ Non c'è telemetria, nessun controllo degli aggiornamenti e nessun download dura
 
 Niente, se non richiesto. Le analisi non vengono registrate né archiviate. `learn()` modifica il classificatore in memoria; viene scritto su disco solo da `saveModel()`, `spamscanner learn` o dall'opzione `--out` dei server. Un file di modello contiene conteggi di feature sottoposti a hash, non parole né testo dei messaggi.
 
-Le risposte del modello linguistico vengono memorizzate in cache in memoria, indicizzate da un hash di ciò che è stato inviato, quindi le copie ripetute dello stesso messaggio vengono sottoposte al modello una volta sola. Le risposte DNS restano in cache in memoria per dieci minuti.
+Le risposte del modello linguistico vengono memorizzate in cache in memoria, indicizzate da un hash di ciò che è stato inviato, quindi le copie ripetute dello stesso messaggio vengono sottoposte al modello una volta sola. Le risposte DNS restano in cache in memoria per dieci minuti, e quelle di un servizio di reputazione per cinque (`reputation.cacheTtl`; una richiesta fallita per un minuto).
 
 
 ## Input ostile
 
-* Gli allegati vengono identificati dai loro byte, mai eseguiti o aperti da un altro programma. Gli archivi ZIP vengono letti dalla loro directory centrale, con un limite al numero di voci; gli archivi annidati non vengono estratti.
-* Il testo del corpo viene letto fino a `maxLength` (100.000 caratteri) e i server accettano messaggi fino a 25 MB.
-* Ogni controllo di rete ha un timeout (`timeout`, 10 secondi per impostazione predefinita). Un controllo che fallisce o va in timeout viene saltato e l'analisi si conclude senza di esso.
+* Gli allegati vengono identificati dai loro byte, mai eseguiti o aperti da un altro programma. Gli archivi ZIP vengono letti dalla loro directory centrale, con un limite al numero di voci; gli archivi annidati non vengono estratti. I messaggi allegati (`message/rfc822`, o allegati il cui nome di file termina in `.eml`) vengono aperti fino a tre livelli di profondità, per al massimo 100 dei loro allegati e 25 MB di messaggi allegati in tutto; gli allegati del messaggio stesso vengono sempre ispezionati tutti. Un messaggio che supera i limiti del parser MIME (più di 1000 parti, o l'intestazione di una parte oltre 1 MB) viene letto fin dove il parser lo consente (le sue prime parti, con un'intestazione troppo grande ridotta perché il suo mittente conti ancora) e riceve `MIME_TOO_COMPLEX`, che nessun credito compensa; ClamAV lo legge per intero. Anche un messaggio allegato su cui il parser fallisce lo riceve, e non fa mai fallire la scansione. L'HTML viene letto dal parser di Spam Scanner stesso, in tempo lineare, per quanto profondamente sia annidato.
+* Il testo del corpo viene letto fino a `maxLength` (100.000 caratteri) e i server accettano messaggi fino a 25 MB. I link vengono letti fino a `phishing.maxLength` (1.000.000 caratteri).
+* Ogni controllo di rete ha un timeout (`timeout`, 10 secondi per impostazione predefinita). Un controllo che fallisce o va in timeout viene saltato e l'analisi si conclude senza di esso. L'autenticazione e il modello per le immagini (le prime 10 immagini) terminano ciascuno per intero entro questo limite. ClamAV (quattro allegati alla volta) ha un proprio limite per tutti gli allegati di un messaggio (`clamav.timeout`, 60 secondi), e gli allegati che non ha potuto analizzare sono elencati in `results.virusScanErrors`. Il modello linguistico ha un proprio limite (`llm.timeout`).
+* La lista consentiti si fida solo di ciò che un mittente non può falsificare: l'indirizzo e il nome host verificato del client, e i domini mittente che l'autenticazione conferma. [Liste consentiti e di blocco](api.md#allowlist-and-denylist)
 * Le intestazioni `X-Spam-*` già presenti in un messaggio vengono rimosse dal milter, dal content filter e da `--headers`, quindi i mittenti non possono segnare la propria posta come pulita.
 * Le intestazioni con il verdetto antispam di Microsoft sono considerate attendibili solo quando il messaggio arriva direttamente dai server di Microsoft, e le intestazioni Received non vengono mai usate per stabilire da dove proviene un messaggio.
 * Il testo che si rivolge ai filtri IA riceve punti di spam, e al modello linguistico viene detto che il messaggio è un dato, non un'istruzione. [Prompt injection](llm.md#prompt-injection)

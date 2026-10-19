@@ -1,4 +1,4 @@
-<!-- source: 1151282f29d3 -->
+<!-- source: 84dca86d95ea -->
 
 # 其他邮件服务器
 
@@ -20,8 +20,10 @@ Spam Scanner 支持四种协议，因此大多数邮件软件无需专用插件�
 
 ```sh
 sudo systemctl disable --now spamd    # or spamassassin, depending on the distribution
-spamscanner spamd --port 783 --auth
+spamscanner spamd --port 783
 ```
+
+spamd 客户端不会发送投递邮件的客户端的 IP 地址，因此这里无法运行 SPF、DKIM、DMARC 和 ARC（`--auth`）以及 IP 黑名单（`--dnsbl`）。如果邮件服务器支持，请改用 [milter](postfix.md#milter)。
 
 配合 spamc：
 
@@ -87,7 +89,7 @@ if header :is "X-Spam-Flag" "YES" {
 借助 IMAPSieve，把邮件移入或移出 Junk 可以训练模型。用令牌和模型文件启动 HTTP API：
 
 ```sh
-spamscanner http --port 7832 --token "$SPAMSCANNER_TOKEN" --out /var/lib/spamscanner/model.json
+spamscanner http --port 7832 --out /var/lib/spamscanner/model.json    # token in SPAMSCANNER_TOKEN
 ```
 
 并用 `--model /var/lib/spamscanner/model.json`（或 `SPAMSCANNER_MODEL`）让 milter 或 spamd 服务器使用同一个模型。不时重启它，以载入学到的内容。由 `sieve_pipe` 运行的脚本负责提交邮件：
@@ -132,7 +134,7 @@ if (/^X-Spam-Flag: YES/)
 任何能发出 HTTP 请求的程序都能扫描邮件：
 
 ```sh
-spamscanner http --port 7832 --token "$SPAMSCANNER_TOKEN"
+spamscanner http --port 7832    # token in SPAMSCANNER_TOKEN
 
 curl -s -X POST -H "Authorization: Bearer $SPAMSCANNER_TOKEN" \
   --data-binary @message.eml "http://127.0.0.1:7832/scan?ip=203.0.113.5&from=alice@example.com&to=bob@example.org"

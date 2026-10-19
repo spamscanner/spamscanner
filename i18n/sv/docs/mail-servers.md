@@ -1,4 +1,4 @@
-<!-- source: 1151282f29d3 -->
+<!-- source: 84dca86d95ea -->
 
 # Andra e-postservrar
 
@@ -20,8 +20,10 @@ Spam Scanner talar fyra protokoll, så de flesta e-postprogram kan använda det 
 
 ```sh
 sudo systemctl disable --now spamd    # or spamassassin, depending on the distribution
-spamscanner spamd --port 783 --auth
+spamscanner spamd --port 783
 ```
+
+spamd-klienter skickar inte IP-adressen till klienten som skickade meddelandet, så SPF, DKIM, DMARC och ARC (`--auth`) och IP-blocklistor (`--dnsbl`) kan inte köras här. Använd [miltern](postfix.md#milter) för dem där e-postservern stöder den.
 
 Med spamc:
 
@@ -87,7 +89,7 @@ if header :is "X-Spam-Flag" "YES" {
 Med IMAPSieve kan modellen lära sig när ett meddelande flyttas till eller från Junk. Starta HTTP-API:t med en token och en modellfil:
 
 ```sh
-spamscanner http --port 7832 --token "$SPAMSCANNER_TOKEN" --out /var/lib/spamscanner/model.json
+spamscanner http --port 7832 --out /var/lib/spamscanner/model.json    # token in SPAMSCANNER_TOKEN
 ```
 
 och peka miltern eller spamd-servern mot samma modell med `--model /var/lib/spamscanner/model.json` (eller `SPAMSCANNER_MODEL`). Starta om den då och då så att den läser in det som lärts. Ett skript som körs av `sieve_pipe` skickar meddelandet:
@@ -132,7 +134,7 @@ if (/^X-Spam-Flag: YES/)
 Alla program som kan göra en HTTP-förfrågan kan skanna e-post:
 
 ```sh
-spamscanner http --port 7832 --token "$SPAMSCANNER_TOKEN"
+spamscanner http --port 7832    # token in SPAMSCANNER_TOKEN
 
 curl -s -X POST -H "Authorization: Bearer $SPAMSCANNER_TOKEN" \
   --data-binary @message.eml "http://127.0.0.1:7832/scan?ip=203.0.113.5&from=alice@example.com&to=bob@example.org"

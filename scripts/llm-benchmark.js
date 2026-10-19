@@ -16,25 +16,38 @@
 //     [--max-chars 2500] [--data data] [--results file.jsonl] [--no-download]
 //
 // Results are appended to --results, so an interrupted run continues where it
-// stopped. The datasets download into --data the first time.
+// stopped. The datasets download into --data the first time, pinned to a
+// revision and checked against their SHA-256 (scripts/download.js).
 import {spawnSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
 import {
-	appendFileSync, createWriteStream, existsSync, mkdirSync, readFileSync, writeFileSync,
+	appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync,
 } from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
-import {Readable} from 'node:stream';
-import {pipeline} from 'node:stream/promises';
 import {fileURLToPath} from 'node:url';
 import {parseArgs} from 'node:util';
 import {LLMClassifier, describeHardware, describeMessage} from '../src/llm.js';
 import {getFeatures} from '../src/tokenizer.js';
+import {download as downloadPinned, writeAtomically} from './download.js';
 
+// (the Enron-Spam and all-scam-spam files are those scripts/train-model.js uses)
 const DATASETS = {
-	enron: {url: 'https://huggingface.co/datasets/SetFit/enron_spam/resolve/main/test.jsonl', file: 'enron-test.jsonl'},
-	scam: {url: 'https://huggingface.co/datasets/FredZhang7/all-scam-spam/resolve/main/junkmail_dataset.csv', file: 'all-scam-spam.csv'},
-	phish: {url: 'https://huggingface.co/datasets/ealvaradob/phishing-dataset/resolve/main/texts.json', file: 'phishing-texts.json'},
+	enron: {
+		url: 'https://huggingface.co/datasets/SetFit/enron_spam/resolve/1916f66c89d52221ae33eb57d44498b4f3a5df22/test.jsonl',
+		sha256: 'f07a4cca7bfc1d845d4ff59650e69a0ad31d9b5c0409ddad088219f7fc32bb52',
+		file: 'enron-test.jsonl',
+	},
+	scam: {
+		url: 'https://huggingface.co/datasets/FredZhang7/all-scam-spam/resolve/802cef358a0a0a9f7582fb96ff262b57a398ee17/junkmail_dataset.csv',
+		sha256: 'cf1bcb8c8e5a0299c3aeb950505aedd3f842c46c45790e42b6b638828a2f2510',
+		file: 'all-scam-spam.csv',
+	},
+	phish: {
+		url: 'https://huggingface.co/datasets/ealvaradob/phishing-dataset/resolve/55caf9af01ae498d68ff44886ff69a4b165eb54b/texts.json',
+		sha256: '2479fdb94abb59332cc747f7b823a1651921b9828240c5dad0ffdba66ab02581',
+		file: 'phishing-texts.json',
+	},
 };
 const STORED = 20;
 
@@ -53,8 +66,10 @@ const {values} = parseArgs({
 	},
 });
 
-const sampleFile = path.join(values.data, 'llm-benchmark-sample.json');
 const sha256 = text => createHash('sha256').update(text).digest('hex');
+// (named after the datasets it was made from, so a sample of other files is
+// never reused)
+const sampleFile = path.join(values.data, `llm-benchmark-sample-${sha256(Object.values(DATASETS).map(dataset => dataset.sha256).join(',')).slice(0, 12)}.json`);
 
 // A whole CSV file, quoted fields with commas and line breaks included.
 function csvRows(text) {
@@ -108,24 +123,8 @@ function csvRows(text) {
 	return rows;
 }
 
-async function download({url, file}) {
-	const target = path.join(values.data, file);
-	if (!existsSync(target)) {
-		if (values['no-download']) {
-			throw new Error(`${target} is missing`);
-		}
-
-		console.error(`Downloading ${url}`);
-		const response = await fetch(url);
-		if (!response.ok) {
-			throw new Error(`${url}: HTTP ${response.status}`);
-		}
-
-		mkdirSync(values.data, {recursive: true});
-		await pipeline(Readable.fromWeb(response.body), createWriteStream(target));
-	}
-
-	return readFileSync(target, 'utf8');
+async function download(dataset) {
+	return readFileSync(await downloadPinned(dataset, values.data, {offline: values['no-download']}), 'utf8');
 }
 
 // The first `count` messages with a label, in hash order.
@@ -162,7 +161,8 @@ async function prepare() {
 		sample.push(...pick(list, 'spam', STORED, seed), ...pick(list, 'ham', STORED, seed));
 	}
 
-	writeFileSync(sampleFile, JSON.stringify(sample));
+	mkdirSync(values.data, {recursive: true});
+	await writeAtomically(sampleFile, async part => writeFileSync(part, JSON.stringify(sample)));
 }
 
 if (values.prepare) {

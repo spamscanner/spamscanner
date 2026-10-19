@@ -1,4 +1,4 @@
-<!-- source: 8263c06f1dab -->
+<!-- source: 1a2009efd1f9 -->
 
 # Prise en main
 
@@ -25,6 +25,8 @@ Comme binaire autonome pour Linux ou macOS, avec Node.js et le modèle intégré
 ```sh
 curl -fsSL https://github.com/spamscanner/spamscanner/releases/latest/download/install.sh | bash
 ```
+
+Le script vérifie le binaire avec le fichier `SHA256SUMS` de la version publiée avant de l’installer. Les binaires Linux nécessitent glibc : sur Alpine et les autres systèmes basés sur musl, installez plutôt avec npm.
 
 Des binaires pour Linux (x64 et arm64), macOS (Intel et Apple silicon) et Windows sont joints à chaque [version publiée](https://github.com/spamscanner/spamscanner/releases).
 
@@ -75,6 +77,8 @@ CommonJS fonctionne aussi :
 const SpamScanner = require('spamscanner');
 ```
 
+Les déclarations de types sont incluses, pour TypeScript 4.7 ou ultérieur (5.3 ou ultérieur avec `require`).
+
 `scan()` prend le message brut sous forme de Buffer, de chaîne, de Uint8Array ou de flux lisible. Une chaîne est toujours le texte d’un message : Spam Scanner ne lit jamais un fichier parce qu’une chaîne ressemble à un chemin. Utilisez `scanner.scanFile(path)` pour les fichiers.
 
 
@@ -113,7 +117,7 @@ Aucune n’est activée par défaut, car chacune nécessite un service ou une d�
 | SPF, DKIM, DMARC, ARC                | `authentication: true`                           | `--auth`                    |
 | Liste de blocage d’IP                | `dnsbl: {ip: ['zen.spamhaus.org']}`              | `--dnsbl zen.spamhaus.org`  |
 | Liste de blocage de domaines (liens) | `dnsbl: {domain: ['dbl.spamhaus.org']}`          | `--uribl dbl.spamhaus.org`  |
-| ClamAV                               | `clamav: true` ou `clamav: {socket}`             | `--clamav [socket]`         |
+| ClamAV                               | `clamav: true` ou `clamav: {socket}`             | `--clamav[=socket]`         |
 | Un modèle de langage                 | `llm: {provider: 'ollama', model: 'qwen3.5:4b'}` | `--llm ollama`              |
 | Listes d’autorisation et de refus    | `allowlist: [...]`, `denylist: [...]`            | `--allowlist`, `--denylist` |
 

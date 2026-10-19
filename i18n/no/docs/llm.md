@@ -1,4 +1,4 @@
-<!-- source: 79e50e309869 -->
+<!-- source: 7564838c2408 -->
 
 # Språkmodeller
 
@@ -114,11 +114,11 @@ Dette er driftede tjenester, så personopplysninger fjernes før en melding send
 | `always`          | Hver melding                                                                                                                     |
 | `off`             | Aldri                                                                                                                            |
 
-`minScore` og `maxScore` endrer området for `auto`. Tydelig spam og tydelig ham når aldri frem til modellen.
+`minScore` og `maxScore` endrer området for `auto`. Tydelig spam og tydelig ham når aldri frem til modellen. Enhver annen `mode` er en feil, og `llm: false` for én `scan()` spør ingen modell.
 
 Vurderingen er `spam`, `phishing`, `scam`, `malware` eller `ham`. Med `decision` telles spam, phishing, svindel og skadevare sammen mot ham: en melding modellen gir 30 % spam, 30 % phishing og 40 % ham, er uønsket med 60 %, og vurderingen er den mest sannsynlige typen. En spamvurdering legger til opptil 6 poeng (`LLM_SPAM`, `LLM_PHISHING`, `LLM_SCAM`, `LLM_MALWARE`); en ham-vurdering trekker fra opptil 3 (`LLM_HAM`), hver multiplisert med sikkerheten. Én modell kan ikke merke en melding som spam alene med mindre den er sikker: 6 poeng ved 85 % er 5,1, så vidt over terskelen. Hvis modellen feiler eller får tidsavbrudd, fortsetter skanningen uten den, og `results.llm.error` forteller hvorfor.
 
-Svar mellomlagres per melding, så den samme meldingen sendt til mange mottakere spørres det om bare én gang.
+Svar mellomlagres per melding, så den samme meldingen sendt til mange mottakere spørres det om bare én gang, også når kopiene skannes samtidig. `timeout` dekker ventetiden på en ledig forespørselsplass (`concurrency`) i tillegg til forespørslene for en melding: en modell som er opptatt så lenge, hoppes over for den.
 
 
 ## Leverandører
@@ -188,7 +188,7 @@ const scanner = new SpamScanner({
     username: 'spam', password: '…', // with auth: 'basic'
     headers: {'x-team': 'mail'},
     ca: fs.readFileSync('internal-ca.pem'), // a private certificate authority
-    timeout: 30_000,
+    timeout: 30_000,                 // waiting and requests, per message
     concurrency: 4,                  // requests at once
     cacheSize: 1000,                 // answers kept in memory
     keepAlive: '24h',                // Ollama: keep the model loaded between messages
@@ -259,7 +259,7 @@ spamscanner milter --llm ollama --llm-policy "We never send invoices by email. A
 
 Modellen ser et sammendrag av hodene (From, Reply-To, To og Subject), lenkene (først de som viser én adresse og går til en annen), navnene og typene på vedleggene, autentiseringsresultatene, hvor mye tekst HTML-en skjuler når den skjuler mer enn forhåndsvisningstekst, og brødteksten slik en e-postklient viser den (fra HTML-en når det finnes en, uten skjult tekst, usynlige tegn eller stiliserte bokstaver), kuttet til 6 000 tegn (`maxInputChars`).
 
-For leverandører utenfor nettverket ditt fjernes personopplysninger først: den lokale delen av e-postadresser (domenet beholdes, fordi det har betydning for phishing), kort- og kontonumre, telefonnumre og verdiene til spørreparametere i lenker, som ofte inneholder påloggingstokener. Dette er på som standard for eksterne leverandører, beslutningsmodeller inkludert, og av for lokale (Ollama, LM Studio, llama.cpp, vLLM, LocalAI, Jan, TEI og enhver server på localhost). `redact: true` eller `false` (`--llm-redact`, `--no-llm-redact`) overstyrer det.
+For leverandører utenfor nettverket ditt fjernes personopplysninger først: den lokale delen av e-postadresser (domenet beholdes, fordi det har betydning for phishing), kort- og kontonumre, internasjonale telefonnumre (skrevet med + eller 00) og verdiene til spørreparametere i lenker, som ofte inneholder påloggingstokener. Dette er på som standard for eksterne leverandører, beslutningsmodeller inkludert, og av for lokale (Ollama, LM Studio, llama.cpp, vLLM, LocalAI, Jan, TEI) på denne maskinen eller i et privat nettverk (en privat adresse, et navn uten punktum eller et navn under .local, .internal, .lan eller .home.arpa), og for enhver server på localhost. En lokal leverandør som peker mot en vert et annet sted, får e-post med personopplysningene fjernet. `redact: true` eller `false` (`--llm-redact`, `--no-llm-redact`) overstyrer det.
 
 Sjekk leverandørens vilkår for datalagring før du sender e-post dit. En lokal modell gjør spørsmålet unødvendig.
 

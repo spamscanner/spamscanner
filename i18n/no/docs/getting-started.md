@@ -1,4 +1,4 @@
-<!-- source: 8263c06f1dab -->
+<!-- source: 1a2009efd1f9 -->
 
 # Kom i gang
 
@@ -25,6 +25,8 @@ Som frittstående binærfil for Linux eller macOS, med Node.js og modellen inneb
 ```sh
 curl -fsSL https://github.com/spamscanner/spamscanner/releases/latest/download/install.sh | bash
 ```
+
+Skriptet kontrollerer binærfilen mot utgivelsens `SHA256SUMS`-fil før den installeres. Binærfilene for Linux krever glibc, så på Alpine og andre musl-baserte systemer bør du installere med npm i stedet.
 
 Binærfiler for Linux (x64 og arm64), macOS (Intel og Apple silicon) og Windows er lagt ved hver [utgivelse](https://github.com/spamscanner/spamscanner/releases).
 
@@ -75,6 +77,8 @@ CommonJS fungerer også:
 const SpamScanner = require('spamscanner');
 ```
 
+Typedeklarasjoner er inkludert, for TypeScript 4.7 eller nyere (5.3 eller nyere med `require`).
+
 `scan()` tar imot den rå meldingen som en Buffer, en streng, en Uint8Array eller en lesbar strøm. En streng er alltid meldingstekst: Spam Scanner leser aldri en fil fordi en streng ser ut som en sti. Bruk `scanner.scanFile(path)` for filer.
 
 
@@ -113,7 +117,7 @@ Ingen av disse er på som standard, fordi hver av dem krever en tjeneste eller e
 | SPF, DKIM, DMARC, ARC             | `authentication: true`                           | `--auth`                    |
 | IP-blokkeringsliste               | `dnsbl: {ip: ['zen.spamhaus.org']}`              | `--dnsbl zen.spamhaus.org`  |
 | Domeneblokkeringsliste for lenker | `dnsbl: {domain: ['dbl.spamhaus.org']}`          | `--uribl dbl.spamhaus.org`  |
-| ClamAV                            | `clamav: true` eller `clamav: {socket}`          | `--clamav [socket]`         |
+| ClamAV                            | `clamav: true` eller `clamav: {socket}`          | `--clamav[=socket]`         |
 | En språkmodell                    | `llm: {provider: 'ollama', model: 'qwen3.5:4b'}` | `--llm ollama`              |
 | Tillatelses- og blokkeringslister | `allowlist: [...]`, `denylist: [...]`            | `--allowlist`, `--denylist` |
 

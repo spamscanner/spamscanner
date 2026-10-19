@@ -157,10 +157,12 @@ describe('HTTP server', () => {
 		}
 
 		const open = scanner();
-		const plain = await listen(createHttpServer(open));
+		const plain = await listen(createHttpServer(open, {maxSize: 1000}));
 		try {
 			const refused = await fetch(`${plain.url}/learn/ham`, {method: 'POST', body: ham});
 			assert.equal(refused.status, 403);
+			// Refused before the body is read: a large one gets 403, not 413.
+			assert.equal((await fetch(`${plain.url}/learn/ham`, {method: 'POST', body: 'x'.repeat(5000)})).status, 403);
 		} finally {
 			await plain.close();
 		}
@@ -231,6 +233,48 @@ describe('TCP server', () => {
 			await small.close();
 			await broken.close();
 			await brokenText.close();
+		}
+	});
+	it('stops reading a message once it is too large', async () => {
+		const server = createTcpServer(scanner(), {maxSize: 100});
+		const small = await listen(server);
+		try {
+			// A client that never closes its side still gets the answer, and the
+			// server closes the connection instead of reading on.
+			const socket = net.createConnection({port: small.port, host: '127.0.0.1', allowHalfOpen: true});
+			await once(socket, 'connect');
+			const chunks = [];
+			socket.on('data', chunk => chunks.push(chunk));
+			socket.write('x'.repeat(5000));
+			await once(socket, 'end');
+			assert.deepEqual(JSON.parse(Buffer.concat(chunks).toString()), {error: 'Message larger than 100 bytes'});
+			const connections = () => new Promise(resolve => {
+				server.getConnections((error, count) => resolve(count));
+			});
+			for (let tries = 0; tries < 50 && await connections() > 0; tries++) {
+				await delay(20);
+			}
+
+			assert.equal(await connections(), 0);
+			socket.destroy();
+		} finally {
+			await small.close();
+		}
+	});
+
+	it('closes idle connections, but not while a scan runs', {timeout: 10_000}, async () => {
+		const slow = scanner();
+		const server = await listen(createTcpServer({
+			async scan(...arguments_) {
+				await delay(300);
+				return slow.scan(...arguments_);
+			},
+		}, {timeout: 100}));
+		try {
+			assert.equal(await tcp(server.port, 'partial', {end: false}), '');
+			assert.equal(JSON.parse(await tcp(server.port, ham)).isSpam, false);
+		} finally {
+			await server.close();
 		}
 	});
 });

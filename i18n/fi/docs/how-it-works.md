@@ -1,4 +1,4 @@
-<!-- source: 8a788c19971e -->
+<!-- source: a7dfb7c0fde2 -->
 
 # Miten se toimii
 
@@ -19,9 +19,9 @@ Spam Scanner säilyttää sanojen laskemisesta sen, mikä toimii, eli tilastot, 
 
 ### Mitä se laskee
 
-Luettava teksti on se, minkä sähköpostiohjelma näyttää: HTML-osan teksti, jos sellainen on (sen rinnalla oleva pelkkä tekstiosa näytetään vain siellä, missä HTML:ää ei voida näyttää, joten harmiton tekstiosa ei voi puhua HTML:n puolesta), ilman tageja, kommentteja, skriptejä ja tyylejä, rivinsisäiset tagit yhdistävät sanan kuten selain sen yhdistää (`Free Sp<span>ins</span>`), ja HTML:n piilottama teksti jätetään pois ja lasketaan: kun elementti piilottaa sisältönsä (display, opacity, hidden-attribuutti, nollakokoiseksi rajattu laatikko, sivulta pois siirretty teksti) tai kun teksti on kohdallaan näkymätöntä, läpinäkyvää tai fontiltaan enintään pikselin kokoista (minkä sisempi elementti voi asettaa uudelleen, kuten responsiiviset mallipohjat tekevät). Tyylit luetaan kuten selaimet ne lukevat (viimeinen määrittely voittaa, kommentit, merkkiviittaukset); taustaa vasten olevia värejä ja tyylitiedostojen luokkia ei lueta, joten sellainen teksti luetaan sellaisena kuin se näytetään. HTML, joka näyttää alle 20 sanaa, kuten kuva viestistä, luetaan yhdessä pelkän tekstiosansa kanssa. Linkit ja isäntänimet luetaan molemmista osista sekä piilotetusta tekstistä.
+Luettava teksti on se, minkä sähköpostiohjelma näyttää: HTML-osan teksti, jos sellainen on (sen rinnalla oleva pelkkä tekstiosa näytetään vain siellä, missä HTML:ää ei voida näyttää, joten harmiton tekstiosa ei voi puhua HTML:n puolesta), ilman tageja, kommentteja, skriptejä ja tyylejä, rivinsisäiset tagit yhdistävät sanan kuten selain sen yhdistää (`Free Sp<span>ins</span>`), lohkot, solut ja rivinvaihdot katkaisevat sen (myös elementti, jonka tyyli näyttää lohkona, lohko, jonka selain päättää itse, ja paikallaan piilotettu lohko, mutta ei sellainen, joka ei vie tilaa), ja HTML:n piilottama teksti jätetään pois ja lasketaan: kun elementti piilottaa sisältönsä (display, opacity, hidden-attribuutti, nollakokoiseksi rajattu laatikko, sivulta pois siirretty teksti) tai kun teksti on kohdallaan näkymätöntä, läpinäkyvää tai fontiltaan enintään pikselin kokoista (minkä sisempi elementti voi asettaa uudelleen, kuten responsiiviset mallipohjat tekevät). Tyylit luetaan kuten selaimet ne lukevat (viimeinen määrittely voittaa, kommentit, merkkiviittaukset); taustaa vasten olevia värejä ja tyylitiedostojen luokkia ei lueta, joten sellainen teksti luetaan sellaisena kuin se näytetään. HTML, joka näyttää alle 20 sanaa, kuten kuva viestistä, luetaan yhdessä pelkän tekstiosansa kanssa. Linkit luetaan molemmista osista, piilotetusta tekstistä ja HTML:n näyttämästä tekstistä, jossa rivinsisäisillä tageilla jaettu osoite (`https://www.pay<b></b>pa1.com/`) luetaan yhtenä. Ilman linkkiä kirjoitetut isäntänimet luetaan aiheesta, luettavasta tekstistä ja HTML:n rinnalla olevasta pelkästä tekstiosasta.
 
-Teksti normalisoidaan ensin: Unicode NFKC muuntaa tyylitellyt ja täysleveät kirjaimet tavallisiksi, näkymättömät merkit poistetaan ja lasketaan, muuten latinalaisissa tai kyrillisissä sanoissa olevat samannäköiset kirjaimet palautetaan ja kirjaimina käytetyt numerot (`v1agra`) muunnetaan. Sanat pilkotaan sitten `Intl.Segmenter`illä, eli Unicoden sanarajasäännöillä, joissa on sanakirjat kiinalle, japanille, thaille, laolle, khmerille ja burmalle.
+Teksti normalisoidaan ensin: Unicode NFKC muuntaa tyylitellyt ja täysleveät kirjaimet tavallisiksi, näkymättömät merkit poistetaan ja lasketaan (ei kuitenkaan nollalevyistä välilyöntiä thain, laon, khmerin, burman tai tiibetin kirjainten välissä, sillä se erottaa niissä sanat, ja yhdistäjiä vain latinalaisten kirjainten välissä), latinalaisia, kyrillisiä tai kreikkalaisia kirjaimia sekoittavan sanan samannäköiset kirjaimet muunnetaan siihen kirjoitusjärjestelmään, johon suurin osa sen kirjaimista kuuluu (`рaypal` kyrillisellä р:llä muuttuu muotoon `paypal`, `пpивет` latinalaisella p:llä muotoon `привет`), heittomerkkien väliset sanan osat luetaan erikseen (`iPhone'ы`, venäjän sijapääte, ei sekoita mitään) ja kirjaimina käytetyt numerot (`v1agra`) muunnetaan. Sanat pilkotaan sitten `Intl.Segmenter`illä, eli Unicoden sanarajasäännöillä, joissa on sanakirjat kiinalle, japanille, thaille, laolle, khmerille ja burmalle.
 
 Siitä se poimii:
 
@@ -63,22 +63,23 @@ Paketissa on malli, joka on koulutettu julkisilla, avoimesti lisensoiduilla aine
 Jokainen linkki tarkistetaan:
 
 * **Samannäköiset verkkotunnukset.** Jokainen verkkotunnus pelkistetään luurangoksi Unicoden sekoitettavien merkkien taulukon avulla, joten `pаypal.com` (kyrillinen а), `paypa1.com`, `rnicrosoft.com` ja `xn--pple-43d.com` vastaavat kaikki tuotemerkkiä, jota ne jäljittelevät. Sekoitetut kirjoitusjärjestelmät samassa nimiosassa, tuotemerkkien nimet aliverkkotunnuksissa (`paypal.com.example.net`) ja yhden kirjaimen kirjoitusvirheet saavat vähemmän pisteitä. Lähes 100 yleisesti jäljiteltyä tuotemerkkiä on sisäänrakennettu, ja lisää voi lisätä.
-* **Harhaanjohtavat linkit.** HTML-linkit, joiden näkyvä teksti on eri osoite kuin kohde.
+* **Harhaanjohtavat linkit.** HTML-linkit, joiden näkyvä teksti on eri osoite kuin kohde: koko teksti tai osoite, jonka sisällä on `http://` tai `https://` (`Sign in at https://www.paypal.com`). Tiedostonimi tai sivuston nimi lauseessa (`Download report.zip`, `Read why Booking.com switched`) ei ole osoite. Postituspalvelun klikkausseurannan (SendGrid, Mailchimp, Amazon SES, Kit, Brevo, beehiiv, Substack ja muut) tai linkit uudelleenkirjoittavan suojausyhdyskäytävän (Microsoft Safe Links, Proofpoint, Mimecast, Barracuda, Cisco) kautta kulkeva linkki vie tarkoituksella muualle, joten se lasketaan vain, kun sen teksti on tuotemerkin koko osoite ilman polkua tai kirjautumispolulla (ei linkki sosiaaliseen verkostoon, kaupan tuotteeseen tai karttaan) eikä lähettäjä ole kyseinen tuotemerkki tai jokin sen lähetysverkkotunnuksista. Kun yhdyskäytävän linkki sisältää osoitteen, johon se jatkaa (Safe Links, Proofpoint), verrataan sen sijaan tätä osoitetta.
 * **Cloudflaren suodattavat DNS-palvelut.** Linkkien isännät tarkistetaan palvelusta 1.1.1.2, joka vastaa `0.0.0.0` tunnetuille haittaohjelma- ja tietojenkalastelusivustoille, ja palvelusta 1.1.1.3, joka estää myös aikuissisällön.
 * **Näyttönimet.** Nimi kuten "PayPal Security" toisen verkkotunnuksen osoitteesta tai nimi, joka sisältää eri sähköpostiosoitteen.
 
 
 ## Liitteet
 
-Liitteet tunnistetaan niiden tavuista, ei nimistä tai ilmoitetuista tyypeistä:
+Liitteet tunnistetaan niiden tavuista ja nimistä, ei ilmoitetuista tyypeistä:
 
 * Windowsin, Linuxin ja macOS:n suoritettavat tiedostot, pikakuvakkeet ja skriptit, myös kun ne on nimetty uudelleen muotoon `.pdf` tai `.jpg`
 * kaksoispäätteet (`invoice.pdf.exe`) ja oikealta vasemmalle -ohitusmerkit, jotka piilottavat todellisen päätteen
 * ZIP-arkistojen sisällä olevat suoritettavat tiedostot sekä salatut arkistot, joita tarkistimet eivät voi avata
 * Office-tiedostot, joissa on makroja, PDF:t, joissa on JavaScriptiä tai käynnistystoimintoja, RTF-tiedostot, joissa on upotettuja objekteja
 * HTML-liitteet, joilla tietojenkalastelijat näyttävät väärennetyn kirjautumissivun ilman verkkoyhteyttä
+* liitettyjen viestien (`message/rfc822`, `.eml`) liitteet, enintään kolmen tason syvyyteen ja 100 liitteeseen asti (viestin omat liitteet tarkastetaan aina kaikki)
 
-ClamAV:n kanssa liitteet tarkistetaan myös `clamd`:llä sen socketin kautta.
+ClamAV:n kanssa liitteet tarkistetaan myös `clamd`:llä sen socketin kautta. Neljä tarkistetaan kerrallaan, kaikki `clamav.timeout`-ajan (60 sekuntia) kuluessa, ja ne, joita ei voitu tarkistaa, luetellaan kohdassa `results.virusScanErrors`. Ne, jotka ovat suurempia kuin clamd hyväksyy (sen `StreamMaxLength`), luetellaan sen sijaan kohdassa `results.virusScanSkipped`: clamd hylkää ne joka yrityksellä.
 
 
 ## Todennus

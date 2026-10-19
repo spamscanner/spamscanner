@@ -1,4 +1,4 @@
-<!-- source: 8a788c19971e -->
+<!-- source: a7dfb7c0fde2 -->
 
 # Cara kerja
 
@@ -19,9 +19,9 @@ Spam Scanner mempertahankan bagian penghitungan kata yang berhasil, yaitu statis
 
 ### Apa yang dihitung
 
-Teks yang dibaca adalah yang ditampilkan klien email: teks bagian HTML jika ada (bagian teks biasa di sampingnya hanya ditampilkan jika HTML tidak dapat ditampilkan, sehingga bagian teks yang tidak berbahaya tidak dapat mewakili HTML), tanpa tag, komentar, skrip, dan gaya, dengan tag inline menyambung kata seperti yang dilakukan browser (`Free Sp<span>ins</span>`), dan teks yang disembunyikan HTML tidak dibaca tetapi dihitung: oleh elemen yang menyembunyikan isinya (display, opacity, atribut hidden, kotak terpotong tanpa ukuran, teks yang dipindahkan keluar halaman), atau teks yang tak terlihat, transparan, atau berukuran font satu piksel atau kurang di tempatnya (yang dapat diatur ulang oleh elemen di dalamnya, seperti yang dilakukan template responsif). Gaya dibaca seperti browser membacanya (deklarasi terakhir yang berlaku, komentar, referensi karakter); warna di atas latar dan kelas lembar gaya tidak, sehingga teks seperti itu dibaca sebagaimana ditampilkan. HTML yang menampilkan kurang dari 20 kata, seperti gambar pesan, dibaca bersama bagian teks biasanya. Tautan dan nama host dibaca dari kedua bagian dan dari teks tersembunyi.
+Teks yang dibaca adalah yang ditampilkan klien email: teks bagian HTML jika ada (bagian teks biasa di sampingnya hanya ditampilkan jika HTML tidak dapat ditampilkan, sehingga bagian teks yang tidak berbahaya tidak dapat mewakili HTML), tanpa tag, komentar, skrip, dan gaya, dengan tag inline menyambung kata seperti yang dilakukan browser (`Free Sp<span>ins</span>`), dengan blok, sel, dan jeda baris memisahkannya (juga elemen yang ditampilkan sebagai blok oleh gaya, blok yang diakhiri browser dengan sendirinya, dan blok tersembunyi yang tetap menempati tempatnya, tetapi bukan blok yang tidak menempati tempat), dan teks yang disembunyikan HTML tidak dibaca tetapi dihitung: oleh elemen yang menyembunyikan isinya (display, opacity, atribut hidden, kotak terpotong tanpa ukuran, teks yang dipindahkan keluar halaman), atau teks yang tak terlihat, transparan, atau berukuran font satu piksel atau kurang di tempatnya (yang dapat diatur ulang oleh elemen di dalamnya, seperti yang dilakukan template responsif). Gaya dibaca seperti browser membacanya (deklarasi terakhir yang berlaku, komentar, referensi karakter); warna di atas latar dan kelas lembar gaya tidak, sehingga teks seperti itu dibaca sebagaimana ditampilkan. HTML yang menampilkan kurang dari 20 kata, seperti gambar pesan, dibaca bersama bagian teks biasanya. Tautan dibaca dari kedua bagian, dari teks tersembunyi, dan dari teks yang ditampilkan HTML, tempat alamat yang dipecah oleh tag inline (`https://www.pay<b></b>pa1.com/`) dibaca sebagai satu alamat. Nama host yang ditulis tanpa tautan dibaca dari subjek, teks yang dibaca, dan bagian teks biasa di samping HTML.
 
-Teks dinormalisasi terlebih dahulu: Unicode NFKC menyeragamkan huruf bergaya dan huruf lebar penuh menjadi huruf biasa, karakter tak terlihat dihapus dan dihitung, huruf tiruan di dalam kata yang selebihnya Latin atau Sirilik dipetakan kembali, dan angka yang dipakai sebagai huruf (`v1agra`) diseragamkan. Kata-kata kemudian disegmentasi dengan `Intl.Segmenter`, yaitu aturan batas kata Unicode dengan kamus untuk bahasa Tionghoa, Jepang, Thai, Laos, Khmer, dan Burma.
+Teks dinormalisasi terlebih dahulu: Unicode NFKC menyeragamkan huruf bergaya dan huruf lebar penuh menjadi huruf biasa, karakter tak terlihat dihapus dan dihitung (kecuali spasi lebar nol di antara huruf Thai, Laos, Khmer, Burma, atau Tibet, yang memisahkan kata di sana, dan joiner hanya di antara huruf Latin), huruf tiruan dalam kata yang mencampur huruf Latin, Sirilik, atau Yunani dipetakan ke aksara tempat sebagian besar hurufnya berasal (`рaypal` dengan р Sirilik menjadi `paypal`, `пpивет` dengan p Latin menjadi `привет`), bagian kata di antara apostrof dibaca terpisah (`iPhone'ы`, akhiran kasus bahasa Rusia, tidak mencampur apa pun), dan angka yang dipakai sebagai huruf (`v1agra`) diseragamkan. Kata-kata kemudian disegmentasi dengan `Intl.Segmenter`, yaitu aturan batas kata Unicode dengan kamus untuk bahasa Tionghoa, Jepang, Thai, Laos, Khmer, dan Burma.
 
 Dari situ diekstrak:
 
@@ -63,22 +63,23 @@ Paket ini menyertakan model yang dilatih dengan dataset publik berlisensi terbuk
 Setiap tautan diperiksa:
 
 * **Domain tiruan.** Setiap domain direduksi menjadi kerangka dengan tabel confusables Unicode, sehingga `pаypal.com` (а Sirilik), `paypa1.com`, `rnicrosoft.com`, dan `xn--pple-43d.com` semuanya cocok dengan merek yang ditirunya. Aksara campuran dalam satu label, nama merek di subdomain (`paypal.com.example.net`), dan salah ketik satu huruf diberi skor lebih rendah. Hampir 100 merek yang sering ditiru sudah tersedia, dan merek lain dapat ditambahkan.
-* **Tautan menipu.** Tautan HTML yang teks tampilannya berupa alamat yang berbeda dari tujuannya.
+* **Tautan menipu.** Tautan HTML yang teks tampilannya berupa alamat yang berbeda dari tujuannya: seluruh teksnya, atau alamat dengan `http://` atau `https://` di dalamnya (`Sign in at https://www.paypal.com`). Nama file atau nama situs dalam sebuah kalimat (`Download report.zip`, `Read why Booking.com switched`) bukan alamat. Tautan yang melewati pelacakan klik layanan pengiriman email (SendGrid, Mailchimp, Amazon SES, Kit, Brevo, beehiiv, Substack, dan lainnya) atau gateway keamanan yang menulis ulang tautan (Microsoft Safe Links, Proofpoint, Mimecast, Barracuda, Cisco) memang mengarah ke tempat lain, jadi tautan itu hanya dihitung jika teksnya adalah alamat lengkap suatu merek, tanpa path atau dengan path masuk (bukan tautan ke jejaring sosial, produk toko, atau peta), dan pengirimnya bukan merek itu atau salah satu domain pengirimannya. Jika tautan gateway memuat alamat tujuan selanjutnya (Safe Links, Proofpoint), alamat itulah yang dibandingkan.
 * **Resolver penyaring Cloudflare.** Host tautan dicari di 1.1.1.2, yang menjawab `0.0.0.0` untuk situs malware dan phishing yang dikenal, dan 1.1.1.3, yang juga memblokir konten dewasa.
 * **Nama tampilan.** Nama seperti "PayPal Security" dari alamat di domain lain, atau nama yang memuat alamat email yang berbeda.
 
 
 ## Lampiran
 
-Lampiran dikenali dari byte-nya, bukan dari nama atau jenis yang dinyatakan:
+Lampiran dikenali dari byte dan namanya, bukan dari tipe yang dinyatakan:
 
 * file executable, shortcut, dan skrip Windows, Linux, dan macOS, juga ketika diganti namanya menjadi `.pdf` atau `.jpg`
 * ekstensi ganda (`invoice.pdf.exe`) dan karakter right-to-left override yang menyembunyikan ekstensi sebenarnya
 * file executable di dalam arsip ZIP, dan arsip terenkripsi yang tidak dapat dibuka pemindai
 * file Office dengan makro, PDF dengan JavaScript atau aksi launch, file RTF dengan objek tertanam
 * lampiran HTML, yang dipakai phishing untuk menampilkan halaman login palsu secara offline
+* lampiran dari pesan yang dilampirkan (`message/rfc822`, `.eml`), hingga tiga tingkat ke dalam dan 100 lampiran (lampiran milik pesan itu sendiri selalu diperiksa semuanya)
 
-Dengan ClamAV, lampiran juga dipindai dengan `clamd` melalui soketnya.
+Dengan ClamAV, lampiran juga dipindai dengan `clamd` melalui soketnya. Empat dipindai sekaligus, semuanya dalam `clamav.timeout` (60 detik), dan yang tidak dapat dipindai dicantumkan di `results.virusScanErrors`. Lampiran yang lebih besar daripada yang diterima clamd (`StreamMaxLength`-nya) justru dicantumkan di `results.virusScanSkipped`: clamd menolaknya pada setiap percobaan.
 
 
 ## Autentikasi

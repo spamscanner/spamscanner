@@ -35,6 +35,8 @@ export const DEFAULT_SCORES = {
 	doubleExtension: 6,
 	rtlOverride: 6,
 	executableInArchive: 8,
+	scriptInArchive: 3,
+	riskyAttachment: 2,
 	encryptedArchive: 2,
 	macro: 4,
 	pdfActive: 3,
@@ -42,6 +44,11 @@ export const DEFAULT_SCORES = {
 	htmlAttachment: 1,
 	activeHtmlAttachment: 3,
 	virus: 100,
+	// A message beyond the MIME parser's limits (more than 1000 MIME parts, or
+	// a part's header over 1 MB), or with an attached message it fails on, not
+	// read whole; no credit but the allowlist's and a truth source's offsets
+	// it.
+	mimeTooComplex: 6,
 
 	// Text
 	invisibleCharacters: 2,
@@ -62,6 +69,8 @@ const ATTACHMENT_TESTS = Object.fromEntries([
 	['double_extension', ['DOUBLE_EXTENSION', 'doubleExtension']],
 	['rtl_override', ['RTL_OVERRIDE_FILENAME', 'rtlOverride']],
 	['executable_in_archive', ['EXECUTABLE_IN_ARCHIVE', 'executableInArchive']],
+	['script_in_archive', ['SCRIPT_IN_ARCHIVE', 'scriptInArchive']],
+	['risky_attachment', ['RISKY_ATTACHMENT_TYPE', 'riskyAttachment']],
 	['encrypted_archive', ['ENCRYPTED_ARCHIVE', 'encryptedArchive']],
 	['macro', ['MACRO_ATTACHMENT', 'macro']],
 	['pdf_active', ['PDF_ACTIVE_CONTENT', 'pdfActive']],
@@ -99,7 +108,9 @@ function round(value) {
  * @param {object} [options.authScores] - see calculateAuthScore
  * @returns {{score: number, threshold: number, rejectThreshold: number, isSpam: boolean, action: 'accept'|'tag'|'reject', tests: Array<{name: string, score: number, description: string}>}}
  */
-export function scoreResults(results = {}, options = {}) {
+export function scoreResults(results, options) {
+	results ??= {};
+	options ??= {};
 	const scores = {...DEFAULT_SCORES, ...options.scores};
 	const threshold = options.threshold ?? 5;
 	const rejectThreshold = options.rejectThreshold ?? 15;
@@ -176,6 +187,10 @@ export function scoreResults(results = {}, options = {}) {
 		}
 	}
 
+	if (results.parseError) {
+		add('MIME_TOO_COMPLEX', scores.mimeTooComplex, `Message, or a message attached to it, is beyond the MIME parser (${results.parseError}), so it was not read whole`);
+	}
+
 	if ((results.viruses || []).length > 0) {
 		add('VIRUS', scores.virus, results.viruses.map(virus => virus.message).join('; '));
 	}
@@ -238,9 +253,20 @@ export function scoreResults(results = {}, options = {}) {
 		}
 	}
 
+	// (a message not read whole earns no credit, as the
+	//  sender's own authentication, but what the receiver trusts: what was
+	//  not read cannot be vouched for)
+	if (results.parseError) {
+		for (const test of tests.filter(test => test.score < 0 && !['ALLOWLISTED', 'TRUTH_SOURCE'].includes(test.name))) {
+			test.score = 0;
+			test.description += ' (no credit: the message was not read whole)';
+		}
+	}
+
 	const score = round(tests.reduce((sum, test) => sum + test.score, 0));
 	let action = 'accept';
-	if (score >= rejectThreshold) {
+	// (a reject threshold below the spam threshold rejects spam only)
+	if (score >= Math.max(threshold, rejectThreshold)) {
 		action = 'reject';
 	} else if (score >= threshold) {
 		action = 'tag';

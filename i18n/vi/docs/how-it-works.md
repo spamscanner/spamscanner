@@ -1,4 +1,4 @@
-<!-- source: 8a788c19971e -->
+<!-- source: a7dfb7c0fde2 -->
 
 # Cách hoạt động
 
@@ -19,9 +19,9 @@ Spam Scanner giữ lại phần hiệu quả của việc đếm từ, tức ph�
 
 ### Những gì nó đếm
 
-Văn bản được đọc là những gì ứng dụng thư hiển thị: của phần HTML nếu có (phần văn bản thuần đi kèm chỉ được hiển thị ở nơi không thể hiển thị HTML, nên một phần văn bản thuần vô hại không thể nói thay cho HTML), bỏ qua thẻ, chú thích, script và style, các thẻ nội dòng nối một từ như trình duyệt nối nó (`Free Sp<span>ins</span>`), và văn bản mà HTML ẩn đi bị bỏ qua và được đếm: do một phần tử ẩn những gì nó chứa (display, opacity, thuộc tính hidden, một hộp bị cắt không có kích thước, văn bản bị đẩy ra khỏi trang), hoặc vô hình, trong suốt hay có cỡ chữ từ một pixel trở xuống ngay tại chỗ (một phần tử bên trong có thể đặt lại, như các mẫu responsive vẫn làm). Style được đọc như trình duyệt đọc (khai báo cuối cùng được áp dụng, chú thích, tham chiếu ký tự); màu trên nền và các class của style sheet thì không, nên văn bản như vậy được đọc như khi hiển thị. HTML hiển thị ít hơn 20 từ, chẳng hạn một hình ảnh của thư, được đọc cùng phần văn bản thuần. Liên kết và tên máy chủ được đọc từ cả hai phần và từ văn bản ẩn.
+Văn bản được đọc là những gì ứng dụng thư hiển thị: của phần HTML nếu có (phần văn bản thuần đi kèm chỉ được hiển thị ở nơi không thể hiển thị HTML, nên một phần văn bản thuần vô hại không thể nói thay cho HTML), bỏ qua thẻ, chú thích, script và style, các thẻ nội dòng nối một từ như trình duyệt nối nó (`Free Sp<span>ins</span>`), các khối, ô và dấu xuống dòng tách nó ra (cả một phần tử mà style hiển thị thành khối, một khối mà trình duyệt tự đóng, và một khối bị ẩn tại chỗ của nó, nhưng không phải một khối không chiếm chỗ), và văn bản mà HTML ẩn đi bị bỏ qua và được đếm: do một phần tử ẩn những gì nó chứa (display, opacity, thuộc tính hidden, một hộp bị cắt không có kích thước, văn bản bị đẩy ra khỏi trang), hoặc vô hình, trong suốt hay có cỡ chữ từ một pixel trở xuống ngay tại chỗ (một phần tử bên trong có thể đặt lại, như các mẫu responsive vẫn làm). Style được đọc như trình duyệt đọc (khai báo cuối cùng được áp dụng, chú thích, tham chiếu ký tự); màu trên nền và các class của style sheet thì không, nên văn bản như vậy được đọc như khi hiển thị. HTML hiển thị ít hơn 20 từ, chẳng hạn một hình ảnh của thư, được đọc cùng phần văn bản thuần. Liên kết được đọc từ cả hai phần, từ văn bản ẩn và từ văn bản mà HTML hiển thị, nơi một địa chỉ bị thẻ nội dòng tách ra (`https://www.pay<b></b>pa1.com/`) được đọc thành một. Tên máy chủ viết không kèm liên kết được đọc từ tiêu đề, văn bản được đọc và phần văn bản thuần đi kèm HTML.
 
-Văn bản được chuẩn hóa trước: Unicode NFKC quy đổi chữ cái cách điệu và toàn độ rộng về chữ thường gặp, ký tự vô hình bị xóa và được đếm, chữ cái trông giống nhau bên trong các từ vốn là Latin hoặc Kirin được ánh xạ lại, và chữ số dùng thay chữ cái (`v1agra`) được quy đổi. Sau đó từ được tách bằng `Intl.Segmenter`, tức các quy tắc ranh giới từ của Unicode kèm từ điển cho tiếng Trung, tiếng Nhật, tiếng Thái, tiếng Lào, tiếng Khmer và tiếng Miến Điện.
+Văn bản được chuẩn hóa trước: Unicode NFKC quy đổi chữ cái cách điệu và toàn độ rộng về chữ thường gặp, ký tự vô hình bị xóa và được đếm (trừ khoảng trắng độ rộng bằng không giữa các chữ cái tiếng Thái, Lào, Khmer, Miến Điện hoặc Tạng, thứ dùng để tách từ trong các chữ viết đó, và ký tự nối chỉ được đếm khi nằm giữa các chữ Latin), chữ cái trông giống nhau trong một từ trộn chữ Latin, Kirin hoặc Hy Lạp được ánh xạ về chữ viết mà phần lớn chữ cái của từ đó thuộc về (`рaypal` với chữ р Kirin thành `paypal`, `пpивет` với chữ p Latin thành `привет`), các phần của một từ nằm giữa dấu nháy đơn được đọc riêng (`iPhone'ы`, với đuôi cách tiếng Nga, không trộn gì cả), và chữ số dùng thay chữ cái (`v1agra`) được quy đổi. Sau đó từ được tách bằng `Intl.Segmenter`, tức các quy tắc ranh giới từ của Unicode kèm từ điển cho tiếng Trung, tiếng Nhật, tiếng Thái, tiếng Lào, tiếng Khmer và tiếng Miến Điện.
 
 Từ đó nó trích xuất:
 
@@ -63,22 +63,23 @@ Gói phần mềm bao gồm một mô hình được huấn luyện trên các b
 Mọi liên kết đều được kiểm tra:
 
 * **Tên miền giả mạo.** Mỗi tên miền được rút gọn thành một bộ khung bằng bảng ký tự dễ nhầm lẫn (confusables) của Unicode, nên `pаypal.com` (chữ а Kirin), `paypa1.com`, `rnicrosoft.com` và `xn--pple-43d.com` đều khớp với thương hiệu mà chúng bắt chước. Nhãn tên miền trộn nhiều hệ chữ viết, tên thương hiệu trong tên miền con (`paypal.com.example.net`) và lỗi gõ sai một chữ cái được chấm điểm thấp hơn. Gần 100 thương hiệu thường bị mạo danh được tích hợp sẵn, và có thể thêm nữa.
-* **Liên kết lừa đảo.** Liên kết HTML có văn bản hiển thị là một địa chỉ khác với đích đến.
+* **Liên kết lừa đảo.** Liên kết HTML có văn bản hiển thị là một địa chỉ khác với đích đến: toàn bộ văn bản, hoặc một địa chỉ có `http://` hay `https://` bên trong (`Sign in at https://www.paypal.com`). Tên tệp hay tên một trang web trong câu (`Download report.zip`, `Read why Booking.com switched`) không phải là địa chỉ. Liên kết đi qua tính năng theo dõi lượt nhấp của dịch vụ gửi thư hàng loạt (SendGrid, Mailchimp, Amazon SES, Kit, Brevo, beehiiv, Substack và các dịch vụ khác) hoặc qua một cổng bảo mật viết lại liên kết (Microsoft Safe Links, Proofpoint, Mimecast, Barracuda, Cisco) vốn được thiết kế để dẫn tới nơi khác, nên nó chỉ được tính khi văn bản của nó là địa chỉ đầy đủ của một thương hiệu, không có đường dẫn hoặc có đường dẫn đăng nhập (không phải liên kết tới mạng xã hội, sản phẩm của cửa hàng hay bản đồ), và người gửi không phải thương hiệu đó hay một trong các tên miền gửi thư của nó. Khi liên kết của cổng chứa địa chỉ mà nó sẽ dẫn tiếp tới (Safe Links, Proofpoint), địa chỉ đó sẽ được so sánh thay thế.
 * **Các resolver có lọc của Cloudflare.** Tên máy chủ trong liên kết được tra cứu trên 1.1.1.2, resolver trả về `0.0.0.0` cho các trang mã độc và phishing đã biết, và 1.1.1.3, resolver chặn thêm cả nội dung người lớn.
 * **Tên hiển thị.** Một tên như “PayPal Security” từ một địa chỉ thuộc tên miền khác, hoặc một tên chứa một địa chỉ email khác.
 
 
 ## Tệp đính kèm
 
-Tệp đính kèm được nhận diện qua các byte của chúng, không phải qua tên hay loại được khai báo:
+Tệp đính kèm được nhận diện từ byte và tên của chúng, không phải từ kiểu được khai báo:
 
 * tệp thực thi, lối tắt và script của Windows, Linux và macOS, kể cả khi bị đổi tên thành `.pdf` hoặc `.jpg`
 * đuôi tệp kép (`invoice.pdf.exe`) và ký tự ghi đè hướng phải sang trái che giấu đuôi tệp thật
 * tệp thực thi trong tệp nén ZIP, và tệp nén mã hóa mà trình quét không mở được
 * tệp Office có macro, PDF có JavaScript hoặc hành động khởi chạy, tệp RTF có đối tượng nhúng
 * tệp đính kèm HTML, thứ mà phishing dùng để hiển thị trang đăng nhập giả ngay trên máy, không cần mạng
+* tệp đính kèm của các thư được đính kèm (`message/rfc822`, `.eml`), sâu tối đa ba cấp và tối đa 100 tệp đính kèm (các tệp đính kèm của chính thư luôn được kiểm tra hết)
 
-Với ClamAV, tệp đính kèm còn được quét bằng `clamd` qua socket của nó.
+Với ClamAV, tệp đính kèm còn được quét bằng `clamd` qua socket của nó. Mỗi lần quét bốn tệp, tất cả trong `clamav.timeout` (60 giây), và những tệp không quét được được liệt kê trong `results.virusScanErrors`. Những tệp lớn hơn mức clamd chấp nhận (`StreamMaxLength` của nó) thì được liệt kê trong `results.virusScanSkipped`: clamd từ chối chúng ở mọi lần thử.
 
 
 ## Xác thực

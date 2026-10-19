@@ -1,4 +1,4 @@
-<!-- source: c061da9312ad -->
+<!-- source: f8a77c318b83 -->
 
 # Komut satırı
 
@@ -59,16 +59,16 @@ spamscanner scan message.eml --subject-tag "[SPAM]" > tagged.eml
 
 ### Denetimler
 
-| Seçenek               | Anlamı                                                                                   |
-| --------------------- | ---------------------------------------------------------------------------------------- |
-| `--auth`              | SPF, DKIM, DMARC ve ARC denetimi yapar (`--ip` gerektirir)                               |
-| `--dnsbl <zone>`      | IP engelleme listesi, örneğin `zen.spamhaus.org`; tekrarlanabilir                        |
-| `--uribl <zone>`      | Bağlantılar için alan adı engelleme listesi, örneğin `dbl.spamhaus.org`; tekrarlanabilir |
-| `--dns-server <ip>`   | DNS denetimleri için ad sunucusu; tekrarlanabilir                                        |
-| `--no-cloudflare`     | Bağlantıları Cloudflare'in filtreleme yapan çözümleyicilerine sormaz                     |
-| `--clamav [socket]`   | Ekleri varsayılan soketindeki ya da belirtilen soketteki clamd ile tarar                 |
-| `--allowlist <value>` | Bu IP adresini, alan adını veya adresi her zaman kabul eder; tekrarlanabilir             |
-| `--denylist <value>`  | Bu IP adresini, alan adını veya adresi her zaman reddeder; tekrarlanabilir               |
+| Seçenek               | Anlamı                                                                                                                                                                  |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--auth`              | SPF, DKIM, DMARC ve ARC denetimi yapar (`--ip` gerektirir)                                                                                                              |
+| `--dnsbl <zone>`      | IP engelleme listesi, örneğin `zen.spamhaus.org`; tekrarlanabilir                                                                                                       |
+| `--uribl <zone>`      | Bağlantılar için alan adı engelleme listesi, örneğin `dbl.spamhaus.org`; tekrarlanabilir                                                                                |
+| `--dns-server <ip>`   | DNS denetimleri için ad sunucusu; tekrarlanabilir                                                                                                                       |
+| `--no-cloudflare`     | Bağlantıları Cloudflare'in filtreleme yapan çözümleyicilerine sormaz                                                                                                    |
+| `--clamav[=socket]`   | Ekleri varsayılan soketindeki ya da belirtilen soketteki clamd ile tarar                                                                                                |
+| `--allowlist <value>` | Bu istemci IP adresini veya ana makine adını, ya da kimlik doğrulama göndericiyi onayladığında bu alan adını veya adresi (`--auth`) her zaman kabul et; tekrarlanabilir |
+| `--denylist <value>`  | Bu IP adresini, alan adını veya adresi her zaman reddeder; tekrarlanabilir                                                                                              |
 
 ### Dil modeli
 
@@ -85,7 +85,7 @@ spamscanner scan message.eml --subject-tag "[SPAM]" > tagged.eml
 | `--llm-auth-header <name>`                                 | `--llm-auth header` ile birlikte anahtar için üst bilgi                                                                                             |
 | `--llm-username`, `--llm-password`                         | `--llm-auth basic` için                                                                                                                             |
 | `--llm-header "Name: value"`                               | Ek istek üst bilgisi; tekrarlanabilir                                                                                                               |
-| `--llm-mode <mode>`                                        | `auto` (yalnızca sınırdaki durumlar, varsayılan) veya `always`                                                                                      |
+| `--llm-mode <mode>`                                        | `auto` (yalnızca sınırdaki durumlar, varsayılan), `always` veya `off`                                                                               |
 | `--llm-timeout <ms>`                                       | Varsayılan 30000                                                                                                                                    |
 | `--llm-policy <text>`                                      | Model için ek kurallar, örneğin "Asla e-postayla fatura göndermeyiz"                                                                                |
 | `--llm-redact`, `--no-llm-redact`                          | Önce kişisel verileri çıkarır; uzak sağlayıcılar için varsayılan olarak açık                                                                        |
@@ -99,43 +99,49 @@ Bir [Postfix içerik filtresi](postfix.md#content-filter). Standart girdiden bir
 spamscanner filter -f "$sender" -- "$recipient"
 ```
 
-| Seçenek               | Anlamı                                                    |
-| --------------------- | --------------------------------------------------------- |
-| `--sendmail <path>`   | Varsayılan `/usr/sbin/sendmail`                           |
-| `--subject-tag <tag>` | Spamın konusunun başına ekler                             |
-| `--reject`            | Reddetme eşiğindeki postayı aktarmak yerine geri döndürür |
-| `--discard`           | Reddetme eşiğindeki postayı aktarmak yerine atar          |
+| Seçenek               | Anlamı                                                                   |
+| --------------------- | ------------------------------------------------------------------------ |
+| `--sendmail <path>`   | Varsayılan `/usr/sbin/sendmail`                                          |
+| `--subject-tag <tag>` | Spamın konusunun başına ekler                                            |
+| `--reject`            | Reddetme eşiğindeki postayı aktarmak yerine geri döndürür                |
+| `--discard`           | Reddetme eşiğindeki postayı aktarmak yerine atar                         |
+| `--on-error <answer>` | Tam olarak taranamayan posta için: `tempfail` (varsayılan) veya `accept` |
 
-Çıkış kodları, Postfix'in okuduğu sendmail kurallarını izler: 0 teslim edildi (veya atıldı), 64 alıcı belirtilmedi, 69 spam olarak reddedildi (Postfix iletiyi geri döndürür), 75 herhangi bir hata; böylece Postfix iletiyi saklar ve daha sonra yeniden dener.
+Çıkış kodları, Postfix'in okuduğu sendmail kurallarını izler: 0 teslim edildi (veya atıldı), 64 alıcı belirtilmedi, 69 spam olarak reddedildi (Postfix iletiyi geri döndürür), 75 herhangi bir hata; böylece Postfix iletiyi saklar ve daha sonra yeniden dener. ClamAV'ın tarayamadığı bir ek içeren ileti de bir hatadır. `--on-error accept` ile böyle bir ileti ya da taraması başarısız olan bir ileti `X-Spam-Virus-Scan: failed` ile ve göndericinin eklediği hiçbir `X-Spam-*` başlığı olmadan aktarılır.
 
 
 ## milter, http, server ve spamd
 
 ```sh
 spamscanner milter --port 7831 --reject --subject-tag "[SPAM]"
-spamscanner http --port 7832 --token "$SPAMSCANNER_TOKEN"
+spamscanner http --port 7832    # token in SPAMSCANNER_TOKEN
 spamscanner server --port 7830
 spamscanner spamd --port 783
 ```
 
+HTTP API'si belirtecini `SPAMSCANNER_TOKEN` ortam değişkeninden okur. `--token` da çalışır, ancak makinedeki diğer kullanıcılar komut satırı seçeneklerini `ps` ile görebilir.
+
 783, SpamAssassin istemcilerinin varsayılan olarak kullandığı bağlantı noktasıdır. 1024'ün altındaki bağlantı noktaları root yetkisi veya `CAP_NET_BIND_SERVICE` yeteneği gerektirir; `--port 7833` gibi başka bir bağlantı noktası kullanın ve bunu istemciye bildirin.
 
-| Seçenek               | Anlamı                                                                                |
-| --------------------- | ------------------------------------------------------------------------------------- |
-| `--port <n>`          | TCP bağlantı noktası                                                                  |
-| `--host <ip>`         | Dinlenecek adres (varsayılan 127.0.0.1)                                               |
-| `--socket <path>`     | Bunun yerine bir Unix soketini dinler                                                 |
-| `--reject`            | Milter: reddetme eşiğindeki postayı geri çevirir                                      |
-| `--reject-code <n>`   | Milter: 451, daha sonra yeniden dene (varsayılan) veya 550                            |
-| `--quarantine`        | Milter: spamı posta sunucusunun karantinasında bekletir                               |
-| `--name <hostname>`   | Milter: Authentication-Results içinde bu sunucunun adı                                |
-| `--token <secret>`    | HTTP: `Authorization: Bearer <secret>` gerektirir; `/learn` için zorunludur           |
-| `--allow-tell`        | spamd: öğrenmek için TELL isteklerini (`spamc -L spam`) kabul eder                    |
-| `--out <file>`        | HTTP ve spamd: öğrenilenleri bu model dosyasına kaydeder                              |
-| `--subject-tag <tag>` | Milter ve spamd: spamın konusunun başına ekler                                        |
-| `--verbose`           | Milter: her taramayı günlüğe yazar. TCP sunucusu: tek bir metin satırıyla yanıt verir |
+| Seçenek               | Anlamı                                                                                     |
+| --------------------- | ------------------------------------------------------------------------------------------ |
+| `--port <n>`          | TCP bağlantı noktası                                                                       |
+| `--host <ip>`         | Dinlenecek adres (varsayılan 127.0.0.1)                                                    |
+| `--socket <path>`     | Bunun yerine bir Unix soketini dinler                                                      |
+| `--reject`            | Milter: reddetme eşiğindeki postayı geri çevirir                                           |
+| `--reject-code <n>`   | Milter: bir 4xx kodu, daha sonra yeniden dene (451, varsayılan) veya 550 gibi bir 5xx kodu |
+| `--quarantine`        | Milter: spamı posta sunucusunun karantinasında bekletir                                    |
+| `--on-error <answer>` | Milter: tam olarak taranamayan posta için `tempfail` (varsayılan) veya `accept`            |
+| `--name <hostname>`   | Milter: Authentication-Results içinde bu sunucunun adı                                     |
+| `--token <secret>`    | HTTP: `Authorization: Bearer <secret>` gerektirir; `/learn` için zorunludur                |
+| `--allow-tell`        | spamd: öğrenmek için TELL isteklerini (`spamc -L spam`) kabul eder                         |
+| `--out <file>`        | HTTP ve spamd: öğrenilenleri bu model dosyasına kaydeder                                   |
+| `--subject-tag <tag>` | Milter ve spamd: spamın konusunun başına ekler                                             |
+| `--verbose`           | Milter: her taramayı günlüğe yazar. TCP sunucusu: tek bir metin satırıyla yanıt verir      |
 
 Yukarıdaki tarama seçenekleri sunucular için de geçerlidir. [Milter](postfix.md#milter), [HTTP API, TCP sunucusu ve spamd](http-api.md).
+
+spamd ve TCP istemcileri iletiyi gönderen istemcinin IP adresini göndermez, HTTP istemcileri ise yalnızca `?ip=` ile gönderir; bu yüzden `--auth` ve `--dnsbl` yalnızca milter ile ve bu adresi veren HTTP istekleriyle çalışır. Sunucular bu seçeneklerle başlatıldığında bunu bildirir.
 
 
 ## train, eval ve learn
@@ -157,6 +163,8 @@ spamscanner learn spam message.eml --model my-model.json
 
 `learn` model dosyasını yerinde günceller; ilk seferde dosyayı paketle gelen modelden oluşturur. [Eğitim](training.md)
 
+Hem `--model` hem `--out` verildiğinde `learn`, `--model` dosyasından başlar ve sonucu `--out` dosyasına yazar.
+
 
 ## llm-test ve models
 
@@ -165,7 +173,7 @@ spamscanner models
 spamscanner llm-test --llm ollama --llm-model qwen3.5:4b
 ```
 
-`llm-test` modele İngilizce ve İtalyanca olarak bir sıradan ileti ve iki dolandırıcılık iletisi gönderir, kararlarını, her birinin ne kadar sürdüğünü, kullanılan yöntemi ve donanımı yazdırır ve yalnızca üçü de doğruysa 0 koduyla çıkar.
+`llm-test` modele İngilizce ve İtalyanca olarak bir sıradan ileti ve iki dolandırıcılık iletisi gönderir, kararlarını, her birinin ne kadar sürdüğünü, kullanılan yöntemi ve, bu makinedeki bir model için, donanımı yazdırır ve yalnızca üçü de doğruysa 0 koduyla çıkar.
 
 
 ## Yapılandırma dosyası

@@ -37,6 +37,7 @@
   "devDependencies": {
     "@commitlint/cli": "^19.8.1",
     "@commitlint/config-conventional": "^19.8.1",
+    "@types/node": "^18.19.130",
     "c8": "^10.1.3",
     "esbuild": "^0.28.2",
     "fixpack": "^4.0.0",
@@ -56,19 +57,31 @@
   },
   "exports": {
     ".": {
-      "types": "./dist/types/index.d.ts",
-      "import": "./dist/esm/index.js",
-      "require": "./dist/cjs/index.cjs"
+      "import": {
+        "types": "./dist/types/index.d.ts",
+        "default": "./dist/esm/index.js"
+      },
+      "require": {
+        "types": "./dist/types/index.d.cts",
+        "default": "./dist/cjs/index.cjs"
+      }
     },
     "./arf": {
-      "types": "./dist/types/arf.d.ts",
-      "import": "./dist/esm/arf.js",
-      "require": "./dist/cjs/arf.cjs"
+      "import": {
+        "types": "./dist/types/arf.d.ts",
+        "default": "./dist/esm/arf.js"
+      },
+      "require": {
+        "types": "./dist/types/arf.d.cts",
+        "default": "./dist/cjs/arf.cjs"
+      }
     },
     "./package.json": "./package.json"
   },
   "files": [
     "dist/",
+    "!dist/standalone/",
+    "!dist/types/cli.d.ts",
     "model/"
   ],
   "homepage": "https://spamscanner.net",
@@ -113,7 +126,7 @@
     "url": "git+https://github.com/spamscanner/spamscanner.git"
   },
   "scripts": {
-    "build": "node build.mjs && tsc --project tsconfig.json",
+    "build": "node build.mjs",
     "i18n:check": "node scripts/i18n-check.js",
     "lint": "fixpack && remark . -qfo && xo --fix",
     "model:train": "node scripts/train-model.js",

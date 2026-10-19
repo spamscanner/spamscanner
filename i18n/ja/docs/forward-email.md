@@ -1,4 +1,4 @@
-<!-- source: dc9016edd59e -->
+<!-- source: c70584655c0e -->
 
 # Forward Email
 
@@ -45,7 +45,7 @@ async function onData(stream, session, callback) {
 }
 ```
 
-`scanner.scan()`はSMTPストリームを直接受け付けます。[mailauth](https://github.com/postalsys/mailauth)の結果がすでに手元にある場合は、`authentication`を省き、IPアドレスだけを渡してください。
+`scanner.scan()`はSMTPストリームを直接受け付けます。[mailauth](https://github.com/postalsys/mailauth)の結果がすでに手元にある場合は、`authenticationResults`として渡してください。再検査せずに、その結果がスコアに反映されます。
 
 421または451で応答すると、送信側のサーバーはメッセージをキューに入れ、後で再試行します。新しい拒否ルールは一時的なコードで始め、結果を確認してから550に切り替えれば、その間にメールを失うことはありません。
 

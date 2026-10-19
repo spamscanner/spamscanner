@@ -1,4 +1,4 @@
-<!-- source: 1151282f29d3 -->
+<!-- source: 84dca86d95ea -->
 
 # Diğer posta sunucuları
 
@@ -20,8 +20,10 @@ Spam Scanner dört protokol konuşur; bu nedenle çoğu posta yazılımı ona ö
 
 ```sh
 sudo systemctl disable --now spamd    # or spamassassin, depending on the distribution
-spamscanner spamd --port 783 --auth
+spamscanner spamd --port 783
 ```
+
+spamd istemcileri iletiyi gönderen istemcinin IP adresini göndermez, bu yüzden SPF, DKIM, DMARC ve ARC (`--auth`) ile IP engel listeleri (`--dnsbl`) burada çalışamaz. Posta sunucusu destekliyorsa bunlar için [milter](postfix.md#milter) kullanın.
 
 spamc ile:
 
@@ -87,7 +89,7 @@ if header :is "X-Spam-Flag" "YES" {
 IMAPSieve ile bir iletiyi Junk klasörüne taşımak veya oradan çıkarmak modele öğretim yapabilir. HTTP API'yi bir belirteç ve bir model dosyasıyla başlatın:
 
 ```sh
-spamscanner http --port 7832 --token "$SPAMSCANNER_TOKEN" --out /var/lib/spamscanner/model.json
+spamscanner http --port 7832 --out /var/lib/spamscanner/model.json    # token in SPAMSCANNER_TOKEN
 ```
 
 ve milter'ı veya spamd sunucusunu `--model /var/lib/spamscanner/model.json` (veya `SPAMSCANNER_MODEL`) ile aynı modele yönlendirin. Öğrenilenleri alması için onu zaman zaman yeniden başlatın. `sieve_pipe` tarafından çalıştırılan bir betik iletiyi gönderir:
@@ -132,7 +134,7 @@ if (/^X-Spam-Flag: YES/)
 HTTP isteği gönderebilen her program postayı tarayabilir:
 
 ```sh
-spamscanner http --port 7832 --token "$SPAMSCANNER_TOKEN"
+spamscanner http --port 7832    # token in SPAMSCANNER_TOKEN
 
 curl -s -X POST -H "Authorization: Bearer $SPAMSCANNER_TOKEN" \
   --data-binary @message.eml "http://127.0.0.1:7832/scan?ip=203.0.113.5&from=alice@example.com&to=bob@example.org"

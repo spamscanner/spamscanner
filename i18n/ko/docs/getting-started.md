@@ -1,4 +1,4 @@
-<!-- source: 8263c06f1dab -->
+<!-- source: 1a2009efd1f9 -->
 
 # 시작하기
 
@@ -25,6 +25,8 @@ Node.js와 모델이 내장된 Linux 또는 macOS용 독립 실행형 바이너�
 ```sh
 curl -fsSL https://github.com/spamscanner/spamscanner/releases/latest/download/install.sh | bash
 ```
+
+스크립트는 설치하기 전에 릴리스의 `SHA256SUMS` 파일로 바이너리를 검증합니다. Linux용 바이너리는 glibc가 필요하므로 Alpine 등 musl 기반 시스템에서는 npm으로 설치하십시오.
 
 Linux(x64, arm64), macOS(Intel, Apple 실리콘), Windows용 바이너리는 모든 [릴리스](https://github.com/spamscanner/spamscanner/releases)에 첨부되어 있습니다.
 
@@ -75,6 +77,8 @@ CommonJS도 동작합니다.
 const SpamScanner = require('spamscanner');
 ```
 
+타입 선언이 포함되어 있으며, TypeScript 4.7 이상에서 쓸 수 있습니다(`require`로 쓰려면 5.3 이상).
+
 `scan()`은 원본 메시지를 Buffer, 문자열, Uint8Array 또는 읽기 가능한 스트림으로 받습니다. 문자열은 항상 메시지 텍스트로 취급합니다. 문자열이 경로처럼 보인다고 해서 Spam Scanner가 파일을 읽는 일은 없습니다. 파일에는 `scanner.scanFile(path)`를 사용합니다.
 
 
@@ -113,7 +117,7 @@ spamscanner scan message.eml --ip 203.0.113.5 --helo mail.example.com \
 | SPF, DKIM, DMARC, ARC | `authentication: true`                           | `--auth`                    |
 | IP 차단 목록              | `dnsbl: {ip: ['zen.spamhaus.org']}`              | `--dnsbl zen.spamhaus.org`  |
 | 링크용 도메인 차단 목록         | `dnsbl: {domain: ['dbl.spamhaus.org']}`          | `--uribl dbl.spamhaus.org`  |
-| ClamAV                | `clamav: true` 또는 `clamav: {socket}`             | `--clamav [socket]`         |
+| ClamAV                | `clamav: true` 또는 `clamav: {socket}`             | `--clamav[=socket]`         |
 | 언어 모델                 | `llm: {provider: 'ollama', model: 'qwen3.5:4b'}` | `--llm ollama`              |
 | 허용 목록과 거부 목록          | `allowlist: [...]`, `denylist: [...]`            | `--allowlist`, `--denylist` |
 

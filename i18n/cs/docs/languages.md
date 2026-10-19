@@ -1,4 +1,4 @@
-<!-- source: 9537a0e62eb0 -->
+<!-- source: 5d22e36f3f16 -->
 
 # Jazyky
 
@@ -9,7 +9,7 @@ Spam přichází v každém jazyce a běžná pošta také. Spam Scanner čte ob
 
 * **Slova.** Text se dělí pomocí `Intl.Segmenter`, který se řídí pravidly Unicode pro hranice slov a používá slovníky pro čínštinu, japonštinu, thajštinu, laoštinu, khmerštinu a barmštinu, tedy písma psaná bez mezer. Dlouhé texty se nejprve rozdělí na části, protože segmentátor v Node.js 18 se na velmi dlouhých řetězcích zpomaluje.
 * **Normalizace.** Unicode NFKC převede písmena plné šířky a většinu stylizovaných písmen (𝐅𝐑𝐄𝐄, Ⓕⓡⓔⓔ) na obyčejná. Text se převádí na malá písmena podle pravidel Unicode.
-* **Maskování.** Neviditelné znaky uvnitř slov (`free` s mezerou nulové šířky mezi dvěma písmeny, měkké spojovníky) se odstraní a spočítají. Slova, která míchají abecedy, například `pаypal` s cyrilickým а, se převedou zpět na jednu abecedu a spočítají. Číslice použité místo písmen (`v1agra`) se nahradí. Každý druh maskování je samostatný příznak a tři nebo více neviditelných znaků, nebo dvě či více smíšených slov, také přidávají body.
+* **Maskování.** Neviditelné znaky uvnitř slov (`free` s mezerou nulové šířky mezi dvěma písmeny, nebo `v1agra` s nimi kolem 1) se odstraní a spočítají, ale ne ty mezi číslicemi, které odesílatelé vkládají do čísel, aby z nich telefony nedělaly odkazy, ani mezera nulové šířky mezi písmeny thajského, laoského, khmerského, barmského nebo tibetského písma, kterou pisatelé těchto písem vkládají tam, kde končí slovo. Spojovače (U+200C, U+200D), které potřebuje perština, indická písma a emoji, se počítají jen mezi latinkovými písmeny. Měkké spojovníky a značky směru, vnoření a izolace, které potřebuje hebrejský a arabský text, se odstraní bez počítání; přepisy směru, které zobrazí písmena v jiném pořadí (U+202D, U+202E), se počítají v jakémkoli textu. Slova, která míchají abecedy, například `pаypal` s cyrilickým а, se převedou na abecedu, ke které patří většina jejich písmen, a spočítají; ruská pádová koncovka za názvem značky a apostrofem (`iPhone'ы`) nic nemíchá. Číslice použité místo písmen (`v1agra`) se nahradí. Každý druh maskování je samostatný příznak a tři nebo více neviditelných znaků, nebo dvě či více smíšených slov, také přidávají body.
 
 
 ## Rozpoznání jazyka
@@ -17,7 +17,7 @@ Spam přichází v každém jazyce a běžná pošta také. Spam Scanner čte ob
 Jazyk každé zprávy se rozpozná podle písma a u písem, která sdílí mnoho jazyků, podle písmen:
 
 * Hangul je korejština; hiragana a katakana znamenají japonštinu; thajské písmo, řecké písmo, hebrejské písmo, arménské písmo, gruzínské písmo, bengálské písmo, tamilské písmo a další písma, která používá jediný jazyk, ho určují přímo.
-* Cyrilická písmena, která se vyskytují jen v jednom jazyce, rozhodnou mezi ukrajinštinou (і, ї, є, ґ), běloruštinou (ў), srbštinou (ђ, ћ, џ), makedonštinou (ѓ, ќ, ѕ) a ruštinou (ы, э, ё).
+* Cyrilická písmena, která se vyskytují jen v jednom jazyce, rozhodnou mezi ukrajinštinou (і, ї, є, ґ), běloruštinou (ў), srbštinou (ђ, ћ, џ), makedonštinou (ѓ, ќ, ѕ) a ruštinou (ы, э, ё) ve slovech, která nejsou jmény (slova s velkým počátečním písmenem a ostatními malými jinde než na začátku věty nebo řádku, ne slova psaná celá velkými písmeny, jejichž písmena se počítají jen v textu příliš krátkém pro statistický detektor: bulharský text, který jmenuje „господин Рыскулов“, je bulharský), pokud text neobsahuje také písmena kazaštiny, uzbečtiny, kyrgyzštiny, tádžičtiny, tatarštiny, baškirštiny nebo mongolštiny (ә, ө, ү, ұ, қ, ғ, ң, һ, ҳ, ҷ a další), jejichž abecedy některá z těchto písmen sdílejí: pak rozhodne statistický detektor, a když odpoví slovanským jazykem (ruský nebo bulharský text s kazašským jménem nebo slovem), rozhodnou slova bez těchto písmen, která nejsou jmény, jako výše.
 * Text v písmech, která sdílí více jazyků (latinka, cyrilice, arabské písmo, dévanágarí a další), jde, pokud je dost dlouhý na posouzení, do [franc](https://github.com/wooorm/franc), omezeného na jazyky běžné v e-mailu, aby krátké zprávy nedostaly štítek vzácného jazyka.
 
 Jazyk se uvádí v `result.language` a `allowedLanguages: ['en', 'de']` (`--allow-language en,de`) přidá 3 body poště, která je s jistotou rozpoznaná v jakémkoli jiném jazyce.
@@ -31,7 +31,7 @@ Klasifikátor se učí z příkladů. Veřejné datové sady spamu obsahují mno
 2. **Slova se váží v rámci svého jazyka.** Pravděpodobnost spamu pro slovo se počítá vůči počtu spamových a hamových zpráv, které klasifikátor viděl v jazyce zprávy, ne ve všech jazycích. Běžné portugalské slovo zůstane v modelu, který viděl hlavně portugalský spam, neutrální.
 3. **Důvěra sleduje pokrytí.** Výsledek se táhne k „nejisté“ úměrně tomu, kolik zpráv každého druhu klasifikátor v daném jazyce viděl: plná důvěra vyžaduje 1 000 od každého (nebo 2 % menší třídy u malých osobních modelů). Jazyk bez hamu v trénovacích datech dostane vždy „nejisté“.
 
-Přibalený model nikdy neviděl [SMS Spam Multilingual Collection](https://huggingface.co/datasets/dbarbedillo/SMS_Spam_Multilingual_Collection_Dataset), zprávy SMS strojově přeložené do 21 jazyků. Před zavedením těchto pravidel označil 5,7 % tamního hamu jako spam, včetně 55 % portugalského a 41 % francouzského. S nimi 0,18 %: žádný v čínštině, arabštině, korejštině, japonštině, hindštině, portugalštině, francouzštině ani 20 dalších jazycích a 0,27 % v angličtině.
+Přibalený model nikdy neviděl [SMS Spam Multilingual Collection](https://huggingface.co/datasets/dbarbedillo/SMS_Spam_Multilingual_Collection_Dataset), zprávy SMS strojově přeložené do 21 jazyků. Před zavedením těchto pravidel označil 5,7 % tamního hamu jako spam, včetně 55 % portugalského a 41 % francouzského. S nimi 0,18 %: žádný v čínštině, arabštině, korejštině, japonštině, hindštině, portugalštině, francouzštině ani 13 dalších jazycích a 0,27 % v angličtině.
 
 
 ## Zachycení spamu v těchto jazycích

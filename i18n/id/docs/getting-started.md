@@ -1,4 +1,4 @@
-<!-- source: 8263c06f1dab -->
+<!-- source: 1a2009efd1f9 -->
 
 # Memulai
 
@@ -25,6 +25,8 @@ Sebagai binary mandiri untuk Linux atau macOS, dengan Node.js dan model yang sud
 ```sh
 curl -fsSL https://github.com/spamscanner/spamscanner/releases/latest/download/install.sh | bash
 ```
+
+Skrip memeriksa binary terhadap berkas `SHA256SUMS` dari rilis tersebut sebelum memasangnya. Binary Linux memerlukan glibc, jadi di Alpine dan sistem berbasis musl lainnya, pasang dengan npm saja.
 
 Binary untuk Linux (x64 dan arm64), macOS (Intel dan Apple silicon), dan Windows dilampirkan pada setiap [rilis](https://github.com/spamscanner/spamscanner/releases).
 
@@ -75,6 +77,8 @@ CommonJS juga berfungsi:
 const SpamScanner = require('spamscanner');
 ```
 
+Deklarasi tipe sudah disertakan, untuk TypeScript 4.7 atau lebih baru (5.3 atau lebih baru dengan `require`).
+
 `scan()` menerima pesan mentah sebagai Buffer, string, Uint8Array, atau readable stream. String selalu dianggap sebagai teks pesan: Spam Scanner tidak pernah membaca file hanya karena sebuah string terlihat seperti path. Gunakan `scanner.scanFile(path)` untuk file.
 
 
@@ -113,7 +117,7 @@ Tidak satu pun dari pemeriksaan ini aktif secara bawaan, karena masing-masing me
 | SPF, DKIM, DMARC, ARC        | `authentication: true`                           | `--auth`                    |
 | Daftar blokir IP             | `dnsbl: {ip: ['zen.spamhaus.org']}`              | `--dnsbl zen.spamhaus.org`  |
 | Daftar blokir domain tautan  | `dnsbl: {domain: ['dbl.spamhaus.org']}`          | `--uribl dbl.spamhaus.org`  |
-| ClamAV                       | `clamav: true` atau `clamav: {socket}`           | `--clamav [socket]`         |
+| ClamAV                       | `clamav: true` atau `clamav: {socket}`           | `--clamav[=socket]`         |
 | Model bahasa                 | `llm: {provider: 'ollama', model: 'qwen3.5:4b'}` | `--llm ollama`              |
 | Daftar izin dan daftar tolak | `allowlist: [...]`, `denylist: [...]`            | `--allowlist`, `--denylist` |
 

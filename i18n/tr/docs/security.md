@@ -1,4 +1,4 @@
-<!-- source: 60f00f92b5aa -->
+<!-- source: df3e980c3ef1 -->
 
 # Güvenlik ve gizlilik
 
@@ -11,13 +11,13 @@ Varsayılan olarak tek bir şey: bir iletideki **bağlantıların ana makine adl
 
 Geri kalan her şey yapılandırılana kadar kapalıdır:
 
-| Denetim             | Gönderdiği                                                                        | Gönderildiği yer                                                                  |
-| ------------------- | --------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| `authentication`    | Göndericinin SPF, DKIM, DMARC ve ARC kayıtları için DNS sorguları                 | Çözümleyiciniz veya `dnsServers`                                                  |
-| `dnsbl`             | İstemcinin ters çevrilmiş IP adresi ve bağlantı alan adları, DNS sorguları olarak | Engelleme listelerinin ad sunucuları, çözümleyiciniz veya `dns.servers` üzerinden |
-| `llm`               | Uzak sağlayıcılar için kişisel verileri çıkarılmış bir ileti özeti                | Belirttiğiniz dil modeli sunucusu ([gizlilik](llm.md#privacy))                    |
-| `reputation.apiUrl` | Göndericinin IP adresi, alan adı ve adresi                                        | Belirttiğiniz hizmet                                                              |
-| `clamav`            | Ekler                                                                             | Kendi clamd'niz, soketi üzerinden                                                 |
+| Denetim             | Gönderdiği                                                                                                                  | Gönderildiği yer                                                                  |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `authentication`    | Göndericinin SPF, DKIM, DMARC ve ARC kayıtları için DNS sorguları                                                           | Çözümleyiciniz veya `dnsServers`                                                  |
+| `dnsbl`             | İstemcinin ters çevrilmiş IP adresi ve bağlantı alan adları, DNS sorguları olarak                                           | Engelleme listelerinin ad sunucuları, çözümleyiciniz veya `dns.servers` üzerinden |
+| `llm`               | Uzak sağlayıcılar için kişisel verileri çıkarılmış bir ileti özeti                                                          | Belirttiğiniz dil modeli sunucusu ([gizlilik](llm.md#privacy))                    |
+| `reputation.apiUrl` | İstemcinin IP adresi ve doğrulanmış ana makine adı ile From, zarf göndericisi ve Reply-To adresleri ve bunların alan adları | Belirttiğiniz hizmet                                                              |
+| `clamav`            | Ekler                                                                                                                       | Kendi clamd'niz, soketi üzerinden                                                 |
 
 Telemetri, güncelleme denetimi ve çalışma zamanında indirme yoktur. Model paketin içinde gelir.
 
@@ -26,14 +26,15 @@ Telemetri, güncelleme denetimi ve çalışma zamanında indirme yoktur. Model p
 
 İstenmedikçe hiçbir şeyi. Taramalar günlüğe kaydedilmez veya saklanmaz. `learn()` sınıflandırıcıyı bellekte değiştirir; sınıflandırıcı diske yalnızca `saveModel()`, `spamscanner learn` veya sunucuların `--out` seçeneğiyle yazılır. Bir model dosyası sözcükleri veya ileti metnini değil, karma değerine dönüştürülmüş özellik sayılarını içerir.
 
-Dil modeli yanıtları, gönderilen içeriğin karma değeriyle anahtarlanarak bellekte önbelleğe alınır; böylece aynı iletinin tekrarlanan kopyaları için yalnızca bir kez sorulur. DNS yanıtları on dakika boyunca bellekte önbelleğe alınır.
+Dil modeli yanıtları, gönderilen içeriğin karma değeriyle anahtarlanarak bellekte önbelleğe alınır; böylece aynı iletinin tekrarlanan kopyaları için yalnızca bir kez sorulur. DNS yanıtları on dakika, bir itibar hizmetinin yanıtları beş dakika (`reputation.cacheTtl`; başarısız bir istek bir dakika) boyunca bellekte önbelleğe alınır.
 
 
 ## Düşmanca girdi
 
-* Ekler baytlarından tanınır; hiçbir zaman yürütülmez veya başka bir programla açılmaz. ZIP arşivleri, girdi sayısına bir sınır konarak merkezi dizinlerinden okunur; iç içe arşivler açılmaz.
-* Gövde metni `maxLength` (100.000 karakter) değerine kadar okunur ve sunucular 25 MB'a kadar iletileri kabul eder.
-* Her ağ denetiminin bir zaman aşımı vardır (`timeout`, varsayılan olarak 10 saniye). Başarısız olan veya zaman aşımına uğrayan bir denetim atlanır ve tarama onsuz tamamlanır.
+* Ekler baytlarından tanınır; hiçbir zaman yürütülmez veya başka bir programla açılmaz. ZIP arşivleri, girdi sayısına bir sınır konarak merkezi dizinlerinden okunur; iç içe arşivler açılmaz. Ekli iletiler (`message/rfc822` ya da dosya adı `.eml` ile biten ekler) en fazla üç düzey derinliğe kadar, en çok 100 eki ve toplamda 25 MB ekli ileti için açılır; iletinin kendi eklerinin hepsi her zaman incelenir. MIME ayrıştırıcının sınırlarını (1000'den fazla parça ya da 1 MB'ı aşan bir parça başlığı) aşan bir ileti, ayrıştırıcının izin verdiği kadar okunur (ilk parçaları, gönderici yine sayılsın diye kısaltılmış aşırı büyük bir başlıkla) ve hiçbir indirimin dengelemediği `MIME_TOO_COMPLEX` alır; ClamAV ise onu bütünüyle okur. Ayrıştırıcının başarısız olduğu ekli bir ileti de bunu alır ve taramayı hiçbir zaman başarısız kılmaz. HTML, Spam Scanner'ın kendi ayrıştırıcısıyla, ne kadar derin iç içe olursa olsun doğrusal zamanda okunur.
+* Gövde metni `maxLength` (100.000 karakter) değerine kadar okunur ve sunucular 25 MB'a kadar iletileri kabul eder. Bağlantılar `phishing.maxLength` sınırına kadar okunur (1.000.000 karakter).
+* Her ağ denetiminin bir zaman aşımı vardır (`timeout`, varsayılan olarak 10 saniye). Başarısız olan veya zaman aşımına uğrayan bir denetim atlanır ve tarama onsuz tamamlanır. Kimlik doğrulama ve görüntü modeli (ilk 10 görüntü) her biri bütünüyle bu süre içinde biter. ClamAV'ın (aynı anda dört ek) bir iletinin tüm ekleri için kendi sınırı vardır (`clamav.timeout`, 60 saniye); tarayamadığı ekler `results.virusScanErrors` içinde listelenir. Dil modelinin kendi süresi vardır (`llm.timeout`).
+* İzin listesi yalnızca göndericinin sahteleyemeyeceği şeylere güvenir: istemcinin adresi ve doğrulanmış ana makine adı ile kimlik doğrulamanın onayladığı gönderici alan adları. [İzin ve engelleme listesi](api.md#allowlist-and-denylist)
 * Bir iletide zaten bulunan `X-Spam-*` üst bilgileri milter, içerik filtresi ve `--headers` tarafından kaldırılır; böylece göndericiler kendi postalarını temiz olarak işaretleyemez.
 * Microsoft'un spam kararı üst bilgilerine yalnızca ileti doğrudan Microsoft sunucularından geldiğinde güvenilir ve bir iletinin nereden geldiğine karar vermek için Received üst bilgileri hiçbir zaman kullanılmaz.
 * Yapay zekâ filtrelerine hitap eden metin spam olarak puanlanır ve dil modeline iletinin talimat değil veri olduğu söylenir. [İstem enjeksiyonu](llm.md#prompt-injection)

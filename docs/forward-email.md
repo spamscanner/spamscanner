@@ -43,7 +43,7 @@ async function onData(stream, session, callback) {
 }
 ```
 
-`scanner.scan()` accepts the SMTP stream directly. With [mailauth](https://github.com/postalsys/mailauth) results already at hand, skip `authentication` and pass the IP address only.
+`scanner.scan()` accepts the SMTP stream directly. With [mailauth](https://github.com/postalsys/mailauth) results already at hand, pass them as `authenticationResults`: they are scored instead of checked again.
 
 A reply of 421 or 451 makes the sending server queue the message and try again later. New rejection rules can start with a temporary code and move to 550 once their results have been checked, without losing mail in between.
 

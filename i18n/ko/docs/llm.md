@@ -1,4 +1,4 @@
-<!-- source: 79e50e309869 -->
+<!-- source: 7564838c2408 -->
 
 # 언어 모델
 
@@ -114,11 +114,11 @@ Cloudflare는 자사 네트워크에서 중앙값을 Clef Flash 39ms, Clef 209ms
 | `always`    | 모든 메시지                                                            |
 | `off`       | 묻지 않음                                                             |
 
-`minScore`와 `maxScore`로 `auto`의 범위를 바꿉니다. 명백한 스팸과 명백한 ham은 모델까지 가지 않습니다.
+`minScore`와 `maxScore`로 `auto`의 범위를 바꿉니다. 명백한 스팸과 명백한 ham은 모델까지 가지 않습니다. 그 밖의 `mode`는 오류이며, `scan()` 한 번에 `llm: false`를 주면 어떤 모델에도 묻지 않습니다.
 
 판정은 `spam`, `phishing`, `scam`, `malware`, `ham` 중 하나입니다. `decision`에서는 spam, phishing, scam, malware를 합쳐서 ham과 비교합니다. 모델이 spam 30%, phishing 30%, ham 40%로 본 메시지는 60% 확률로 원치 않는 메일이며, 판정은 가장 가능성이 높은 종류가 됩니다. 스팸 판정은 최대 6점을 더하고(`LLM_SPAM`, `LLM_PHISHING`, `LLM_SCAM`, `LLM_MALWARE`), ham 판정은 최대 3점을 빼며(`LLM_HAM`), 각각 확신도를 곱합니다. 모델 하나만으로는 확신하지 않는 한 메시지를 스팸으로 표시할 수 없습니다. 85% 확신도에서 6점은 5.1점으로, 임계값을 겨우 넘습니다. 모델이 실패하거나 시간이 초과되면 검사는 모델 없이 계속되고, `results.llm.error`에 그 이유가 기록됩니다.
 
-답변은 메시지별로 캐시되므로, 여러 수신자에게 보낸 같은 메시지는 한 번만 묻습니다.
+답변은 메시지별로 캐시되므로, 여러 수신자에게 보낸 같은 메시지는 그 사본들이 동시에 검사될 때에도 한 번만 묻습니다. `timeout`은 메시지에 대한 요청뿐 아니라 빈 요청 슬롯(`concurrency`)을 기다리는 시간도 포함합니다. 그동안 계속 바쁜 모델은 그 메시지에서 건너뜁니다.
 
 
 ## 제공자
@@ -188,7 +188,7 @@ const scanner = new SpamScanner({
     username: 'spam', password: '…', // with auth: 'basic'
     headers: {'x-team': 'mail'},
     ca: fs.readFileSync('internal-ca.pem'), // a private certificate authority
-    timeout: 30_000,
+    timeout: 30_000,                 // waiting and requests, per message
     concurrency: 4,                  // requests at once
     cacheSize: 1000,                 // answers kept in memory
     keepAlive: '24h',                // Ollama: keep the model loaded between messages
@@ -259,7 +259,7 @@ spamscanner milter --llm ollama --llm-policy "We never send invoices by email. A
 
 모델은 헤더 요약(From, Reply-To, To, Subject), 링크(한 주소를 표시하고 다른 주소로 가는 링크가 먼저), 첨부 파일 이름과 형식, 인증 결과, HTML이 미리보기 텍스트보다 많은 텍스트를 숨길 때 숨긴 텍스트의 양, 그리고 메일 클라이언트가 보여 주는 대로의 본문(HTML이 있으면 HTML의 본문이며, 숨긴 텍스트, 보이지 않는 문자, 꾸민 글자는 제외)을 6,000자(`maxInputChars`)로 잘라서 봅니다.
 
-네트워크 밖의 제공자에게 보낼 때는 먼저 개인 데이터를 제거합니다. 이메일 주소의 로컬 부분(도메인은 피싱 판단에 중요하므로 남깁니다), 카드 번호와 계좌 번호, 전화번호, 그리고 흔히 로그인 토큰을 담고 있는 링크의 쿼리 매개변수 값이 그 대상입니다. 결정 모델을 포함한 원격 제공자에게는 기본으로 켜져 있고, 로컬 제공자(Ollama, LM Studio, llama.cpp, vLLM, LocalAI, Jan, TEI, 그리고 localhost의 모든 서버)에는 꺼져 있습니다. `redact: true` 또는 `false`(`--llm-redact`, `--no-llm-redact`)로 이 기본값을 바꿀 수 있습니다.
+네트워크 밖의 제공자에게 보낼 때는 먼저 개인 데이터를 제거합니다. 이메일 주소의 로컬 부분(도메인은 피싱 판단에 중요하므로 남깁니다), 카드 번호와 계좌 번호, 국제 전화번호(+ 또는 00으로 쓴 번호), 그리고 흔히 로그인 토큰을 담고 있는 링크의 쿼리 매개변수 값이 그 대상입니다. 결정 모델을 포함한 원격 제공자에게는 기본으로 켜져 있고, 이 컴퓨터나 사설 네트워크(사설 주소, 점이 없는 이름, 또는 .local, .internal, .lan, .home.arpa 아래의 이름)에 있는 로컬 제공자(Ollama, LM Studio, llama.cpp, vLLM, LocalAI, Jan, TEI)와 localhost의 모든 서버에는 꺼져 있습니다. 다른 곳의 호스트를 가리키는 로컬 제공자에는 개인 데이터를 제거한 메일이 갑니다. `redact: true` 또는 `false`(`--llm-redact`, `--no-llm-redact`)로 이 기본값을 바꿀 수 있습니다.
 
 메일을 보내기 전에 제공자의 데이터 보관 약관을 확인하십시오. 로컬 모델을 쓰면 이 문제를 피할 수 있습니다.
 

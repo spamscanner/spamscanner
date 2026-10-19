@@ -3,6 +3,7 @@ import {Buffer, File} from 'node:buffer';
 import {generateKeyPairSync} from 'node:crypto';
 import {once} from 'node:events';
 import {writeFileSync} from 'node:fs';
+import http from 'node:http';
 import net from 'node:net';
 import path from 'node:path';
 import {describe, it} from 'node:test';
@@ -12,8 +13,10 @@ import {
 } from '../src/auth.js';
 import {clamdAddress, ping, scanBuffer} from '../src/clamav.js';
 import {
-	CLOUDFLARE_FAMILY, DnsChecker, KNOWN_LISTS, isListedAnswer, reverseName,
+	CLOUDFLARE_FAMILY, DnsChecker, KNOWN_LISTS, isListedAnswer, isLookupName, normalizeIp, reverseName,
 } from '../src/dnsbl.js';
+import {requestJson} from '../src/http.js';
+import {ReputationChecker, matchList} from '../src/reputation.js';
 import {
 	dnsServer, eicar, fakeClamd, message, temporaryDirectory,
 } from './helpers/index.js';
@@ -92,6 +95,35 @@ describe('DNS blocklists and filtering resolvers', () => {
 		assert.ok(KNOWN_LISTS.ip['zen.spamhaus.org']);
 	});
 
+	it('takes the answers SURBL, URIBL and Spamhaus give blocked or wrong queries for no listing', async () => {
+		// (SURBL answers 127.0.0.1 to a resolver it blocks, as URIBL does)
+		for (const zone of ['multi.surbl.org', 'MULTI.SURBL.ORG.', 'multi.uribl.com']) {
+			assert.equal(isListedAnswer('127.0.0.1', zone), false, zone);
+			assert.equal(isListedAnswer('127.0.0.4', zone), true, zone);
+		}
+
+		// (Spamhaus: a misspelled zone, a public resolver, too many queries,
+		//  an address looked up in the DBL)
+		for (const address of ['127.255.255.252', '127.255.255.254', '127.255.255.255']) {
+			assert.equal(isListedAnswer(address, 'zen.spamhaus.org'), false, address);
+			assert.equal(isListedAnswer(address, 'dbl.spamhaus.org'), false, address);
+		}
+
+		assert.equal(isListedAnswer('127.0.1.255', 'dbl.spamhaus.org'), false);
+		assert.equal(isListedAnswer('127.0.1.255', 'key.dbl.dq.spamhaus.net'), false);
+		assert.equal(isListedAnswer('127.0.1.2', 'dbl.spamhaus.org'), true);
+		// (127.0.0.1 elsewhere, and in a zone only named like SURBL's, is a listing)
+		assert.equal(isListedAnswer('127.0.0.1', 'bl.example'), true);
+		assert.equal(isListedAnswer('127.0.0.1', 'notsurbl.org'), true);
+		const dns = await dnsServer({'link.example.multi.surbl.org A': ['127.0.0.1'], 'spam.example.multi.surbl.org A': ['127.0.0.1', '127.0.0.8']});
+		try {
+			const checker = new DnsChecker({servers: [dns.server], timeout: 500});
+			assert.deepEqual(await checker.checkDomains(['link.example', 'spam.example'], ['multi.surbl.org']), [{zone: 'multi.surbl.org', value: 'spam.example', answers: ['127.0.0.8']}]);
+		} finally {
+			await dns.close();
+		}
+	});
+
 	it('looks up IPs and domains over real DNS, caching answers', async () => {
 		const dns = await dnsServer({
 			'1.2.0.192.zen.spamhaus.org A': ['127.0.0.4'],
@@ -128,6 +160,24 @@ describe('DNS blocklists and filtering resolvers', () => {
 			await malware.close();
 			await family.close();
 		}
+	});
+
+	it('does not ask about an address or a name no lookup could answer', async () => {
+		const asked = [];
+		const checker = new DnsChecker({
+			async resolve4(name) {
+				asked.push(name);
+				return [];
+			},
+		});
+		for (const name of ['[2001:db8::1]', '2001:db8::1', '192.0.2.1', `${'a'.repeat(64)}.example`, 'a..example', `${'a.'.repeat(130)}example`, '']) {
+			assert.equal(isLookupName(name), false, name);
+		}
+
+		assert.equal(isLookupName('mail.example.org.'), true);
+		assert.equal(isLookupName(null), false);
+		assert.deepEqual(await checker.checkCloudflare(['[2001:db8::1]', `${'a'.repeat(64)}.example`, 'fine.example']), []);
+		assert.deepEqual(asked, ['fine.example', 'fine.example']);
 	});
 
 	it('keeps its cache bounded and accepts a custom lookup', async () => {
@@ -187,7 +237,8 @@ describe('authentication', () => {
 			assert.equal(spoofed.spf.status.result, 'fail');
 			assert.equal(spoofed.dkim.status.result, 'none');
 			assert.equal(spoofed.dmarc.status.result, 'fail');
-			assert.deepEqual(calculateAuthScore(spoofed).tests.map(test => test.name), ['SPF_FAIL', 'DMARC_FAIL']);
+			// (SPF failing adds nothing to DMARC failing)
+			assert.deepEqual(calculateAuthScore(spoofed).tests, [{name: 'DMARC_FAIL', score: 3.5}]);
 		} finally {
 			await dns.close();
 		}
@@ -262,8 +313,121 @@ describe('authentication', () => {
 		assert.equal(formatAuthResultsHeader(result, 'mx'), 'mx;\r\n\tdkim=fail header.d=a.example;\r\n\tspf=softfail smtp.mailfrom=b.example;\r\n\tdmarc=fail header.from=c.example;\r\n\tarc=fail');
 		assert.equal(formatAuthResultsHeader({headers: 'Received-SPF: none\r\n'}), 'spamscanner;\r\n\tdkim=none;\r\n\tspf=none;\r\n\tdmarc=none;\r\n\tarc=none');
 		assert.equal(formatAuthResultsHeader(undefined), 'spamscanner;\r\n\tdkim=none;\r\n\tspf=none;\r\n\tdmarc=none;\r\n\tarc=none');
-		assert.deepEqual(calculateAuthScore(result, {arcFail: 0}).tests.map(test => test.name), ['DKIM_FAIL', 'SPF_SOFTFAIL', 'DMARC_FAIL']);
+		assert.deepEqual(calculateAuthScore(result, {arcFail: 0}).tests.map(test => test.name), ['DKIM_FAIL', 'DMARC_FAIL']);
 		assert.deepEqual(calculateAuthScore(undefined), {score: 0, tests: []});
 		assert.equal(summarizeAuth(undefined), 'spf=none dkim=none dmarc=none arc=none');
+	});
+});
+
+describe('IPv4 addresses in IPv6 form', () => {
+	it('looks up a mapped IPv4 address as IPv4, without an IPv6 zone', () => {
+		for (const ip of ['::ffff:192.0.2.1', '::FFFF:c000:201', '0:0:0:0:0:ffff:192.0.2.1']) {
+			assert.equal(normalizeIp(ip), '192.0.2.1', ip);
+			assert.equal(reverseName(ip, 'zen.spamhaus.org'), '1.2.0.192.zen.spamhaus.org', ip);
+		}
+
+		assert.equal(normalizeIp('fe80::1%eth0'), 'fe80::1');
+		assert.equal(reverseName('fe80::1%eth0', 'z'), `1.${'0.'.repeat(28)}8.e.f.z`);
+		// (an IPv4 address at the end of another IPv6 address is two groups of it)
+		assert.equal(reverseName('64:ff9b::192.0.2.1', 'z'), `1.0.2.0.0.0.0.c.${'0.'.repeat(16)}b.9.f.f.4.6.0.0.z`);
+		assert.equal(normalizeIp('2001:DB8::1'), '2001:db8::1');
+		assert.equal(normalizeIp('mail.example'), 'mail.example');
+	});
+
+	it('matches a mapped client address against an IPv4 allowlist entry', async () => {
+		const checker = new ReputationChecker({allowlist: ['192.0.2.1'], denylist: ['::ffff:198.51.100.7']});
+		assert.equal((await checker.check(['::ffff:192.0.2.1'])).isAllowlisted, true);
+		assert.equal((await checker.check(['198.51.100.7'])).isDenylisted, true);
+		assert.equal(matchList('::ffff:192.0.2.1', new Set(['192.0.2.1'])), '192.0.2.1');
+	});
+});
+
+describe('lookups without an answer', () => {
+	it('tells no answer from not listed, and caches only answers', async () => {
+		let calls = 0;
+		const checker = new DnsChecker({
+			timeout: 100,
+			async resolve4(name) {
+				calls++;
+				if (name === 'gone.example') {
+					throw Object.assign(new Error('queryA ENOTFOUND'), {code: 'ENOTFOUND'});
+				}
+
+				if (name === 'empty.example') {
+					throw Object.assign(new Error('queryA ENODATA'), {code: 'ENODATA'});
+				}
+
+				if (name === 'broken.example') {
+					throw Object.assign(new Error('queryA ESERVFAIL'), {code: 'ESERVFAIL'});
+				}
+
+				return new Promise(() => {});
+			},
+		});
+		assert.deepEqual(await checker.answer('gone.example'), []);
+		assert.deepEqual(await checker.answer('empty.example'), []);
+		assert.equal(await checker.answer('broken.example'), null);
+		assert.equal(await checker.answer('silent.example'), null);
+		assert.deepEqual(await checker.resolve4('broken.example'), []);
+		assert.deepEqual([...checker.cache.keys()], ['|gone.example', '|empty.example']);
+		calls = 0;
+		await checker.answer('gone.example');
+		await checker.answer('broken.example');
+		assert.equal(calls, 1);
+	});
+
+	it('lists the hosts Cloudflare\'s resolvers did not answer for', async () => {
+		const checker = new DnsChecker({
+			timeout: 100,
+			async resolve4(name, servers) {
+				if (name.startsWith('silent') || (name.startsWith('quiet') && servers[0] === CLOUDFLARE_FAMILY[0])) {
+					throw Object.assign(new Error('queryA ETIMEOUT'), {code: 'ETIMEOUT'});
+				}
+
+				return name.startsWith('bad') ? ['0.0.0.0'] : ['192.0.2.1'];
+			},
+		});
+		const found = await checker.checkCloudflare(['bad.example', 'silent.example', 'quiet.example', 'fine.example']);
+		assert.deepEqual(found, [{host: 'bad.example', category: 'malware'}]);
+		assert.deepEqual(found.unanswered, ['silent.example', 'quiet.example']);
+		assert.deepEqual((await checker.checkCloudflare(['quiet.example'], {adult: false})).unanswered, []);
+		assert.equal(JSON.stringify(found), '[{"host":"bad.example","category":"malware"}]');
+	});
+});
+
+describe('deadlines', () => {
+	it('gives clamd one deadline for the whole scan, however it trickles', async () => {
+		const trickle = net.createServer({allowHalfOpen: true}, socket => {
+			socket.on('error', () => {});
+			socket.resume();
+			const timer = setInterval(() => socket.write(' '), 50);
+			socket.on('close', () => clearInterval(timer));
+		});
+		trickle.listen(0, '127.0.0.1');
+		await once(trickle, 'listening');
+		try {
+			const started = Date.now();
+			await assert.rejects(scanBuffer(Buffer.from('x'), {port: trickle.address().port, timeout: 300}), /did not answer within 300 ms/);
+			assert.ok(Date.now() - started < 1000);
+		} finally {
+			trickle.close();
+		}
+	});
+
+	it('notices a connection dropped in the middle of a reply', async () => {
+		const server = http.createServer((request, response) => {
+			response.writeHead(200, {'content-length': 1000, 'content-type': 'application/json'});
+			response.write('{"a":');
+			setTimeout(() => request.socket.destroy(), 50);
+		});
+		server.listen(0, '127.0.0.1');
+		await once(server, 'listening');
+		try {
+			const started = Date.now();
+			await assert.rejects(requestJson('GET', `http://127.0.0.1:${server.address().port}/`, null, {timeout: 5000}), /aborted|ECONNRESET/);
+			assert.ok(Date.now() - started < 2000);
+		} finally {
+			server.close();
+		}
 	});
 });

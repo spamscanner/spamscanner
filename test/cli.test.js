@@ -69,6 +69,15 @@ describe('command-line parsing', () => {
 		assert.equal(parseCli(['scan', '--clamav']).values.clamav, '');
 		assert.equal(parseCli(['scan', '--clamav', '--json']).values.clamav, '');
 		assert.equal(parseCli(['scan', '--clamav', '/run/clamd.sock']).values.clamav, '/run/clamd.sock');
+		assert.equal(parseCli(['scan', '--clamav', 'clamd.ctl']).values.clamav, 'clamd.ctl');
+		assert.equal(parseCli(['scan', '--clamav=/run/clamd.sock', 'a.eml']).values.clamav, '/run/clamd.sock');
+		// A message file after a bare --clamav stays the message file.
+		const bare = parseCli(['scan', '--clamav', 'message.eml']);
+		assert.equal(bare.values.clamav, '');
+		assert.deepEqual(bare.positionals, ['message.eml']);
+		const file = path.join(temporaryDirectory(), 'message.sock');
+		writeFileSync(file, ham);
+		assert.deepEqual(parseCli(['scan', '--clamav', file]).positionals, [file]);
 		assert.throws(() => parseCli(['scan', '--bogus']), /Unknown option/);
 	});
 
@@ -188,6 +197,11 @@ describe('spamscanner version and help', () => {
 		const bad = await cli(['scan', '--bogus']);
 		assert.equal(bad.code, 2);
 		assert.match(bad.stderr, /Unknown option '--bogus'[\s\S]*spamscanner help/);
+		// The content filter defers rather than bounces, even for a bad option.
+		const filter = await cli(['filter', '--bogus', '-f', 'a@example.org', '--', 'bob@example.com']);
+		assert.equal(filter.code, 75);
+		assert.match(filter.stderr, /Unknown option '--bogus'/);
+		assert.equal((await cli(['scan', '--bogus', '--', 'filter'])).code, 2);
 	});
 });
 
@@ -278,6 +292,25 @@ describe('spamscanner filter', () => {
 		assert.equal(unscanned.code, 75);
 		assert.match(unscanned.stderr, /scan failed, deferring/);
 		assert.equal((await cli(['filter', '--threshold', 'x', '--', 'bob@example.com'], {stdin: ham})).code, 75);
+		// (and a message ClamAV could not scan may hold a virus)
+		const attached = 'From: a@example.org\r\nTo: b@example.com\r\nSubject: x\r\nMIME-Version: 1.0\r\nContent-Type: multipart/mixed; boundary=b\r\n\r\n--b\r\nContent-Type: text/plain\r\n\r\nhi\r\n--b\r\nContent-Type: application/pdf\r\nContent-Disposition: attachment; filename=a.pdf\r\nContent-Transfer-Encoding: base64\r\n\r\nJVBERi0xLjQK\r\n--b--\r\n';
+		const sendmail = fakeSendmail();
+		const virus = await cli(['filter', '--sendmail', sendmail.file, '--no-classifier', ...offline, '--clamav', path.join(temporaryDirectory(), 'clamd.sock'), '--', 'bob@example.com'], {stdin: attached});
+		assert.equal(virus.code, 75);
+		assert.match(virus.stderr, /ClamAV could not scan every attachment, deferring/);
+		assert.equal(sendmail.delivered(), false);
+		// (unless such mail is accepted: then it is marked, and a failed scan passes it on as it is)
+		const accepted = fakeSendmail();
+		assert.equal((await cli(['filter', '--sendmail', accepted.file, '--no-classifier', ...offline, '--on-error', 'accept', '--clamav', path.join(temporaryDirectory(), 'clamd.sock'), '--', 'bob@example.com'], {stdin: attached})).code, 0);
+		assert.match(accepted.message(), /^X-Spam-Virus-Scan: failed\r\n/m);
+		const passed = fakeSendmail();
+		const failed = await cli(['filter', '--sendmail', passed.file, '--model', broken, '--on-error', 'accept', '--', 'bob@example.com'], {stdin: ham});
+		assert.equal(failed.code, 0);
+		assert.match(failed.stderr, /scan failed, passing the message on/);
+		assert.equal(passed.message(), `X-Spam-Virus-Scan: failed\r\n${ham}`);
+		const bad = await cli(['filter', '--on-error', 'maybe', '--', 'bob@example.com'], {stdin: ham});
+		assert.equal(bad.code, 75);
+		assert.match(bad.stderr, /--on-error must be tempfail or accept, not "maybe"/);
 	});
 
 	it('reports sendmail being killed', async () => {
@@ -360,9 +393,24 @@ describe('spamscanner servers', () => {
 		const stopped = await text.done;
 		assert.match(stopped.stderr, new RegExp(`^Listening on ${socket.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`)}\\n`));
 
-		// The default port and address.
-		const json = await start(['server', '--no-classifier', ...offline]);
-		assert.deepEqual(json.server.address(), {address: '127.0.0.1', family: 'IPv4', port: 7830});
+		// The default port and address (asked for, but a free port is used, so
+		// the test does not depend on 7830 being free).
+		const {listen} = net.Server.prototype;
+		let asked;
+		net.Server.prototype.listen = function (port, host, ready) {
+			asked = [port, host];
+			return listen.call(this, 0, host, ready);
+		};
+
+		let json;
+		try {
+			json = await start(['server', '--no-classifier', ...offline]);
+		} finally {
+			net.Server.prototype.listen = listen;
+		}
+
+		assert.deepEqual(asked, [7830, '127.0.0.1']);
+		assert.equal(json.server.address().address, '127.0.0.1');
 		json.server.close();
 		await json.done;
 	});
@@ -380,6 +428,28 @@ describe('spamscanner servers', () => {
 		const learning = await serve(['spamd', '--port', '0', '--allow-tell', '--out', path.join(temporaryDirectory(), 'told.json'), '--no-classifier', ...offline]);
 		learning.server.close();
 		await learning.done;
+	});
+
+	it('warns that spamd, TCP and HTTP clients do not send the client address', async () => {
+		const spamd = await serve(['spamd', '--port', '0', '--auth', '--no-classifier', ...offline]);
+		spamd.server.close();
+		assert.match((await spamd.done).stderr, /^spamd: SPF, DKIM, DMARC, ARC and IP blocklist checks need the client's IP address, which spamd clients do not send/m);
+		const tcp = await serve(['server', '--port', '0', '--dnsbl', 'zen.example', '--no-classifier', ...offline]);
+		tcp.server.close();
+		assert.match((await tcp.done).stderr, /^server: SPF, DKIM/m);
+		const http = await serve(['http', '--port', '0', '--auth', '--no-classifier', ...offline]);
+		http.server.close();
+		assert.match((await http.done).stderr, /^http: SPF, DKIM, DMARC, ARC and IP blocklist checks run only for requests that give the client's address with \?ip=$/m);
+		// Link blocklists do not need the address.
+		const links = await serve(['spamd', '--port', '0', '--uribl', 'dbl.example', '--no-classifier', ...offline]);
+		links.server.close();
+		assert.doesNotMatch((await links.done).stderr, /SPF/);
+	});
+
+	it('refuses a milter reply code that is not 4xx or 5xx', async () => {
+		const result = await cli(['milter', '--port', '0', '--reject-code', '250', '--no-classifier', ...offline]);
+		assert.equal(result.code, 2);
+		assert.match(result.stderr, /rejectCode must be a 4xx or 5xx SMTP code, not 250/);
 	});
 
 	it('exits 2 when it cannot listen', async () => {
@@ -481,6 +551,13 @@ describe('spamscanner train, eval and learn', () => {
 		const updated = JSON.parse(readFileSync(file, 'utf8'));
 		assert.equal(updated.nspam, bundled + 1);
 		assert.equal((await cli(['learn', 'maybe', '--model', file])).code, 2);
+		// --model is the starting point and --out the file written.
+		const copy = path.join(temporaryDirectory(), 'copy.json');
+		await cli(['learn', 'spam', '--model', file, '--out', copy], {stdin: spam});
+		assert.equal(JSON.parse(readFileSync(copy, 'utf8')).nspam, bundled + 2);
+		assert.equal(JSON.parse(readFileSync(file, 'utf8')).nspam, bundled + 1);
+		await cli(['learn', 'spam', '--model', path.join(temporaryDirectory(), 'none.json'), '--out', copy], {stdin: spam});
+		assert.equal(JSON.parse(readFileSync(copy, 'utf8')).nspam, bundled + 3);
 		const noModel = await cli(['learn', 'spam']);
 		assert.equal(noModel.code, 2);
 		assert.match(noModel.stderr, /give --model/);
@@ -554,6 +631,6 @@ describe('spamscanner executable', () => {
 	it('runs from the command line and sets the exit code', async () => {
 		const {stdout} = await run(process.execPath, ['src/bin.js', 'version']);
 		assert.equal(stdout, `spamscanner ${VERSION}\n`);
-		await assert.rejects(run(process.execPath, ['src/bin.js']), error => error.code === 2 && error.stderr.startsWith('Spam Scanner'));
+		await assert.rejects(run(process.execPath, ['src/bin.js']), error => error.code === 2 && /^(?:\(node:\d+\) ExperimentalWarning.*\n(?:\(Use .*\n)?)?Spam Scanner/.test(error.stderr));
 	});
 });

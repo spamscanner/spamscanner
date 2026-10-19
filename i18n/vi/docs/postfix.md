@@ -1,4 +1,4 @@
-<!-- source: f1043eb5fc58 -->
+<!-- source: 6675649d593a -->
 
 # Postfix và Sendmail
 
@@ -13,11 +13,13 @@ Cả hai đều thêm các header sau vào mọi thư:
 X-Spam-Flag: YES
 X-Spam-Score: 8.0
 X-Spam-Level: ********
-X-Spam-Status: Yes, score=8.0 required=5.0 tests=BAYES_99,DECEPTIVE_LINK version=7.0.0
+X-Spam-Status: Yes, score=8.0 required=5.0 tests=BAYES_99,DECEPTIVE_LINK version=7.0.3
 X-Spam-Action: tag
 ```
 
 Các header `X-Spam-*` đã có sẵn trong thư bị xóa trước, nên người gửi không thể tự đánh dấu thư của mình là sạch.
+
+Thư có tệp đính kèm mà ClamAV không quét được có thể chứa virus, nên cả hai cách đều hoãn thư đó (Postfix hoặc người gửi sẽ thử lại sau), giống như khi việc quét thất bại. Với `--on-error accept`, thư được chuyển tiếp kèm `X-Spam-Virus-Scan: failed`.
 
 
 ## Milter
@@ -29,7 +31,7 @@ npm install --global spamscanner
 spamscanner milter --port 7831 --auth --subject-tag "[SPAM]" --verbose
 ```
 
-Với `--reject`, thư đạt ngưỡng từ chối (15 điểm) bị từ chối với `451 4.7.1 Message rejected as spam`. Mã 451 là tạm thời: người gửi thử lại sau và vẫn có thể sửa sai bằng cách thay đổi một thiết lập. Dùng `--reject-code 550` để từ chối vĩnh viễn khi kết quả đã ổn. Với `--quarantine`, spam được đưa vào hold queue của Postfix.
+Với `--reject`, thư đạt ngưỡng từ chối (15 điểm) bị từ chối với `451 4.7.1 Message rejected as spam`. Mã 451 là tạm thời: người gửi thử lại sau và vẫn có thể sửa sai bằng cách thay đổi một thiết lập. Dùng `--reject-code 550` để từ chối vĩnh viễn khi kết quả đã ổn. Với `--quarantine`, spam được đưa vào hold queue của Postfix. Thư mà milter không quét được đầy đủ sẽ nhận phản hồi 4xx; với `--on-error accept`, thư đó được cho qua.
 
 Dưới dạng dịch vụ systemd, trong `/etc/systemd/system/spamscanner-milter.service`:
 
@@ -101,7 +103,7 @@ smtp      inet  n       -       n       -       -       smtpd
   -o content_filter=spamscanner:dummy
 spamscanner unix -      n       n       -       10      pipe
   flags=Rq user=spamscanner null_sender=
-  argv=/usr/bin/node /usr/local/lib/node_modules/spamscanner/dist/esm/cli.js filter --subject-tag [SPAM] -f ${sender} -- ${recipient}
+  argv=/usr/bin/node /usr/local/lib/node_modules/spamscanner/dist/esm/cli.js filter --subject-tag [SPAM] --from=${sender} -- ${recipient}
 ```
 
 Postfix chạy bộ lọc với môi trường gần như trống, nên `argv` ghi Node.js và script bằng đường dẫn đầy đủ (`command -v node` và `npm root --global` cho biết các đường dẫn này). Sau đó:
@@ -112,7 +114,7 @@ sudo postfix reload
 
 Bộ lọc trả thư lại bằng `sendmail -G -i`. Thư gửi theo cách này không đi qua listener `smtp` lần nữa, nên không bị lọc hai lần.
 
-Mã thoát cho Postfix biết điều gì đã xảy ra: 0 là đã chuyển, 69 là bị từ chối (với `--reject`: Postfix trả thư về cho người gửi), 75 là lỗi tạm thời (Postfix giữ thư và thử lại). Mọi lỗi khi quét hoặc chuyển thư đều là 75, nên một thiết lập sai không bao giờ làm mất hay trả thư về.
+Mã thoát cho Postfix biết điều gì đã xảy ra: 0 là đã chuyển, 69 là bị từ chối (với `--reject`: Postfix trả thư về cho người gửi), 75 là lỗi tạm thời (Postfix giữ thư và thử lại). Mọi lỗi khi quét hoặc chuyển thư đều là 75, thư có tệp đính kèm mà ClamAV không quét được cũng vậy, nên một thiết lập sai không bao giờ làm mất hay trả thư về. Với `--on-error accept`, thư mà việc quét thất bại, hoặc thư mà ClamAV không quét hết được, được chuyển tiếp thay vào đó, có đánh dấu `X-Spam-Virus-Scan: failed` (xem [dòng lệnh](cli.md#filter)).
 
 
 ## Sendmail
@@ -124,6 +126,12 @@ INPUT_MAIL_FILTER(`spamscanner', `S=inet:7831@127.0.0.1, F=T, T=S:30s;R:30s;E:5m
 ```
 
 `F=T` khiến Sendmail trả lời bằng lỗi tạm thời khi milter không khả dụng; bỏ nó đi để chấp nhận thư mà không lọc. Tạo lại `sendmail.cf` và khởi động lại Sendmail.
+
+Tên máy chủ của máy khách chỉ có thể đưa thư vào danh sách cho phép khi nó đã được xác minh. Postfix chỉ gửi tên này khi tên DNS ngược của máy khách phân giải ngược lại đúng địa chỉ của nó, và gửi `unknown` trong trường hợp khác. Sendmail gửi tên DNS ngược ngay cả khi nó không phân giải ngược lại (một tên mà bất kỳ ai có DNS ngược cho địa chỉ của mình đều có thể chọn), và cho biết điều đó trong macro `{client_resolve}`, thứ mặc định không được gửi. Hãy thêm macro này vào các macro gửi khi kết nối, trước `INPUT_MAIL_FILTER`, để chỉ tên máy chủ mà nó báo là `OK` mới được tính:
+
+```text
+define(`confMILTER_MACROS_CONNECT', `j, _, {daemon_name}, {if_name}, {if_addr}, {client_resolve}')
+```
 
 
 ## Chuyển spam vào thư mục Junk

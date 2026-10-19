@@ -1,4 +1,4 @@
-<!-- source: 79e50e309869 -->
+<!-- source: 7564838c2408 -->
 
 # Sprachmodelle
 
@@ -114,11 +114,11 @@ Das sind gehostete Dienste, daher werden personenbezogene Daten entfernt, bevor 
 | `always`          | Jede Nachricht                                                                                                                                            |
 | `off`             | Nie                                                                                                                                                       |
 
-`minScore` und `maxScore` ändern den Bereich für `auto`. Eindeutiger Spam und eindeutiger Ham erreichen das Modell nie.
+`minScore` und `maxScore` ändern den Bereich für `auto`. Eindeutiger Spam und eindeutiger Ham erreichen das Modell nie. Jeder andere `mode` ist ein Fehler, und `llm: false` für einen einzelnen `scan()` fragt kein Modell.
 
 Das Urteil ist `spam`, `phishing`, `scam`, `malware` oder `ham`. Mit `decision` zählen Spam, Phishing, Betrug und Malware zusammen gegen Ham: Eine Nachricht, der das Modell 30 % Spam, 30 % Phishing und 40 % Ham gibt, ist zu 60 % unerwünscht, und das Urteil ist die wahrscheinlichste Art. Ein Spam-Urteil fügt bis zu 6 Punkte hinzu (`LLM_SPAM`, `LLM_PHISHING`, `LLM_SCAM`, `LLM_MALWARE`), ein Ham-Urteil zieht bis zu 3 ab (`LLM_HAM`), jeweils multipliziert mit der Konfidenz. Ein Modell kann eine Nachricht allein nur dann als Spam markieren, wenn es sich sicher ist: 6 Punkte bei 85 % ergeben 5,1, knapp über dem Schwellenwert. Schlägt das Modell fehl oder überschreitet es das Zeitlimit, läuft der Scan ohne es weiter, und `results.llm.error` nennt den Grund.
 
-Antworten werden pro Nachricht zwischengespeichert, sodass dieselbe Nachricht an viele Empfänger nur einmal angefragt wird.
+Antworten werden pro Nachricht zwischengespeichert, sodass dieselbe Nachricht an viele Empfänger nur einmal angefragt wird, auch wenn ihre Kopien gleichzeitig gescannt werden. `timeout` umfasst das Warten auf einen freien Anfrageplatz (`concurrency`) ebenso wie die Anfragen für eine Nachricht: Ein Modell, das so lange belegt bleibt, wird für sie übersprungen.
 
 
 ## Anbieter
@@ -188,7 +188,7 @@ const scanner = new SpamScanner({
     username: 'spam', password: '…', // with auth: 'basic'
     headers: {'x-team': 'mail'},
     ca: fs.readFileSync('internal-ca.pem'), // a private certificate authority
-    timeout: 30_000,
+    timeout: 30_000,                 // waiting and requests, per message
     concurrency: 4,                  // requests at once
     cacheSize: 1000,                 // answers kept in memory
     keepAlive: '24h',                // Ollama: keep the model loaded between messages
@@ -259,7 +259,7 @@ spamscanner milter --llm ollama --llm-policy "We never send invoices by email. A
 
 Das Modell sieht eine Zusammenfassung der Header (From, Reply-To, To und Subject), die Links (zuerst die, die eine Adresse zeigen und zu einer anderen führen), die Namen und Typen der Anhänge, die Authentifizierungsergebnisse, wie viel Text das HTML versteckt, wenn es mehr als Vorschautext versteckt, und den Nachrichtentext, wie ein Mailprogramm ihn anzeigt (aus dem HTML, wenn es eines gibt, ohne versteckten Text, unsichtbare Zeichen oder Zierbuchstaben), gekürzt auf 6.000 Zeichen (`maxInputChars`).
 
-Bei Anbietern außerhalb des eigenen Netzes werden personenbezogene Daten vorher entfernt: der lokale Teil von E-Mail-Adressen (die Domain bleibt, weil sie für Phishing relevant ist), Karten- und Kontonummern, Telefonnummern und die Werte von Query-Parametern in Links, die oft Anmelde-Token enthalten. Das ist bei entfernten Anbietern standardmäßig aktiv, Entscheidungsmodelle eingeschlossen, und bei lokalen ausgeschaltet (Ollama, LM Studio, llama.cpp, vLLM, LocalAI, Jan, TEI und jeder Server auf localhost). `redact: true` oder `false` (`--llm-redact`, `--no-llm-redact`) überschreibt das.
+Bei Anbietern außerhalb des eigenen Netzes werden personenbezogene Daten vorher entfernt: der lokale Teil von E-Mail-Adressen (die Domain bleibt, weil sie für Phishing relevant ist), Karten- und Kontonummern, internationale Telefonnummern (mit + oder 00 geschrieben) und die Werte von Query-Parametern in Links, die oft Anmelde-Token enthalten. Das ist bei entfernten Anbietern standardmäßig aktiv, Entscheidungsmodelle eingeschlossen, und bei lokalen (Ollama, LM Studio, llama.cpp, vLLM, LocalAI, Jan, TEI) auf diesem Rechner oder in einem privaten Netz (eine private Adresse, ein Name ohne Punkt oder ein Name unter .local, .internal, .lan oder .home.arpa) sowie bei jedem Server auf localhost ausgeschaltet. Ein lokaler Anbieter, der auf einen Host anderswo zeigt, erhält bereinigte E-Mails. `redact: true` oder `false` (`--llm-redact`, `--no-llm-redact`) überschreibt das.
 
 Prüfen Sie die Bedingungen Ihres Anbieters zur Datenaufbewahrung, bevor Sie ihm E-Mails senden. Ein lokales Modell erspart diese Frage.
 

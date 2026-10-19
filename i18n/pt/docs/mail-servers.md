@@ -1,4 +1,4 @@
-<!-- source: 1151282f29d3 -->
+<!-- source: 84dca86d95ea -->
 
 # Outros servidores de e-mail
 
@@ -20,8 +20,10 @@ O `spamscanner spamd` responde ao protocolo spamd do SpamAssassin: `CHECK`, `SYM
 
 ```sh
 sudo systemctl disable --now spamd    # or spamassassin, depending on the distribution
-spamscanner spamd --port 783 --auth
+spamscanner spamd --port 783
 ```
+
+Clientes spamd não enviam o endereço IP do cliente que enviou a mensagem, então SPF, DKIM, DMARC e ARC (`--auth`) e listas de bloqueio de IP (`--dnsbl`) não podem ser executados aqui. Use [o milter](postfix.md#milter) para eles onde o servidor de e-mail oferecer suporte.
 
 Com o spamc:
 
@@ -87,7 +89,7 @@ if header :is "X-Spam-Flag" "YES" {
 Com o IMAPSieve, mover uma mensagem para dentro ou para fora da pasta Junk pode ensinar o modelo. Inicie a API HTTP com um token e um arquivo de modelo:
 
 ```sh
-spamscanner http --port 7832 --token "$SPAMSCANNER_TOKEN" --out /var/lib/spamscanner/model.json
+spamscanner http --port 7832 --out /var/lib/spamscanner/model.json    # token in SPAMSCANNER_TOKEN
 ```
 
 e aponte o milter ou o servidor spamd para o mesmo modelo com `--model /var/lib/spamscanner/model.json` (ou `SPAMSCANNER_MODEL`). Reinicie-o de tempos em tempos para carregar o que foi aprendido. Um script executado pelo `sieve_pipe` envia a mensagem:
@@ -132,7 +134,7 @@ O `scan --headers` sai com 1 para spam. Com as regras acima, o procmail e o mail
 Qualquer programa que consiga fazer uma requisição HTTP pode analisar e-mails:
 
 ```sh
-spamscanner http --port 7832 --token "$SPAMSCANNER_TOKEN"
+spamscanner http --port 7832    # token in SPAMSCANNER_TOKEN
 
 curl -s -X POST -H "Authorization: Bearer $SPAMSCANNER_TOKEN" \
   --data-binary @message.eml "http://127.0.0.1:7832/scan?ip=203.0.113.5&from=alice@example.com&to=bob@example.org"

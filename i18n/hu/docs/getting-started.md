@@ -1,4 +1,4 @@
-<!-- source: 8263c06f1dab -->
+<!-- source: 1a2009efd1f9 -->
 
 # Első lépések
 
@@ -25,6 +25,8 @@ npm install spamscanner
 ```sh
 curl -fsSL https://github.com/spamscanner/spamscanner/releases/latest/download/install.sh | bash
 ```
+
+A szkript telepítés előtt ellenőrzi a bináris fájlt a kiadás `SHA256SUMS` fájlja alapján. A linuxos bináris fájlokhoz glibc kell, ezért Alpine-on és más musl-alapú rendszereken npm-mel telepítsen.
 
 A Linuxra (x64 és arm64), macOS-re (Intel és Apple silicon) és Windowsra készült bináris fájlok minden [kiadáshoz](https://github.com/spamscanner/spamscanner/releases) csatolva vannak.
 
@@ -75,6 +77,8 @@ CommonJS-szel is működik:
 const SpamScanner = require('spamscanner');
 ```
 
+A típusdeklarációk a csomag részei, TypeScript 4.7 vagy újabb verzióhoz (`require` esetén 5.3 vagy újabbhoz).
+
 A `scan()` a nyers levelet Bufferként, karakterláncként, Uint8Array-ként vagy olvasható streamként fogadja. A karakterlánc mindig a levél szövege: a Spam Scanner soha nem olvas be fájlt csak azért, mert egy karakterlánc elérési útnak tűnik. Fájlokhoz a `scanner.scanFile(path)` használható.
 
 
@@ -113,7 +117,7 @@ Ezek közül egyik sincs alapértelmezetten bekapcsolva, mert mindegyikhez szolg
 | SPF, DKIM, DMARC, ARC               | `authentication: true`                           | `--auth`                    |
 | IP-tiltólista                       | `dnsbl: {ip: ['zen.spamhaus.org']}`              | `--dnsbl zen.spamhaus.org`  |
 | Domain-tiltólista a hivatkozásokhoz | `dnsbl: {domain: ['dbl.spamhaus.org']}`          | `--uribl dbl.spamhaus.org`  |
-| ClamAV                              | `clamav: true` vagy `clamav: {socket}`           | `--clamav [socket]`         |
+| ClamAV                              | `clamav: true` vagy `clamav: {socket}`           | `--clamav[=socket]`         |
 | Nyelvi modell                       | `llm: {provider: 'ollama', model: 'qwen3.5:4b'}` | `--llm ollama`              |
 | Engedélyező és tiltó listák         | `allowlist: [...]`, `denylist: [...]`            | `--allowlist`, `--denylist` |
 

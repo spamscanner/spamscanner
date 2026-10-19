@@ -28,7 +28,7 @@ export function clamdAddress(options = {}) {
  * Send one command to clamd and read its reply.
  * @param {object} address
  * @param {(socket: net.Socket) => void} write
- * @param {number} timeout
+ * @param {number} timeout - milliseconds for the whole exchange
  * @returns {Promise<string>}
  */
 function exchange(address, write, timeout) {
@@ -37,6 +37,7 @@ function exchange(address, write, timeout) {
 		const chunks = [];
 		// A promise settles once, so later events (end after a timeout) are ignored.
 		const finish = (error, value) => {
+			clearTimeout(timer);
 			socket.destroy();
 			if (error) {
 				reject(error);
@@ -45,7 +46,9 @@ function exchange(address, write, timeout) {
 			}
 		};
 
-		socket.setTimeout(timeout, () => finish(new Error(`clamd did not answer within ${timeout} ms`)));
+		// (one deadline for the whole exchange: a clamd that sends a byte now
+		//  and then does not keep it open)
+		const timer = setTimeout(() => finish(new Error(`clamd did not answer within ${timeout} ms`)), timeout);
 		socket.on('connect', () => write(socket));
 		socket.on('data', chunk => chunks.push(chunk));
 		socket.on('end', () => finish(null, Buffer.concat(chunks).toString('utf8').replaceAll('\0', '').trim()));
@@ -60,7 +63,7 @@ function exchange(address, write, timeout) {
  * @param {string} [options.socket] - clamd's Unix socket
  * @param {string} [options.host] - or its TCP host
  * @param {number} [options.port] - and port (3310)
- * @param {number} [options.timeout] - milliseconds
+ * @param {number} [options.timeout] - milliseconds for the whole scan
  * @param {number} [options.chunkSize]
  * @returns {Promise<{infected: boolean, viruses: string[], reply: string}>}
  */

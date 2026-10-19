@@ -64,6 +64,52 @@ const DEFAULTS = {
 	languagePrior: true,
 };
 
+// What each option of a model may be: any number earlier releases computed
+// with (Infinity too where it means "no limit" or "never").
+const OPTION_CHECKS = {
+	strength: value => value >= 0 && Number.isFinite(value),
+	unknown: value => Number.isFinite(value),
+	minDistance: value => !Number.isNaN(value),
+	maxClues: value => !Number.isNaN(value),
+	hamCutoff: value => !Number.isNaN(value),
+	spamCutoff: value => !Number.isNaN(value),
+	minLanguageExamples: value => !Number.isNaN(value),
+	languageShare: value => Number.isFinite(value),
+	languagePrior: value => typeof value === 'boolean',
+};
+
+// (JSON writes Infinity as null, as 7.0.3 saved it: read back as the
+//  infinity each option can mean, "no limit" or "never ham" and "never
+//  spam", and as the default for the others, where it meant nothing)
+const NULL_MEANS = {
+	minDistance: Infinity, maxClues: Infinity, minLanguageExamples: Infinity, hamCutoff: -Infinity, spamCutoff: Infinity,
+};
+
+// The options stored in a model, checked; others are ignored.
+function modelOptions(options, corrupt) {
+	if (options === undefined) {
+		return {};
+	}
+
+	if (!options || typeof options !== 'object' || Array.isArray(options)) {
+		throw corrupt('options is not an object');
+	}
+
+	const checked = {};
+	for (const [name, valid] of Object.entries(OPTION_CHECKS)) {
+		const value = options[name] === null ? NULL_MEANS[name] : options[name];
+		if (value !== undefined) {
+			if ((name !== 'languagePrior' && typeof value !== 'number') || !valid(value)) {
+				throw corrupt(`option ${name} is out of range`);
+			}
+
+			checked[name] = value;
+		}
+	}
+
+	return checked;
+}
+
 // Words, word pairs and subject words belong to one language; features with
 // another prefix (url:, pat:, html:, ...) do not.
 const isWord = feature => !feature.includes(':') || feature.startsWith('s:');
@@ -189,7 +235,7 @@ export class Classifier {
 	/**
 	 * Score a message.
 	 * @param {string[]} features
-	 * @returns {{probability: number, category: 'spam'|'ham'|'unsure', spam: number, ham: number, clues: Array<{feature: string, probability: number}>}}
+	 * @returns {{probability: number, category: 'spam'|'ham'|'unsure', spam: number, ham: number, clues: Array<{feature: string, probability: number}>, coverage: {feature: string|null, spam: number, ham: number, confidence: number}}}
 	 */
 	classify(features) {
 		const {minDistance, maxClues, hamCutoff, spamCutoff} = this.options;
@@ -298,7 +344,9 @@ export class Classifier {
 	merge(other) {
 		this.nspam += other.nspam;
 		this.nham += other.nham;
-		for (const [hash, [spam, ham]] of other.entries()) {
+		// (merging a classifier into itself reads its rows before changing
+		//  them, as its rows read later would otherwise include the change)
+		for (const [hash, [spam, ham]] of other === this ? [...other.entries()] : other.entries()) {
 			const pair = this.counts.get(hash) || this.frozenCounts(hash);
 			this.counts.set(hash, [pair[0] + spam, pair[1] + ham]);
 		}
@@ -363,10 +411,13 @@ export class Classifier {
 				unknown: this.options.unknown,
 				minDistance: this.options.minDistance,
 				maxClues: this.options.maxClues,
-				hamCutoff: this.options.hamCutoff,
-				spamCutoff: this.options.spamCutoff,
+				// (a probability is from 0 to 1: a cutoff beyond, infinite too,
+				//  is saved as -1 or 2, which JSON can hold)
+				hamCutoff: Math.min(Math.max(this.options.hamCutoff, -1), 2),
+				spamCutoff: Math.min(Math.max(this.options.spamCutoff, -1), 2),
 				minLanguageExamples: this.options.minLanguageExamples,
 				languageShare: this.options.languageShare,
+				languagePrior: this.options.languagePrior,
 			},
 			...(metadata ? {metadata} : {}),
 			keys: encode(keys),
@@ -377,12 +428,22 @@ export class Classifier {
 
 	/**
 	 * Load a model written by toJSON. Options passed here override the model's.
+	 * A model is data that may come from anywhere, so everything in it is
+	 * checked: a damaged one throws a TypeError starting "Corrupt classifier
+	 * model".
 	 * @param {object|string} json
 	 * @param {object} [options]
 	 * @returns {Classifier}
 	 */
 	static fromJSON(json, options = {}) {
-		const data = typeof json === 'string' ? JSON.parse(json) : json;
+		const corrupt = reason => new TypeError(`Corrupt classifier model: ${reason}`);
+		let data;
+		try {
+			data = typeof json === 'string' ? JSON.parse(json) : json;
+		} catch (error) {
+			throw corrupt(error.message);
+		}
+
 		if (!data || data.type !== 'spamscanner-classifier') {
 			throw new TypeError('Not a Spam Scanner classifier model (expected type "spamscanner-classifier")');
 		}
@@ -391,23 +452,40 @@ export class Classifier {
 			throw new TypeError(`Unsupported classifier model version ${data.version}; this release reads version ${MODEL_VERSION}`);
 		}
 
-		const decode = value => {
-			const buffer = Buffer.from(value, 'base64');
+		const decode = (value, name) => {
+			const buffer = typeof value === 'string' ? Buffer.from(value, 'base64') : null;
+			if (!buffer || buffer.byteLength % 4 !== 0) {
+				throw corrupt(`${name} is not a list of 32-bit numbers`);
+			}
+
 			const copy = new Uint8Array(buffer.byteLength);
 			copy.set(buffer);
 			return new Uint32Array(copy.buffer);
 		};
 
-		const classifier = new Classifier({...data.options, ...options});
-		classifier.nspam = data.nspam;
-		classifier.nham = data.nham;
-		const keys = decode(data.keys);
-		const spam = decode(data.spam);
-		const ham = decode(data.ham);
-		if (keys.length !== spam.length || keys.length !== ham.length) {
-			throw new TypeError('Corrupt classifier model: feature arrays differ in length');
+		for (const name of ['nspam', 'nham']) {
+			if (!Number.isSafeInteger(data[name]) || data[name] < 0) {
+				throw corrupt(`${name} is not a count`);
+			}
 		}
 
+		const keys = decode(data.keys, 'keys');
+		const spam = decode(data.spam, 'spam');
+		const ham = decode(data.ham, 'ham');
+		if (keys.length !== spam.length || keys.length !== ham.length) {
+			throw corrupt('feature arrays differ in length');
+		}
+
+		// (looked up by binary search: in increasing order, each once)
+		for (let i = 1; i < keys.length; i++) {
+			if (keys[i] <= keys[i - 1]) {
+				throw corrupt('feature hashes are not in increasing order');
+			}
+		}
+
+		const classifier = new Classifier({...modelOptions(data.options, corrupt), ...options});
+		classifier.nspam = data.nspam;
+		classifier.nham = data.nham;
 		classifier.frozen = {keys, spam, ham};
 		classifier.metadata = data.metadata || null;
 		return classifier;

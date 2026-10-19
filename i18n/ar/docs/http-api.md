@@ -1,4 +1,4 @@
-<!-- source: faf44f093f8b -->
+<!-- source: 9caf3ffb803a -->
 
 # HTTP API وخادم TCP وspamd
 
@@ -6,14 +6,16 @@
 ## HTTP API
 
 ```sh
-spamscanner http --port 7832 --token "$SPAMSCANNER_TOKEN"
+spamscanner http --port 7832    # token in SPAMSCANNER_TOKEN
 ```
+
+تقرأ واجهة HTTP البرمجية الرمز المميز من متغير البيئة `SPAMSCANNER_TOKEN`. يعمل `--token` أيضًا، لكن المستخدمين الآخرين على الجهاز يمكنهم رؤية خيارات سطر الأوامر في `ps`.
 
 يستمع على 127.0.0.1 ما لم يحدّد `--host` غير ذلك. مع رمز مميز، يحتاج كل طلب باستثناء `/health` إلى `Authorization: Bearer <token>`. ضعه خلف وكيل عكسي مع TLS قبل إتاحته خارج الجهاز.
 
 | الطريقة والمسار    | المتن         | الإجابة                                                    |
 | ------------------ | ------------- | ---------------------------------------------------------- |
-| `GET /health`      |               | `{"ok": true, "version": "7.0.0"}`                         |
+| `GET /health`      |               | `{"ok": true, "version": "..."}`                           |
 | `POST /scan`       | الرسالة الخام | [نتيجة الفحص](api.md#the-result) بصيغة JSON                |
 | `POST /check`      | الرسالة الخام | الرسالة مع إضافة ترويسات `X-Spam-*`، بنوع `message/rfc822` |
 | `POST /learn/spam` | الرسالة الخام | `{"ok": true, "learned": "spam"}`؛ يحتاج إلى رمز مميز      |
@@ -30,6 +32,8 @@ spamscanner http --port 7832 --token "$SPAMSCANNER_TOKEN"
 | `to`         | مستلم؛ كرّره أو افصل بين عدة مستلمين بفواصل                     |
 | `verbose=1`  | `/scan`: إرجاع قائمة الكلمات والعنوان أيضًا                     |
 | `subjectTag` | `/check`: إضافة بادئة إلى عنوان البريد المزعج، مثل `%5BSPAM%5D` |
+
+بدون `ip`، يتم تخطي فحوصات SPF وDKIM وDMARC وARC وقوائم حظر IP (`--auth`، `--dnsbl`).
 
 تُرجع `/check` أيضًا `X-Spam-Flag` و`X-Spam-Score` و`X-Spam-Action` كترويسات استجابة، فيستطيع العميل أن يقرر دون تحليل الرسالة.
 
@@ -82,6 +86,8 @@ nc -N 127.0.0.1 7830 < message.eml
 
 مع `--verbose`، تكون الإجابة سطرًا نصيًا بدلًا من ذلك: `SPAM 16.3/5.0 BAYES_999,PHISHING_LOOKALIKE_DOMAIN,DECEPTIVE_LINK,FROM_NAME_BRAND` أو `HAM -2.5/5.0 BAYES_00`.
 
+لا يعرف خادم TCP عنوان IP الخاص بالعميل، لذا لا تأثير لـ `--auth` و`--dnsbl`. يغلق الاتصالات التي لا ترسل شيئًا لمدة 60 ثانية، ويرد على الرسائل الأكبر من 25 ميغابايت بخطأ.
+
 
 ## spamd
 
@@ -104,3 +110,5 @@ spamscanner spamd --port 783
 | `TELL`          | يتعلّم بريدًا مزعجًا أو مرغوبًا، مع `--allow-tell`؛ ويحفظ في `--out` |
 
 تُرفض الطلبات المضغوطة (`Compress: zlib`).
+
+لا يرسل عملاء spamd أيضًا عنوان IP الخاص بالعميل، لذا لا تأثير لـ `--auth` و`--dnsbl`. تحصل الرسالة الأكبر من 25 ميغابايت على `65` (`EX_DATAERR`)، والرسالة الأقصر من قيمة `Content-length` الخاصة بها على `76` (`EX_PROTOCOL`)، وتُغلق الاتصالات التي لا ترسل شيئًا لمدة 60 ثانية.

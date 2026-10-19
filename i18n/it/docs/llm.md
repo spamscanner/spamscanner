@@ -1,4 +1,4 @@
-<!-- source: 79e50e309869 -->
+<!-- source: 7564838c2408 -->
 
 # Modelli linguistici
 
@@ -114,11 +114,11 @@ Sono servizi in hosting, quindi i dati personali vengono rimossi prima che un me
 | `always`             | Per ogni messaggio                                                                                                               |
 | `off`                | Mai                                                                                                                              |
 
-`minScore` e `maxScore` modificano l'intervallo per `auto`. Lo spam evidente e l'ham evidente non arrivano mai al modello.
+`minScore` e `maxScore` modificano l'intervallo per `auto`. Lo spam evidente e l'ham evidente non arrivano mai al modello. Qualsiasi altro `mode` è un errore, e `llm: false` per una singola `scan()` non interpella nessun modello.
 
 Il verdetto è `spam`, `phishing`, `scam`, `malware` o `ham`. Con `decision`, spam, phishing, scam e malware contano insieme contro l'ham: un messaggio a cui il modello assegna il 30% di spam, il 30% di phishing e il 40% di ham è indesiderato al 60%, e il verdetto è il tipo più probabile. Un verdetto di spam aggiunge fino a 6 punti (`LLM_SPAM`, `LLM_PHISHING`, `LLM_SCAM`, `LLM_MALWARE`); un verdetto di ham ne toglie fino a 3 (`LLM_HAM`), in entrambi i casi moltiplicati per la confidenza. Un modello non può segnare da solo un messaggio come spam se non è sicuro: 6 punti con una confidenza dell'85% fanno 5,1, appena sopra la soglia. Se il modello fallisce o va in timeout, l'analisi prosegue senza di lui e `results.llm.error` ne indica il motivo.
 
-Le risposte vengono memorizzate in cache per messaggio, quindi lo stesso messaggio inviato a molti destinatari viene sottoposto al modello una volta sola.
+Le risposte vengono memorizzate in cache per messaggio, quindi lo stesso messaggio inviato a molti destinatari viene sottoposto al modello una volta sola, anche quando le sue copie vengono analizzate contemporaneamente. `timeout` copre sia l'attesa di uno slot di richiesta libero (`concurrency`) sia le richieste per un messaggio: un modello che resta occupato così a lungo viene saltato per quel messaggio.
 
 
 ## Provider
@@ -188,7 +188,7 @@ const scanner = new SpamScanner({
     username: 'spam', password: '…', // with auth: 'basic'
     headers: {'x-team': 'mail'},
     ca: fs.readFileSync('internal-ca.pem'), // a private certificate authority
-    timeout: 30_000,
+    timeout: 30_000,                 // waiting and requests, per message
     concurrency: 4,                  // requests at once
     cacheSize: 1000,                 // answers kept in memory
     keepAlive: '24h',                // Ollama: keep the model loaded between messages
@@ -259,7 +259,7 @@ spamscanner milter --llm ollama --llm-policy "We never send invoices by email. A
 
 Il modello vede un riassunto delle intestazioni (From, Reply-To, To e Subject), i link (prima quelli che mostrano un indirizzo e portano a un altro), i nomi e i tipi degli allegati, i risultati dell'autenticazione, quanto testo nasconde l'HTML quando ne nasconde più del testo di anteprima, e il corpo come lo mostra un client di posta (quello dell'HTML se c'è, senza testo nascosto, caratteri invisibili o lettere stilizzate), troncato a 6.000 caratteri (`maxInputChars`).
 
-Per i provider esterni alla tua rete, i dati personali vengono prima rimossi: la parte locale degli indirizzi email (il dominio resta, perché è importante per il phishing), i numeri di carta e di conto, i numeri di telefono e i valori dei parametri di query nei link, che spesso contengono token di accesso. Questo comportamento è attivo per impostazione predefinita per i provider remoti, modelli decisionali compresi, e disattivato per quelli locali (Ollama, LM Studio, llama.cpp, vLLM, LocalAI, Jan, TEI e qualsiasi server su localhost). `redact: true` o `false` (`--llm-redact`, `--no-llm-redact`) lo sovrascrive.
+Per i provider esterni alla tua rete, i dati personali vengono prima rimossi: la parte locale degli indirizzi email (il dominio resta, perché è importante per il phishing), i numeri di carta e di conto, i numeri di telefono internazionali (scritti con + o 00) e i valori dei parametri di query nei link, che spesso contengono token di accesso. Questo comportamento è attivo per impostazione predefinita per i provider remoti, modelli decisionali compresi, e disattivato per quelli locali (Ollama, LM Studio, llama.cpp, vLLM, LocalAI, Jan, TEI) su questa macchina o in una rete privata (un indirizzo privato, un nome senza punto o un nome sotto .local, .internal, .lan o .home.arpa), e per qualsiasi server su localhost. Un provider locale che punta a un host altrove riceve la posta con i dati personali rimossi. `redact: true` o `false` (`--llm-redact`, `--no-llm-redact`) lo sovrascrive.
 
 Verifica i termini di conservazione dei dati del tuo provider prima di inviargli la posta. Un modello locale elimina il problema.
 

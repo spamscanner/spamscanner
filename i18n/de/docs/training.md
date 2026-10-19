@@ -1,4 +1,4 @@
-<!-- source: 7cc30ff4ad91 -->
+<!-- source: 4d7afeb36844 -->
 
 # Training
 
@@ -15,12 +15,12 @@ spamscanner train --spam ~/Maildir/.Junk --ham ~/Maildir/cur --ham ~/Maildir/.Ar
 
 Quellen können sein:
 
-* **mbox**-Dateien, auch gzip-komprimiert (`.mbox.gz`),
+* **mbox**-Dateien, auch gzip-komprimiert (`.mbox.gz`; andere `.gz`-Dateien werden übersprungen),
 * ein **Maildir** (seine Ordner `cur` und `new` werden gelesen, `tmp` wird übersprungen),
 * ein **Ordner** mit `.eml`-Dateien, rekursiv gelesen,
-* ein **Datensatz**: eine CSV- oder JSON-Lines-Datei mit einer Textspalte und einer Label-Spalte (`--dataset`). Spalten namens `text`, `message`, `body`, `email` oder `content` sowie `label`, `category`, `class`, `spam` oder `is_spam` werden selbst erkannt; andernfalls verwenden Sie `--text-column` und `--label-column`. Labels wie `spam`, `1`, `phishing` und `ham`, `0`, `not_spam`, `legitimate` werden verstanden.
+* ein **Datensatz**: eine CSV- oder JSON-Lines-Datei mit einer Textspalte und einer Label-Spalte (`--dataset`). Spalten oder JSON-Felder namens `text`, `message`, `body`, `email text`, `email`, `content`, `sms` oder `v2` sowie `label`, `category`, `is_spam`, `spam`, `email type`, `class`, `type`, `label_text`, `v1` oder `labels`, in beliebiger Groß- und Kleinschreibung, werden selbst erkannt (in JSON Lines `label_text` vor `label`); andernfalls verwenden Sie `--text-column` und `--label-column`. Eine JSON-Zeile, die kein Objekt ist, wird übersprungen. Labels wie `spam`, `1`, `phishing` und `ham`, `0`, `not_spam`, `legitimate` werden verstanden.
 
-Doppelte Nachrichten werden einmal gezählt. Um auf dem mitgelieferten Modell aufzubauen, statt leer zu beginnen, fügen Sie `--merge` hinzu.
+Doppelte Nachrichten werden einmal gezählt. Eine Nachricht, die sowohl in den Spam- als auch in den Ham-Quellen vorkommt, wird als Spam behalten, da die Spam-Quellen zuerst gelesen werden. Um auf dem mitgelieferten Modell aufzubauen, statt leer zu beginnen, fügen Sie `--merge` hinzu.
 
 Das Modell verwenden:
 

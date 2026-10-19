@@ -1,4 +1,4 @@
-<!-- source: 1151282f29d3 -->
+<!-- source: 84dca86d95ea -->
 
 # Más levelezőszerverek
 
@@ -20,8 +20,10 @@ A `spamscanner spamd` a SpamAssassin spamd protokollján válaszol: `CHECK`, `SY
 
 ```sh
 sudo systemctl disable --now spamd    # or spamassassin, depending on the distribution
-spamscanner spamd --port 783 --auth
+spamscanner spamd --port 783
 ```
+
+A spamd-kliensek nem küldik el az üzenetet beküldő kliens IP-címét, ezért az SPF, DKIM, DMARC és ARC (`--auth`), valamint az IP-tiltólisták (`--dnsbl`) itt nem futhatnak. Ezekhez használja [a miltert](postfix.md#milter), ahol a levelezőszerver támogatja.
 
 A spamc-vel:
 
@@ -87,7 +89,7 @@ if header :is "X-Spam-Flag" "YES" {
 IMAPSieve-vel a levelek Levélszemét mappába vagy onnan kifelé mozgatása tanítja a modellt. Indítsa el a HTTP API-t egy tokennel és egy modellfájllal:
 
 ```sh
-spamscanner http --port 7832 --token "$SPAMSCANNER_TOKEN" --out /var/lib/spamscanner/model.json
+spamscanner http --port 7832 --out /var/lib/spamscanner/model.json    # token in SPAMSCANNER_TOKEN
 ```
 
 majd állítsa a miltert vagy a spamd szervert ugyanerre a modellre a `--model /var/lib/spamscanner/model.json` kapcsolóval (vagy a `SPAMSCANNER_MODEL` változóval). Időnként indítsa újra, hogy átvegye a tanultakat. A `sieve_pipe` által futtatott szkript elküldi a levelet:
@@ -132,7 +134,7 @@ A `scan --headers` spam esetén 1-es kóddal lép ki. A fenti szabályokkal a pr
 Bármely program, amely HTTP-kérést tud küldeni, vizsgálhat leveleket:
 
 ```sh
-spamscanner http --port 7832 --token "$SPAMSCANNER_TOKEN"
+spamscanner http --port 7832    # token in SPAMSCANNER_TOKEN
 
 curl -s -X POST -H "Authorization: Bearer $SPAMSCANNER_TOKEN" \
   --data-binary @message.eml "http://127.0.0.1:7832/scan?ip=203.0.113.5&from=alice@example.com&to=bob@example.org"

@@ -1,4 +1,4 @@
-<!-- source: f1043eb5fc58 -->
+<!-- source: 6675649d593a -->
 
 # Postfix dan Sendmail
 
@@ -13,11 +13,13 @@ Keduanya menambahkan header berikut ke setiap pesan:
 X-Spam-Flag: YES
 X-Spam-Score: 8.0
 X-Spam-Level: ********
-X-Spam-Status: Yes, score=8.0 required=5.0 tests=BAYES_99,DECEPTIVE_LINK version=7.0.0
+X-Spam-Status: Yes, score=8.0 required=5.0 tests=BAYES_99,DECEPTIVE_LINK version=7.0.3
 X-Spam-Action: tag
 ```
 
 Header `X-Spam-*` yang sudah ada dalam pesan dihapus terlebih dahulu, sehingga pengirim tidak dapat menandai emailnya sendiri sebagai bersih.
+
+Pesan dengan lampiran yang tidak dapat dipindai ClamAV mungkin berisi virus, jadi keduanya menundanya (Postfix atau pengirim mencoba lagi nanti), sama seperti ketika pemindaian gagal. Dengan `--on-error accept`, pesan itu diteruskan dengan tambahan `X-Spam-Virus-Scan: failed`.
 
 
 ## Milter
@@ -29,7 +31,7 @@ npm install --global spamscanner
 spamscanner milter --port 7831 --auth --subject-tag "[SPAM]" --verbose
 ```
 
-Dengan `--reject`, pesan yang mencapai ambang tolak (15 poin) ditolak dengan `451 4.7.1 Message rejected as spam`. Kode 451 bersifat sementara: pengirim mencoba lagi nanti dan kesalahan masih dapat diperbaiki dengan mengubah pengaturan. Gunakan `--reject-code 550` untuk penolakan permanen setelah hasilnya terlihat benar. Dengan `--quarantine`, spam justru masuk ke hold queue Postfix.
+Dengan `--reject`, pesan yang mencapai ambang tolak (15 poin) ditolak dengan `451 4.7.1 Message rejected as spam`. Kode 451 bersifat sementara: pengirim mencoba lagi nanti dan kesalahan masih dapat diperbaiki dengan mengubah pengaturan. Gunakan `--reject-code 550` untuk penolakan permanen setelah hasilnya terlihat benar. Dengan `--quarantine`, spam justru masuk ke hold queue Postfix. Pesan yang tidak dapat dipindai sepenuhnya oleh milter mendapat balasan 4xx; `--on-error accept` justru meloloskannya.
 
 Sebagai layanan systemd, di `/etc/systemd/system/spamscanner-milter.service`:
 
@@ -101,7 +103,7 @@ smtp      inet  n       -       n       -       -       smtpd
   -o content_filter=spamscanner:dummy
 spamscanner unix -      n       n       -       10      pipe
   flags=Rq user=spamscanner null_sender=
-  argv=/usr/bin/node /usr/local/lib/node_modules/spamscanner/dist/esm/cli.js filter --subject-tag [SPAM] -f ${sender} -- ${recipient}
+  argv=/usr/bin/node /usr/local/lib/node_modules/spamscanner/dist/esm/cli.js filter --subject-tag [SPAM] --from=${sender} -- ${recipient}
 ```
 
 Postfix menjalankan filter dengan environment yang hampir kosong, sehingga `argv` menyebut Node.js dan skripnya dengan path lengkap (`command -v node` dan `npm root --global` menampilkannya). Lalu:
@@ -112,7 +114,7 @@ sudo postfix reload
 
 Filter mengembalikan pesan dengan `sendmail -G -i`. Email yang dikirim dengan cara ini tidak melewati listener `smtp` lagi, sehingga tidak disaring dua kali.
 
-Kode keluar memberi tahu Postfix apa yang terjadi: 0 terkirim, 69 ditolak (dengan `--reject`: Postfix memantulkannya ke pengirim), 75 kegagalan sementara (Postfix menyimpan pesan dan mencoba lagi). Setiap kegagalan pemindaian atau pengiriman menghasilkan 75, sehingga pengaturan yang rusak tidak pernah menghilangkan atau memantulkan email.
+Kode keluar memberi tahu Postfix apa yang terjadi: 0 terkirim, 69 ditolak (dengan `--reject`: Postfix memantulkannya ke pengirim), 75 kegagalan sementara (Postfix menyimpan pesan dan mencoba lagi). Setiap kegagalan pemindaian atau pengiriman menghasilkan 75, begitu pula pesan dengan lampiran yang tidak dapat dipindai ClamAV, sehingga pengaturan yang rusak tidak pernah menghilangkan atau memantulkan email. Dengan `--on-error accept`, pesan yang pemindaiannya gagal, atau yang tidak dapat dipindai sepenuhnya oleh ClamAV, justru diteruskan, dengan tanda `X-Spam-Virus-Scan: failed` (lihat [CLI](cli.md#filter)).
 
 
 ## Sendmail
@@ -124,6 +126,12 @@ INPUT_MAIL_FILTER(`spamscanner', `S=inet:7831@127.0.0.1, F=T, T=S:30s;R:30s;E:5m
 ```
 
 `F=T` membuat Sendmail menjawab dengan kegagalan sementara selama milter tidak tersedia; hapus untuk menerima email tanpa disaring. Bangun ulang `sendmail.cf` dan mulai ulang Sendmail.
+
+Nama host klien hanya dapat memasukkan pesan ke daftar izin jika terverifikasi. Postfix hanya mengirimkannya jika nama DNS balik klien ter-resolve kembali ke alamatnya, dan `unknown` jika tidak. Sendmail mengirimkan nama DNS balik meskipun tidak ter-resolve kembali (nama yang dapat dipilih siapa pun yang memiliki DNS balik untuk alamatnya sendiri), dan menyatakannya dalam makro `{client_resolve}`-nya, yang tidak dikirimkannya secara bawaan. Tambahkan makro itu ke makro yang dikirim saat koneksi, sebelum `INPUT_MAIL_FILTER`, agar hanya nama host yang dinyatakannya sebagai `OK` yang dihitung:
+
+```text
+define(`confMILTER_MACROS_CONNECT', `j, _, {daemon_name}, {if_name}, {if_addr}, {client_resolve}')
+```
 
 
 ## Memilah spam ke folder Junk

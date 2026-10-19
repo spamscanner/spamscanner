@@ -1,4 +1,4 @@
-<!-- source: f1043eb5fc58 -->
+<!-- source: 6675649d593a -->
 
 # Postfix ja Sendmail
 
@@ -13,11 +13,13 @@ Molemmat lisäävät jokaiseen viestiin nämä otsakkeet:
 X-Spam-Flag: YES
 X-Spam-Score: 8.0
 X-Spam-Level: ********
-X-Spam-Status: Yes, score=8.0 required=5.0 tests=BAYES_99,DECEPTIVE_LINK version=7.0.0
+X-Spam-Status: Yes, score=8.0 required=5.0 tests=BAYES_99,DECEPTIVE_LINK version=7.0.3
 X-Spam-Action: tag
 ```
 
 Viestissä jo olevat `X-Spam-*`-otsakkeet poistetaan ensin, joten lähettäjä ei voi merkitä omaa postiaan puhtaaksi.
+
+Viesti, jonka liitettä ClamAV ei voinut tarkistaa, voi sisältää viruksen, joten molemmat lykkäävät sitä (Postfix tai lähettäjä yrittää myöhemmin uudelleen), kuten silloinkin, kun tarkistus epäonnistuu. Valitsimella `--on-error accept` se välitetään eteenpäin, ja siihen lisätään `X-Spam-Virus-Scan: failed`.
 
 
 ## Milter
@@ -29,7 +31,7 @@ npm install --global spamscanner
 spamscanner milter --port 7831 --auth --subject-tag "[SPAM]" --verbose
 ```
 
-Valitsimella `--reject` hylkäysrajan (15 pistettä) ylittävät viestit hylätään vastauksella `451 4.7.1 Message rejected as spam`. 451 on väliaikainen: lähettäjä yrittää myöhemmin uudelleen, ja virheen voi vielä korjata muuttamalla asetusta. Käytä valitsinta `--reject-code 550` pysyvää hylkäystä varten, kun tulokset näyttävät oikeilta. Valitsimella `--quarantine` roskaposti menee sen sijaan Postfixin pitojonoon.
+Valitsimella `--reject` hylkäysrajan (15 pistettä) ylittävät viestit hylätään vastauksella `451 4.7.1 Message rejected as spam`. 451 on väliaikainen: lähettäjä yrittää myöhemmin uudelleen, ja virheen voi vielä korjata muuttamalla asetusta. Käytä valitsinta `--reject-code 550` pysyvää hylkäystä varten, kun tulokset näyttävät oikeilta. Valitsimella `--quarantine` roskaposti menee sen sijaan Postfixin pitojonoon. Viesti, jota milter ei voinut tarkistaa kokonaan, saa 4xx-vastauksen; `--on-error accept` päästää sen sen sijaan läpi.
 
 systemd-palveluna tiedostossa `/etc/systemd/system/spamscanner-milter.service`:
 
@@ -101,7 +103,7 @@ smtp      inet  n       -       n       -       -       smtpd
   -o content_filter=spamscanner:dummy
 spamscanner unix -      n       n       -       10      pipe
   flags=Rq user=spamscanner null_sender=
-  argv=/usr/bin/node /usr/local/lib/node_modules/spamscanner/dist/esm/cli.js filter --subject-tag [SPAM] -f ${sender} -- ${recipient}
+  argv=/usr/bin/node /usr/local/lib/node_modules/spamscanner/dist/esm/cli.js filter --subject-tag [SPAM] --from=${sender} -- ${recipient}
 ```
 
 Postfix ajaa suodattimen lähes tyhjällä ympäristöllä, joten `argv` nimeää Node.js:n ja skriptin täysillä poluilla (`command -v node` ja `npm root --global` näyttävät ne). Sitten:
@@ -112,7 +114,7 @@ sudo postfix reload
 
 Suodatin palauttaa viestin komennolla `sendmail -G -i`. Tällä tavalla lähetetty posti ei kulje uudelleen `smtp`-kuuntelijan kautta, joten sitä ei suodateta kahdesti.
 
-Paluukoodit kertovat Postfixille, mitä tapahtui: 0 toimitettu, 69 hylätty (valitsimella `--reject`: Postfix palauttaa sen lähettäjälle), 75 väliaikainen virhe (Postfix säilyttää viestin ja yrittää uudelleen). Mikä tahansa tarkistus- tai toimitusvirhe on 75, joten rikkinäinen asetus ei koskaan hukkaa tai palauta postia.
+Paluukoodit kertovat Postfixille, mitä tapahtui: 0 toimitettu, 69 hylätty (valitsimella `--reject`: Postfix palauttaa sen lähettäjälle), 75 väliaikainen virhe (Postfix säilyttää viestin ja yrittää uudelleen). Mikä tahansa tarkistus- tai toimitusvirhe on 75, samoin viesti, jonka liitettä ClamAV ei voinut tarkistaa, joten rikkinäinen asetus ei koskaan hukkaa tai palauta postia. Valitsimella `--on-error accept` viesti, jonka tarkistus epäonnistui tai jota ClamAV ei voinut tarkistaa kokonaan, välitetään sen sijaan eteenpäin otsakkeella `X-Spam-Virus-Scan: failed` merkittynä (katso [CLI](cli.md#filter)).
 
 
 ## Sendmail
@@ -124,6 +126,12 @@ INPUT_MAIL_FILTER(`spamscanner', `S=inet:7831@127.0.0.1, F=T, T=S:30s;R:30s;E:5m
 ```
 
 `F=T` saa Sendmailin vastaamaan väliaikaisella virheellä, kun milter ei ole käytettävissä; poista se, jos haluat sen sijaan ottaa postin vastaan suodattamattomana. Koosta `sendmail.cf` uudelleen ja käynnistä Sendmail uudelleen.
+
+Asiakkaan isäntänimi voi viedä viestin sallittujen listalle vain, kun se on varmennettu. Postfix lähettää sen vain, kun asiakkaan käänteinen DNS-nimi selvitetään takaisin sen osoitteeksi, ja muuten `unknown`. Sendmail lähettää käänteisen DNS-nimen, vaikka se ei selviäisi takaisin (nimen, jonka kuka tahansa omalle osoitteelleen käänteisen DNS:n omaava voi valita), ja ilmoittaa sen `{client_resolve}`-makrossaan, jota se ei oletuksena lähetä. Lisää se yhteyden muodostuksessa lähetettäviin makroihin ennen `INPUT_MAIL_FILTER`-riviä, jotta vain isäntänimi, jonka se ilmoittaa arvolla `OK`, kelpaa:
+
+```text
+define(`confMILTER_MACROS_CONNECT', `j, _, {daemon_name}, {if_name}, {if_addr}, {client_resolve}')
+```
 
 
 ## Roskapostin lajittelu Junk-kansioon

@@ -1,4 +1,4 @@
-<!-- source: 1562b843d858 -->
+<!-- source: e38668f057b9 -->
 
 <!--
 label: Alternativa ao SpamAssassin
@@ -17,7 +17,7 @@ O Spam Scanner responde ao protocolo spamd do SpamAssassin, então softwares esc
 ```sh
 sudo systemctl disable --now spamd       # or spamassassin
 npm install --global spamscanner
-spamscanner spamd --port 783 --auth
+spamscanner spamd --port 783
 ```
 
 ```sh

@@ -1,4 +1,4 @@
-<!-- source: 7cc30ff4ad91 -->
+<!-- source: 4d7afeb36844 -->
 
 # التدريب
 
@@ -15,12 +15,12 @@ spamscanner train --spam ~/Maildir/.Junk --ham ~/Maildir/cur --ham ~/Maildir/.Ar
 
 يمكن أن تكون المصادر:
 
-* ملفات **mbox**، حتى المضغوطة بـ gzip (`.mbox.gz`)،
+* ملفات **mbox**، حتى المضغوطة بـ gzip (`.mbox.gz`؛ وتُتخطى ملفات `.gz` الأخرى)،
 * **Maildir** (يُقرأ مجلدا `cur` و`new`، ويُتخطى `tmp`)،
 * **مجلد** ملفات `.eml`، يُقرأ تعاوديًا،
-* **مجموعة بيانات**: ملف CSV أو JSON Lines بعمود نص وعمود تصنيف (`--dataset`). تُكتشف تلقائيًا الأعمدة المسماة `text` أو `message` أو `body` أو `email` أو `content`، و`label` أو `category` أو `class` أو `spam` أو `is_spam`؛ وإلا فاستخدم `--text-column` و`--label-column`. تُفهم تصنيفات مثل `spam` و`1` و`phishing`، و`ham` و`0` و`not_spam` و`legitimate`.
+* **مجموعة بيانات**: ملف CSV أو JSON Lines بعمود نص وعمود تصنيف (`--dataset`). تُكتشف تلقائيًا الأعمدة، أو حقول JSON، المسماة `text` أو `message` أو `body` أو `email text` أو `email` أو `content` أو `sms` أو `v2`، و`label` أو `category` أو `is_spam` أو `spam` أو `email type` أو `class` أو `type` أو `label_text` أو `v1` أو `labels`، بأي حالة أحرف (وفي JSON Lines يأتي `label_text` قبل `label`)؛ وإلا فاستخدم `--text-column` و`--label-column`. ويُتخطى سطر JSON الذي ليس كائنًا. تُفهم تصنيفات مثل `spam` و`1` و`phishing`، و`ham` و`0` و`not_spam` و`legitimate`.
 
-تُعدّ الرسائل المكررة مرة واحدة. للبناء على النموذج المرفق بدل البدء من نموذج فارغ، أضف `--merge`.
+تُعدّ الرسائل المكررة مرة واحدة. والرسالة الموجودة في مصادر spam وham معًا تُحفظ على أنها spam، لأن مصادر spam تُقرأ أولًا. للبناء على النموذج المرفق بدل البدء من نموذج فارغ، أضف `--merge`.
 
 استخدم النموذج:
 

@@ -1,4 +1,4 @@
-<!-- source: dc9016edd59e -->
+<!-- source: c70584655c0e -->
 
 # Forward Email
 
@@ -45,7 +45,7 @@ async function onData(stream, session, callback) {
 }
 ```
 
-`scanner.scan()` přijímá stream SMTP přímo. Pokud už máte k dispozici výsledky z [mailauth](https://github.com/postalsys/mailauth), vynechte `authentication` a předejte jen IP adresu.
+`scanner.scan()` přijímá stream SMTP přímo. Pokud už máte k dispozici výsledky z [mailauth](https://github.com/postalsys/mailauth), předejte je jako `authenticationResults`: místo nové kontroly se rovnou obodují.
 
 Odpověď 421 nebo 451 způsobí, že odesílající server zprávu zařadí do fronty a zkusí to později znovu. Nová pravidla pro odmítání tak mohou začít s dočasným kódem a přejít na 550, až budou jejich výsledky ověřené, aniž by se mezitím ztratila pošta.
 

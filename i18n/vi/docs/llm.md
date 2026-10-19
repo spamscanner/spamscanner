@@ -1,4 +1,4 @@
-<!-- source: 79e50e309869 -->
+<!-- source: 7564838c2408 -->
 
 # Mô hình ngôn ngữ
 
@@ -114,11 +114,11 @@ Cloudflare báo cáo thời gian trung vị 39 ms cho Clef Flash và 209 ms cho 
 | `always`          | Mọi thư                                                                                                   |
 | `off`             | Không bao giờ                                                                                             |
 
-`minScore` và `maxScore` thay đổi khoảng điểm cho `auto`. Spam rõ ràng và thư hợp lệ (ham) rõ ràng không bao giờ đến được mô hình.
+`minScore` và `maxScore` thay đổi khoảng điểm cho `auto`. Spam rõ ràng và thư hợp lệ (ham) rõ ràng không bao giờ đến được mô hình. Mọi giá trị `mode` khác đều là lỗi, và `llm: false` cho một lần `scan()` sẽ không hỏi mô hình nào.
 
 Kết luận là `spam`, `phishing`, `scam`, `malware` hoặc `ham`. Với `decision`, spam, phishing, scam và malware được cộng chung để so với ham: một thư mà mô hình đánh giá 30% spam, 30% phishing và 40% ham là thư không mong muốn ở mức 60%, và kết luận là loại có khả năng cao nhất. Kết luận spam cộng tối đa 6 điểm (`LLM_SPAM`, `LLM_PHISHING`, `LLM_SCAM`, `LLM_MALWARE`); kết luận ham trừ tối đa 3 điểm (`LLM_HAM`), mỗi loại nhân với độ tin cậy. Một mô hình không thể tự đánh dấu thư là spam trừ khi nó tự tin: 6 điểm ở độ tin cậy 85% là 5,1, vừa vượt ngưỡng. Nếu mô hình lỗi hoặc hết thời gian chờ, lần quét tiếp tục mà không có nó và `results.llm.error` cho biết lý do.
 
-Câu trả lời được lưu đệm theo thư, nên cùng một thư gửi đến nhiều người nhận chỉ được hỏi một lần.
+Câu trả lời được lưu đệm theo thư, nên cùng một thư gửi đến nhiều người nhận chỉ được hỏi một lần, kể cả khi các bản sao của nó được quét cùng lúc. `timeout` bao gồm cả thời gian chờ một suất yêu cầu trống (`concurrency`) lẫn các yêu cầu cho một thư: mô hình nào bận suốt khoảng thời gian đó sẽ bị bỏ qua cho thư ấy.
 
 
 ## Nhà cung cấp
@@ -188,7 +188,7 @@ const scanner = new SpamScanner({
     username: 'spam', password: '…', // with auth: 'basic'
     headers: {'x-team': 'mail'},
     ca: fs.readFileSync('internal-ca.pem'), // a private certificate authority
-    timeout: 30_000,
+    timeout: 30_000,                 // waiting and requests, per message
     concurrency: 4,                  // requests at once
     cacheSize: 1000,                 // answers kept in memory
     keepAlive: '24h',                // Ollama: keep the model loaded between messages
@@ -259,7 +259,7 @@ spamscanner milter --llm ollama --llm-policy "We never send invoices by email. A
 
 Mô hình thấy bản tóm tắt các header (From, Reply-To, To và Subject), các liên kết (những liên kết hiển thị một địa chỉ nhưng dẫn tới địa chỉ khác được xếp trước), tên và loại tệp đính kèm, kết quả xác thực, lượng văn bản mà HTML ẩn đi khi nó ẩn nhiều hơn văn bản xem trước, và nội dung thư như ứng dụng thư hiển thị (của HTML nếu có, không có văn bản ẩn, ký tự vô hình hay chữ cái cách điệu), được cắt còn 6.000 ký tự (`maxInputChars`).
 
-Với các nhà cung cấp nằm ngoài mạng của bạn, dữ liệu cá nhân được xóa trước: phần cục bộ của địa chỉ email (tên miền được giữ lại, vì nó quan trọng với phishing), số thẻ và số tài khoản, số điện thoại và giá trị của các tham số truy vấn trong liên kết, vốn thường chứa token đăng nhập. Tính năng này mặc định bật với các nhà cung cấp từ xa, kể cả mô hình quyết định, và tắt với các nhà cung cấp cục bộ (Ollama, LM Studio, llama.cpp, vLLM, LocalAI, Jan, TEI, và mọi máy chủ trên localhost). `redact: true` hoặc `false` (`--llm-redact`, `--no-llm-redact`) ghi đè thiết lập này.
+Với các nhà cung cấp nằm ngoài mạng của bạn, dữ liệu cá nhân được xóa trước: phần cục bộ của địa chỉ email (tên miền được giữ lại, vì nó quan trọng với phishing), số thẻ và số tài khoản, số điện thoại quốc tế (viết với + hoặc 00) và giá trị của các tham số truy vấn trong liên kết, vốn thường chứa token đăng nhập. Tính năng này mặc định bật với các nhà cung cấp từ xa, kể cả mô hình quyết định, và tắt với các nhà cung cấp cục bộ (Ollama, LM Studio, llama.cpp, vLLM, LocalAI, Jan, TEI) trên máy này hoặc trong mạng riêng (địa chỉ riêng, tên không có dấu chấm, hoặc tên thuộc .local, .internal, .lan hay .home.arpa), và với mọi máy chủ trên localhost. Nhà cung cấp cục bộ trỏ tới một máy chủ ở nơi khác sẽ nhận thư đã được xóa dữ liệu cá nhân. `redact: true` hoặc `false` (`--llm-redact`, `--no-llm-redact`) ghi đè thiết lập này.
 
 Hãy kiểm tra điều khoản lưu giữ dữ liệu của nhà cung cấp trước khi gửi thư cho họ. Một mô hình cục bộ giúp tránh được câu hỏi này.
 

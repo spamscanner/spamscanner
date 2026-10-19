@@ -1,6 +1,7 @@
 import {
-	existsSync, readFileSync, writeFileSync, mkdirSync,
+	existsSync, readFileSync, writeFileSync, mkdirSync, renameSync, rmSync, statSync,
 } from 'node:fs';
+import {randomBytes} from 'node:crypto';
 import {createRequire} from 'node:module';
 import path from 'node:path';
 import process from 'node:process';
@@ -67,7 +68,7 @@ export function loadSea(load = createRequire(import.meta.url)) {
  * The bundled model as a classifier: from the package's model file, or from
  * the standalone binary.
  * @param {object} [options] - classifier options
- * @param {object} [where] - for tests: file (the model path, null for none) and sea (the node:sea module)
+ * @param {{file?: string|null, sea?: {isSea: () => boolean, getAsset: (key: string, encoding: string) => string}|null}} [where] - for tests: file (the model path, null for none) and sea (the node:sea module)
  * @returns {Classifier} an empty classifier when no model is found
  */
 export function loadDefaultModel(options = {}, {file = defaultModelPath(), sea} = {}) {
@@ -78,10 +79,10 @@ export function loadDefaultModel(options = {}, {file = defaultModelPath(), sea} 
 	const embedded = embeddedModel(sea);
 	if (embedded) {
 		if (!loaded.has('embedded')) {
-			loaded.set('embedded', Classifier.fromJSON(embedded));
+			loaded.set('embedded', {classifier: Classifier.fromJSON(embedded)});
 		}
 
-		return copy(loaded.get('embedded'), options);
+		return copy(loaded.get('embedded').classifier, options);
 	}
 
 	return new Classifier(options);
@@ -97,24 +98,30 @@ function copy(base, options) {
 }
 
 /**
- * Load a model file written by saveModel or `spamscanner train`. Files are
- * read once per process; every classifier made from the same file shares its
- * counts, and learning goes into the classifier's own copy.
+ * Load a model file written by saveModel or `spamscanner train`. A file is
+ * read once per process, and again when it changes (its modification time
+ * or size); every classifier made from the same file shares its counts, and
+ * learning goes into the classifier's own copy.
  * @param {string} file
  * @param {object} [options] - classifier options that override the model's
  * @returns {Classifier}
  */
 export function loadModel(file, options = {}) {
 	const resolved = path.resolve(file);
-	if (!loaded.has(resolved)) {
-		loaded.set(resolved, Classifier.fromJSON(readFileSync(resolved, 'utf8')));
+	const {mtimeMs, size} = statSync(resolved);
+	const version = `${mtimeMs}:${size}`;
+	const hit = loaded.get(resolved);
+	if (hit?.version !== version) {
+		loaded.set(resolved, {version, classifier: Classifier.fromJSON(readFileSync(resolved, 'utf8'))});
 	}
 
-	return copy(loaded.get(resolved), options);
+	return copy(loaded.get(resolved).classifier, options);
 }
 
 /**
- * Write a classifier to a file, creating its directory.
+ * Write a classifier to a file, creating its directory. The model is written
+ * to a temporary file next to it first, then renamed, so a process loading
+ * the file never reads half of it.
  * @param {Classifier} classifier
  * @param {string} file
  * @param {object} [options] - see Classifier#toJSON
@@ -122,6 +129,17 @@ export function loadModel(file, options = {}) {
 export function saveModel(classifier, file, options = {}) {
 	const resolved = path.resolve(file);
 	mkdirSync(path.dirname(resolved), {recursive: true});
-	writeFileSync(resolved, `${JSON.stringify(classifier.toJSON(options))}\n`);
+	// (with a random part: two saves in one process, as from two worker
+	//  threads, must not write the same temporary file)
+	const temporary = `${resolved}.${process.pid}.${randomBytes(6).toString('hex')}.tmp`;
+	try {
+		writeFileSync(temporary, `${JSON.stringify(classifier.toJSON(options))}\n`);
+		renameSync(temporary, resolved);
+	} catch (error) {
+		// (a failed write or rename leaves no temporary file behind)
+		rmSync(temporary, {force: true});
+		throw error;
+	}
+
 	loaded.delete(resolved);
 }

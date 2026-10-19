@@ -112,11 +112,11 @@ These are hosted services, so personal data is removed before a message is sent 
 | `always`         | Every message                                                                                                                |
 | `off`            | Never                                                                                                                        |
 
-`minScore` and `maxScore` change the range for `auto`. Clear spam and clear ham never reach the model.
+`minScore` and `maxScore` change the range for `auto`. Clear spam and clear ham never reach the model. Any other `mode` is an error, and `llm: false` for one `scan()` asks no model.
 
 The verdict is `spam`, `phishing`, `scam`, `malware` or `ham`. With `decision`, spam, phishing, scam and malware count together against ham: a message the model puts at 30% spam, 30% phishing and 40% ham is unwanted at 60%, and the verdict is the likeliest kind. A spam verdict adds up to 6 points (`LLM_SPAM`, `LLM_PHISHING`, `LLM_SCAM`, `LLM_MALWARE`); a ham verdict removes up to 3 (`LLM_HAM`), each times the confidence. One model cannot mark a message as spam on its own unless it is confident: 6 points at 85% is 5.1, just over the threshold. If the model fails or times out, the scan goes on without it and `results.llm.error` says why.
 
-Answers are cached by message, so the same message sent to many recipients is asked about once.
+Answers are cached by message, so the same message sent to many recipients is asked about once, also when its copies are scanned at the same time. `timeout` covers waiting for a free request slot (`concurrency`) as well as the requests for a message: a model that stays busy that long is skipped for it.
 
 
 ## Providers
@@ -186,7 +186,7 @@ const scanner = new SpamScanner({
     username: 'spam', password: '…', // with auth: 'basic'
     headers: {'x-team': 'mail'},
     ca: fs.readFileSync('internal-ca.pem'), // a private certificate authority
-    timeout: 30_000,
+    timeout: 30_000,                 // waiting and requests, per message
     concurrency: 4,                  // requests at once
     cacheSize: 1000,                 // answers kept in memory
     keepAlive: '24h',                // Ollama: keep the model loaded between messages
@@ -257,7 +257,7 @@ spamscanner milter --llm ollama --llm-policy "We never send invoices by email. A
 
 The model sees a summary of the headers (From, Reply-To, To and Subject), the links (those showing one address and going to another first), the attachment names and types, the authentication results, how much text the HTML hides when it hides more than preview text, and the body as a mail client shows it (of the HTML when there is one, without hidden text, invisible characters or styled letters), cut to 6,000 characters (`maxInputChars`).
 
-For providers outside your network, personal data is removed first: the local part of email addresses (the domain stays, because it matters for phishing), card and account numbers, phone numbers and the values of query parameters in links, which often carry login tokens. This is on by default for remote providers, decision models included, and off for local ones (Ollama, LM Studio, llama.cpp, vLLM, LocalAI, Jan, TEI, and any server on localhost). `redact: true` or `false` (`--llm-redact`, `--no-llm-redact`) overrides it.
+For providers outside your network, personal data is removed first: the local part of email addresses (the domain stays, because it matters for phishing), card and account numbers, international phone numbers (written with + or 00) and the values of query parameters in links, which often carry login tokens. This is on by default for remote providers, decision models included, and off for local ones (Ollama, LM Studio, llama.cpp, vLLM, LocalAI, Jan, TEI) on this machine or in a private network (a private address, a name without a dot, or a name under .local, .internal, .lan or .home.arpa), and for any server on localhost. A local provider pointed at a host elsewhere gets redacted mail. `redact: true` or `false` (`--llm-redact`, `--no-llm-redact`) overrides it.
 
 Check your provider's data retention terms before sending it mail. A local model avoids the question.
 

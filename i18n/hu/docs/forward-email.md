@@ -1,4 +1,4 @@
-<!-- source: dc9016edd59e -->
+<!-- source: c70584655c0e -->
 
 # Forward Email
 
@@ -45,7 +45,7 @@ async function onData(stream, session, callback) {
 }
 ```
 
-A `scanner.scan()` közvetlenül fogadja az SMTP-streamet. Ha a [mailauth](https://github.com/postalsys/mailauth) eredményei már rendelkezésre állnak, az `authentication` kihagyható, és elég csak az IP-címet átadni.
+A `scanner.scan()` közvetlenül fogadja az SMTP-streamet. Ha a [mailauth](https://github.com/postalsys/mailauth) eredményei már rendelkezésre állnak, `authenticationResults`-ként átadhatók: ilyenkor újbóli ellenőrzés helyett pontozva lesznek.
 
 A 421-es vagy 451-es válasz hatására a küldő szerver sorba állítja a levelet, és később újra próbálkozik. Az új elutasítási szabályok kezdetben ideiglenes kóddal indulhatnak, és az eredmények ellenőrzése után válthatnak 550-re, anélkül hogy közben levél veszne el.
 

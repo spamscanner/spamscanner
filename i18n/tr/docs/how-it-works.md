@@ -1,4 +1,4 @@
-<!-- source: 8a788c19971e -->
+<!-- source: a7dfb7c0fde2 -->
 
 # Nasıl çalışır
 
@@ -19,9 +19,9 @@ Spam Scanner sözcük saymanın işe yarayan kısmını, yani istatistiği korur
 
 ### Neleri sayar
 
-Okunan metin, bir e-posta istemcisinin gösterdiği metindir: varsa HTML bölümünün metni (yanındaki düz metin bölümü yalnızca HTML'nin gösterilemediği yerde gösterilir, bu yüzden zararsız bir düz metin bölümü HTML'nin yerine konuşamaz); etiketler, yorumlar, betikler ve stiller dışarıda bırakılır, satır içi etiketler bir sözcüğü tarayıcının birleştirdiği gibi birleştirir (`Free Sp<span>ins</span>`), HTML'nin gizlediği metin ise dışarıda bırakılır ve sayılır: içindekini gizleyen bir öğeyle (display, opacity, hidden özniteliği, boyutsuz kırpılmış bir kutu, sayfanın dışına taşınmış metin) ya da bulunduğu yerde görünmez, saydam veya bir piksel ya da daha küçük yazı tipinde olarak (içerideki bir öğe bunu, duyarlı şablonların yaptığı gibi, yeniden ayarlayabilir). Stiller tarayıcıların okuduğu gibi okunur (son bildirim geçerlidir, yorumlar, karakter başvuruları); arka plan üzerindeki renkler ve stil sayfası sınıfları okunmaz, bu yüzden böyle bir metin gösterildiği gibi okunur. 20 sözcükten az gösteren HTML, örneğin iletinin bir görüntüsü, düz metin bölümüyle birlikte okunur. Bağlantılar ve ana bilgisayar adları her iki bölümden ve gizli metinden okunur.
+Okunan metin, bir e-posta istemcisinin gösterdiği metindir: varsa HTML bölümünün metni (yanındaki düz metin bölümü yalnızca HTML'nin gösterilemediği yerde gösterilir, bu yüzden zararsız bir düz metin bölümü HTML'nin yerine konuşamaz); etiketler, yorumlar, betikler ve stiller dışarıda bırakılır, satır içi etiketler bir sözcüğü tarayıcının birleştirdiği gibi birleştirir (`Free Sp<span>ins</span>`), bloklar, hücreler ve satır sonları ise onu böler (bir stilin blok olarak gösterdiği bir öğe, tarayıcının kendiliğinden kapattığı bir blok ve yerinde gizlenmiş bir blok da, ama yer kaplamayan bir blok değil), HTML'nin gizlediği metin ise dışarıda bırakılır ve sayılır: içindekini gizleyen bir öğeyle (display, opacity, hidden özniteliği, boyutsuz kırpılmış bir kutu, sayfanın dışına taşınmış metin) ya da bulunduğu yerde görünmez, saydam veya bir piksel ya da daha küçük yazı tipinde olarak (içerideki bir öğe bunu, duyarlı şablonların yaptığı gibi, yeniden ayarlayabilir). Stiller tarayıcıların okuduğu gibi okunur (son bildirim geçerlidir, yorumlar, karakter başvuruları); arka plan üzerindeki renkler ve stil sayfası sınıfları okunmaz, bu yüzden böyle bir metin gösterildiği gibi okunur. 20 sözcükten az gösteren HTML, örneğin iletinin bir görüntüsü, düz metin bölümüyle birlikte okunur. Bağlantılar her iki bölümden, gizli metinden ve HTML'nin gösterdiği metinden okunur; bu metinde satır içi etiketlerle bölünmüş bir adres (`https://www.pay<b></b>pa1.com/`) tek bir adres olarak okunur. Bağlantısız yazılmış ana bilgisayar adları konudan, okunan metinden ve HTML'nin yanındaki düz metin bölümünden okunur.
 
-Metin önce normalleştirilir: Unicode NFKC süslü ve tam genişlikli harfleri düz harflere dönüştürür, görünmez karakterler kaldırılır ve sayılır, aslında Latin veya Kiril olan sözcüklerin içindeki benzer görünümlü harfler geri eşlenir ve harf yerine kullanılan rakamlar (`v1agra`) dönüştürülür. Ardından sözcükler, Çince, Japonca, Tayca, Laoca, Kmerce ve Birmanca için sözlükler içeren Unicode sözcük sınırı kuralları olan `Intl.Segmenter` ile bölütlenir.
+Metin önce normalleştirilir: Unicode NFKC süslü ve tam genişlikli harfleri düz harflere dönüştürür, görünmez karakterler kaldırılır ve sayılır (Tayca, Laoca, Kmerce, Birmanca veya Tibetçe harfler arasındaki sıfır genişlikli boşluk hariç, çünkü bu yazılarda sözcükleri ayırır; birleştiriciler ise yalnızca Latin harfler arasında sayılır), Latin, Kiril veya Yunan harflerini karıştıran bir sözcükteki benzer görünümlü harfler, harflerinin çoğunun ait olduğu yazıya eşlenir (Kiril р içeren `рaypal`, `paypal` olur; Latin p içeren `пpивет`, `привет` olur), bir sözcüğün kesme işaretleri arasındaki parçaları ayrı okunur (Rusça bir hâl eki taşıyan `iPhone'ы` hiçbir şey karıştırmaz) ve harf yerine kullanılan rakamlar (`v1agra`) dönüştürülür. Ardından sözcükler, Çince, Japonca, Tayca, Laoca, Kmerce ve Birmanca için sözlükler içeren Unicode sözcük sınırı kuralları olan `Intl.Segmenter` ile bölütlenir.
 
 Bundan şunları çıkarır:
 
@@ -63,22 +63,23 @@ Paket, herkese açık ve açık lisanslı veri kümeleriyle eğitilmiş bir mode
 Her bağlantı denetlenir:
 
 * **Benzer alan adları.** Her alan adı Unicode karıştırılabilir karakterler tablosuyla bir iskelete indirgenir; böylece `pаypal.com` (Kiril а), `paypa1.com`, `rnicrosoft.com` ve `xn--pple-43d.com`, taklit ettikleri markayla eşleşir. Tek bir etikette karışık yazı sistemleri, alt alan adlarındaki marka adları (`paypal.com.example.net`) ve tek harflik yazım hataları daha düşük puanlanır. Sık taklit edilen yaklaşık 100 marka yerleşik olarak gelir ve daha fazlası eklenebilir.
-* **Yanıltıcı bağlantılar.** Görünen metni hedeften farklı bir adres olan HTML bağlantıları.
+* **Yanıltıcı bağlantılar.** Görünen metni hedeften farklı bir adres olan HTML bağlantıları: metnin tamamı ya da içinde `http://` veya `https://` geçen bir adres (`Sign in at https://www.paypal.com`). Bir cümledeki dosya adı ya da site adı (`Download report.zip`, `Read why Booking.com switched`) adres değildir. Bir toplu e-posta hizmetinin tıklama izlemesinden (SendGrid, Mailchimp, Amazon SES, Kit, Brevo, beehiiv, Substack ve diğerleri) ya da bağlantıları yeniden yazan bir güvenlik ağ geçidinden (Microsoft Safe Links, Proofpoint, Mimecast, Barracuda, Cisco) geçen bir bağlantı tasarımı gereği başka bir yere gider; bu yüzden yalnızca metni bir markanın yolsuz ya da oturum açma yolu içeren tam adresi olduğunda (bir sosyal ağa, bir mağazanın ürününe ya da bir haritaya giden bağlantı değil) ve gönderici o marka ya da onun gönderim alan adlarından biri olmadığında sayılır. Bir ağ geçidinin bağlantısı, ardından gideceği adresi içeriyorsa (Safe Links, Proofpoint), onun yerine o adres karşılaştırılır.
 * **Cloudflare'in filtreleme yapan çözümleyicileri.** Bağlantı ana makineleri, bilinen kötü amaçlı yazılım ve kimlik avı siteleri için `0.0.0.0` yanıtını veren 1.1.1.2'de ve ayrıca yetişkin içeriği de engelleyen 1.1.1.3'te sorgulanır.
 * **Görünen adlar.** Başka bir alan adındaki bir adresten gelen "PayPal Security" gibi bir ad ya da farklı bir e-posta adresi içeren bir ad.
 
 
 ## Ekler
 
-Ekler adlarından veya bildirilen türlerinden değil, baytlarından tanınır:
+Ekler, bildirilen türlerine göre değil, baytlarına ve adlarına göre tanınır:
 
 * Windows, Linux ve macOS yürütülebilir dosyaları, kısayolları ve betikleri; adları `.pdf` veya `.jpg` olarak değiştirilmiş olsalar bile
 * çift uzantılar (`invoice.pdf.exe`) ve gerçek uzantıyı gizleyen sağdan sola geçersiz kılma karakterleri
 * ZIP arşivlerinin içindeki yürütülebilir dosyalar ve tarayıcıların açamadığı şifreli arşivler
 * makro içeren Office dosyaları, JavaScript veya başlatma eylemleri içeren PDF'ler, gömülü nesneler içeren RTF dosyaları
 * kimlik avında çevrimdışı sahte bir oturum açma sayfası göstermek için kullanılan HTML ekleri
+* ekli iletilerin (`message/rfc822`, `.eml`) ekleri, en fazla üç düzey derinliğe kadar ve en fazla 100 eke kadar (iletinin kendi eklerinin hepsi her zaman incelenir)
 
-ClamAV ile ekler ayrıca soketi üzerinden `clamd` ile taranır.
+ClamAV ile ekler ayrıca soketi üzerinden `clamd` ile taranır. Aynı anda dört tanesi, tümü `clamav.timeout` (60 saniye) içinde taranır; taranamayanlar `results.virusScanErrors` içinde listelenir. clamd'nin kabul ettiğinden (`StreamMaxLength` değerinden) büyük olanlar ise bunun yerine `results.virusScanSkipped` içinde listelenir: clamd bunları her denemede reddeder.
 
 
 ## Kimlik doğrulama

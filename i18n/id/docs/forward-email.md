@@ -1,4 +1,4 @@
-<!-- source: dc9016edd59e -->
+<!-- source: c70584655c0e -->
 
 # Forward Email
 
@@ -45,7 +45,7 @@ async function onData(stream, session, callback) {
 }
 ```
 
-`scanner.scan()` menerima stream SMTP secara langsung. Jika hasil [mailauth](https://github.com/postalsys/mailauth) sudah tersedia, lewati `authentication` dan berikan alamat IP saja.
+`scanner.scan()` menerima stream SMTP secara langsung. Jika hasil [mailauth](https://github.com/postalsys/mailauth) sudah tersedia, berikan sebagai `authenticationResults`: hasil itu diberi skor alih-alih diperiksa ulang.
 
 Balasan 421 atau 451 membuat server pengirim mengantrekan pesan dan mencoba lagi nanti. Aturan penolakan baru dapat dimulai dengan kode sementara lalu beralih ke 550 setelah hasilnya diperiksa, tanpa kehilangan email di antaranya.
 

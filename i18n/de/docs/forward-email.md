@@ -1,4 +1,4 @@
-<!-- source: dc9016edd59e -->
+<!-- source: c70584655c0e -->
 
 # Forward Email
 
@@ -45,7 +45,7 @@ async function onData(stream, session, callback) {
 }
 ```
 
-`scanner.scan()` nimmt den SMTP-Stream direkt entgegen. Liegen bereits Ergebnisse von [mailauth](https://github.com/postalsys/mailauth) vor, lassen Sie `authentication` weg und übergeben nur die IP-Adresse.
+`scanner.scan()` nimmt den SMTP-Stream direkt entgegen. Liegen bereits Ergebnisse von [mailauth](https://github.com/postalsys/mailauth) vor, übergeben Sie sie als `authenticationResults`, dann werden sie bewertet statt erneut geprüft.
 
 Eine Antwort mit 421 oder 451 veranlasst den sendenden Server, die Nachricht in die Warteschlange zu stellen und es später erneut zu versuchen. Neue Ablehnungsregeln können mit einem temporären Code beginnen und auf 550 wechseln, sobald ihre Ergebnisse geprüft sind, ohne dass zwischendurch E-Mails verloren gehen.
 

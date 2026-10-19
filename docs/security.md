@@ -9,13 +9,13 @@ By default, one thing: the **host names of links** in a message are looked up on
 
 Everything else is off until configured:
 
-| Check               | Sends                                                                     | To                                                                   |
-| ------------------- | ------------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| `authentication`    | DNS queries for the sender's SPF, DKIM, DMARC and ARC records             | Your resolver, or `dnsServers`                                       |
-| `dnsbl`             | The client's IP address, reversed, and link domains, as DNS queries       | The blocklists' name servers, through your resolver or `dns.servers` |
-| `llm`               | A summary of the message, with personal data removed for remote providers | The language model server you name ([privacy](llm.md#privacy))       |
-| `reputation.apiUrl` | The sender's IP address, domain and address                               | The service you name                                                 |
-| `clamav`            | Attachments                                                               | Your clamd, over its socket                                          |
+| Check               | Sends                                                                                                                   | To                                                                   |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| `authentication`    | DNS queries for the sender's SPF, DKIM, DMARC and ARC records                                                           | Your resolver, or `dnsServers`                                       |
+| `dnsbl`             | The client's IP address, reversed, and link domains, as DNS queries                                                     | The blocklists' name servers, through your resolver or `dns.servers` |
+| `llm`               | A summary of the message, with personal data removed for remote providers                                               | The language model server you name ([privacy](llm.md#privacy))       |
+| `reputation.apiUrl` | The client's IP address and verified hostname, and the From, envelope sender and Reply-To addresses, with their domains | The service you name                                                 |
+| `clamav`            | Attachments                                                                                                             | Your clamd, over its socket                                          |
 
 There is no telemetry, no update check and no download at run time. The model ships inside the package.
 
@@ -24,14 +24,15 @@ There is no telemetry, no update check and no download at run time. The model sh
 
 Nothing, unless asked. Scans are not logged or stored. `learn()` changes the classifier in memory; it is written to disk only by `saveModel()`, `spamscanner learn`, or the servers' `--out` option. A model file holds hashed feature counts, not words or message text.
 
-Language model answers are cached in memory, keyed by a hash of what was sent, so repeated copies of the same message are asked about once. DNS answers are cached in memory for ten minutes.
+Language model answers are cached in memory, keyed by a hash of what was sent, so repeated copies of the same message are asked about once. DNS answers are cached in memory for ten minutes, and a reputation service's answers for five (`reputation.cacheTtl`; a failed request for one minute).
 
 
 ## Hostile input
 
-* Attachments are identified by their bytes, never executed or opened by another program. ZIP archives are read from their central directory, with a limit on the number of entries; nested archives are not unpacked.
-* Body text is read up to `maxLength` (100,000 characters) and the servers accept messages up to 25 MB.
-* Every network check has a timeout (`timeout`, 10 seconds by default). A check that fails or times out is skipped and the scan finishes without it.
+* Attachments are identified by their bytes, never executed or opened by another program. ZIP archives are read from their central directory, with a limit on the number of entries; nested archives are not unpacked. Attached messages (`message/rfc822`, or attachments whose file name ends in `.eml`) are opened up to three levels deep, for at most 100 of their attachments and 25 MB of attached messages in all; the message's own attachments are always all inspected. A message beyond the MIME parser's limits (more than 1000 parts, or a part's header over 1 MB) is read as far as the parser allows (its first parts, with an oversized header cut down so its sender still counts) and gets `MIME_TOO_COMPLEX`, which no credit offsets; ClamAV reads it whole. An attached message the parser fails on gets it too, and never fails the scan. HTML is read by Spam Scanner's own parser, in linear time, however deeply it is nested.
+* Body text is read up to `maxLength` (100,000 characters) and the servers accept messages up to 25 MB. Links are read up to `phishing.maxLength` (1,000,000 characters).
+* Every network check has a timeout (`timeout`, 10 seconds by default). A check that fails or times out is skipped and the scan finishes without it. Authentication and the image model (the first 10 images) each finish within it as a whole. ClamAV (four attachments at a time) has its own limit for all of a message's attachments (`clamav.timeout`, 60 seconds), and attachments it could not scan are listed in `results.virusScanErrors`. The language model has its own (`llm.timeout`).
+* The allowlist trusts only what a sender cannot forge: the client's address and verified hostname, and sender domains that authentication confirms. [Allowlist and denylist](api.md#allowlist-and-denylist)
 * `X-Spam-*` headers already in a message are removed by the milter, the content filter and `--headers`, so senders cannot mark their own mail as clean.
 * Microsoft's spam verdict headers are trusted only when the message came directly from Microsoft's servers, and Received headers are never used to decide where a message came from.
 * Text that addresses AI filters is scored as spam, and the language model is told that the message is data, not instructions. [Prompt injection](llm.md#prompt-injection)

@@ -1,4 +1,4 @@
-<!-- source: 7cc30ff4ad91 -->
+<!-- source: 4d7afeb36844 -->
 
 # Training
 
@@ -15,12 +15,12 @@ spamscanner train --spam ~/Maildir/.Junk --ham ~/Maildir/cur --ham ~/Maildir/.Ar
 
 Bronnen kunnen zijn:
 
-* **mbox**-bestanden, ook gzip-gecomprimeerd (`.mbox.gz`),
+* **mbox**-bestanden, ook gzip-gecomprimeerd (`.mbox.gz`; andere `.gz`-bestanden worden overgeslagen),
 * een **Maildir** (de mappen `cur` en `new` worden gelezen, `tmp` wordt overgeslagen),
 * een **map** met `.eml`-bestanden, recursief gelezen,
-* een **dataset**: een CSV- of JSON Lines-bestand met een tekstkolom en een labelkolom (`--dataset`). Kolommen met de naam `text`, `message`, `body`, `email` of `content`, en `label`, `category`, `class`, `spam` of `is_spam`, worden vanzelf gevonden; gebruik anders `--text-column` en `--label-column`. Labels zoals `spam`, `1`, `phishing` en `ham`, `0`, `not_spam`, `legitimate` worden begrepen.
+* een **dataset**: een CSV- of JSON Lines-bestand met een tekstkolom en een labelkolom (`--dataset`). Kolommen, of JSON-velden, met de naam `text`, `message`, `body`, `email text`, `email`, `content`, `sms` of `v2`, en `label`, `category`, `is_spam`, `spam`, `email type`, `class`, `type`, `label_text`, `v1` of `labels`, in hoofd- of kleine letters, worden vanzelf gevonden (in JSON Lines `label_text` vóór `label`); gebruik anders `--text-column` en `--label-column`. Een JSON-regel die geen object is, wordt overgeslagen. Labels zoals `spam`, `1`, `phishing` en `ham`, `0`, `not_spam`, `legitimate` worden begrepen.
 
-Dubbele berichten worden één keer geteld. Voeg `--merge` toe om op het meegeleverde model voort te bouwen in plaats van leeg te beginnen.
+Dubbele berichten worden één keer geteld. Een bericht dat zowel in de spam- als in de hambronnen staat, blijft spam, omdat de spambronnen eerst worden gelezen. Voeg `--merge` toe om op het meegeleverde model voort te bouwen in plaats van leeg te beginnen.
 
 Gebruik het model:
 

@@ -1,4 +1,4 @@
-<!-- source: 7cc30ff4ad91 -->
+<!-- source: 4d7afeb36844 -->
 
 # Huấn luyện
 
@@ -15,12 +15,12 @@ spamscanner train --spam ~/Maildir/.Junk --ham ~/Maildir/cur --ham ~/Maildir/.Ar
 
 Nguồn có thể là:
 
-* tệp **mbox**, kể cả dạng nén gzip (`.mbox.gz`),
+* tệp **mbox**, kể cả dạng nén gzip (`.mbox.gz`; các tệp `.gz` khác bị bỏ qua),
 * một **Maildir** (các thư mục `cur` và `new` được đọc, `tmp` bị bỏ qua),
 * một **thư mục** chứa tệp `.eml`, được đọc đệ quy,
-* một **bộ dữ liệu**: tệp CSV hoặc JSON Lines có một cột văn bản và một cột nhãn (`--dataset`). Các cột tên `text`, `message`, `body`, `email` hoặc `content`, và `label`, `category`, `class`, `spam` hoặc `is_spam`, được tự động nhận diện; nếu không, dùng `--text-column` và `--label-column`. Các nhãn như `spam`, `1`, `phishing` và `ham`, `0`, `not_spam`, `legitimate` đều được hiểu.
+* một **bộ dữ liệu**: tệp CSV hoặc JSON Lines có một cột văn bản và một cột nhãn (`--dataset`). Các cột, hoặc trường JSON, tên `text`, `message`, `body`, `email text`, `email`, `content`, `sms` hoặc `v2`, và `label`, `category`, `is_spam`, `spam`, `email type`, `class`, `type`, `label_text`, `v1` hoặc `labels`, không phân biệt hoa thường, được tự động nhận diện (trong JSON Lines, `label_text` trước `label`); nếu không, dùng `--text-column` và `--label-column`. Dòng JSON không phải là một đối tượng sẽ bị bỏ qua. Các nhãn như `spam`, `1`, `phishing` và `ham`, `0`, `not_spam`, `legitimate` đều được hiểu.
 
-Thư trùng lặp chỉ được tính một lần. Để xây dựng tiếp trên mô hình đi kèm thay vì bắt đầu từ đầu, thêm `--merge`.
+Thư trùng lặp chỉ được tính một lần. Thư có mặt trong cả nguồn spam lẫn nguồn ham được giữ là spam, vì các nguồn spam được đọc trước. Để xây dựng tiếp trên mô hình đi kèm thay vì bắt đầu từ đầu, thêm `--merge`.
 
 Dùng mô hình:
 

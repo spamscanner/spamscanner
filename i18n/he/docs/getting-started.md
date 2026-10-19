@@ -1,4 +1,4 @@
-<!-- source: 8263c06f1dab -->
+<!-- source: 1a2009efd1f9 -->
 
 # צעדים ראשונים
 
@@ -25,6 +25,8 @@ npm install spamscanner
 ```sh
 curl -fsSL https://github.com/spamscanner/spamscanner/releases/latest/download/install.sh | bash
 ```
+
+הסקריפט בודק את הקובץ הבינארי מול קובץ `SHA256SUMS` של הגרסה לפני ההתקנה. הקבצים הבינאריים ל-Linux דורשים glibc, ולכן ב-Alpine ובמערכות אחרות המבוססות על musl יש להתקין דרך npm.
 
 קבצים בינאריים ל-Linux (x64 ו-arm64), ל-macOS (Intel ו-Apple silicon) ול-Windows מצורפים לכל [גרסה](https://github.com/spamscanner/spamscanner/releases).
 
@@ -75,6 +77,8 @@ for (const test of result.tests) {
 const SpamScanner = require('spamscanner');
 ```
 
+הצהרות טיפוסים כלולות, עבור TypeScript 4.7 ומעלה (5.3 ומעלה עם `require`).
+
 `scan()` מקבלת את ההודעה הגולמית כ-Buffer, כמחרוזת, כ-Uint8Array או כזרם קריא. מחרוזת היא תמיד טקסט של הודעה: Spam Scanner לעולם לא קורא קובץ רק משום שמחרוזת נראית כמו נתיב. לקבצים יש להשתמש ב-`scanner.scanFile(path)`.
 
 
@@ -113,7 +117,7 @@ spamscanner scan message.eml --ip 203.0.113.5 --helo mail.example.com \
 | SPF, DKIM, DMARC, ARC            | `authentication: true`                           | `--auth`                    |
 | רשימה שחורה של IP                | `dnsbl: {ip: ['zen.spamhaus.org']}`              | `--dnsbl zen.spamhaus.org`  |
 | רשימה שחורה של דומיינים לקישורים | `dnsbl: {domain: ['dbl.spamhaus.org']}`          | `--uribl dbl.spamhaus.org`  |
-| ClamAV                           | `clamav: true` או `clamav: {socket}`             | `--clamav [socket]`         |
+| ClamAV                           | `clamav: true` או `clamav: {socket}`             | `--clamav[=socket]`         |
 | מודל שפה                         | `llm: {provider: 'ollama', model: 'qwen3.5:4b'}` | `--llm ollama`              |
 | רשימות היתר וחסימה               | `allowlist: [...]`, `denylist: [...]`            | `--allowlist`, `--denylist` |
 

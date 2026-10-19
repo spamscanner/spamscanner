@@ -1,4 +1,4 @@
-<!-- source: 8263c06f1dab -->
+<!-- source: 1a2009efd1f9 -->
 
 # เริ่มต้นใช้งาน
 
@@ -25,6 +25,8 @@ npm install spamscanner
 ```sh
 curl -fsSL https://github.com/spamscanner/spamscanner/releases/latest/download/install.sh | bash
 ```
+
+สคริปต์จะตรวจสอบไบนารีกับไฟล์ `SHA256SUMS` ของรุ่นที่เผยแพร่นั้นก่อนติดตั้ง ไบนารีสำหรับ Linux ต้องใช้ glibc ดังนั้นบน Alpine และระบบอื่นที่ใช้ musl ให้ติดตั้งด้วย npm แทน
 
 ไบนารีสำหรับ Linux (x64 และ arm64), macOS (Intel และ Apple silicon) และ Windows แนบอยู่กับทุก [รุ่นที่เผยแพร่](https://github.com/spamscanner/spamscanner/releases)
 
@@ -75,6 +77,8 @@ CommonJS ก็ใช้ได้:
 const SpamScanner = require('spamscanner');
 ```
 
+มีการประกาศชนิดข้อมูลมาให้ในแพ็กเกจ สำหรับ TypeScript 4.7 ขึ้นไป (5.3 ขึ้นไปเมื่อใช้ `require`)
+
 `scan()` รับข้อความดิบเป็น Buffer สตริง Uint8Array หรือ readable stream สตริงจะถือเป็นเนื้อหาข้อความเสมอ: Spam Scanner จะไม่อ่านไฟล์เพียงเพราะสตริงดูเหมือนพาธ ใช้ `scanner.scanFile(path)` สำหรับไฟล์
 
 
@@ -113,7 +117,7 @@ spamscanner scan message.eml --ip 203.0.113.5 --helo mail.example.com \
 | SPF, DKIM, DMARC, ARC        | `authentication: true`                           | `--auth`                    |
 | IP blocklist                 | `dnsbl: {ip: ['zen.spamhaus.org']}`              | `--dnsbl zen.spamhaus.org`  |
 | Domain blocklist สำหรับลิงก์ | `dnsbl: {domain: ['dbl.spamhaus.org']}`          | `--uribl dbl.spamhaus.org`  |
-| ClamAV                       | `clamav: true` หรือ `clamav: {socket}`           | `--clamav [socket]`         |
+| ClamAV                       | `clamav: true` หรือ `clamav: {socket}`           | `--clamav[=socket]`         |
 | โมเดลภาษา                    | `llm: {provider: 'ollama', model: 'qwen3.5:4b'}` | `--llm ollama`              |
 | รายการอนุญาตและรายการปฏิเสธ  | `allowlist: [...]`, `denylist: [...]`            | `--allowlist`, `--denylist` |
 

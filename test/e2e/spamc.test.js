@@ -13,7 +13,8 @@ import {GTUBE} from '../../src/is-arbitrary.js';
 import {message, temporaryDirectory} from '../helpers/index.js';
 
 const enabled = Boolean(process.env.SPAMSCANNER_E2E_SPAMC);
-const port = 17_833;
+// (the port the server picks, from its "Listening on" line)
+let port;
 const spam = message({subject: 'Test', text: GTUBE});
 const ham = message({subject: 'Lunch', text: 'Hi Bob, are we still on for lunch on Thursday at noon?'});
 
@@ -31,8 +32,27 @@ describe('spamc', {skip: !enabled && 'set SPAMSCANNER_E2E_SPAMC=1', timeout: 60_
 	let server;
 
 	before(async () => {
-		server = spawn(process.execPath, ['src/bin.js', 'spamd', '--port', String(port), '--no-cloudflare', '--allow-tell', '--out', path.join(temporaryDirectory(), 'model.json')], {stdio: ['ignore', 'inherit', 'pipe']});
-		await once(server.stderr, 'data');
+		server = spawn(process.execPath, ['src/bin.js', 'spamd', '--port', '0', '--no-cloudflare', '--allow-tell', '--out', path.join(temporaryDirectory(), 'model.json')], {stdio: ['ignore', 'inherit', 'pipe']});
+		// Wait for the server to listen: on Node 18 and 20 the first output is
+		// the warning about JSON modules.
+		let log = '';
+		server.stderr.setEncoding('utf8');
+		server.stderr.on('data', chunk => {
+			log += chunk;
+			process.stderr.write(chunk);
+		});
+		const exited = (async () => {
+			const [code] = await once(server, 'exit');
+			return code;
+		})();
+		while (!/Listening on \S+:(\d+)/.test(log)) {
+			const ended = await Promise.race([once(server.stderr, 'data'), exited]);
+			if (typeof ended === 'number' || ended === null) {
+				throw new Error(`spamd exited with ${ended}: ${log}`);
+			}
+		}
+
+		port = Number(/Listening on \S+:(\d+)/.exec(log)[1]);
 	});
 
 	after(() => {

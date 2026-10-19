@@ -1,4 +1,4 @@
-<!-- source: dc9016edd59e -->
+<!-- source: c70584655c0e -->
 
 # Forward Email
 
@@ -45,7 +45,7 @@ async function onData(stream, session, callback) {
 }
 ```
 
-`scanner.scan()` accepte directement le flux SMTP. Si des résultats de [mailauth](https://github.com/postalsys/mailauth) sont déjà disponibles, laissez de côté `authentication` et passez seulement l’adresse IP.
+`scanner.scan()` accepte directement le flux SMTP. Si des résultats de [mailauth](https://github.com/postalsys/mailauth) sont déjà disponibles, passez-les dans `authenticationResults` : ils sont notés au lieu d’être vérifiés à nouveau.
 
 Une réponse 421 ou 451 amène le serveur expéditeur à mettre le message en file d’attente et à réessayer plus tard. De nouvelles règles de rejet peuvent commencer avec un code temporaire et passer à 550 une fois leurs résultats vérifiés, sans perdre de courrier entre-temps.
 

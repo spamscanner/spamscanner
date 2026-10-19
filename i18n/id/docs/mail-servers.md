@@ -1,4 +1,4 @@
-<!-- source: 1151282f29d3 -->
+<!-- source: 84dca86d95ea -->
 
 # Server email lain
 
@@ -20,8 +20,10 @@ Spam Scanner mendukung empat protokol, sehingga sebagian besar perangkat lunak e
 
 ```sh
 sudo systemctl disable --now spamd    # or spamassassin, depending on the distribution
-spamscanner spamd --port 783 --auth
+spamscanner spamd --port 783
 ```
+
+Klien spamd tidak mengirim alamat IP klien yang mengirim pesan, sehingga SPF, DKIM, DMARC, dan ARC (`--auth`) serta daftar blokir IP (`--dnsbl`) tidak dapat berjalan di sini. Gunakan [milter](postfix.md#milter) untuk itu jika server surel mendukungnya.
 
 Dengan spamc:
 
@@ -87,7 +89,7 @@ if header :is "X-Spam-Flag" "YES" {
 Dengan IMAPSieve, memindahkan pesan ke dalam atau keluar dari Junk dapat mengajari model. Jalankan HTTP API dengan token dan file model:
 
 ```sh
-spamscanner http --port 7832 --token "$SPAMSCANNER_TOKEN" --out /var/lib/spamscanner/model.json
+spamscanner http --port 7832 --out /var/lib/spamscanner/model.json    # token in SPAMSCANNER_TOKEN
 ```
 
 lalu arahkan server milter atau spamd ke model yang sama dengan `--model /var/lib/spamscanner/model.json` (atau `SPAMSCANNER_MODEL`). Mulai ulang sesekali agar hasil pembelajaran terbaca. Skrip yang dijalankan oleh `sieve_pipe` mengirim pesan:
@@ -132,7 +134,7 @@ if (/^X-Spam-Flag: YES/)
 Program apa pun yang dapat membuat permintaan HTTP dapat memindai email:
 
 ```sh
-spamscanner http --port 7832 --token "$SPAMSCANNER_TOKEN"
+spamscanner http --port 7832    # token in SPAMSCANNER_TOKEN
 
 curl -s -X POST -H "Authorization: Bearer $SPAMSCANNER_TOKEN" \
   --data-binary @message.eml "http://127.0.0.1:7832/scan?ip=203.0.113.5&from=alice@example.com&to=bob@example.org"

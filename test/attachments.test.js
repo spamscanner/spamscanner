@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {Buffer} from 'node:buffer';
 import {describe, it} from 'node:test';
 import {
-	EXECUTABLE_EXTENSIONS, inspectAttachments, sniff, zipEntries,
+	EXECUTABLE_EXTENSIONS, RISKY_EXTENSIONS, inspectAttachments, sniff, zipEntries,
 } from '../src/attachments.js';
 import {zip} from './helpers/index.js';
 
@@ -17,7 +17,16 @@ const pe = () => {
 	return buffer;
 };
 
-const ole = (...names) => Buffer.concat([bytes(0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1), Buffer.alloc(32), ...names.map(name => Buffer.from(name, 'utf16le'))]);
+// A compound file with a directory entry (a storage) for each name, after
+// its 512-byte header.
+const ole = (...names) => Buffer.concat([bytes(0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1), Buffer.alloc(504), ...names.map(name => {
+	const entry = Buffer.alloc(128);
+	const encoded = Buffer.from(`${name}\0`, 'utf16le');
+	encoded.copy(entry);
+	entry.writeUInt16LE(encoded.length, 64);
+	entry[66] = 1;
+	return entry;
+})]);
 const iso = () => {
 	const buffer = Buffer.alloc(0x80_10);
 	buffer.write('CD001', 0x80_01, 'latin1');
@@ -194,8 +203,10 @@ describe('inspectAttachments', () => {
 	});
 
 	it('flags macros in modern and legacy Office files', () => {
-		assert.deepEqual(types([{filename: 'report.docm'}]), ['macro']);
-		assert.deepEqual(types([{filename: 'report.docm', content: zip([{name: 'word/document.xml', content: 'x'}])}]), ['macro']);
+		// (a name that says a document may hold macros is not a macro)
+		assert.deepEqual(types([{filename: 'report.docm'}]), []);
+		assert.deepEqual(types([{filename: 'report.docm', content: zip([{name: 'word/document.xml', content: 'x'}])}]), []);
+		assert.deepEqual(types([{filename: 'report.docm', content: zip([{name: 'word/document.xml', content: 'x'}, {name: 'word/vbaProject.bin', content: 'x'}])}]), ['macro']);
 		assert.deepEqual(types([{filename: 'report.docx', content: zip([{name: 'word/document.xml', content: 'x'}, {name: 'word/vbaProject.bin', content: 'x'}])}]), ['macro']);
 		assert.deepEqual(types([{filename: 'sheet.xls', content: ole('Workbook', '_VBA_PROJECT')}]), ['macro']);
 		assert.deepEqual(types([{filename: 'letter.doc', content: ole('WordDocument')}]), []);
@@ -262,5 +273,56 @@ describe('inspectAttachments', () => {
 	it('ignores ordinary files and attachments without content', () => {
 		assert.deepEqual(types([{filename: 'photo.jpg', content: pad(bytes(0xFF, 0xD8, 0xFF))}, {filename: 'notes.txt'}, {}]), []);
 		assert.deepEqual(inspectAttachments(), []);
+	});
+});
+
+describe('attachments people send every day', () => {
+	it('reports certificates, shortcuts, themes and data files as risky types, not programs', () => {
+		for (const filename of ['company-root.cer', 'root.der', 'results.mat', 'archive.pst', 'blue.theme', 'cache.tmp', 'site.url']) {
+			const [item] = inspectAttachments([{filename, content: Buffer.from('data')}]);
+			assert.equal(item.type, 'risky_attachment', filename);
+			assert.match(item.message, /risky file type/);
+			assert.ok(!EXECUTABLE_EXTENSIONS.has(item.extension));
+		}
+
+		assert.ok(RISKY_EXTENSIONS.has('url'));
+		// (still a disguise after a document extension, and a program by its content)
+		assert.deepEqual(types([{filename: 'invoice.pdf.url', content: Buffer.from('[InternetShortcut]')}]), ['double_extension', 'risky_attachment']);
+		assert.deepEqual(types([{filename: 'setup.tmp', content: pe()}]), ['disguised_executable']);
+		// (a temporary copy of a document, as Office saves one, is no disguise)
+		assert.deepEqual(types([{filename: 'report.xlsx.tmp', content: Buffer.from('data')}, {filename: 'report.docx.bak', content: Buffer.from('data')}, {filename: 'report.docx~', content: Buffer.from('data')}]), ['risky_attachment']);
+	});
+
+	it('scores scripts in an archive below programs', () => {
+		const [site] = inspectAttachments([{filename: 'site.zip', content: zip([{name: 'index.html', content: 'x'}, {name: 'js/app.js', content: 'x'}])}]);
+		assert.deepEqual([site.type, site.extension], ['script_in_archive', 'js']);
+		assert.match(site.message, /a script \(app\.js\)/);
+		assert.match(inspectAttachments([{filename: 'homework.zip', content: zip([{name: 'main.py', content: 'x'}, {name: 'run.sh', content: 'x'}])}])[0].message, /2 scripts/);
+		// (with a program among them: an archive of programs)
+		assert.deepEqual(types([{filename: 'files.zip', content: zip([{name: 'main.py', content: 'x'}, {name: 'run.exe', content: 'x'}])}]), ['executable_in_archive']);
+	});
+
+	it('does not take an e-invoice\'s embedded file for active content, and decodes escaped names', () => {
+		assert.deepEqual(types([{filename: 'Rechnung.pdf', content: Buffer.from('%PDF-1.7\n1 0 obj<</Type /EmbeddedFile /Subtype /text#2Fxml>>stream\n<rsm:CrossIndustryInvoice/>\nendstream endobj\n<</Names<</EmbeddedFiles 2 0 R>>>>\n%%EOF')}]), []);
+		assert.deepEqual(types([{filename: 'x.pdf', content: Buffer.from('%PDF-1.7\n<</OpenAction<</S/J#61vaScript/J#53(app.alert(1))>>>>\n%%EOF')}]), ['pdf_active']);
+		assert.deepEqual(types([{filename: 'x.pdf', content: Buffer.from('%PDF-1.7\n<</S/#4caunch/F(cmd.exe)>>\n%%EOF')}]), ['pdf_active']);
+	});
+
+	it('finds VBA projects in a compound file\'s directory only', () => {
+		const message = Buffer.concat([ole('__substg1.0_1000001F'), Buffer.from('Can you help with the Excel Macros? The VBA code in _VBA_PROJECT fails.', 'utf16le')]);
+		assert.deepEqual(types([{filename: 'FW question.msg', content: message}]), []);
+		assert.deepEqual(types([{filename: 'book.xls', content: ole('Workbook', '_VBA_PROJECT_CUR')}]), ['macro']);
+		assert.deepEqual(types([{filename: 'letter.doc', content: ole('WordDocument', 'Macros')}]), ['macro']);
+		// (a stream named so counts too, and a name too long for an entry does not)
+		const stream = ole('vba');
+		stream[512 + 66] = 2;
+		assert.deepEqual(types([{filename: 'a.doc', content: stream}]), ['macro']);
+		const long = ole('VBA');
+		long.writeUInt16LE(66, 512 + 64);
+		assert.deepEqual(types([{filename: 'a.doc', content: long}]), []);
+	});
+
+	it('reports a double extension with a space before the last dot', () => {
+		assert.deepEqual(types([{filename: 'invoice.pdf .exe', content: pe()}]), ['double_extension', 'executable']);
 	});
 });

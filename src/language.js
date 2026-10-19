@@ -56,14 +56,14 @@ const SCRIPT_LANGUAGE = {
 // ISO 639-3 (what franc returns) to ISO 639-1, for the languages franc detects
 // that have a two-letter code.
 const ISO6393_TO_1 = {
-	afr: 'af', aka: 'ak', amh: 'am', arb: 'ar', ara: 'ar', azj: 'az', azb: 'az', aze: 'az', bel: 'be', ben: 'bn', bos: 'bs', bul: 'bg', cat: 'ca', ceb: 'ceb', ces: 'cs', ckb: 'ku', cmn: 'zh', zho: 'zh', cym: 'cy', dan: 'da', deu: 'de', ell: 'el', eng: 'en', epo: 'eo', est: 'et', ekk: 'et', eus: 'eu', fin: 'fi', fra: 'fr', fuv: 'ff', gax: 'om', gle: 'ga', glg: 'gl', guj: 'gu', hat: 'ht', hau: 'ha', heb: 'he', hin: 'hi', hrv: 'hr', hun: 'hu', hye: 'hy', ibo: 'ig', ilo: 'ilo', ind: 'id', isl: 'is', ita: 'it', jav: 'jv', jpn: 'ja', kan: 'kn', kat: 'ka', kaz: 'kk', khm: 'km', kin: 'rw', kir: 'ky', kor: 'ko', lao: 'lo', lat: 'la', lit: 'lt', lvs: 'lv', lav: 'lv', mal: 'ml', mar: 'mr', mkd: 'mk', mlt: 'mt', mya: 'my', nep: 'ne', npi: 'ne', nld: 'nl', nno: 'nn', nob: 'nb', nor: 'no', nya: 'ny', ori: 'or', ory: 'or', pan: 'pa', pes: 'fa', fas: 'fa', pbu: 'ps', pol: 'pl', por: 'pt', ron: 'ro', run: 'rn', rus: 'ru', sin: 'si', slk: 'sk', slv: 'sl', sna: 'sn', som: 'so', spa: 'es', sqi: 'sq', als: 'sq', srp: 'sr', sun: 'su', swe: 'sv', swh: 'sw', swa: 'sw', tam: 'ta', tel: 'te', tgk: 'tg', tgl: 'tl', tha: 'th', tir: 'ti', tuk: 'tk', tur: 'tr', uig: 'ug', ukr: 'uk', urd: 'ur', uzn: 'uz', uzb: 'uz', vie: 'vi', xho: 'xh', yor: 'yo', zlm: 'ms', zsm: 'ms', msa: 'ms', zul: 'zu',
+	afr: 'af', aka: 'ak', amh: 'am', arb: 'ar', ara: 'ar', azj: 'az', azb: 'az', aze: 'az', bel: 'be', ben: 'bn', bos: 'bs', bul: 'bg', cat: 'ca', ceb: 'ceb', ces: 'cs', ckb: 'ku', khk: 'mn', mlg: 'mg', plt: 'mg', cmn: 'zh', zho: 'zh', cym: 'cy', dan: 'da', deu: 'de', ell: 'el', eng: 'en', epo: 'eo', est: 'et', ekk: 'et', eus: 'eu', fin: 'fi', fra: 'fr', fuv: 'ff', gax: 'om', gle: 'ga', glg: 'gl', guj: 'gu', hat: 'ht', hau: 'ha', heb: 'he', hin: 'hi', hrv: 'hr', hun: 'hu', hye: 'hy', ibo: 'ig', ilo: 'ilo', ind: 'id', isl: 'is', ita: 'it', jav: 'jv', jpn: 'ja', kan: 'kn', kat: 'ka', kaz: 'kk', khm: 'km', kin: 'rw', kir: 'ky', kor: 'ko', lao: 'lo', lat: 'la', lit: 'lt', lvs: 'lv', lav: 'lv', mal: 'ml', mar: 'mr', mkd: 'mk', mlt: 'mt', mya: 'my', nep: 'ne', npi: 'ne', nld: 'nl', nno: 'nn', nob: 'nb', nor: 'no', nya: 'ny', ori: 'or', ory: 'or', pan: 'pa', pes: 'fa', fas: 'fa', pbu: 'ps', pol: 'pl', por: 'pt', ron: 'ro', run: 'rn', rus: 'ru', sin: 'si', slk: 'sk', slv: 'sl', sna: 'sn', som: 'so', spa: 'es', sqi: 'sq', als: 'sq', srp: 'sr', sun: 'su', swe: 'sv', swh: 'sw', swa: 'sw', tam: 'ta', tel: 'te', tgk: 'tg', tgl: 'tl', tha: 'th', tir: 'ti', tuk: 'tk', tur: 'tr', uig: 'ug', ukr: 'uk', urd: 'ur', uzn: 'uz', uzb: 'uz', vie: 'vi', xho: 'xh', yor: 'yo', zlm: 'ms', zsm: 'ms', msa: 'ms', zul: 'zu',
 };
 
 // Languages franc may answer with: those with tens of millions of speakers or
 // an official national role. Without a list, franc picks rare relatives
 // (Scots for English, for example) on short texts.
 const FRANC_LANGUAGES = [
-	'eng', 'spa', 'fra', 'deu', 'ita', 'por', 'nld', 'pol', 'ces', 'slk', 'slv', 'hrv', 'srp', 'bos', 'bul', 'mkd', 'rus', 'ukr', 'bel', 'ron', 'hun', 'fin', 'ekk', 'lvs', 'lit', 'swe', 'nob', 'dan', 'isl', 'tur', 'azj', 'kaz', 'uzn', 'kir', 'tgk', 'ind', 'zlm', 'vie', 'tgl', 'ceb', 'swh', 'hau', 'yor', 'ibo', 'amh', 'som', 'afr', 'zul', 'xho', 'cat', 'eus', 'gle', 'cym', 'als', 'arb', 'pes', 'urd', 'pbu', 'ckb', 'hin', 'mar', 'nep', 'jav', 'sun', 'mlt', 'run', 'kin', 'nya', 'sna', 'tir', 'gax', 'mlg', 'hat',
+	'eng', 'spa', 'fra', 'deu', 'ita', 'por', 'nld', 'pol', 'ces', 'slk', 'slv', 'hrv', 'srp', 'bos', 'bul', 'mkd', 'rus', 'ukr', 'bel', 'ron', 'hun', 'fin', 'ekk', 'lvs', 'lit', 'swe', 'nob', 'dan', 'isl', 'tur', 'azj', 'kaz', 'uzn', 'kir', 'tgk', 'ind', 'zlm', 'vie', 'tgl', 'ceb', 'swh', 'hau', 'yor', 'ibo', 'amh', 'som', 'afr', 'zul', 'xho', 'cat', 'eus', 'gle', 'cym', 'als', 'arb', 'pes', 'urd', 'pbu', 'ckb', 'hin', 'mar', 'nep', 'jav', 'sun', 'mlt', 'run', 'kin', 'nya', 'sna', 'tir', 'gax', 'plt', 'hat', 'khk',
 ];
 
 const LETTER = /\p{L}/u;
@@ -104,9 +104,19 @@ export function scriptOf(char) {
 	return entry ? entry[0] : 'Other';
 }
 
+// Codes for the same language as one the detector answers with: Norwegian
+// ("no", "nor") is written as Bokmål ("nb") almost always, Filipino as
+// Tagalog, and "iw", "in" and "ji" are the codes Hebrew, Indonesian and
+// Yiddish had before 1989, which Java and old systems still use.
+const SAME_LANGUAGE = {
+	no: 'nb', nor: 'nb', fil: 'tl', iw: 'he', in: 'id', ji: 'yi', yid: 'yi',
+};
+
 /**
  * Normalize a language code to ISO 639-1 where one exists: "eng" and "en-US"
- * both become "en". Unknown three-letter codes are returned lowercased.
+ * both become "en", and a code of the same language as one detected becomes
+ * that one ("no" is "nb", "fil" "tl", "iw" "he", "in" "id", "ji" "yi").
+ * Unknown three-letter codes are returned lowercased.
  * @param {string} code
  * @returns {string|null}
  */
@@ -117,6 +127,10 @@ export function normalizeLanguageCode(code) {
 
 	const lower = code.trim().toLowerCase().replace('_', '-');
 	const base = lower.split('-')[0];
+	if (Object.hasOwn(SAME_LANGUAGE, base)) {
+		return SAME_LANGUAGE[base];
+	}
+
 	if (base.length === 3 && ISO6393_TO_1[base]) {
 		return ISO6393_TO_1[base];
 	}
@@ -124,9 +138,20 @@ export function normalizeLanguageCode(code) {
 	return base;
 }
 
+// Letters of Cyrillic alphabets of Turkic, Iranian and Mongolic languages
+// (Kazakh, Uzbek, Kyrgyz, Tajik, Tatar, Bashkir, Mongolian), not Slavic ones
+const NON_SLAVIC_CYRILLIC = /[әөүұқғңһҳҷӣӯҗҡҙҫ]/i;
+
 // Letters that belong to one Cyrillic alphabet. Trigram statistics confuse
-// Russian with Bulgarian on short texts; these letters do not.
+// Russian with Bulgarian on short texts; these letters do not. Not in text
+// with letters of Kazakh, Uzbek, Kyrgyz, Mongolian and others (see
+// NON_SLAVIC_CYRILLIC), whose alphabets have "і" (Kazakh), "ў"
+// (Uzbek) or "ы" and "э" (Kyrgyz, Mongolian) too: franc tells those.
 function cyrillicLanguage(text) {
+	if (NON_SLAVIC_CYRILLIC.test(text)) {
+		return null;
+	}
+
 	if (/ў/i.test(text)) {
 		return 'be';
 	}
@@ -148,6 +173,42 @@ function cyrillicLanguage(text) {
 	}
 
 	return null;
+}
+
+// Slavic languages franc may name for Cyrillic text (Bosnian for Serbian)
+const SLAVIC = new Set(['ru', 'uk', 'be', 'bg', 'mk', 'sr', 'bs']);
+
+// Words with letters of a Turkic, Iranian or Mongolic alphabet, or with "і",
+// which Kazakh has as well as Ukrainian and Belarusian
+const NON_SLAVIC_WORD = /[әөүұқғңһҳҷӣӯҗҡҙҫі]/i;
+
+// The words of a text but for names, words in title case other than at the
+// start of a sentence or a line: the letters of a name ("Рыскулов",
+// "Қарағанды") belong to the language of the person or place, not to that of
+// the text; a word in capitals is no name ("ВАША ПОСЫЛКА ЗАДЕРЖАНА"). (Split
+// at non-letters, not matched word by word, to stay linear on one long
+// word.)
+function words(text) {
+	const kept = [];
+	let sentence = true;
+	for (const [index, part] of text.split(/([^\p{L}\p{M}]+)/u).entries()) {
+		if (index % 2 === 1) {
+			sentence = /[.!?…\n]/u.test(part);
+		} else if (sentence || !/^\p{Lu}[\p{Ll}\p{M}]/u.test(part)) {
+			kept.push(part);
+		}
+	}
+
+	return kept;
+}
+
+// The language of Cyrillic text with letters of Kazakh, Uzbek and others,
+// which franc reads as Slavic: a Russian, Bulgarian or Ukrainian text that
+// names a Kazakh person or place, or has a Kazakh word or two. Its other
+// words, but for names, decide as in a Slavic text ("ы" is Russian, never
+// Bulgarian), else franc's answer stands.
+function slavicLanguage(text, code) {
+	return cyrillicLanguage(words(text).filter(word => !NON_SLAVIC_WORD.test(word)).join(' ')) || code;
 }
 
 /**
@@ -197,8 +258,11 @@ export function detectLanguage(text) {
 		return result;
 	}
 
+	// (by the letters of words other than names; by those of names too only
+	//  in a text too short for franc, which otherwise tells: a Bulgarian text
+	//  that names "господин Рыскулов")
 	if (script === 'Cyrillic') {
-		const cyrillic = cyrillicLanguage(sample);
+		const cyrillic = cyrillicLanguage(words(sample).join(' ')) ?? (total < 40 ? cyrillicLanguage(sample) : null);
 		if (cyrillic) {
 			result.language = cyrillic;
 			return result;
@@ -210,7 +274,12 @@ export function detectLanguage(text) {
 	if (total >= (script === 'Latin' || script === 'Cyrillic' ? 40 : 15)) {
 		const code = franc(sample, {minLength: 20, only: FRANC_LANGUAGES});
 		if (code !== 'und') {
-			result.language = normalizeLanguageCode(code);
+			const language = normalizeLanguageCode(code);
+			// (Cyrillic text with letters of Kazakh and others, which
+			//  cyrillicLanguage leaves to franc, and franc reads as Slavic)
+			result.language = script === 'Cyrillic' && SLAVIC.has(language) && NON_SLAVIC_CYRILLIC.test(sample)
+				? slavicLanguage(sample, language)
+				: language;
 			return result;
 		}
 	}

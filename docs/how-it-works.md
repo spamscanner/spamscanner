@@ -17,9 +17,9 @@ Spam Scanner keeps what works in word counting, the statistics, and changes what
 
 ### What it counts
 
-The text read is what a mail client shows: of the HTML part when there is one (a plain text part beside it is shown only where HTML cannot be, so a harmless one cannot speak for the HTML), with tags, comments, scripts and styles left out, inline tags joining a word as a browser joins it (`Free Sp<span>ins</span>`), and text the HTML hides left out and counted: by an element that hides what it holds (display, opacity, the hidden attribute, a clipped box of no size, text moved off the page), or invisible, transparent or in a font of a pixel or less where it is (which an element inside can set again, as responsive templates do). Styles are read as browsers read them (the last declaration wins, comments, character references); colours on a background and style sheet classes are not, so such text is read as shown. HTML showing fewer than 20 words, such as an image of the message, is read with its plain text part. Links and host names are read from both parts and from hidden text.
+The text read is what a mail client shows: of the HTML part when there is one (a plain text part beside it is shown only where HTML cannot be, so a harmless one cannot speak for the HTML), with tags, comments, scripts and styles left out, inline tags joining a word as a browser joins it (`Free Sp<span>ins</span>`), blocks, cells and line breaks breaking it (also an element a style shows as a block, a block a browser ends by itself, and a block hidden in its place, but not one that takes no place), and text the HTML hides left out and counted: by an element that hides what it holds (display, opacity, the hidden attribute, a clipped box of no size, text moved off the page), or invisible, transparent or in a font of a pixel or less where it is (which an element inside can set again, as responsive templates do). Styles are read as browsers read them (the last declaration wins, comments, character references); colours on a background and style sheet classes are not, so such text is read as shown. HTML showing fewer than 20 words, such as an image of the message, is read with its plain text part. Links are read from both parts, from hidden text and from the text the HTML shows, where an address split by inline tags (`https://www.pay<b></b>pa1.com/`) reads as one. Host names written without a link are read from the subject, the text read and a plain text part beside the HTML.
 
-Text is normalized first: Unicode NFKC folds styled and full-width letters to plain ones, invisible characters are removed and counted, lookalike letters inside otherwise Latin or Cyrillic words are mapped back, and digits used as letters (`v1agra`) are folded. Words are then segmented with `Intl.Segmenter`, the Unicode word-boundary rules with dictionaries for Chinese, Japanese, Thai, Lao, Khmer and Burmese.
+Text is normalized first: Unicode NFKC folds styled and full-width letters to plain ones, invisible characters are removed and counted (not a zero-width space between letters of Thai, Lao, Khmer, Burmese or Tibetan, which separates words there, and joiners only between Latin letters), lookalike letters in a word that mixes Latin, Cyrillic or Greek letters are mapped to the script most of its letters are in (`рaypal` with a Cyrillic р becomes `paypal`, `пpивет` with a Latin p becomes `привет`), parts of a word between apostrophes are read apart (`iPhone'ы`, a Russian case ending, mixes nothing), and digits used as letters (`v1agra`) are folded. Words are then segmented with `Intl.Segmenter`, the Unicode word-boundary rules with dictionaries for Chinese, Japanese, Thai, Lao, Khmer and Burmese.
 
 From that it extracts:
 
@@ -61,22 +61,23 @@ The package includes a model trained on public, openly licensed datasets: Englis
 Every link is checked:
 
 * **Lookalike domains.** Each domain is reduced to a skeleton with the Unicode confusables table, so `pаypal.com` (Cyrillic а), `paypa1.com`, `rnicrosoft.com` and `xn--pple-43d.com` all match the brand they imitate. Mixed scripts in one label, brand names in subdomains (`paypal.com.example.net`) and one-letter typos are scored lower. Nearly 100 commonly impersonated brands are built in, and more can be added.
-* **Deceptive links.** HTML links whose visible text is a different address than the target.
+* **Deceptive links.** HTML links whose visible text is a different address than the target: all of the text, or an address with `http://` or `https://` inside it (`Sign in at https://www.paypal.com`). A file name or a site's name in a sentence (`Download report.zip`, `Read why Booking.com switched`) is no address. A link through a mailing service's click tracking (SendGrid, Mailchimp, Amazon SES, Kit, Brevo, beehiiv, Substack and others) or a security gateway that rewrites links (Microsoft Safe Links, Proofpoint, Mimecast, Barracuda, Cisco) goes elsewhere by design, so it counts only when its text is a brand's full address, with no path or a sign-in path (not a link to a social network, a shop's product or a map), and the sender is not that brand or one of its sending domains. Where a gateway's link holds the address it goes on to (Safe Links, Proofpoint), that address is compared instead.
 * **Cloudflare's filtering resolvers.** Link hosts are looked up on 1.1.1.2, which answers `0.0.0.0` for known malware and phishing, and 1.1.1.3, which also blocks adult content.
 * **Display names.** A name such as "PayPal Security" from an address at another domain, or a name containing a different email address.
 
 
 ## Attachments
 
-Attachments are identified from their bytes, not their names or declared types:
+Attachments are identified from their bytes and their names, not their declared types:
 
 * Windows, Linux and macOS executables, shortcuts and scripts, also when renamed to `.pdf` or `.jpg`
 * double extensions (`invoice.pdf.exe`) and right-to-left override characters that hide the real extension
 * executables inside ZIP archives, and encrypted archives that scanners cannot open
 * Office files with macros, PDFs with JavaScript or launch actions, RTF files with embedded objects
 * HTML attachments, which phishing uses to show a fake login page offline
+* the attachments of attached messages (`message/rfc822`, `.eml`), up to three levels deep and 100 attachments (the message's own attachments are always all inspected)
 
-With ClamAV, attachments are also scanned with `clamd` over its socket.
+With ClamAV, attachments are also scanned with `clamd` over its socket. Four are scanned at a time, all within `clamav.timeout` (60 seconds), and those it could not scan are listed in `results.virusScanErrors`. Those larger than clamd accepts (its `StreamMaxLength`) are listed in `results.virusScanSkipped` instead: clamd refuses them on every try.
 
 
 ## Authentication

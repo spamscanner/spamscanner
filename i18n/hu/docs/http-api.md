@@ -1,4 +1,4 @@
-<!-- source: faf44f093f8b -->
+<!-- source: 9caf3ffb803a -->
 
 # HTTP API, TCP-szerver és spamd
 
@@ -6,14 +6,16 @@
 ## HTTP API
 
 ```sh
-spamscanner http --port 7832 --token "$SPAMSCANNER_TOKEN"
+spamscanner http --port 7832    # token in SPAMSCANNER_TOKEN
 ```
+
+A HTTP API a tokenjét a `SPAMSCANNER_TOKEN` környezeti változóból olvassa. A `--token` is működik, de a gép többi felhasználója a `ps` paranccsal láthatja a parancssori kapcsolókat.
 
 A 127.0.0.1 címen figyel, hacsak a `--host` mást nem ad meg. Token esetén a `/health` kivételével minden kéréshez `Authorization: Bearer <token>` szükséges. Mielőtt a gépen kívülről is elérhetővé válna, TLS-t használó fordított proxy mögé kell helyezni.
 
 | Metódus és útvonal | Törzs         | Válasz                                                                  |
 | ------------------ | ------------- | ----------------------------------------------------------------------- |
-| `GET /health`      |               | `{"ok": true, "version": "7.0.0"}`                                      |
+| `GET /health`      |               | `{"ok": true, "version": "..."}`                                        |
 | `POST /scan`       | A nyers levél | A [vizsgálat eredménye](api.md#the-result) JSON-ként                    |
 | `POST /check`      | A nyers levél | A levél a hozzáadott `X-Spam-*` fejlécekkel, `message/rfc822` típusként |
 | `POST /learn/spam` | A nyers levél | `{"ok": true, "learned": "spam"}`; tokent igényel                       |
@@ -30,6 +32,8 @@ A lekérdezési paraméterek az SMTP-munkamenetet írják le:
 | `to`         | Egy címzett; ismételhető, vagy több is megadható vesszővel elválasztva |
 | `verbose=1`  | `/scan`: a szólistát és a tárgyat is visszaadja                        |
 | `subjectTag` | `/check`: előtag a spam tárgyához, például `%5BSPAM%5D`                |
+
+`ip` nélkül az SPF-, DKIM-, DMARC-, ARC- és IP-tiltólista-ellenőrzések (`--auth`, `--dnsbl`) kimaradnak.
 
 A `/check` válaszfejlécként az `X-Spam-Flag`, az `X-Spam-Score` és az `X-Spam-Action` értékét is visszaadja, így a kliens a levél feldolgozása nélkül is dönthet.
 
@@ -82,6 +86,8 @@ nc -N 127.0.0.1 7830 < message.eml
 
 A `--verbose` kapcsolóval a válasz ehelyett egy szövegsor: `SPAM 16.3/5.0 BAYES_999,PHISHING_LOOKALIKE_DOMAIN,DECEPTIVE_LINK,FROM_NAME_BRAND` vagy `HAM -2.5/5.0 BAYES_00`.
 
+A TCP-szerver nem ismeri a kliens IP-címét, így a `--auth` és a `--dnsbl` hatástalan. Bezárja azokat a kapcsolatokat, amelyek 60 másodpercig semmit sem küldenek, és a 25 MB-nál nagyobb üzenetekre hibával válaszol.
+
 
 ## spamd
 
@@ -104,3 +110,5 @@ SpamAssassin-kompatibilis szerver a spamc, az Exim, a Haraka és más SpamAssass
 | `TELL`          | Spamet vagy hamet tanul a `--allow-tell` kapcsolóval; a `--out` fájlba ment |
 
 A tömörített kéréseket (`Compress: zlib`) visszautasítja.
+
+A spamd-kliensek sem küldik el a kliens IP-címét, így a `--auth` és a `--dnsbl` hatástalan. A 25 MB-nál nagyobb üzenet `65` (`EX_DATAERR`), a `Content-length` értékénél rövidebb üzenet `76` (`EX_PROTOCOL`) választ kap, a 60 másodpercig semmit sem küldő kapcsolatok pedig bezárulnak.

@@ -9,7 +9,9 @@ import {createRequire} from 'node:module';
  * where a run of characters could otherwise be scanned again from every
  * position in it. When the optional re2 package is installed, the patterns
  * run on RE2, which guarantees linear time (and every pattern here is valid
- * RE2: no backreferences, no lookaround, repetition counts up to 1000).
+ * RE2: no backreferences, no lookaround, repetition counts up to 1000). A
+ * pattern finds the same text on either engine, but for a bounded run of a
+ * class of Unicode properties, which is unbounded on RE2 (see BOUNDED).
  */
 
 /**
@@ -34,10 +36,17 @@ const RE2 = loadRe2();
  */
 export const usesRe2 = RE2 !== null;
 
-// Repetition bounded only so that JavaScript stays linear ({0,n} or {1,n},
-// n of 10 or more). RE2 needs no bound, and compiles each repetition
-// separately (a bounded class of letters can exceed its size limit).
-const BOUNDED = /{([01]),(\d{2,})}/g;
+// Repetition bounded so that JavaScript stays linear ({0,n} or {1,n}, n of 10
+// or more). RE2 compiles each repetition separately, so a bounded class of
+// Unicode properties ("[\p{L}]{1,64}") can exceed its size limit: that one
+// is unbounded on RE2, which then finds a longer run of letters than
+// JavaScript does. The local parts and host labels of email addresses
+// (EMAIL_SOURCE and ADDRESS_SOURCE in tokenizer.js) are such classes: past 64
+// and 63 characters, RE2 reads an address JavaScript reads only the end of,
+// or not at all (in any script). Every other bound stays, so both engines
+// find the same links and host names outside addresses (bounds that are
+// those of DNS anyway).
+const BOUNDED = /^{([01]),\d{2,}}/;
 
 // JavaScript's \s (RE2's is ASCII only, without the no-break space that
 // mailparser makes of "&nbsp;", or the ideographic space)
@@ -45,17 +54,37 @@ const WHITESPACE = String.raw`\t\n\x0B\f\r \x{A0}\x{1680}\x{2000}-\x{200A}\x{202
 
 /**
  * A JavaScript pattern for RE2, matching the same text: \s and \S as in
- * JavaScript, and repetition bounded for JavaScript only made unbounded.
+ * JavaScript, and a bounded repetition of a class of Unicode properties made
+ * unbounded (see BOUNDED).
  * @param {string} source
  * @returns {string}
  */
 export function re2Source(source) {
 	let out = '';
 	let inClass = false;
+	// (whether the class read last has a Unicode property, and whether it is
+	//  what a repetition after it repeats)
+	let unicodeClass = false;
+	let afterClass = false;
 	for (let i = 0; i < source.length; i++) {
 		const char = source[i];
+		const repeats = afterClass;
+		afterClass = false;
+		if (char === '{' && !inClass && repeats && unicodeClass) {
+			const bound = BOUNDED.exec(source.slice(i, i + 16));
+			if (bound) {
+				out += bound[1] === '0' ? '*' : '+';
+				i += bound[0].length - 1;
+				continue;
+			}
+		}
+
 		if (char === '\\') {
 			const next = source[++i] ?? '';
+			if (inClass && (next === 'p' || next === 'P')) {
+				unicodeClass = true;
+			}
+
 			if (next === 's') {
 				out += inClass ? WHITESPACE : `[${WHITESPACE}]`;
 			} else if (next === 'S') {
@@ -73,14 +102,16 @@ export function re2Source(source) {
 
 		if (char === '[' && !inClass) {
 			inClass = true;
+			unicodeClass = false;
 		} else if (char === ']' && inClass) {
 			inClass = false;
+			afterClass = true;
 		}
 
 		out += char;
 	}
 
-	return out.replaceAll(BOUNDED, (_, min) => (min === '0' ? '*' : '+'));
+	return out;
 }
 
 /**
@@ -93,6 +124,27 @@ export function re2Source(source) {
  */
 export function linear(source, flags = '', Engine = RE2) {
 	return Engine ? new Engine(re2Source(source), flags) : new RegExp(source, flags);
+}
+
+/**
+ * Each match of a global pattern in text, found with exec from the start
+ * (String.prototype.matchAll makes a copy of the pattern for each call, which
+ * on RE2 compiles it again). A match of empty text moves on a character, so
+ * the search always ends.
+ * @param {RegExp} pattern - a pattern with the g flag
+ * @param {string} text
+ * @returns {Generator<RegExpExecArray>}
+ */
+export function * matchesOf(pattern, text) {
+	pattern.lastIndex = 0;
+	let match;
+	while ((match = pattern.exec(text)) !== null) {
+		if (match[0] === '') {
+			pattern.lastIndex++;
+		}
+
+		yield match;
+	}
 }
 
 /**

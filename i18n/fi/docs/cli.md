@@ -1,4 +1,4 @@
-<!-- source: c061da9312ad -->
+<!-- source: f8a77c318b83 -->
 
 # Komentorivi
 
@@ -59,16 +59,16 @@ Paluukoodit: 0 ham, 1 roskaposti, 2 virhe.
 
 ### Tarkistukset
 
-| Valitsin              | Merkitys                                                                           |
-| --------------------- | ---------------------------------------------------------------------------------- |
-| `--auth`              | Tarkistaa SPF:n, DKIM:n, DMARC:n ja ARC:n (vaatii valitsimen `--ip`)               |
-| `--dnsbl <zone>`      | IP-estolista, esimerkiksi `zen.spamhaus.org`; toistettavissa                       |
-| `--uribl <zone>`      | Linkkien verkkotunnusten estolista, esimerkiksi `dbl.spamhaus.org`; toistettavissa |
-| `--dns-server <ip>`   | DNS-tarkistusten nimipalvelin; toistettavissa                                      |
-| `--no-cloudflare`     | Ei kysy Cloudflaren suodattavilta DNS-palveluilta linkeistä                        |
-| `--clamav [socket]`   | Tarkistaa liitteet clamd:llä, sen oletussocketissa tai annetussa                   |
-| `--allowlist <value>` | Hyväksyy aina tämän IP-osoitteen, verkkotunnuksen tai osoitteen; toistettavissa    |
-| `--denylist <value>`  | Hylkää aina tämän IP-osoitteen, verkkotunnuksen tai osoitteen; toistettavissa      |
+| Valitsin              | Merkitys                                                                                                                                          |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--auth`              | Tarkistaa SPF:n, DKIM:n, DMARC:n ja ARC:n (vaatii valitsimen `--ip`)                                                                              |
+| `--dnsbl <zone>`      | IP-estolista, esimerkiksi `zen.spamhaus.org`; toistettavissa                                                                                      |
+| `--uribl <zone>`      | Linkkien verkkotunnusten estolista, esimerkiksi `dbl.spamhaus.org`; toistettavissa                                                                |
+| `--dns-server <ip>`   | DNS-tarkistusten nimipalvelin; toistettavissa                                                                                                     |
+| `--no-cloudflare`     | Ei kysy Cloudflaren suodattavilta DNS-palveluilta linkeistä                                                                                       |
+| `--clamav[=socket]`   | Tarkistaa liitteet clamd:llä, sen oletussocketissa tai annetussa                                                                                  |
+| `--allowlist <value>` | Hyväksy aina tämä asiakkaan IP-osoite tai isäntänimi, tai tämä verkkotunnus tai osoite, kun todennus vahvistaa lähettäjän (`--auth`); toistettava |
+| `--denylist <value>`  | Hylkää aina tämän IP-osoitteen, verkkotunnuksen tai osoitteen; toistettavissa                                                                     |
 
 ### Kielimalli
 
@@ -85,7 +85,7 @@ Paluukoodit: 0 ham, 1 roskaposti, 2 virhe.
 | `--llm-auth-header <name>`                                 | Avaimen otsake, kun käytössä on `--llm-auth header`                                                                                                    |
 | `--llm-username`, `--llm-password`                         | Valitsimelle `--llm-auth basic`                                                                                                                        |
 | `--llm-header "Name: value"`                               | Ylimääräinen pyynnön otsake; toistettavissa                                                                                                            |
-| `--llm-mode <mode>`                                        | `auto` (vain epäselvät tapaukset, oletus) tai `always`                                                                                                 |
+| `--llm-mode <mode>`                                        | `auto` (vain epäselvät tapaukset, oletus), `always` tai `off`                                                                                          |
 | `--llm-timeout <ms>`                                       | Oletus 30000                                                                                                                                           |
 | `--llm-policy <text>`                                      | Lisäsääntöjä mallille, esimerkiksi "Emme koskaan lähetä laskuja"                                                                                       |
 | `--llm-redact`, `--no-llm-redact`                          | Poistaa ensin henkilötiedot; oletuksena käytössä etäpalveluntarjoajille                                                                                |
@@ -105,18 +105,21 @@ spamscanner filter -f "$sender" -- "$recipient"
 | `--subject-tag <tag>` | Lisää etuliitteen roskapostin aiheriville                                                      |
 | `--reject`            | Palauttaa hylkäysrajan ylittävän postin lähettäjälle sen sijaan, että välittäisi sen eteenpäin |
 | `--discard`           | Pudottaa hylkäysrajan ylittävän postin sen sijaan, että välittäisi sen eteenpäin               |
+| `--on-error <answer>` | Postille, jota ei voitu tarkistaa kokonaan: `tempfail` (oletus) tai `accept`                   |
 
-Paluukoodit noudattavat sendmailin käytäntöjä, joita Postfix lukee: 0 toimitettu (tai pudotettu), 64 vastaanottajia ei annettu, 69 hylätty roskapostina (Postfix palauttaa sen lähettäjälle), 75 mikä tahansa virhe, jolloin Postfix säilyttää viestin ja yrittää myöhemmin uudelleen.
+Paluukoodit noudattavat sendmailin käytäntöjä, joita Postfix lukee: 0 toimitettu (tai pudotettu), 64 vastaanottajia ei annettu, 69 hylätty roskapostina (Postfix palauttaa sen lähettäjälle), 75 mikä tahansa virhe, jolloin Postfix säilyttää viestin ja yrittää myöhemmin uudelleen. Myös viesti, jonka liitettä ClamAV ei voinut tarkistaa, on virhe. Valitsimella `--on-error accept` tällainen viesti tai viesti, jonka tarkistus epäonnistui, välitetään eteenpäin otsakkeella `X-Spam-Virus-Scan: failed` ja ilman lähettäjän lisäämiä `X-Spam-*`-otsakkeita.
 
 
 ## milter, http, server ja spamd
 
 ```sh
 spamscanner milter --port 7831 --reject --subject-tag "[SPAM]"
-spamscanner http --port 7832 --token "$SPAMSCANNER_TOKEN"
+spamscanner http --port 7832    # token in SPAMSCANNER_TOKEN
 spamscanner server --port 7830
 spamscanner spamd --port 783
 ```
+
+HTTP-rajapinta lukee tunnisteensa ympäristömuuttujasta `SPAMSCANNER_TOKEN`. Myös `--token` toimii, mutta koneen muut käyttäjät näkevät komentorivin valitsimet komennolla `ps`.
 
 Portti 783 on SpamAssassin-asiakkaiden oletusportti. Alle 1024:n portit vaativat root-oikeudet tai `CAP_NET_BIND_SERVICE`-kyvyn; käytä muuta porttia, kuten `--port 7833`, ja kerro se asiakkaalle.
 
@@ -126,8 +129,9 @@ Portti 783 on SpamAssassin-asiakkaiden oletusportti. Alle 1024:n portit vaativat
 | `--host <ip>`         | Kuunneltava osoite (oletus 127.0.0.1)                                                   |
 | `--socket <path>`     | Kuuntelee sen sijaan Unix-socketissa                                                    |
 | `--reject`            | Milter: hylkää hylkäysrajan ylittävän postin                                            |
-| `--reject-code <n>`   | Milter: 451, yritä myöhemmin uudelleen (oletus), tai 550                                |
+| `--reject-code <n>`   | Milter: 4xx-koodi, yritä myöhemmin uudelleen (451, oletus), tai 5xx-koodi, kuten 550    |
 | `--quarantine`        | Milter: pitää roskapostin postipalvelimen karanteenissa                                 |
+| `--on-error <answer>` | Milter: postille, jota ei voitu tarkistaa kokonaan, `tempfail` (oletus) tai `accept`    |
 | `--name <hostname>`   | Milter: tämän palvelimen nimi Authentication-Results-otsakkeessa                        |
 | `--token <secret>`    | HTTP: vaatii otsakkeen `Authorization: Bearer <secret>`; tarvitaan polulle `/learn`     |
 | `--allow-tell`        | spamd: hyväksyy TELL-pyynnöt (`spamc -L spam`) oppimista varten                         |
@@ -136,6 +140,8 @@ Portti 783 on SpamAssassin-asiakkaiden oletusportti. Alle 1024:n portit vaativat
 | `--verbose`           | Milter: kirjaa jokaisen tarkistuksen lokiin. TCP-palvelin: vastaa yhdellä tekstirivillä |
 
 Yllä olevat tarkistusvalitsimet koskevat myös palvelimia. [Milter](postfix.md#milter), [HTTP API, TCP-palvelin ja spamd](http-api.md).
+
+spamd- ja TCP-asiakkaat eivät lähetä viestin lähettäneen asiakkaan IP-osoitetta, ja HTTP-asiakkaat lähettävät sen vain parametrilla `?ip=`, joten `--auth` ja `--dnsbl` toimivat vain milterin kanssa ja HTTP-pyynnöissä, jotka kertovat sen. Palvelimet ilmoittavat tästä, kun ne käynnistetään näillä valitsimilla.
 
 
 ## train, eval ja learn
@@ -157,6 +163,8 @@ spamscanner learn spam message.eml --model my-model.json
 
 `learn` päivittää mallitiedoston paikallaan ja luo sen ensimmäisellä kerralla mukana tulevasta mallista. [Koulutus](training.md)
 
+Kun annetaan sekä `--model` että `--out`, `learn` aloittaa `--model`-tiedostosta ja kirjoittaa tuloksen tiedostoon `--out`.
+
 
 ## llm-test ja models
 
@@ -165,7 +173,7 @@ spamscanner models
 spamscanner llm-test --llm ollama --llm-model qwen3.5:4b
 ```
 
-`llm-test` lähettää mallille yhden tavallisen viestin ja kaksi huijausta, englanniksi ja italiaksi, tulostaa sen tuomiot, kunkin viemän ajan, käytetyn menetelmän ja laitteiston sekä päättyy koodiin 0 vain, jos kaikki kolme ovat oikein.
+`llm-test` lähettää mallille yhden tavallisen viestin ja kaksi huijausta, englanniksi ja italiaksi, tulostaa sen tuomiot, kunkin viemän ajan, käytetyn menetelmän ja, kun malli on tällä koneella, laitteiston sekä päättyy koodiin 0 vain, jos kaikki kolme ovat oikein.
 
 
 ## Asetustiedosto

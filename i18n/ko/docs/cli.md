@@ -1,4 +1,4 @@
-<!-- source: c061da9312ad -->
+<!-- source: f8a77c318b83 -->
 
 # 명령줄
 
@@ -59,16 +59,16 @@ spamscanner scan message.eml --subject-tag "[SPAM]" > tagged.eml
 
 ### 검사
 
-| 옵션                    | 의미                                          |
-| --------------------- | ------------------------------------------- |
-| `--auth`              | SPF, DKIM, DMARC, ARC를 검사합니다(`--ip` 필요)     |
-| `--dnsbl <zone>`      | IP 차단 목록. 예: `zen.spamhaus.org`. 반복 가능      |
-| `--uribl <zone>`      | 링크용 도메인 차단 목록. 예: `dbl.spamhaus.org`. 반복 가능 |
-| `--dns-server <ip>`   | DNS 검사에 쓸 네임 서버. 반복 가능                      |
-| `--no-cloudflare`     | 링크를 Cloudflare의 필터링 리졸버에 조회하지 않습니다          |
-| `--clamav [socket]`   | 기본 소켓 또는 지정한 소켓의 clamd로 첨부 파일을 검사합니다        |
-| `--allowlist <value>` | 이 IP 주소, 도메인 또는 주소를 항상 수락합니다. 반복 가능         |
-| `--denylist <value>`  | 이 IP 주소, 도메인 또는 주소를 항상 거부합니다. 반복 가능         |
+| 옵션                    | 의미                                                                            |
+| --------------------- | ----------------------------------------------------------------------------- |
+| `--auth`              | SPF, DKIM, DMARC, ARC를 검사합니다(`--ip` 필요)                                       |
+| `--dnsbl <zone>`      | IP 차단 목록. 예: `zen.spamhaus.org`. 반복 가능                                        |
+| `--uribl <zone>`      | 링크용 도메인 차단 목록. 예: `dbl.spamhaus.org`. 반복 가능                                   |
+| `--dns-server <ip>`   | DNS 검사에 쓸 네임 서버. 반복 가능                                                        |
+| `--no-cloudflare`     | 링크를 Cloudflare의 필터링 리졸버에 조회하지 않습니다                                            |
+| `--clamav[=socket]`   | 기본 소켓 또는 지정한 소켓의 clamd로 첨부 파일을 검사합니다                                          |
+| `--allowlist <value>` | 이 클라이언트 IP 주소나 호스트 이름, 또는 인증으로 발신자가 확인될 때의 이 도메인이나 주소(`--auth`)를 항상 허용; 반복 가능 |
+| `--denylist <value>`  | 이 IP 주소, 도메인 또는 주소를 항상 거부합니다. 반복 가능                                           |
 
 ### 언어 모델
 
@@ -85,7 +85,7 @@ spamscanner scan message.eml --subject-tag "[SPAM]" > tagged.eml
 | `--llm-auth-header <name>`                                 | `--llm-auth header` 사용 시 키를 담을 헤더                                                                |
 | `--llm-username`, `--llm-password`                         | `--llm-auth basic`용                                                                              |
 | `--llm-header "Name: value"`                               | 추가 요청 헤더. 반복 가능                                                                                  |
-| `--llm-mode <mode>`                                        | `auto`(애매한 메시지만, 기본값) 또는 `always`                                                                |
+| `--llm-mode <mode>`                                        | `auto`(애매한 메시지만, 기본값), `always` 또는 `off`                                                         |
 | `--llm-timeout <ms>`                                       | 기본값 30000                                                                                        |
 | `--llm-policy <text>`                                      | 모델에 줄 추가 규칙. 예: "당사는 청구서를 이메일로 보내지 않습니다"                                                         |
 | `--llm-redact`, `--no-llm-redact`                          | 먼저 개인 데이터를 제거합니다. 원격 제공자에게는 기본으로 켜져 있습니다                                                         |
@@ -99,24 +99,27 @@ spamscanner scan message.eml --subject-tag "[SPAM]" > tagged.eml
 spamscanner filter -f "$sender" -- "$recipient"
 ```
 
-| 옵션                    | 의미                           |
-| --------------------- | ---------------------------- |
-| `--sendmail <path>`   | 기본값 `/usr/sbin/sendmail`     |
-| `--subject-tag <tag>` | 스팸의 제목 앞에 태그를 붙입니다           |
-| `--reject`            | 거부 임계값에 이른 메일을 넘겨주지 않고 반송합니다 |
-| `--discard`           | 거부 임계값에 이른 메일을 넘겨주지 않고 버립니다  |
+| 옵션                    | 의미                                                 |
+| --------------------- | -------------------------------------------------- |
+| `--sendmail <path>`   | 기본값 `/usr/sbin/sendmail`                           |
+| `--subject-tag <tag>` | 스팸의 제목 앞에 태그를 붙입니다                                 |
+| `--reject`            | 거부 임계값에 이른 메일을 넘겨주지 않고 반송합니다                       |
+| `--discard`           | 거부 임계값에 이른 메일을 넘겨주지 않고 버립니다                        |
+| `--on-error <answer>` | 완전히 검사하지 못한 메일에 대한 응답: `tempfail`(기본값) 또는 `accept` |
 
-종료 코드는 Postfix가 읽는 sendmail의 규칙을 따릅니다. 0은 전달(또는 폐기), 64는 수신자 미지정, 69는 스팸으로 거부(Postfix가 반송), 75는 모든 종류의 실패로, 이 경우 Postfix가 메시지를 보관하고 나중에 다시 시도합니다.
+종료 코드는 Postfix가 읽는 sendmail의 규칙을 따릅니다. 0은 전달(또는 폐기), 64는 수신자 미지정, 69는 스팸으로 거부(Postfix가 반송), 75는 모든 종류의 실패로, 이 경우 Postfix가 메시지를 보관하고 나중에 다시 시도합니다. ClamAV가 검사하지 못한 첨부 파일이 있는 메시지도 실패로 처리합니다. `--on-error accept`를 사용하면 이런 메시지나 검사에 실패한 메시지에 `X-Spam-Virus-Scan: failed`를 붙이고, 발신자가 추가한 `X-Spam-*` 헤더는 모두 뺀 채 넘겨줍니다.
 
 
 ## milter, http, server, spamd
 
 ```sh
 spamscanner milter --port 7831 --reject --subject-tag "[SPAM]"
-spamscanner http --port 7832 --token "$SPAMSCANNER_TOKEN"
+spamscanner http --port 7832    # token in SPAMSCANNER_TOKEN
 spamscanner server --port 7830
 spamscanner spamd --port 783
 ```
+
+HTTP API는 토큰을 환경 변수 `SPAMSCANNER_TOKEN`에서 읽습니다. `--token`도 쓸 수 있지만, 같은 컴퓨터의 다른 사용자가 `ps`에서 명령줄 옵션을 볼 수 있습니다.
 
 포트 783은 SpamAssassin 클라이언트가 기본으로 쓰는 포트입니다. 1024 미만 포트에는 root 권한이나 `CAP_NET_BIND_SERVICE` 기능이 필요합니다. `--port 7833`처럼 다른 포트를 사용하고 클라이언트에 알려 주십시오.
 
@@ -126,8 +129,9 @@ spamscanner spamd --port 783
 | `--host <ip>`         | 수신할 주소(기본값 127.0.0.1)                                       |
 | `--socket <path>`     | 대신 Unix 소켓에서 수신합니다                                          |
 | `--reject`            | milter: 거부 임계값에 이른 메일을 거부합니다                                |
-| `--reject-code <n>`   | milter: 451(나중에 다시 시도, 기본값) 또는 550                          |
+| `--reject-code <n>`   | milter: 4xx 코드(나중에 다시 시도, 기본값 451) 또는 550 같은 5xx 코드         |
 | `--quarantine`        | milter: 스팸을 메일 서버의 격리 영역에 보류합니다                             |
+| `--on-error <answer>` | milter: 완전히 검사하지 못한 메일에 대한 응답, `tempfail`(기본값) 또는 `accept`  |
 | `--name <hostname>`   | milter: Authentication-Results에 쓸 이 서버의 이름                  |
 | `--token <secret>`    | HTTP: `Authorization: Bearer <secret>`을 요구합니다. `/learn`에 필요 |
 | `--allow-tell`        | spamd: 학습용 TELL 요청(`spamc -L spam`)을 받습니다                   |
@@ -136,6 +140,8 @@ spamscanner spamd --port 783
 | `--verbose`           | milter: 모든 검사를 기록합니다. TCP 서버: 텍스트 한 줄로 응답합니다                |
 
 위의 검사 옵션은 서버에도 적용됩니다. [milter](postfix.md#milter), [HTTP API, TCP 서버, spamd](http-api.md).
+
+spamd와 TCP 클라이언트는 메시지를 보낸 클라이언트의 IP 주소를 보내지 않고, HTTP 클라이언트는 `?ip=`가 있을 때만 보냅니다. 그래서 `--auth`와 `--dnsbl`은 milter와 IP 주소를 알려 주는 HTTP 요청에서만 동작합니다. 이 옵션으로 시작하면 서버가 이를 알려 줍니다.
 
 
 ## train, eval, learn
@@ -157,6 +163,8 @@ spamscanner learn spam message.eml --model my-model.json
 
 `learn`은 모델 파일을 그 자리에서 갱신하며, 처음에는 번들 모델로 파일을 만듭니다. [학습](training.md)
 
+`--model`과 `--out`을 함께 주면 `learn`은 `--model` 파일에서 시작해 결과를 `--out`에 씁니다.
+
 
 ## llm-test와 models
 
@@ -165,7 +173,7 @@ spamscanner models
 spamscanner llm-test --llm ollama --llm-model qwen3.5:4b
 ```
 
-`llm-test`는 평범한 메시지 하나와 영어·이탈리아어 사기 메시지 두 개를 모델에 보내 판정, 각각에 걸린 시간, 사용한 방식, 하드웨어를 출력하고, 세 판정이 모두 맞을 때만 0으로 종료합니다.
+`llm-test`는 평범한 메시지 하나와 영어·이탈리아어 사기 메시지 두 개를 모델에 보내 판정, 각각에 걸린 시간, 사용한 방식, 그리고 이 컴퓨터에서 도는 모델이면 하드웨어를 출력하고, 세 판정이 모두 맞을 때만 0으로 종료합니다.
 
 
 ## 설정 파일

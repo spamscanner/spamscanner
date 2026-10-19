@@ -4,18 +4,29 @@ import {Buffer} from 'node:buffer';
 import {randomBytes} from 'node:crypto';
 import dgram from 'node:dgram';
 import {once} from 'node:events';
-import {mkdtempSync} from 'node:fs';
+import {mkdtempSync, rmSync} from 'node:fs';
 import http from 'node:http';
 import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
+import process from 'node:process';
 
 /**
  * A temporary directory, removed by the OS eventually.
  * @returns {string}
  */
+// (removed when the test process ends)
+const temporaryDirectories = [];
+process.on('exit', () => {
+	for (const directory of temporaryDirectories) {
+		rmSync(directory, {recursive: true, force: true});
+	}
+});
+
 export function temporaryDirectory() {
-	return mkdtempSync(path.join(os.tmpdir(), 'spamscanner-test-'));
+	const directory = mkdtempSync(path.join(os.tmpdir(), 'spamscanner-test-'));
+	temporaryDirectories.push(directory);
+	return directory;
 }
 
 function encodeHeader(value) {

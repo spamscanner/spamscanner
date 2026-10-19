@@ -58,6 +58,8 @@ export function requestJson(method, url, body, options = {}) {
 
 				chunks.push(chunk);
 			});
+			// (a connection dropped in the middle of the reply)
+			response.on('error', error => finish(error));
 			response.on('end', () => {
 				const text = Buffer.concat(chunks).toString('utf8');
 				if (response.statusCode < 200 || response.statusCode >= 300) {

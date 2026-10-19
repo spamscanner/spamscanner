@@ -1,4 +1,4 @@
-<!-- source: 1151282f29d3 -->
+<!-- source: 84dca86d95ea -->
 
 # خوادم بريد أخرى
 
@@ -20,8 +20,10 @@
 
 ```sh
 sudo systemctl disable --now spamd    # or spamassassin, depending on the distribution
-spamscanner spamd --port 783 --auth
+spamscanner spamd --port 783
 ```
+
+لا يرسل عملاء spamd عنوان IP الخاص بالعميل الذي أرسل الرسالة، لذا لا يمكن تشغيل SPF وDKIM وDMARC وARC (`--auth`) وقوائم حظر IP (`--dnsbl`) هنا. استخدم [الـ milter](postfix.md#milter) لها حيث يدعمه خادم البريد.
 
 مع spamc:
 
@@ -87,7 +89,7 @@ if header :is "X-Spam-Flag" "YES" {
 مع IMAPSieve، يمكن لنقل رسالة إلى Junk أو منه أن يعلّم النموذج. شغّل HTTP API مع رمز مميز وملف نموذج:
 
 ```sh
-spamscanner http --port 7832 --token "$SPAMSCANNER_TOKEN" --out /var/lib/spamscanner/model.json
+spamscanner http --port 7832 --out /var/lib/spamscanner/model.json    # token in SPAMSCANNER_TOKEN
 ```
 
 ووجّه خادم الـ milter أو spamd إلى النموذج نفسه بـ `--model /var/lib/spamscanner/model.json` (أو `SPAMSCANNER_MODEL`). أعد تشغيله من حين لآخر ليلتقط ما تعلّمه. يرسل سكربت يشغّله `sieve_pipe` الرسالة:
@@ -132,7 +134,7 @@ if (/^X-Spam-Flag: YES/)
 يستطيع أي برنامج قادر على إرسال طلب HTTP أن يفحص البريد:
 
 ```sh
-spamscanner http --port 7832 --token "$SPAMSCANNER_TOKEN"
+spamscanner http --port 7832    # token in SPAMSCANNER_TOKEN
 
 curl -s -X POST -H "Authorization: Bearer $SPAMSCANNER_TOKEN" \
   --data-binary @message.eml "http://127.0.0.1:7832/scan?ip=203.0.113.5&from=alice@example.com&to=bob@example.org"

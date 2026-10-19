@@ -1,4 +1,4 @@
-<!-- source: c061da9312ad -->
+<!-- source: f8a77c318b83 -->
 
 # Příkazová řádka
 
@@ -59,16 +59,16 @@ Návratové kódy: 0 ham, 1 spam, 2 chyba.
 
 ### Kontroly
 
-| Volba                 | Význam                                                                 |
-| --------------------- | ---------------------------------------------------------------------- |
-| `--auth`              | Kontrolovat SPF, DKIM, DMARC a ARC (vyžaduje `--ip`)                   |
-| `--dnsbl <zone>`      | Blocklist IP adres, například `zen.spamhaus.org`; lze opakovat         |
-| `--uribl <zone>`      | Blocklist domén v odkazech, například `dbl.spamhaus.org`; lze opakovat |
-| `--dns-server <ip>`   | Jmenný server pro kontroly DNS; lze opakovat                           |
-| `--no-cloudflare`     | Neptat se filtrovacích resolverů Cloudflare na odkazy                  |
-| `--clamav [socket]`   | Kontrolovat přílohy pomocí clamd na jeho výchozím nebo zadaném socketu |
-| `--allowlist <value>` | Vždy přijmout tuto IP adresu, doménu nebo adresu; lze opakovat         |
-| `--denylist <value>`  | Vždy odmítnout tuto IP adresu, doménu nebo adresu; lze opakovat        |
+| Volba                 | Význam                                                                                                                                             |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--auth`              | Kontrolovat SPF, DKIM, DMARC a ARC (vyžaduje `--ip`)                                                                                               |
+| `--dnsbl <zone>`      | Blocklist IP adres, například `zen.spamhaus.org`; lze opakovat                                                                                     |
+| `--uribl <zone>`      | Blocklist domén v odkazech, například `dbl.spamhaus.org`; lze opakovat                                                                             |
+| `--dns-server <ip>`   | Jmenný server pro kontroly DNS; lze opakovat                                                                                                       |
+| `--no-cloudflare`     | Neptat se filtrovacích resolverů Cloudflare na odkazy                                                                                              |
+| `--clamav[=socket]`   | Kontrolovat přílohy pomocí clamd na jeho výchozím nebo zadaném socketu                                                                             |
+| `--allowlist <value>` | Vždy přijmout tuto IP adresu nebo název hostitele klienta, nebo tuto doménu či adresu, když ověřování potvrdí odesílatele (`--auth`); lze opakovat |
+| `--denylist <value>`  | Vždy odmítnout tuto IP adresu, doménu nebo adresu; lze opakovat                                                                                    |
 
 ### Jazykový model
 
@@ -85,7 +85,7 @@ Návratové kódy: 0 ham, 1 spam, 2 chyba.
 | `--llm-auth-header <name>`                                 | Hlavička pro klíč, s `--llm-auth header`                                                                                                            |
 | `--llm-username`, `--llm-password`                         | Pro `--llm-auth basic`                                                                                                                              |
 | `--llm-header "Name: value"`                               | Další hlavička požadavku; lze opakovat                                                                                                              |
-| `--llm-mode <mode>`                                        | `auto` (jen hraniční případy, výchozí) nebo `always`                                                                                                |
+| `--llm-mode <mode>`                                        | `auto` (jen hraniční případy, výchozí), `always` nebo `off`                                                                                         |
 | `--llm-timeout <ms>`                                       | Výchozí 30000                                                                                                                                       |
 | `--llm-policy <text>`                                      | Další pravidla pro model, například „Faktury nikdy neposíláme“                                                                                      |
 | `--llm-redact`, `--no-llm-redact`                          | Nejdřív odstranit osobní údaje; u vzdálených poskytovatelů ve výchozím stavu zapnuto                                                                |
@@ -99,43 +99,49 @@ Návratové kódy: 0 ham, 1 spam, 2 chyba.
 spamscanner filter -f "$sender" -- "$recipient"
 ```
 
-| Volba                 | Význam                                                       |
-| --------------------- | ------------------------------------------------------------ |
-| `--sendmail <path>`   | Výchozí `/usr/sbin/sendmail`                                 |
-| `--subject-tag <tag>` | Přidá předponu k předmětu spamu                              |
-| `--reject`            | Poštu na prahu odmítnutí vrátí odesílateli místo předání dál |
-| `--discard`           | Poštu na prahu odmítnutí zahodí místo předání dál            |
+| Volba                 | Význam                                                                                |
+| --------------------- | ------------------------------------------------------------------------------------- |
+| `--sendmail <path>`   | Výchozí `/usr/sbin/sendmail`                                                          |
+| `--subject-tag <tag>` | Přidá předponu k předmětu spamu                                                       |
+| `--reject`            | Poštu na prahu odmítnutí vrátí odesílateli místo předání dál                          |
+| `--discard`           | Poštu na prahu odmítnutí zahodí místo předání dál                                     |
+| `--on-error <answer>` | Pro poštu, kterou nebylo možné úplně zkontrolovat: `tempfail` (výchozí) nebo `accept` |
 
-Návratové kódy se řídí konvencemi programu sendmail, které Postfix čte: 0 doručeno (nebo zahozeno), 64 nezadáni žádní příjemci, 69 odmítnuto jako spam (Postfix zprávu vrátí), 75 jakékoli selhání, takže Postfix zprávu ponechá a zkusí to později znovu.
+Návratové kódy se řídí konvencemi programu sendmail, které Postfix čte: 0 doručeno (nebo zahozeno), 64 nezadáni žádní příjemci, 69 odmítnuto jako spam (Postfix zprávu vrátí), 75 jakékoli selhání, takže Postfix zprávu ponechá a zkusí to později znovu. Selháním je i zpráva s přílohou, kterou ClamAV nedokázal zkontrolovat. S `--on-error accept` se taková zpráva, nebo zpráva, jejíž kontrola selhala, předá dál s `X-Spam-Virus-Scan: failed` a bez hlaviček `X-Spam-*`, které přidal odesílatel.
 
 
 ## milter, http, server a spamd
 
 ```sh
 spamscanner milter --port 7831 --reject --subject-tag "[SPAM]"
-spamscanner http --port 7832 --token "$SPAMSCANNER_TOKEN"
+spamscanner http --port 7832    # token in SPAMSCANNER_TOKEN
 spamscanner server --port 7830
 spamscanner spamd --port 783
 ```
 
+HTTP API čte svůj token z proměnné prostředí `SPAMSCANNER_TOKEN`. Funguje i `--token`, ale ostatní uživatelé počítače vidí volby příkazového řádku v `ps`.
+
 Port 783 je port, který klienti SpamAssassinu používají ve výchozím stavu. Porty pod 1024 vyžadují roota nebo oprávnění `CAP_NET_BIND_SERVICE`; použijte jiný port, například `--port 7833`, a nastavte ho v klientovi.
 
-| Volba                 | Význam                                                                        |
-| --------------------- | ----------------------------------------------------------------------------- |
-| `--port <n>`          | Port TCP                                                                      |
-| `--host <ip>`         | Adresa, na které naslouchat (výchozí 127.0.0.1)                               |
-| `--socket <path>`     | Naslouchat místo toho na unixovém socketu                                     |
-| `--reject`            | Milter: odmítat poštu na prahu odmítnutí                                      |
-| `--reject-code <n>`   | Milter: 451, zkuste to později (výchozí), nebo 550                            |
-| `--quarantine`        | Milter: zadržet spam v karanténě poštovního serveru                           |
-| `--name <hostname>`   | Milter: jméno tohoto serveru v Authentication-Results                         |
-| `--token <secret>`    | HTTP: vyžadovat `Authorization: Bearer <secret>`; nutné pro `/learn`          |
-| `--allow-tell`        | spamd: přijímat požadavky TELL (`spamc -L spam`) k učení                      |
-| `--out <file>`        | HTTP a spamd: ukládat naučené do tohoto souboru modelu                        |
-| `--subject-tag <tag>` | Milter a spamd: přidat předponu k předmětu spamu                              |
-| `--verbose`           | Milter: zaznamenat každou kontrolu. TCP server: odpovědět jedním řádkem textu |
+| Volba                 | Význam                                                                                        |
+| --------------------- | --------------------------------------------------------------------------------------------- |
+| `--port <n>`          | Port TCP                                                                                      |
+| `--host <ip>`         | Adresa, na které naslouchat (výchozí 127.0.0.1)                                               |
+| `--socket <path>`     | Naslouchat místo toho na unixovém socketu                                                     |
+| `--reject`            | Milter: odmítat poštu na prahu odmítnutí                                                      |
+| `--reject-code <n>`   | Milter: kód 4xx, zkuste to později (451, výchozí), nebo kód 5xx, například 550                |
+| `--quarantine`        | Milter: zadržet spam v karanténě poštovního serveru                                           |
+| `--on-error <answer>` | Milter: pro poštu, kterou nebylo možné úplně zkontrolovat, `tempfail` (výchozí) nebo `accept` |
+| `--name <hostname>`   | Milter: jméno tohoto serveru v Authentication-Results                                         |
+| `--token <secret>`    | HTTP: vyžadovat `Authorization: Bearer <secret>`; nutné pro `/learn`                          |
+| `--allow-tell`        | spamd: přijímat požadavky TELL (`spamc -L spam`) k učení                                      |
+| `--out <file>`        | HTTP a spamd: ukládat naučené do tohoto souboru modelu                                        |
+| `--subject-tag <tag>` | Milter a spamd: přidat předponu k předmětu spamu                                              |
+| `--verbose`           | Milter: zaznamenat každou kontrolu. TCP server: odpovědět jedním řádkem textu                 |
 
 Výše uvedené volby kontroly platí i pro servery. [Milter](postfix.md#milter), [HTTP API, TCP server a spamd](http-api.md).
+
+Klienti spamd a TCP neposílají IP adresu klienta, který zprávu odeslal, a klienti HTTP ji posílají jen s `?ip=`, takže `--auth` a `--dnsbl` fungují jen s milterem a s požadavky HTTP, které ji uvádějí. Servery na to upozorní, když se s těmito volbami spustí.
 
 
 ## train, eval a learn
@@ -157,6 +163,8 @@ spamscanner learn spam message.eml --model my-model.json
 
 `learn` aktualizuje soubor modelu na místě a napoprvé ho vytvoří z přibaleného modelu. [Trénování](training.md)
 
+S `--model` i `--out` zároveň začne `learn` ze souboru `--model` a výsledek zapíše do `--out`.
+
 
 ## llm-test a models
 
@@ -165,7 +173,7 @@ spamscanner models
 spamscanner llm-test --llm ollama --llm-model qwen3.5:4b
 ```
 
-`llm-test` pošle modelu jednu běžnou zprávu a dva podvody, v angličtině a italštině, vypíše jeho verdikty, čas každého z nich, použitou metodu a hardware a skončí s kódem 0 jen tehdy, když jsou všechny tři správně.
+`llm-test` pošle modelu jednu běžnou zprávu a dva podvody, v angličtině a italštině, vypíše jeho verdikty, čas každého z nich, použitou metodu a u modelu na tomto počítači hardware a skončí s kódem 0 jen tehdy, když jsou všechny tři správně.
 
 
 ## Konfigurační soubor

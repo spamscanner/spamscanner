@@ -1,4 +1,4 @@
-<!-- source: c061da9312ad -->
+<!-- source: f8a77c318b83 -->
 
 # Kommandolinje
 
@@ -59,16 +59,16 @@ Afslutningskoder: 0 ham, 1 spam, 2 fejl.
 
 ### Tjek
 
-| Indstilling           | Betydning                                                                       |
-| --------------------- | ------------------------------------------------------------------------------- |
-| `--auth`              | Tjek SPF, DKIM, DMARC og ARC (kræver `--ip`)                                    |
-| `--dnsbl <zone>`      | IP-blokeringsliste, for eksempel `zen.spamhaus.org`; kan gentages               |
-| `--uribl <zone>`      | Domæneblokeringsliste for links, for eksempel `dbl.spamhaus.org`; kan gentages  |
-| `--dns-server <ip>`   | Navneserver til DNS-tjek; kan gentages                                          |
-| `--no-cloudflare`     | Spørg ikke Cloudflares filtrerende resolvere om links                           |
-| `--clamav [socket]`   | Scan vedhæftede filer med clamd, på dens standardsocket eller den angivne       |
-| `--allowlist <value>` | Acceptér altid denne IP-adresse, dette domæne eller denne adresse; kan gentages |
-| `--denylist <value>`  | Afvis altid denne IP-adresse, dette domæne eller denne adresse; kan gentages    |
+| Indstilling           | Betydning                                                                                                                                                           |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--auth`              | Tjek SPF, DKIM, DMARC og ARC (kræver `--ip`)                                                                                                                        |
+| `--dnsbl <zone>`      | IP-blokeringsliste, for eksempel `zen.spamhaus.org`; kan gentages                                                                                                   |
+| `--uribl <zone>`      | Domæneblokeringsliste for links, for eksempel `dbl.spamhaus.org`; kan gentages                                                                                      |
+| `--dns-server <ip>`   | Navneserver til DNS-tjek; kan gentages                                                                                                                              |
+| `--no-cloudflare`     | Spørg ikke Cloudflares filtrerende resolvere om links                                                                                                               |
+| `--clamav[=socket]`   | Scan vedhæftede filer med clamd, på dens standardsocket eller den angivne                                                                                           |
+| `--allowlist <value>` | Accepter altid denne klient-IP-adresse eller dette værtsnavn, eller dette domæne eller denne adresse når godkendelsen bekræfter afsenderen (`--auth`); kan gentages |
+| `--denylist <value>`  | Afvis altid denne IP-adresse, dette domæne eller denne adresse; kan gentages                                                                                        |
 
 ### Sprogmodel
 
@@ -85,7 +85,7 @@ Afslutningskoder: 0 ham, 1 spam, 2 fejl.
 | `--llm-auth-header <name>`                                 | Header til nøglen, med `--llm-auth header`                                                                                                     |
 | `--llm-username`, `--llm-password`                         | Til `--llm-auth basic`                                                                                                                         |
 | `--llm-header "Name: value"`                               | Ekstra header i forespørgslen; kan gentages                                                                                                    |
-| `--llm-mode <mode>`                                        | `auto` (kun tvivlstilfælde, standard) eller `always`                                                                                           |
+| `--llm-mode <mode>`                                        | `auto` (kun tvivlstilfælde, standard), `always` eller `off`                                                                                    |
 | `--llm-timeout <ms>`                                       | Standard 30000                                                                                                                                 |
 | `--llm-policy <text>`                                      | Ekstra regler for modellen, for eksempel »Vi sender aldrig fakturaer«                                                                          |
 | `--llm-redact`, `--no-llm-redact`                          | Fjern personoplysninger først; slået til som standard for eksterne udbydere                                                                    |
@@ -99,43 +99,49 @@ Et [Postfix-indholdsfilter](postfix.md#content-filter). Det læser en besked fra
 spamscanner filter -f "$sender" -- "$recipient"
 ```
 
-| Indstilling           | Betydning                                                              |
-| --------------------- | ---------------------------------------------------------------------- |
-| `--sendmail <path>`   | Standard `/usr/sbin/sendmail`                                          |
-| `--subject-tag <tag>` | Sæt et præfiks foran emnet på spam                                     |
-| `--reject`            | Send post ved afvisningsgrænsen retur i stedet for at sende den videre |
-| `--discard`           | Kassér post ved afvisningsgrænsen i stedet for at sende den videre     |
+| Indstilling           | Betydning                                                                   |
+| --------------------- | --------------------------------------------------------------------------- |
+| `--sendmail <path>`   | Standard `/usr/sbin/sendmail`                                               |
+| `--subject-tag <tag>` | Sæt et præfiks foran emnet på spam                                          |
+| `--reject`            | Send post ved afvisningsgrænsen retur i stedet for at sende den videre      |
+| `--discard`           | Kassér post ved afvisningsgrænsen i stedet for at sende den videre          |
+| `--on-error <answer>` | For post, der ikke kunne scannes helt: `tempfail` (standard) eller `accept` |
 
-Afslutningskoderne følger sendmails konventioner, som Postfix læser: 0 leveret (eller kasseret), 64 ingen modtagere angivet, 69 afvist som spam (Postfix sender den retur), 75 enhver fejl, så Postfix beholder beskeden og prøver igen senere.
+Afslutningskoderne følger sendmails konventioner, som Postfix læser: 0 leveret (eller kasseret), 64 ingen modtagere angivet, 69 afvist som spam (Postfix sender den retur), 75 enhver fejl, så Postfix beholder beskeden og prøver igen senere. En besked med en vedhæftning, ClamAV ikke kunne scanne, er også en fejl. Med `--on-error accept` sendes en sådan besked, eller en hvis scanning fejlede, videre med `X-Spam-Virus-Scan: failed` og uden de `X-Spam-*`-headers, afsenderen tilføjede.
 
 
 ## milter, http, server og spamd
 
 ```sh
 spamscanner milter --port 7831 --reject --subject-tag "[SPAM]"
-spamscanner http --port 7832 --token "$SPAMSCANNER_TOKEN"
+spamscanner http --port 7832    # token in SPAMSCANNER_TOKEN
 spamscanner server --port 7830
 spamscanner spamd --port 783
 ```
 
+HTTP-API'et læser sit token fra miljøvariablen `SPAMSCANNER_TOKEN`. `--token` virker også, men andre brugere på maskinen kan se kommandolinjeflag i `ps`.
+
 Port 783 er den port, SpamAssassin-klienter bruger som standard. Porte under 1024 kræver root eller kapabiliteten `CAP_NET_BIND_SERVICE`; brug en anden port, for eksempel `--port 7833`, og fortæl klienten det.
 
-| Indstilling           | Betydning                                                            |
-| --------------------- | -------------------------------------------------------------------- |
-| `--port <n>`          | TCP-port                                                             |
-| `--host <ip>`         | Adresse, der lyttes på (standard 127.0.0.1)                          |
-| `--socket <path>`     | Lyt i stedet på en Unix-socket                                       |
-| `--reject`            | Milter: afvis post ved afvisningsgrænsen                             |
-| `--reject-code <n>`   | Milter: 451, prøv igen senere (standard), eller 550                  |
-| `--quarantine`        | Milter: hold spam tilbage i mailserverens karantæne                  |
-| `--name <hostname>`   | Milter: denne servers navn i Authentication-Results                  |
-| `--token <secret>`    | HTTP: kræv `Authorization: Bearer <secret>`; nødvendigt for `/learn` |
-| `--allow-tell`        | spamd: acceptér TELL-forespørgsler (`spamc -L spam`) til indlæring   |
-| `--out <file>`        | HTTP og spamd: gem det indlærte i denne modelfil                     |
-| `--subject-tag <tag>` | Milter og spamd: sæt et præfiks foran emnet på spam                  |
-| `--verbose`           | Milter: log hver scanning. TCP-server: svar med én tekstlinje        |
+| Indstilling           | Betydning                                                                           |
+| --------------------- | ----------------------------------------------------------------------------------- |
+| `--port <n>`          | TCP-port                                                                            |
+| `--host <ip>`         | Adresse, der lyttes på (standard 127.0.0.1)                                         |
+| `--socket <path>`     | Lyt i stedet på en Unix-socket                                                      |
+| `--reject`            | Milter: afvis post ved afvisningsgrænsen                                            |
+| `--reject-code <n>`   | Milter: en 4xx-kode, prøv igen senere (451, standard), eller en 5xx-kode såsom 550  |
+| `--quarantine`        | Milter: hold spam tilbage i mailserverens karantæne                                 |
+| `--on-error <answer>` | Milter: for post, der ikke kunne scannes helt, `tempfail` (standard) eller `accept` |
+| `--name <hostname>`   | Milter: denne servers navn i Authentication-Results                                 |
+| `--token <secret>`    | HTTP: kræv `Authorization: Bearer <secret>`; nødvendigt for `/learn`                |
+| `--allow-tell`        | spamd: acceptér TELL-forespørgsler (`spamc -L spam`) til indlæring                  |
+| `--out <file>`        | HTTP og spamd: gem det indlærte i denne modelfil                                    |
+| `--subject-tag <tag>` | Milter og spamd: sæt et præfiks foran emnet på spam                                 |
+| `--verbose`           | Milter: log hver scanning. TCP-server: svar med én tekstlinje                       |
 
 Scanningsindstillingerne ovenfor gælder også for serverne. [Milteren](postfix.md#milter), [HTTP API'et, TCP-serveren og spamd](http-api.md).
+
+spamd- og TCP-klienter sender ikke IP-adressen på den klient, der sendte beskeden, og HTTP-klienter sender den kun med `?ip=`, så `--auth` og `--dnsbl` virker kun med milteren og med HTTP-forespørgsler, der angiver den. Serverne siger det, når de startes med disse flag.
 
 
 ## train, eval og learn
@@ -157,6 +163,8 @@ spamscanner learn spam message.eml --model my-model.json
 
 `learn` opdaterer modelfilen på stedet og opretter den ud fra den medfølgende model første gang. [Træning](training.md)
 
+Med både `--model` og `--out` starter `learn` fra `--model`-filen og skriver resultatet til `--out`.
+
 
 ## llm-test og models
 
@@ -165,7 +173,7 @@ spamscanner models
 spamscanner llm-test --llm ollama --llm-model qwen3.5:4b
 ```
 
-`llm-test` sender én almindelig besked og to svindelbeskeder, på engelsk og italiensk, til modellen, udskriver dens domme, den tid hver tog, den anvendte metode og hardwaren og afslutter kun med 0, hvis alle tre er rigtige.
+`llm-test` sender én almindelig besked og to svindelbeskeder, på engelsk og italiensk, til modellen, udskriver dens domme, den tid hver tog, den anvendte metode og, for en model på denne maskine, hardwaren og afslutter kun med 0, hvis alle tre er rigtige.
 
 
 ## Konfigurationsfil

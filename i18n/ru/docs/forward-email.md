@@ -1,4 +1,4 @@
-<!-- source: dc9016edd59e -->
+<!-- source: c70584655c0e -->
 
 # Forward Email
 
@@ -45,7 +45,7 @@ async function onData(stream, session, callback) {
 }
 ```
 
-`scanner.scan()` принимает SMTP-поток напрямую. Если результаты [mailauth](https://github.com/postalsys/mailauth) уже есть, пропустите `authentication` и передайте только IP-адрес.
+`scanner.scan()` принимает SMTP-поток напрямую. Если результаты [mailauth](https://github.com/postalsys/mailauth) уже есть, передайте их в `authenticationResults`: они будут учтены в оценке без повторной проверки.
 
 Ответ 421 или 451 заставляет отправляющий сервер поставить письмо в очередь и повторить попытку позже. Новые правила отклонения можно начать с временного кода и перейти на 550, когда их результаты проверены, не теряя почту в промежутке.
 

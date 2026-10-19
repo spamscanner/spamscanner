@@ -109,8 +109,37 @@ export function normalizeLabel(value) {
 	return null;
 }
 
+// Whether a quoted field is still open at the end of a line, reading on from
+// `quoted` (whether one was open at its start), as parseCsvLine reads quotes.
+function stillQuoted(line, quoted) {
+	let fieldStart = !quoted;
+	for (let i = 0; i < line.length; i++) {
+		const char = line[i];
+		if (quoted) {
+			if (char === '"' && line[i + 1] === '"') {
+				i++;
+			} else if (char === '"') {
+				quoted = false;
+			}
+		} else if (char === '"' && fieldStart) {
+			quoted = true;
+		} else {
+			fieldStart = char === ',';
+		}
+	}
+
+	return quoted;
+}
+
+// A record spread over more lines or characters than this is given up on (a
+// stray quote would otherwise swallow the rest of the file).
+const MAX_RECORD_LINES = 10_000;
+const MAX_RECORD_LENGTH = 1_048_576;
+
 /**
- * Read labelled rows from a CSV file with a header row.
+ * Read labelled rows from a CSV file with a header row. A quoted field may
+ * span lines; a record still open after 10,000 lines or 1 MiB (a stray
+ * quote) is dropped, and reading goes on with the next line.
  * @param {string} file
  * @param {object} [options]
  * @param {string} [options.textColumn] - column holding the message (default: text, message, body, email text...)
@@ -120,17 +149,27 @@ export function normalizeLabel(value) {
  */
 export async function * readCsv(file, options = {}) {
 	let header = null;
-	let pending = '';
+	let pending = [];
+	let pendingLength = 0;
+	let quoted = false;
 	let columns;
 	for await (const line of lines(file)) {
-		const joined = pending ? `${pending}\n${line}` : line;
-		const fields = parseCsvLine(joined);
-		if (fields === null) {
-			pending = joined;
+		quoted = stillQuoted(line, quoted);
+		pending.push(line);
+		pendingLength += line.length + 1;
+		if (quoted) {
+			if (pending.length >= MAX_RECORD_LINES || pendingLength >= MAX_RECORD_LENGTH) {
+				pending = [];
+				pendingLength = 0;
+				quoted = false;
+			}
+
 			continue;
 		}
 
-		pending = '';
+		const fields = parseCsvLine(pending.join('\n'));
+		pending = [];
+		pendingLength = 0;
 		if (header === null) {
 			header = fields.map(name => name.trim().toLowerCase());
 			columns = resolveColumns(header, options, file);
@@ -145,6 +184,17 @@ export async function * readCsv(file, options = {}) {
 	}
 }
 
+// The names a dataset's text and label columns or fields are found by, in
+// order of preference (any case).
+const TEXT_NAMES = ['text', 'message', 'body', 'email text', 'email', 'content', 'sms', 'v2'];
+const LABEL_NAMES = ['label', 'category', 'is_spam', 'spam', 'email type', 'class', 'type', 'label_text', 'v1', 'labels'];
+// (in JSON Lines, from Hugging Face datasets, "label_text" first: "label" is
+//  often a class number there)
+const JSONL_LABEL_NAMES = ['label_text', ...LABEL_NAMES.filter(name => name !== 'label_text')];
+// (and the names of a message's text before "email", which may hold an
+//  address)
+const JSONL_TEXT_NAMES = ['text', 'message', 'body', 'content', 'email text', 'email', 'sms', 'v2'];
+
 function resolveColumns(header, options, file) {
 	const find = (wanted, defaults) => {
 		const names = wanted ? [wanted.toLowerCase()] : defaults;
@@ -152,8 +202,8 @@ function resolveColumns(header, options, file) {
 	};
 
 	const columns = {
-		text: find(options.textColumn, ['text', 'message', 'body', 'email text', 'email', 'content', 'sms', 'v2']),
-		label: find(options.labelColumn, ['label', 'category', 'is_spam', 'spam', 'email type', 'class', 'type', 'label_text', 'v1', 'labels']),
+		text: find(options.textColumn, TEXT_NAMES),
+		label: find(options.labelColumn, LABEL_NAMES),
 		subject: find(options.subjectColumn, ['subject']),
 	};
 	if (columns.text === -1 || columns.label === -1) {
@@ -163,16 +213,21 @@ function resolveColumns(header, options, file) {
 	return columns;
 }
 
-// The first of the named fields that is present in a row.
-function pick(row, wanted, names) {
-	const name = (wanted ? [wanted] : names).find(key => row[key] !== undefined && row[key] !== null);
-	return name === undefined ? undefined : row[name];
+// The first of the named fields that is present in a row (`fields` maps
+// each lowercase field name to its value).
+// (`usable` tells a value that counts: a field holding an empty string, or a
+//  label that is not one, does not hide the next name's)
+function pick(fields, wanted, names, usable = value => value !== undefined && value !== null) {
+	const name = (wanted ? [wanted.toLowerCase()] : names).find(key => usable(fields.get(key)));
+	return name === undefined ? undefined : fields.get(name);
 }
 
 /**
- * Read labelled rows from a JSON Lines file: one object per line with a text
- * field ("text", "message", "body") and a label field ("label", "label_text",
- * "is_spam", "category").
+ * Read labelled rows from a JSON Lines file: one object per line, with a text
+ * field and a label field found by the same names as readCsv's columns, in
+ * any case ("label_text" before "label", and "content" before "email"), the
+ * first of them that holds text or a label. A line that is not a JSON object
+ * is skipped.
  * @param {string} file
  * @param {object} [options] - textColumn, labelColumn, subjectColumn as for readCsv
  * @returns {AsyncGenerator<{text: string, subject: string, label: 'spam'|'ham'}>}
@@ -190,10 +245,23 @@ export async function * readJsonl(file, options = {}) {
 			continue;
 		}
 
-		const text = pick(row, options.textColumn, ['text', 'message', 'body', 'content']);
-		const label = normalizeLabel(pick(row, options.labelColumn, ['label_text', 'label', 'is_spam', 'category', 'labels']));
+		// (null, a number, a string or an array is not a row)
+		if (row === null || typeof row !== 'object' || Array.isArray(row)) {
+			continue;
+		}
+
+		// (the first of the names that differ only in case)
+		const fields = new Map();
+		for (const [key, value] of Object.entries(row)) {
+			if (!fields.has(key.toLowerCase())) {
+				fields.set(key.toLowerCase(), value);
+			}
+		}
+
+		const text = pick(fields, options.textColumn, JSONL_TEXT_NAMES, value => typeof value === 'string' && value.trim() !== '');
+		const label = normalizeLabel(pick(fields, options.labelColumn, JSONL_LABEL_NAMES, value => normalizeLabel(value) !== null));
 		if (label && typeof text === 'string' && text.trim() !== '') {
-			yield {text, subject: String(pick(row, options.subjectColumn, ['subject']) ?? ''), label};
+			yield {text, subject: String(pick(fields, options.subjectColumn, ['subject']) ?? ''), label};
 		}
 	}
 }
@@ -226,7 +294,8 @@ function looksLikeMbox(head) {
 /**
  * Read raw messages from a path: an .eml file, an mbox file, or a directory
  * of messages (one per file, such as a Maildir or a folder of .eml files,
- * searched recursively; mbox files inside are read too).
+ * searched recursively; mbox files inside are read too). A gzip file is read
+ * only as an mbox file (named .mbox.gz); other .gz files are skipped.
  * @param {string} source
  * @returns {AsyncGenerator<string|Buffer>}
  */

@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
-import {existsSync, readFileSync, writeFileSync} from 'node:fs';
+import {
+	existsSync, mkdirSync, readFileSync, readdirSync, utimesSync, writeFileSync,
+} from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 import {describe, it} from 'node:test';
@@ -73,6 +75,27 @@ describe('model files', () => {
 		assert.equal(JSON.parse(readFileSync(file, 'utf8')).type, 'spamscanner-classifier');
 	});
 
+	it('leaves no temporary file when a model cannot be saved', () => {
+		const directory = temporaryDirectory();
+		const file = path.join(directory, 'model.json');
+		// (a directory in the way: the rename fails)
+		mkdirSync(path.join(file, 'inside'), {recursive: true});
+		assert.throws(() => saveModel(trained(), file));
+		assert.deepEqual(readdirSync(directory), ['model.json']);
+		assert.deepEqual(readdirSync(file), ['inside']);
+	});
+
+	it('saves through a temporary file of its own each time', () => {
+		const directory = temporaryDirectory();
+		const file = path.join(directory, 'model.json');
+		// (a file another save of this process is still writing, at the name
+		//  every save of a process once used)
+		mkdirSync(`${file}.${process.pid}.tmp`);
+		saveModel(trained(), file);
+		assert.equal(loadModel(file).nspam, 1);
+		assert.deepEqual(readdirSync(directory).sort(), ['model.json', `model.json.${process.pid}.tmp`]);
+	});
+
 	it('uses the model embedded in a standalone binary', () => {
 		const json = JSON.stringify(trained().toJSON());
 		assert.equal(embeddedModel(fakeSea(json)), json);
@@ -89,6 +112,21 @@ describe('model files', () => {
 			throw new Error('No such built-in module: node:sea');
 		}), null);
 		assert.equal(typeof loadSea(name => ({name})).name, 'string');
+	});
+
+	it('writes a model in one step, and reads a file again when it changes', () => {
+		const directory = temporaryDirectory();
+		const file = path.join(directory, 'model.json');
+		saveModel(trained(), file);
+		// (written to a temporary file, then renamed: nothing else is left)
+		assert.deepEqual(readdirSync(directory), ['model.json']);
+		assert.equal(loadModel(file).nspam, 1);
+		// (changed by another process)
+		const more = trained();
+		more.learn(['third'], 'spam');
+		writeFileSync(file, JSON.stringify(more.toJSON()));
+		utimesSync(file, new Date(), new Date(Date.now() + 5000));
+		assert.equal(loadModel(file).nspam, 2);
 	});
 
 	it('rejects a broken model file', () => {

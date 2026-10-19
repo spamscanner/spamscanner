@@ -1,4 +1,4 @@
-<!-- source: 60f00f92b5aa -->
+<!-- source: df3e980c3ef1 -->
 
 # Zabezpečení a soukromí
 
@@ -11,13 +11,13 @@ Ve výchozím stavu jediná věc: **názvy hostitelů z odkazů** ve zprávě se
 
 Vše ostatní je vypnuté, dokud to nenastavíte:
 
-| Kontrola            | Posílá                                                                 | Komu                                                                 |
-| ------------------- | ---------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| `authentication`    | Dotazy DNS na záznamy SPF, DKIM, DMARC a ARC odesílatele               | Vašemu resolveru nebo `dnsServers`                                   |
-| `dnsbl`             | IP adresu klienta v obráceném pořadí a domény z odkazů jako dotazy DNS | Jmenným serverům blocklistů přes váš resolver nebo `dns.servers`     |
-| `llm`               | Souhrn zprávy, u vzdálených poskytovatelů bez osobních údajů           | Serveru jazykového modelu, který určíte ([soukromí](llm.md#privacy)) |
-| `reputation.apiUrl` | IP adresu, doménu a adresu odesílatele                                 | Službě, kterou určíte                                                |
-| `clamav`            | Přílohy                                                                | Vašemu clamd přes jeho socket                                        |
+| Kontrola            | Posílá                                                                                                     | Komu                                                                 |
+| ------------------- | ---------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| `authentication`    | Dotazy DNS na záznamy SPF, DKIM, DMARC a ARC odesílatele                                                   | Vašemu resolveru nebo `dnsServers`                                   |
+| `dnsbl`             | IP adresu klienta v obráceném pořadí a domény z odkazů jako dotazy DNS                                     | Jmenným serverům blocklistů přes váš resolver nebo `dns.servers`     |
+| `llm`               | Souhrn zprávy, u vzdálených poskytovatelů bez osobních údajů                                               | Serveru jazykového modelu, který určíte ([soukromí](llm.md#privacy)) |
+| `reputation.apiUrl` | IP adresu a ověřený název hostitele klienta a adresy From, odesílatele obálky a Reply-To s jejich doménami | Službě, kterou určíte                                                |
+| `clamav`            | Přílohy                                                                                                    | Vašemu clamd přes jeho socket                                        |
 
 Žádná telemetrie, žádná kontrola aktualizací a žádné stahování za běhu. Model se dodává uvnitř balíčku.
 
@@ -26,14 +26,15 @@ Vše ostatní je vypnuté, dokud to nenastavíte:
 
 Nic, pokud o to nepožádáte. Kontroly se nezaznamenávají ani neukládají. `learn()` mění klasifikátor v paměti; na disk se zapíše jen pomocí `saveModel()`, `spamscanner learn` nebo volby serverů `--out`. Soubor modelu obsahuje zahešované počty příznaků, ne slova ani text zpráv.
 
-Odpovědi jazykového modelu se ukládají do mezipaměti v paměti pod hešem toho, co bylo odesláno, takže na opakované kopie stejné zprávy se model ptá jen jednou. Odpovědi DNS se v paměti uchovávají deset minut.
+Odpovědi jazykového modelu se ukládají do mezipaměti v paměti pod hešem toho, co bylo odesláno, takže na opakované kopie stejné zprávy se model ptá jen jednou. Odpovědi DNS se v paměti uchovávají deset minut a odpovědi služby reputace pět (`reputation.cacheTtl`; neúspěšný požadavek jednu minutu).
 
 
 ## Nepřátelský vstup
 
-* Přílohy se rozpoznávají podle bajtů, nikdy se nespouštějí ani neotevírají jiným programem. Archivy ZIP se čtou z centrálního adresáře s omezením počtu položek; vnořené archivy se nerozbalují.
-* Text těla se čte do `maxLength` (100 000 znaků) a servery přijímají zprávy do 25 MB.
-* Každá síťová kontrola má časový limit (`timeout`, ve výchozím stavu 10 sekund). Kontrola, která selže nebo vyprší, se přeskočí a kontrola zprávy skončí bez ní.
+* Přílohy se rozpoznávají podle bajtů, nikdy se nespouštějí ani neotevírají jiným programem. Archivy ZIP se čtou z centrálního adresáře s omezením počtu položek; vnořené archivy se nerozbalují. Přiložené zprávy (`message/rfc822` nebo přílohy, jejichž název souboru končí na `.eml`) se otevírají až do hloubky tří úrovní, nejvýše pro 100 jejich příloh a celkem 25 MB přiložených zpráv; vlastní přílohy zprávy se vždy kontrolují všechny. Zpráva, která překračuje limity parseru MIME (více než 1000 částí nebo hlavička části nad 1 MB), se čte, kam až parser dovolí (její první části, s příliš velkou hlavičkou zkrácenou tak, aby se její odesílatel stále počítal), a dostane `MIME_TOO_COMPLEX`, který žádný kredit nevyváží; ClamAV ji čte celou. Dostane ho i přiložená zpráva, na které parser selže, a kontrola kvůli ní nikdy neselže. HTML čte vlastní parser Spam Scanneru, v lineárním čase, ať je vnořené jakkoli hluboko.
+* Text těla se čte do `maxLength` (100 000 znaků) a servery přijímají zprávy do 25 MB. Odkazy se čtou až do `phishing.maxLength` (1 000 000 znaků).
+* Každá síťová kontrola má časový limit (`timeout`, ve výchozím stavu 10 sekund). Kontrola, která selže nebo vyprší, se přeskočí a kontrola zprávy skončí bez ní. Ověřování a model obrázků (prvních 10 obrázků) se každý jako celek vejdou do tohoto limitu. ClamAV (čtyři přílohy najednou) má vlastní limit pro všechny přílohy zprávy (`clamav.timeout`, 60 sekund) a přílohy, které nedokázal zkontrolovat, jsou uvedeny v `results.virusScanErrors`. Jazykový model má vlastní limit (`llm.timeout`).
+* Seznam povolených důvěřuje jen tomu, co odesílatel nemůže podvrhnout: adrese a ověřenému názvu hostitele klienta a doménám odesílatelů, které potvrdí ověřování. [Seznam povolených a zakázaných](api.md#allowlist-and-denylist)
 * Hlavičky `X-Spam-*`, které už zpráva obsahuje, odstraňuje milter, obsahový filtr i `--headers`, takže odesílatelé nemohou svou vlastní poštu označit jako čistou.
 * Hlavičkám s verdiktem spamu od Microsoftu se věří, jen když zpráva přišla přímo ze serverů Microsoftu, a hlavičky Received se nikdy nepoužívají k určení, odkud zpráva přišla.
 * Text, který se obrací na filtry s AI, se boduje jako spam a jazykový model dostane informaci, že zpráva jsou data, ne pokyny. [Prompt injection](llm.md#prompt-injection)

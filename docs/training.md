@@ -13,12 +13,12 @@ spamscanner train --spam ~/Maildir/.Junk --ham ~/Maildir/cur --ham ~/Maildir/.Ar
 
 Sources can be:
 
-* **mbox** files, also gzip-compressed (`.mbox.gz`),
+* **mbox** files, also gzip-compressed (`.mbox.gz`; other `.gz` files are skipped),
 * a **Maildir** (its `cur` and `new` folders are read, `tmp` is skipped),
 * a **folder** of `.eml` files, read recursively,
-* a **dataset**: a CSV or JSON Lines file with a text column and a label column (`--dataset`). Columns named `text`, `message`, `body`, `email` or `content`, and `label`, `category`, `class`, `spam` or `is_spam`, are found on their own; otherwise use `--text-column` and `--label-column`. Labels such as `spam`, `1`, `phishing` and `ham`, `0`, `not_spam`, `legitimate` are understood.
+* a **dataset**: a CSV or JSON Lines file with a text column and a label column (`--dataset`). Columns, or JSON fields, named `text`, `message`, `body`, `email text`, `email`, `content`, `sms` or `v2`, and `label`, `category`, `is_spam`, `spam`, `email type`, `class`, `type`, `label_text`, `v1` or `labels`, in any case, are found on their own (in JSON Lines, `label_text` before `label`); otherwise use `--text-column` and `--label-column`. A JSON line that is not an object is skipped. Labels such as `spam`, `1`, `phishing` and `ham`, `0`, `not_spam`, `legitimate` are understood.
 
-Duplicate messages are counted once. To build on the bundled model rather than start empty, add `--merge`.
+Duplicate messages are counted once. A message in both the spam and the ham sources is kept as spam, as the spam sources are read first. To build on the bundled model rather than start empty, add `--merge`.
 
 Use the model:
 

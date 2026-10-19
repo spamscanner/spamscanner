@@ -1,4 +1,4 @@
-<!-- source: 79e50e309869 -->
+<!-- source: 7564838c2408 -->
 
 # Kielimallit
 
@@ -114,11 +114,11 @@ Nämä toimivat palveluntarjoajan palvelimilla, joten henkilötiedot poistetaan 
 | `always`        | Jokainen viesti                                                                                                                  |
 | `off`           | Ei koskaan                                                                                                                       |
 
-`minScore` ja `maxScore` muuttavat tilan `auto` aluetta. Selvä roskaposti ja selvä ham eivät koskaan päädy mallille.
+`minScore` ja `maxScore` muuttavat tilan `auto` aluetta. Selvä roskaposti ja selvä ham eivät koskaan päädy mallille. Mikä tahansa muu `mode` on virhe, ja `llm: false` yksittäisessä `scan()`-kutsussa jättää mallin kysymättä.
 
 Tuomio on `spam`, `phishing`, `scam`, `malware` tai `ham`. Menetelmällä `decision` roskaposti, tietojenkalastelu, huijaus ja haittaohjelma lasketaan yhteen hamia vastaan: viesti, jonka malli arvioi 30 % roskapostiksi, 30 % tietojenkalasteluksi ja 40 % hamiksi, on ei-toivottu 60 %:n todennäköisyydellä, ja tuomio on todennäköisin laji. Roskapostituomio lisää enintään 6 pistettä (`LLM_SPAM`, `LLM_PHISHING`, `LLM_SCAM`, `LLM_MALWARE`); ham-tuomio vähentää enintään 3 (`LLM_HAM`), kumpikin kerrottuna varmuudella. Yksi malli ei voi merkitä viestiä roskapostiksi yksinään, ellei se ole varma: 6 pistettä 85 %:lla on 5,1, juuri rajan yli. Jos malli epäonnistuu tai aikakatkaistaan, tarkistus jatkuu ilman sitä, ja `results.llm.error` kertoo syyn.
 
-Vastaukset tallennetaan välimuistiin viestikohtaisesti, joten monelle vastaanottajalle lähetetystä samasta viestistä kysytään vain kerran.
+Vastaukset tallennetaan välimuistiin viestikohtaisesti, joten monelle vastaanottajalle lähetetystä samasta viestistä kysytään vain kerran, myös silloin kun sen kopioita tarkistetaan samaan aikaan. `timeout` kattaa sekä vapaan pyyntöpaikan odottamisen (`concurrency`) että viestin pyynnöt: malli, joka pysyy varattuna niin kauan, ohitetaan sen viestin osalta.
 
 
 ## Palveluntarjoajat
@@ -188,7 +188,7 @@ const scanner = new SpamScanner({
     username: 'spam', password: '…', // with auth: 'basic'
     headers: {'x-team': 'mail'},
     ca: fs.readFileSync('internal-ca.pem'), // a private certificate authority
-    timeout: 30_000,
+    timeout: 30_000,                 // waiting and requests, per message
     concurrency: 4,                  // requests at once
     cacheSize: 1000,                 // answers kept in memory
     keepAlive: '24h',                // Ollama: keep the model loaded between messages
@@ -259,7 +259,7 @@ spamscanner milter --llm ollama --llm-policy "We never send invoices by email. A
 
 Malli näkee tiivistelmän otsakkeista (From, Reply-To, To ja Subject), linkit (ensin ne, jotka näyttävät yhden osoitteen ja vievät toiseen), liitteiden nimet ja tyypit, todennuksen tulokset, kuinka paljon tekstiä HTML piilottaa, kun se piilottaa enemmän kuin esikatselutekstin, sekä leipätekstin sellaisena kuin sähköpostiohjelma sen näyttää (HTML:stä, jos sellainen on, ilman piilotettua tekstiä, näkymättömiä merkkejä tai tyyliteltyjä kirjaimia) 6 000 merkkiin lyhennettynä (`maxInputChars`).
 
-Verkkosi ulkopuolisille palveluntarjoajille henkilötiedot poistetaan ensin: sähköpostiosoitteiden paikallinen osa (verkkotunnus säilyy, koska sillä on merkitystä tietojenkalastelun kannalta), korttien ja tilien numerot, puhelinnumerot sekä linkkien kyselyparametrien arvot, joissa on usein kirjautumistunnisteita. Tämä on oletuksena käytössä etäpalveluntarjoajille, päätösmallit mukaan lukien, ja pois käytöstä paikallisille (Ollama, LM Studio, llama.cpp, vLLM, LocalAI, Jan, TEI ja mikä tahansa localhostissa toimiva palvelin). `redact: true` tai `false` (`--llm-redact`, `--no-llm-redact`) ohittaa oletuksen.
+Verkkosi ulkopuolisille palveluntarjoajille henkilötiedot poistetaan ensin: sähköpostiosoitteiden paikallinen osa (verkkotunnus säilyy, koska sillä on merkitystä tietojenkalastelun kannalta), korttien ja tilien numerot, kansainväliset puhelinnumerot (alussa + tai 00) sekä linkkien kyselyparametrien arvot, joissa on usein kirjautumistunnisteita. Tämä on oletuksena käytössä etäpalveluntarjoajille, päätösmallit mukaan lukien, ja pois käytöstä paikallisille (Ollama, LM Studio, llama.cpp, vLLM, LocalAI, Jan, TEI) tällä koneella tai yksityisessä verkossa (yksityinen osoite, nimi ilman pistettä tai nimi verkkotunnusten .local, .internal, .lan tai .home.arpa alla) sekä mille tahansa localhostissa toimivalle palvelimelle. Paikallinen palveluntarjoaja, joka osoittaa muualla olevaan palvelimeen, saa postin henkilötiedot poistettuina. `redact: true` tai `false` (`--llm-redact`, `--no-llm-redact`) ohittaa oletuksen.
 
 Tarkista palveluntarjoajasi tietojen säilytysehdot ennen kuin lähetät sille postia. Paikallinen malli välttää koko kysymyksen.
 

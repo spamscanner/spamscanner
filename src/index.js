@@ -1,7 +1,6 @@
 import {Buffer} from 'node:buffer';
 import {readFile} from 'node:fs/promises';
 import {debuglog} from 'node:util';
-import {simpleParser} from 'mailparser';
 import {inspectAttachments, sniff} from './attachments.js';
 import {
 	authenticate, calculateAuthScore, normalizeAuthOutput, summarizeAuth,
@@ -9,20 +8,23 @@ import {
 import {scanBuffer} from './clamav.js';
 import {Classifier} from './classifier.js';
 import {DnsChecker} from './dnsbl.js';
+import {visibleText} from './html.js';
 import HomographDetector from './homograph.js';
 import {isArbitrary} from './is-arbitrary.js';
+import {normalizeLanguageCode} from './language.js';
 import {LLMClassifier} from './llm.js';
 import {loadDefaultModel, loadModel, saveModel} from './model.js';
-import {ReputationChecker, reputationValues} from './reputation.js';
+import {expandAttachments, parseWithin} from './parse.js';
+import {
+	ReputationChecker, reputationValues, trustReputation, trustedReputationValues,
+} from './reputation.js';
 import {scoreResults} from './score.js';
 import {
-	getFeatures, isDeceptiveLink, obfuscationOf, registrableDomain, segmentWords,
+	extractLinks, getFeatures, isDeceptiveLink, obfuscationOf, registrableDomain, segmentWords, unwrapLink,
 } from './tokenizer.js';
 import {VERSION} from './version.js';
 
 const debug = debuglog('spamscanner');
-
-const PARSER_OPTIONS = {skipImageLinks: true, skipTextToHtml: true, skipTextLinks: true};
 
 /**
  * A detection result with a readable message. Converting one to a string
@@ -101,6 +103,10 @@ export const DEFAULTS = {
 		cloudflare: true,
 		adult: true,
 		maxHosts: 25,
+		// Characters of text read for links (twice as many of HTML): more than
+		// for the classifier (maxLength), as a link anywhere in a message may be
+		// followed; a longer message sets results.linksTruncated.
+		maxLength: 1_000_000,
 		// Options for the lookalike domain detector: brands, extraBrands, allowlist, strictMode.
 		homograph: {},
 	},
@@ -131,11 +137,171 @@ export const DEFAULTS = {
 	session: {},
 };
 
-function mergeLegacyOptions(options) {
+// An object without its undefined values, so that an option passed as
+// undefined keeps its default.
+function defined(object) {
+	return object && typeof object === 'object' ? Object.fromEntries(Object.entries(object).filter(([, value]) => value !== undefined)) : object;
+}
+
+// The nested settings merged key by key with their defaults.
+const NESTED = ['phishing', 'dnsbl', 'dns', 'session'];
+
+/**
+ * @typedef {object} SmtpSession
+ * @property {string} [remoteAddress] - the client's IP address
+ * @property {string} [resolvedClientHostname] - its verified reverse DNS name
+ * @property {string} [helo] - the name it gave in HELO or EHLO
+ * @property {{mailFrom?: {address?: string}, rcptTo?: Array<{address?: string}>}} [envelope]
+ */
+
+/**
+ * @typedef {object} ReputationOptions
+ * @property {string[]} [allowlist] - IPs, domains and addresses always accepted
+ * @property {string[]} [denylist] - IPs, domains and addresses always rejected
+ * @property {string} [apiUrl] - reputation service URL
+ * @property {Record<string, string>} [headers] - for the service, e.g. authorization
+ * @property {number} [timeout]
+ * @property {number} [concurrency] - parallel service requests
+ * @property {number} [cacheTtl] - milliseconds answers are kept
+ * @property {number} [cacheSize]
+ */
+
+/**
+ * @typedef {import('./legacy.js').LegacyOptions} LegacyOptions
+ */
+
+/**
+ * @typedef {ScannerSettings & LegacyOptions} SpamScannerOptions - the settings,
+ *   and the options of earlier versions they are read from
+ */
+
+/**
+ * @typedef {object} ScannerSettings
+ * @property {number} [threshold] - score at which a message is spam (5)
+ * @property {number} [rejectThreshold] - score at which servers reject it (15)
+ * @property {Record<string, number>} [scores] - points per test (see DEFAULT_SCORES)
+ * @property {Classifier|object|string|false} [classifier] - a classifier, a model object or file, or false
+ * @property {object} [classifierOptions]
+ * @property {string[]|null} [allowedLanguages] - ISO 639-1 codes; empty for every language
+ * @property {{cloudflare?: boolean, adult?: boolean, maxHosts?: number, maxLength?: number, homograph?: object}} [phishing]
+ * @property {{ip?: string[], domain?: string[]}} [dnsbl] - DNS blocklist zones
+ * @property {{servers?: string[]|null, timeout?: number, resolve4?: (name: string, servers?: string[]|null) => Promise<string[]>}} [dns]
+ * @property {boolean} [attachments]
+ * @property {boolean} [macros] - flag macros, active PDFs and RTF objects
+ * @property {boolean} [arbitrary]
+ * @property {boolean|object} [authentication] - SPF, DKIM, DMARC and ARC (see authenticate())
+ * @property {false|ReputationOptions} [reputation]
+ * @property {string[]} [allowlist] - IPs and hostnames of clients, and authenticated sender domains and addresses, always accepted
+ * @property {string[]} [denylist] - IPs, domains and addresses always rejected
+ * @property {boolean|{socket?: string, host?: string, port?: number, timeout?: number}} [clamav] - timeout: milliseconds for all of a message's attachments (60000)
+ * @property {object|null} [llm] - see LLMClassifier
+ * @property {false|{model: {classify: Function}, threshold?: number}} [toxicity]
+ * @property {false|{model: {classify: Function}, threshold?: number}} [nsfw]
+ * @property {number} [maxLength] - characters of body text read (100000)
+ * @property {number} [timeout] - milliseconds allowed for each network check (10000)
+ * @property {SmtpSession} [session]
+ */
+
+/**
+ * @typedef {SpamScannerOptions & {authenticationResults?: object}} ScanOptions
+ */
+
+/**
+ * @typedef {object} ScanTest
+ * @property {string} name
+ * @property {number} score
+ * @property {string} description
+ */
+
+/**
+ * @typedef {object} ScanFinding - a detection; converts to its message
+ * @property {string} type
+ * @property {string} message
+ */
+
+/**
+ * @typedef {object} ReputationAnswer - a reputation service's answer for one value
+ * @property {boolean} isTruthSource
+ * @property {string|null} truthSourceValue
+ * @property {boolean} isAllowlisted
+ * @property {string|null} allowlistValue
+ * @property {boolean} isDenylisted
+ * @property {string|null} denylistValue
+ * @property {string} [error] - why the service could not be asked
+ */
+
+/**
+ * @typedef {object} ReputationResult
+ * @property {boolean} isTruthSource
+ * @property {string|null} truthSourceValue
+ * @property {boolean} isAllowlisted
+ * @property {string|null} allowlistValue
+ * @property {boolean} isDenylisted
+ * @property {string|null} denylistValue
+ * @property {string[]} checkedValues - the values looked up
+ * @property {Record<string, ReputationAnswer>} details - the service's answer per value
+ * @property {Record<string, string>} allowlisted - each value on the allowlist, with its entry
+ */
+
+/**
+ * @typedef {object} ScanDetails
+ * @property {{category: string, probability: number, spam: number, ham: number, clues: Array<{feature: string, probability: number}>, coverage?: {feature: string|null, spam: number, ham: number, confidence: number}}} classification - coverage: how well the training data covers the message's language (absent when the classifier is off)
+ * @property {string|null} parseError - the MIME parser's limit (more than 1000 parts, or a part's header over 1 MB) the message or a message attached to it exceeds, so that it was not read whole, or why an attached message could not be read (MIME_TOO_COMPLEX), or null
+ * @property {ScanFinding[]} phishing
+ * @property {ScanFinding[]} attachments
+ * @property {ScanFinding[]} viruses
+ * @property {ScanFinding[]} arbitrary - rules that decide on their own
+ * @property {{invisible: number, mixed: number, styled: boolean}} obfuscation
+ * @property {object|null} authentication - SPF, DKIM, DMARC and ARC results
+ * @property {ReputationResult|null} reputation
+ * @property {Array<{zone: string, value: string, answers: string[]}>} dnsbl
+ * @property {{language: string|null, script: string|null, notAllowed: boolean}} language
+ * @property {ScanFinding[]} toxicity
+ * @property {ScanFinding[]} nsfw
+ * @property {object|null} llm - the language model's verdict
+ * @property {ScanFinding[]} executables
+ * @property {ScanFinding[]} macros
+ * @property {number} uncheckedHosts - link hosts beyond phishing.maxHosts, not looked up
+ * @property {number} timedOutHosts - link hosts looked up but not answered
+ * @property {Array<{filename: string, error: string}>} virusScanErrors - attachments clamd could not scan
+ * @property {Array<{filename: string, reason: string}>} virusScanSkipped - attachments larger than clamd accepts (StreamMaxLength), not scanned
+ * @property {boolean} linksTruncated - whether text beyond phishing.maxLength was not read for links
+ * @property {{detected: boolean, domains: ScanFinding[], riskScore: number}} idnHomographAttack
+ */
+
+/**
+ * @typedef {object} ScanResult
+ * @property {boolean} isSpam
+ * @property {number} score
+ * @property {number} threshold
+ * @property {number} rejectThreshold
+ * @property {'accept'|'tag'|'reject'} action
+ * @property {string} message
+ * @property {ScanTest[]} tests
+ * @property {ScanDetails} results
+ * @property {string[]} links
+ * @property {string|null} language
+ * @property {string[]} tokens
+ * @property {object} mail - the message parsed by mailparser
+ * @property {string} version
+ * @property {{totalTime: number}} metrics
+ */
+
+function mergeLegacyOptions(input) {
+	const options = defined(input);
+	for (const key of NESTED) {
+		if (options[key] !== undefined) {
+			options[key] = defined(options[key]);
+		}
+	}
+
 	const config = {...options};
 	// Options of earlier versions.
 	if (options.enableAuthentication !== undefined && config.authentication === undefined) {
-		config.authentication = options.enableAuthentication ? {...options.authOptions} : false;
+		// (without the client's details, which go to the session: there a
+		//  scan's own session replaces them)
+		const {ip, helo, sender, hostname, ...authOptions} = options.authOptions || {};
+		config.authentication = options.enableAuthentication ? authOptions : false;
 	}
 
 	if (options.authOptions) {
@@ -169,11 +335,16 @@ function mergeLegacyOptions(options) {
 
 	if (options.clamscan !== undefined && config.clamav === undefined) {
 		const {clamscan} = options;
-		config.clamav = typeof clamscan === 'object' && clamscan ? {socket: clamscan.clamdscan?.socket || clamscan.socket, host: clamscan.clamdscan?.host, port: clamscan.clamdscan?.port} : Boolean(clamscan);
+		// (the clamscan package's options: clamdscan {socket, host, port}, or
+		//  the same at the top)
+		const daemon = {...clamscan, ...clamscan?.clamdscan};
+		config.clamav = typeof clamscan === 'object' && clamscan ? {socket: daemon.socket, host: daemon.host, port: daemon.port} : Boolean(clamscan);
 	}
 
 	if (options.allowlist || options.denylist) {
-		config.reputation = {...(typeof config.reputation === 'object' ? config.reputation : {}), allowlist: options.allowlist, denylist: options.denylist};
+		config.reputation = {
+			...(typeof config.reputation === 'object' ? config.reputation : {}), ...(options.allowlist ? {allowlist: options.allowlist} : {}), ...(options.denylist ? {denylist: options.denylist} : {}),
+		};
 	}
 
 	return config;
@@ -181,6 +352,61 @@ function mergeLegacyOptions(options) {
 
 // The most hosts of a message checked for lookalikes (links first).
 const MAX_LOOKALIKE_HOSTS = 1000;
+// At most this many deceptive links are reported for a message (one is enough
+// to score it)
+const MAX_DECEPTIVE_LINKS = 50;
+// Attachments sent to clamd at the same time, and milliseconds for all of a
+// message's attachments (clamav.timeout).
+const CLAMAV_CONCURRENCY = 4;
+const CLAMAV_TIMEOUT = 60_000;
+// The reply of clamd for a file larger than it accepts (StreamMaxLength),
+// which it gives on every try, as clamav-milter skips a file over its
+// MaxFileSize. Others, its scan limits too (MaxScanSize, MaxFiles,
+// MaxRecursion, MaxScanTime, which an archive bomb reaches), are failures.
+const CLAMAV_LIMITS = /size limit exceeded/i;
+// Images classified by the NSFW model, at most.
+const MAX_NSFW_IMAGES = 10;
+
+// Reputation services whose answers a scanner keeps (the most recently used).
+const MAX_REPUTATION_CACHES = 100;
+
+/**
+ * A reputation checker sharing the scanner's answers from the same service
+ * (URL and headers). The size of the shared cache is the one it was made
+ * with, so a cacheSize given for one message does not shrink it.
+ * @param {SpamScanner} scanner
+ * @param {object} settings - ReputationChecker options
+ * @returns {ReputationChecker}
+ */
+function sharedReputationChecker(scanner, settings) {
+	const key = JSON.stringify([settings.apiUrl, settings.headers]);
+	const shared = scanner.reputationCaches.get(key) || {cache: new Map(), cacheSize: settings.cacheSize};
+	// (most recently used last; the least recently used goes first)
+	scanner.reputationCaches.delete(key);
+	scanner.reputationCaches.set(key, shared);
+	if (scanner.reputationCaches.size > MAX_REPUTATION_CACHES) {
+		scanner.reputationCaches.delete(scanner.reputationCaches.keys().next().value);
+	}
+
+	return new ReputationChecker({...settings, cache: shared.cache, cacheSize: shared.cacheSize});
+}
+
+// The domain of a message's (first) From address, or "" for none.
+function fromDomain(mail) {
+	const address = mail.from?.value?.[0]?.address;
+	const at = typeof address === 'string' ? address.lastIndexOf('@') : -1;
+	return at === -1 ? '' : address.slice(at + 1).toLowerCase();
+}
+
+// A message to parse from raw input: text whose first line is not a header
+// field ("Name: value", or an mbox "From " line) as the body of a message
+// with no header, so its text is the input, as parse(), learn() and scan()
+// all read it.
+function withHeader(raw) {
+	const first = raw.subarray(0, 1000).toString('latin1');
+	const headerless = raw.length > 0 && !/^(?:[!-9;-~]+[ \t]*:|From |[\r\n])/.test(first);
+	return headerless ? Buffer.concat([Buffer.from('\r\n'), raw]) : raw;
+}
 
 /**
  * Spam Scanner: scores a message for spam, phishing, scams and malware.
@@ -192,7 +418,7 @@ const MAX_LOOKALIKE_HOSTS = 1000;
  */
 export class SpamScanner {
 	/**
-	 * @param {object} [options] - see DEFAULTS
+	 * @param {SpamScannerOptions} [options] - see DEFAULTS
 	 */
 	constructor(options = {}) {
 		const merged = mergeLegacyOptions(options);
@@ -204,10 +430,20 @@ export class SpamScanner {
 			dns: {...DEFAULTS.dns, ...merged.dns},
 		};
 		this.classifier = null;
+		// (a model file or object is read now, so a missing or damaged model
+		//  stops the scanner from starting rather than failing every scan)
+		if (typeof this.config.classifier === 'string' || (this.config.classifier && typeof this.config.classifier === 'object')) {
+			this.getClassifier();
+		}
+
 		this.homograph = new HomographDetector(this.config.phishing.homograph);
 		this.dns = new DnsChecker({servers: this.config.dns.servers, timeout: this.config.dns.timeout, resolve4: this.config.dns.resolve4});
-		this.reputation = this.config.reputation ? new ReputationChecker(this.config.reputation) : null;
+		// (the answers of each reputation service, failures too, kept for every
+		//  checker of it: lists given for one message keep what is known)
+		this.reputationCaches = new Map();
+		this.reputation = this.config.reputation ? sharedReputationChecker(this, this.config.reputation) : null;
 		this.llm = this.config.llm ? new LLMClassifier(this.config.llm) : null;
+		this.llms = new WeakMap();
 		this.metrics = {totalScans: 0, averageTime: 0, lastScanTime: 0};
 		for (const name of ['toxicity', 'nsfw']) {
 			const setting = this.config[name];
@@ -241,14 +477,19 @@ export class SpamScanner {
 	}
 
 	/**
-	 * Parse a raw message with mailparser. Unparseable input becomes a message
-	 * whose text is the input.
+	 * Parse a raw message with mailparser, as scan() does: a message beyond
+	 * the parser's limits (more than 1000 MIME parts, a part's header over
+	 * 1 MB) is read for what can be read of it. Text whose first line is not
+	 * a header field ("Name: value", or an mbox "From " line) is read as the
+	 * body of a message with no header, so its text is the input; other
+	 * input mailparser cannot read gives a message with no text. Other errors
+	 * are thrown.
 	 * @param {Buffer|string|Uint8Array|AsyncIterable} source
 	 * @returns {Promise<{raw: Buffer, mail: object}>}
 	 */
 	async parse(source) {
 		const raw = await toBuffer(source);
-		const mail = await simpleParser(raw, PARSER_OPTIONS);
+		const {mail} = await parseWithin(withHeader(raw));
 		return {raw, mail};
 	}
 
@@ -343,14 +584,14 @@ export class SpamScanner {
 	/**
 	 * Scan a message file.
 	 * @param {string} file
-	 * @param {object} [options] - as for scan()
-	 * @returns {ReturnType<SpamScanner['scan']>}
+	 * @param {ScanOptions} [options] - as for scan()
+	 * @returns {Promise<ScanResult>}
 	 */
 	async scanFile(file, options) {
 		return this.scan(await readFile(file), options);
 	}
 
-	async checkLinks(links, config, hosts = []) {
+	async checkLinks(links, config, hosts = [], from = '') {
 		const phishing = [];
 		const homographs = [];
 		const seenHosts = new Set();
@@ -389,21 +630,29 @@ export class SpamScanner {
 			}
 		};
 
+		// (a link through a security gateway, Safe Links or Proofpoint, by the
+		//  address it goes on to,
+		//  written as link hosts are: without a final dot or IPv6 brackets)
+		const destination = link => unwrapLink(link.url)?.hostname.toLowerCase().replace(/\.$/, '').replace(/^\[(.*)]$/, '$1') || link.host;
+		let deceptive = 0;
 		for (const link of links) {
-			if (isDeceptiveLink(link)) {
+			// (a link through click tracking counts by who sent it: see isDeceptiveLink)
+			if (deceptive < MAX_DECEPTIVE_LINKS && isDeceptiveLink(link, {from})) {
+				deceptive++;
 				phishing.push(finding({
 					type: 'deceptive_link', url: link.url, text: link.text, message: `A link shows "${link.text}" but goes to ${link.host}`,
 				}));
 			}
 
-			seenHosts.add(link.host);
+			// (by the host looked up: a gateway's own host is not)
+			seenHosts.add(destination(link));
 		}
 
 		// (links before hosts in the text, and links that show an address
 		// first: a message cannot put a link out of reach with text, or the
 		// hosts it shows with other links)
 		for (const link of [...links.filter(link => link.text), ...links.filter(link => !link.text)]) {
-			lookalike(link.host, {url: link.url});
+			lookalike(destination(link), {url: link.url});
 		}
 
 		// Host names in the text that are not links (written without
@@ -414,13 +663,44 @@ export class SpamScanner {
 			lookalike(host, {source: 'text'});
 		}
 
-		const checked = [...seenHosts].slice(0, config.phishing.maxHosts);
+		// The hosts looked up, in the order of the lookalike pass, the first
+		// host of each registrable domain before the others: a message cannot
+		// put a link out of reach with links to other hosts of one domain.
+		const ordered = [...new Set([...links.filter(link => link.text), ...links.filter(link => !link.text)].map(link => destination(link)))];
+		const firsts = new Map();
+		for (const host of ordered) {
+			const domain = registrableDomain(host);
+			if (!firsts.has(domain)) {
+				firsts.set(domain, host);
+			}
+		}
+
+		const checked = [...new Set([...firsts.values(), ...ordered])].slice(0, config.phishing.maxHosts);
 		const domains = [...new Set(checked.map(host => registrableDomain(host)))];
-		const [blocked, listed] = await Promise.all([
-			config.phishing.cloudflare && checked.length > 0 ? withTimeout(this.dns.checkCloudflare(checked, {adult: config.phishing.adult}), config.timeout, []) : [],
+		// Each host is looked up on its own, and what was found by the time
+		// limit is kept (a slow answer for one host does not lose the others);
+		// the hosts without an answer by then (or whose lookup failed) are
+		// counted.
+		const blocked = [];
+		let answered = 0;
+		const cloudflare = async () => {
+			await withTimeout(Promise.all(checked.map(async host => {
+				const found = await this.dns.checkCloudflare([host], {adult: config.phishing.adult});
+				blocked.push(...found);
+				if (!found.unanswered?.length) {
+					answered++;
+				}
+			})), config.timeout, null);
+			// (copies taken at once: an answer that comes later is not added
+			//  after the fact)
+			return {found: [...blocked], unanswered: checked.length - answered};
+		};
+
+		const [cloudflareResult, listed] = await Promise.all([
+			config.phishing.cloudflare && checked.length > 0 ? cloudflare() : {found: [], unanswered: 0},
 			config.dnsbl.domain?.length > 0 && domains.length > 0 ? withTimeout(this.dns.checkDomains(domains, config.dnsbl.domain), config.timeout, []) : [],
 		]);
-		for (const {host, category} of blocked) {
+		for (const {host, category} of cloudflareResult.found) {
 			phishing.push(finding(category === 'malware'
 				? {type: 'malicious_domain', domain: host, message: `Link hostname ${host} is blocked by Cloudflare's malware filtering as phishing or malware`}
 				: {type: 'adult_domain', domain: host, message: `Link hostname ${host} was detected by Cloudflare's family filtering to contain adult-related content`}));
@@ -432,30 +712,99 @@ export class SpamScanner {
 			}));
 		}
 
-		return {phishing, homographs, uncheckedHosts: seenHosts.size - checked.length};
+		return {
+			phishing, homographs, uncheckedHosts: seenHosts.size - checked.length, timedOutHosts: cloudflareResult.unanswered,
+		};
 	}
 
-	async scanViruses(mail, config) {
+	/**
+	 * Scan attachments with clamd, a few at a time, all within clamav.timeout
+	 * (60 seconds). A connection refused or a busy clamd (EAGAIN) is tried
+	 * once more.
+	 * @param {Array<object>} attachments
+	 * @param {object} config
+	 * @returns {Promise<{viruses: object[], errors: Array<{filename: string, error: string}>, skipped: Array<{filename: string, reason: string}>}>}
+	 */
+	async scanViruses(attachments, config) {
 		const settings = config.clamav === true ? {} : config.clamav;
+		// (ClamAV has its own time limit for all of a message's attachments,
+		//  not the network checks': a slow clamd would otherwise defer the
+		//  message on every try)
+		const budget = settings.timeout ?? CLAMAV_TIMEOUT;
+		const deadline = Date.now() + budget;
 		const viruses = [];
-		await Promise.all(mail.attachments.map(async attachment => {
+		const errors = [];
+		const skipped = [];
+		const carriers = new Map();
+		const queue = [...attachments];
+		const scan = async (attachment, retry) => {
 			try {
-				const result = await scanBuffer(attachment.content, {timeout: config.timeout, ...settings});
-				if (result.infected) {
-					viruses.push(finding({
-						type: 'virus', filename: attachment.filename || 'unnamed attachment', virus: result.viruses, message: `Attachment "${attachment.filename || 'unnamed attachment'}" contains ${result.viruses.join(', ')}`,
-					}));
-				}
+				return await scanBuffer(attachment.content, {...settings, timeout: Math.max(1, deadline - Date.now())});
 			} catch (error) {
-				debug('virus scan failed: %s', error.message);
+				if (retry && ['EAGAIN', 'ECONNREFUSED'].includes(error.code) && deadline > Date.now()) {
+					return scan(attachment, false);
+				}
+
+				throw error;
 			}
-		}));
-		return viruses;
+		};
+
+		const worker = async () => {
+			while (queue.length > 0) {
+				const attachment = queue.shift();
+				const filename = attachment.filename || 'unnamed attachment';
+				if (deadline <= Date.now()) {
+					errors.push({filename, error: `not scanned within ${budget} ms`});
+					continue;
+				}
+
+				try {
+					// eslint-disable-next-line no-await-in-loop
+					const result = await scan(attachment, true);
+					if (result.infected) {
+						const found = finding({
+							type: 'virus', filename, virus: result.viruses, message: `Attachment "${filename}" contains ${result.viruses.join(', ')}`,
+						});
+						viruses.push(found);
+						// (an attached message: its attachments are named after it,
+						//  as expandAttachments names them)
+						if (attachment.contentType === 'message/rfc822' || /\.eml$/i.test(attachment.filename || '')) {
+							carriers.set(found, attachment.filename || 'attached message');
+						}
+					}
+				} catch (error) {
+					debug('virus scan failed: %s', error.message);
+					// (an attachment larger than clamd accepts is not scanned, as
+					//  clamav-milter skips one over its MaxFileSize: the same on
+					//  every try, it is not a failure to try again)
+					if (CLAMAV_LIMITS.test(error.message)) {
+						skipped.push({filename, reason: error.message.replace(/^clamd: (?:stream: )?/, '')});
+					} else {
+						errors.push({filename, error: error.message});
+					}
+				}
+			}
+		};
+
+		await Promise.all(Array.from({length: Math.min(CLAMAV_CONCURRENCY, attachments.length)}, () => worker()));
+		// (clamd finds a virus in an attached message, which it reads, and
+		//  again in the attachment of it that carries the virus: only that one
+		//  is reported)
+		const reported = viruses.filter(item => {
+			const prefix = carriers.get(item);
+			if (prefix === undefined) {
+				return true;
+			}
+
+			const inner = new Set(viruses.filter(other => other.filename.startsWith(`${prefix}/`)).flatMap(other => other.virus));
+			return !item.virus.every(name => inner.has(name));
+		});
+		return {viruses: reported, errors, skipped};
 	}
 
-	async scanToxicity(mail, config) {
+	async scanToxicity(mail, config, shown = mail.text) {
 		const {model, threshold = 0.7} = config.toxicity;
-		const text = [mail.subject, mail.text].filter(Boolean).join('\n').slice(0, 5000);
+		const text = [mail.subject, shown].filter(Boolean).join('\n').slice(0, 5000);
 		if (text.trim().length < 10) {
 			return [];
 		}
@@ -474,14 +823,21 @@ export class SpamScanner {
 		}
 	}
 
-	async scanNsfw(mail, config) {
+	async scanNsfw(attachments, config) {
 		const {model, threshold = 0.6} = config.nsfw;
-		const images = mail.attachments.filter(attachment => ['png', 'jpg', 'gif', 'webp'].includes(sniff(attachment.content)?.type));
+		// (the first images only, all within one time limit)
+		const images = attachments.filter(attachment => ['png', 'jpg', 'gif', 'webp'].includes(sniff(attachment.content)?.type)).slice(0, MAX_NSFW_IMAGES);
+		const deadline = Date.now() + config.timeout;
 		const results = [];
 		for (const image of images) {
+			const left = deadline - Date.now();
+			if (left <= 0) {
+				break;
+			}
+
 			try {
 				// eslint-disable-next-line no-await-in-loop
-				const predictions = await withTimeout(Promise.resolve(model.classify(image.content)), config.timeout, []);
+				const predictions = await withTimeout(Promise.resolve(model.classify(image.content)), left, []);
 				const hit = predictions.find(prediction => ['Porn', 'Hentai', 'Sexy'].includes(prediction.className) && prediction.probability >= threshold);
 				if (hit) {
 					results.push(finding({
@@ -500,7 +856,7 @@ export class SpamScanner {
 	 * Scan a message.
 	 *
 	 * @param {Buffer|string|Uint8Array|AsyncIterable} source - the raw message
-	 * @param {object} [options] - settings for this message only (see DEFAULTS), plus:
+	 * @param {ScanOptions} [options] - settings for this message only (see DEFAULTS), plus:
 	 * @param {object} [options.session] - what the receiving server knows:
 	 *   remoteAddress (client IP), resolvedClientHostname (verified reverse
 	 *   DNS), helo, and envelope { mailFrom: {address}, rcptTo: [{address}] }
@@ -508,9 +864,9 @@ export class SpamScanner {
 	 *   ARC results the receiving server already has, as mailauth's
 	 *   authenticate() gives them ({spf, dkim: {results}, dmarc, arc}): scored
 	 *   as if checked here, without checking again
-	 * @returns {Promise<object>} isSpam, score, threshold, action ("accept",
-	 *   "tag" or "reject"), message, tests, results (per detector), links,
-	 *   language, tokens, mail and metrics
+	 * @returns {Promise<ScanResult>} isSpam, score, threshold, action
+	 *   ("accept", "tag" or "reject"), message, tests, results (per detector),
+	 *   links, language, tokens, mail and metrics
 	 */
 	async scan(source, options = {}) {
 		const started = Date.now();
@@ -523,37 +879,73 @@ export class SpamScanner {
 			session: {...this.config.session, ...extra.session},
 		};
 		const {session} = config;
-		const {raw, mail} = await this.parse(source);
-		const extracted = this.getFeatures(mail);
+		// (lists or a service given for this message: a checker for it, with
+		//  the scanner's settings for what is not given)
+		const reputationChecker = Object.hasOwn(extra, 'reputation')
+			? (extra.reputation ? sharedReputationChecker(this, {...this.config.reputation, ...extra.reputation}) : null)
+			: this.reputation;
+		const raw = await toBuffer(source);
+		// (a message beyond the parser's limits is read for its first parts,
+		//  and gets MIME_TOO_COMPLEX)
+		const parsed = await parseWithin(withHeader(raw));
+		const {mail} = parsed;
+		const parseErrors = parsed.error ? [parsed.error] : [];
+		const extracted = getFeatures(mail, {maxLength: config.maxLength});
 		const classification = this.getClassification(extracted.features);
+		// (the links checked: those of the whole message, up to
+		//  phishing.maxLength, not only of what the classifier reads)
+		const linkLength = Number.isFinite(config.phishing.maxLength) && config.phishing.maxLength > 0 ? config.phishing.maxLength : 1_000_000;
+		const text = typeof mail.text === 'string' ? mail.text : '';
+		const html = typeof mail.html === 'string' ? mail.html : '';
+		const checkedLinks = extractLinks(text.slice(0, linkLength), html.slice(0, linkLength * 2), {maxLength: linkLength * 2});
+		const linksTruncated = text.length > linkLength || html.length > linkLength * 2;
 
 		// Obfuscation seen by the tokenizer.
-		const obfuscation = obfuscationOf(`${mail.subject || ''}\n${typeof mail.text === 'string' ? mail.text : ''}`, {maxLength: config.maxLength});
+		// (of the text the HTML shows and of the plain text, the more of each:
+		//  the HTML part always counts, and an alternative part, the same text
+		//  again, is not counted twice)
+		const plainObfuscation = obfuscationOf(`${mail.subject || ''}\n${typeof mail.text === 'string' ? mail.text : ''}`, {maxLength: config.maxLength});
+		const shownObfuscation = obfuscationOf(`${mail.subject || ''}\n${visibleText(html.slice(0, config.maxLength * 2)).text}`, {maxLength: config.maxLength});
+		const obfuscation = {
+			invisible: Math.max(plainObfuscation.invisible, shownObfuscation.invisible),
+			mixed: Math.max(plainObfuscation.mixed, shownObfuscation.mixed),
+			styled: plainObfuscation.styled || shownObfuscation.styled,
+		};
 
-		const attachments = config.attachments === false ? [] : inspectAttachments(mail.attachments).filter(item => config.macros !== false || !['macro', 'pdf_active', 'rtf_object'].includes(item.type)).map(item => finding(item));
+		// (with the attachments of attached messages)
+		const attached = await expandAttachments(mail.attachments, parseErrors);
+		const attachments = config.attachments === false ? [] : inspectAttachments(attached).filter(item => config.macros !== false || !['macro', 'pdf_active', 'rtf_object'].includes(item.type)).map(item => finding(item));
 
-		const [links, authentication, reputation, dnsbl, viruses, toxicity, nsfw] = await Promise.all([
-			this.checkLinks(extracted.links, config, extracted.hosts),
+		const [links, authentication, checkedReputation, dnsbl, virusScan, toxicity, nsfw] = await Promise.all([
+			this.checkLinks(checkedLinks, config, extracted.hosts, fromDomain(mail)),
 			config.authenticationResults && typeof config.authenticationResults === 'object'
 				? normalizeAuthOutput(config.authenticationResults)
 				: (config.authentication && session.remoteAddress
-					? authenticate(raw, {
-						ip: session.remoteAddress, helo: session.helo, sender: session.envelope?.mailFrom?.address, timeout: config.timeout, ...(typeof config.authentication === 'object' ? config.authentication : {}),
-					})
+					// (the client is always the scan's: settings never name it)
+					? withTimeout(authenticate(raw, {
+						timeout: config.timeout, ...(typeof config.authentication === 'object' ? config.authentication : {}), ip: session.remoteAddress, helo: session.helo, sender: session.envelope?.mailFrom?.address,
+					}), config.timeout, null)
 					: null),
-			this.reputation ? withTimeout(this.reputation.check(reputationValues(mail, session)), config.timeout, null) : null,
+			reputationChecker ? withTimeout(reputationChecker.check(reputationValues(mail, session)), config.timeout, null) : null,
 			session.remoteAddress && config.dnsbl.ip?.length > 0 ? withTimeout(this.dns.checkIp(session.remoteAddress, config.dnsbl.ip), config.timeout, []) : [],
-			config.clamav ? this.scanViruses(mail, config) : [],
-			config.toxicity ? this.scanToxicity(mail, config) : [],
-			config.nsfw ? this.scanNsfw(mail, config) : [],
+			// (clamd reads a message it cannot be given in parts whole)
+			config.clamav ? this.scanViruses(parsed.error ? [{filename: 'message.eml', contentType: 'message/rfc822', content: raw}] : attached, config) : {viruses: [], errors: [], skipped: []},
+			// (the text a mail client shows, of the HTML too)
+			config.toxicity ? this.scanToxicity(mail, config, extracted.text) : [],
+			config.nsfw ? this.scanNsfw(attached, config) : [],
 		]);
+		const {viruses} = virusScan;
+		// (only what cannot be forged allowlists a message: the client, and
+		//  sender addresses that authentication shows are genuine)
+		const reputation = checkedReputation && trustReputation(checkedReputation, trustedReputationValues(mail, session, authentication));
 
 		if (authentication) {
 			authentication.score = calculateAuthScore(authentication, typeof config.authentication === 'object' ? config.authentication.weights : undefined);
 		}
 
 		const arbitrary = config.arbitrary === false ? {rules: [], score: 0, reasons: []} : isArbitrary(mail, {session, authentication});
-		const allowed = (config.allowedLanguages || []).map(code => code.toLowerCase());
+		// ("en-US" and "eng" are English too)
+		const allowed = (config.allowedLanguages || []).map(code => normalizeLanguageCode(code)).filter(Boolean);
 		const language = {
 			language: extracted.language,
 			script: extracted.script,
@@ -561,6 +953,10 @@ export class SpamScanner {
 		};
 
 		const results = {
+			// Limits of the MIME parser the message or a message attached to it
+			// exceeds, or why an attached message could not be read (it was not
+			// read whole), or null.
+			parseError: parseErrors.length > 0 ? [...new Set(parseErrors)].join('; ') : null,
 			classification,
 			phishing: links.phishing,
 			attachments,
@@ -579,10 +975,22 @@ export class SpamScanner {
 		let scored = scoreResults(results, scoring);
 
 		// Ask the language model when the decision is close or the classifier unsure.
-		const llm = config.llm && config.llm !== this.config.llm ? new LLMClassifier(config.llm) : this.llm;
+		// (`llm: false` or `null` for a scan asks no model; other settings than
+		//  the scanner's get their own client, kept for the next scan with them)
+		let {llm} = this;
+		if (config.llm === false || config.llm === null) {
+			llm = null;
+		} else if (config.llm && config.llm !== this.config.llm) {
+			if (!this.llms.has(config.llm)) {
+				this.llms.set(config.llm, new LLMClassifier(config.llm));
+			}
+
+			llm = this.llms.get(config.llm);
+		}
+
 		if (llm) {
 			const settings = config.llm;
-			const mode = settings.mode || 'auto';
+			const mode = String(settings.mode || 'auto').toLowerCase();
 			const low = settings.minScore ?? config.threshold - 4;
 			const high = settings.maxScore ?? config.rejectThreshold;
 			const close = scored.score >= low && scored.score < high;
@@ -622,17 +1030,31 @@ export class SpamScanner {
 				// Microsoft's verdict); the others count only toward the score.
 				arbitrary: arbitrary.rules.filter(rule => rule.score >= config.threshold).map(rule => finding({type: 'arbitrary', ...rule})),
 				// Grouped as in earlier versions.
-				executables: attachments.filter(item => ['executable', 'disguised_executable', 'double_extension', 'rtl_override', 'executable_in_archive'].includes(item.type)),
+				executables: attachments.filter(item => ['executable', 'disguised_executable', 'double_extension', 'rtl_override', 'executable_in_archive', 'script_in_archive'].includes(item.type)),
 				macros: attachments.filter(item => ['macro', 'pdf_active', 'rtf_object'].includes(item.type)),
 				// Link hosts beyond phishing.maxHosts, which were not looked up.
 				uncheckedHosts: links.uncheckedHosts,
+				// Link hosts looked up but not answered: no answer within the time
+				// limit, or the lookup failed.
+				timedOutHosts: links.timedOutHosts,
+				// Attachments clamd could not scan (it was unreachable, busy, or
+				// refused the file, or the time limit was reached), as
+				// {filename, error}: a message with any may hold a virus.
+				virusScanErrors: virusScan.errors,
+				// Attachments larger than clamd accepts (StreamMaxLength), not
+				// scanned, as {filename, reason}: the same on every try, so not a
+				// failure.
+				virusScanSkipped: virusScan.skipped,
+				// Whether the message has more text than phishing.maxLength, whose
+				// links were not read.
+				linksTruncated,
 				idnHomographAttack: {
 					detected: links.homographs.length > 0,
 					domains: links.homographs,
 					riskScore: Math.max(0, ...links.homographs.map(item => item.riskScore)),
 				},
 			},
-			links: extracted.links.map(link => link.url),
+			links: checkedLinks.map(link => link.url),
 			language: extracted.language,
 			tokens: extracted.words,
 			mail,

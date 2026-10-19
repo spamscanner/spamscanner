@@ -1,4 +1,4 @@
-<!-- source: 7cc30ff4ad91 -->
+<!-- source: 4d7afeb36844 -->
 
 # Trenowanie
 
@@ -15,12 +15,12 @@ spamscanner train --spam ~/Maildir/.Junk --ham ~/Maildir/cur --ham ~/Maildir/.Ar
 
 Źródłami mogą być:
 
-* pliki **mbox**, także skompresowane gzip (`.mbox.gz`),
+* pliki **mbox**, także skompresowane gzip (`.mbox.gz`; inne pliki `.gz` są pomijane),
 * katalog **Maildir** (czytane są jego foldery `cur` i `new`, `tmp` jest pomijany),
 * **folder** z plikami `.eml`, czytany rekurencyjnie,
-* **zbiór danych**: plik CSV lub JSON Lines z kolumną tekstu i kolumną etykiety (`--dataset`). Kolumny o nazwach `text`, `message`, `body`, `email` lub `content` oraz `label`, `category`, `class`, `spam` lub `is_spam` są znajdowane automatycznie; w przeciwnym razie użyj `--text-column` i `--label-column`. Rozpoznawane są etykiety takie jak `spam`, `1`, `phishing` oraz `ham`, `0`, `not_spam`, `legitimate`.
+* **zbiór danych**: plik CSV lub JSON Lines z kolumną tekstu i kolumną etykiety (`--dataset`). Kolumny lub pola JSON o nazwach `text`, `message`, `body`, `email text`, `email`, `content`, `sms` lub `v2` oraz `label`, `category`, `is_spam`, `spam`, `email type`, `class`, `type`, `label_text`, `v1` lub `labels`, bez względu na wielkość liter, są znajdowane automatycznie (w JSON Lines `label_text` przed `label`); w przeciwnym razie użyj `--text-column` i `--label-column`. Wiersz JSON, który nie jest obiektem, jest pomijany. Rozpoznawane są etykiety takie jak `spam`, `1`, `phishing` oraz `ham`, `0`, `not_spam`, `legitimate`.
 
-Powtarzające się wiadomości są liczone raz. Aby budować na dołączonym modelu zamiast zaczynać od pustego, dodaj `--merge`.
+Powtarzające się wiadomości są liczone raz. Wiadomość obecna zarówno w źródłach spamu, jak i ham jest zachowywana jako spam, bo źródła spamu są czytane jako pierwsze. Aby budować na dołączonym modelu zamiast zaczynać od pustego, dodaj `--merge`.
 
 Użycie modelu:
 

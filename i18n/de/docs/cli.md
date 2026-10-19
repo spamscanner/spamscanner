@@ -1,4 +1,4 @@
-<!-- source: c061da9312ad -->
+<!-- source: f8a77c318b83 -->
 
 # Kommandozeile
 
@@ -59,16 +59,16 @@ Exit-Codes: 0 Ham, 1 Spam, 2 Fehler.
 
 ### Prüfungen
 
-| Option                | Bedeutung                                                                  |
-| --------------------- | -------------------------------------------------------------------------- |
-| `--auth`              | SPF, DKIM, DMARC und ARC prüfen (benötigt `--ip`)                          |
-| `--dnsbl <zone>`      | IP-Blockliste, zum Beispiel `zen.spamhaus.org`; wiederholbar               |
-| `--uribl <zone>`      | Domain-Blockliste für Links, zum Beispiel `dbl.spamhaus.org`; wiederholbar |
-| `--dns-server <ip>`   | Nameserver für DNS-Prüfungen; wiederholbar                                 |
-| `--no-cloudflare`     | Die filternden Resolver von Cloudflare nicht zu Links befragen             |
-| `--clamav [socket]`   | Anhänge mit clamd prüfen, über dessen Standard-Socket oder den angegebenen |
-| `--allowlist <value>` | Diese IP-Adresse, Domain oder Adresse immer annehmen; wiederholbar         |
-| `--denylist <value>`  | Diese IP-Adresse, Domain oder Adresse immer abweisen; wiederholbar         |
+| Option                | Bedeutung                                                                                                                                                                |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `--auth`              | SPF, DKIM, DMARC und ARC prüfen (benötigt `--ip`)                                                                                                                        |
+| `--dnsbl <zone>`      | IP-Blockliste, zum Beispiel `zen.spamhaus.org`; wiederholbar                                                                                                             |
+| `--uribl <zone>`      | Domain-Blockliste für Links, zum Beispiel `dbl.spamhaus.org`; wiederholbar                                                                                               |
+| `--dns-server <ip>`   | Nameserver für DNS-Prüfungen; wiederholbar                                                                                                                               |
+| `--no-cloudflare`     | Die filternden Resolver von Cloudflare nicht zu Links befragen                                                                                                           |
+| `--clamav[=socket]`   | Anhänge mit clamd prüfen, über dessen Standard-Socket oder den angegebenen                                                                                               |
+| `--allowlist <value>` | Diese Client-IP-Adresse oder diesen Hostnamen immer annehmen, oder diese Domain oder Adresse, wenn die Authentifizierung den Absender bestätigt (`--auth`); wiederholbar |
+| `--denylist <value>`  | Diese IP-Adresse, Domain oder Adresse immer abweisen; wiederholbar                                                                                                       |
 
 ### Sprachmodell
 
@@ -85,7 +85,7 @@ Exit-Codes: 0 Ham, 1 Spam, 2 Fehler.
 | `--llm-auth-header <name>`                                 | Header für den Schlüssel, zusammen mit `--llm-auth header`                                                                                                      |
 | `--llm-username`, `--llm-password`                         | Für `--llm-auth basic`                                                                                                                                          |
 | `--llm-header "Name: value"`                               | Zusätzlicher Request-Header; wiederholbar                                                                                                                       |
-| `--llm-mode <mode>`                                        | `auto` (nur knappe Fälle, der Standard) oder `always`                                                                                                           |
+| `--llm-mode <mode>`                                        | `auto` (nur knappe Fälle, der Standard), `always` oder `off`                                                                                                    |
 | `--llm-timeout <ms>`                                       | Standard 30000                                                                                                                                                  |
 | `--llm-policy <text>`                                      | Zusätzliche Regeln für das Modell, zum Beispiel „Wir versenden nie Rechnungen“                                                                                  |
 | `--llm-redact`, `--no-llm-redact`                          | Personenbezogene Daten vorher entfernen; bei entfernten Anbietern standardmäßig an                                                                              |
@@ -99,43 +99,49 @@ Ein [Content-Filter für Postfix](postfix.md#content-filter). Er liest eine Nach
 spamscanner filter -f "$sender" -- "$recipient"
 ```
 
-| Option                | Bedeutung                                                                   |
-| --------------------- | --------------------------------------------------------------------------- |
-| `--sendmail <path>`   | Standard `/usr/sbin/sendmail`                                               |
-| `--subject-tag <tag>` | Dem Betreff von Spam ein Präfix voranstellen                                |
-| `--reject`            | E-Mails ab dem Ablehnungsschwellenwert zurückweisen statt sie weiterzugeben |
-| `--discard`           | E-Mails ab dem Ablehnungsschwellenwert verwerfen statt sie weiterzugeben    |
+| Option                | Bedeutung                                                                                      |
+| --------------------- | ---------------------------------------------------------------------------------------------- |
+| `--sendmail <path>`   | Standard `/usr/sbin/sendmail`                                                                  |
+| `--subject-tag <tag>` | Dem Betreff von Spam ein Präfix voranstellen                                                   |
+| `--reject`            | E-Mails ab dem Ablehnungsschwellenwert zurückweisen statt sie weiterzugeben                    |
+| `--discard`           | E-Mails ab dem Ablehnungsschwellenwert verwerfen statt sie weiterzugeben                       |
+| `--on-error <answer>` | Für E-Mails, die nicht vollständig geprüft werden konnten: `tempfail` (Standard) oder `accept` |
 
-Die Exit-Codes folgen den Konventionen von sendmail, die Postfix auswertet: 0 zugestellt (oder verworfen), 64 keine Empfänger angegeben, 69 als Spam abgewiesen (Postfix schickt eine Unzustellbarkeitsnachricht), 75 jeder andere Fehler, sodass Postfix die Nachricht behält und es später erneut versucht.
+Die Exit-Codes folgen den Konventionen von sendmail, die Postfix auswertet: 0 zugestellt (oder verworfen), 64 keine Empfänger angegeben, 69 als Spam abgewiesen (Postfix schickt eine Unzustellbarkeitsnachricht), 75 jeder andere Fehler, sodass Postfix die Nachricht behält und es später erneut versucht. Eine Nachricht mit einem Anhang, den ClamAV nicht prüfen konnte, ist ebenfalls ein Fehler. Mit `--on-error accept` wird eine solche Nachricht oder eine, deren Prüfung fehlgeschlagen ist, mit `X-Spam-Virus-Scan: failed` weitergegeben, und ohne die `X-Spam-*`-Header, die der Absender hinzugefügt hat.
 
 
 ## milter, http, server und spamd
 
 ```sh
 spamscanner milter --port 7831 --reject --subject-tag "[SPAM]"
-spamscanner http --port 7832 --token "$SPAMSCANNER_TOKEN"
+spamscanner http --port 7832    # token in SPAMSCANNER_TOKEN
 spamscanner server --port 7830
 spamscanner spamd --port 783
 ```
 
+Die HTTP-API liest ihr Token aus der Umgebungsvariable `SPAMSCANNER_TOKEN`. `--token` funktioniert auch, aber andere Benutzer des Rechners sehen Kommandozeilenoptionen in `ps`.
+
 Port 783 ist der Port, den SpamAssassin-Clients standardmäßig verwenden. Ports unter 1024 benötigen root oder die Capability `CAP_NET_BIND_SERVICE`. Verwenden Sie einen anderen Port, etwa `--port 7833`, und teilen Sie ihn dem Client mit.
 
-| Option                | Bedeutung                                                                      |
-| --------------------- | ------------------------------------------------------------------------------ |
-| `--port <n>`          | TCP-Port                                                                       |
-| `--host <ip>`         | Adresse, auf der gelauscht wird (Standard 127.0.0.1)                           |
-| `--socket <path>`     | Stattdessen auf einem Unix-Socket lauschen                                     |
-| `--reject`            | Milter: E-Mails ab dem Ablehnungsschwellenwert abweisen                        |
-| `--reject-code <n>`   | Milter: 451, später erneut versuchen (der Standard), oder 550                  |
-| `--quarantine`        | Milter: Spam in der Quarantäne des Mailservers zurückhalten                    |
-| `--name <hostname>`   | Milter: der Name dieses Servers in Authentication-Results                      |
-| `--token <secret>`    | HTTP: `Authorization: Bearer <secret>` verlangen; nötig für `/learn`           |
-| `--allow-tell`        | spamd: TELL-Anfragen (`spamc -L spam`) zum Lernen annehmen                     |
-| `--out <file>`        | HTTP und spamd: Gelerntes in dieser Modelldatei speichern                      |
-| `--subject-tag <tag>` | Milter und spamd: dem Betreff von Spam ein Präfix voranstellen                 |
-| `--verbose`           | Milter: jede Prüfung protokollieren. TCP-Server: mit einer Textzeile antworten |
+| Option                | Bedeutung                                                                                              |
+| --------------------- | ------------------------------------------------------------------------------------------------------ |
+| `--port <n>`          | TCP-Port                                                                                               |
+| `--host <ip>`         | Adresse, auf der gelauscht wird (Standard 127.0.0.1)                                                   |
+| `--socket <path>`     | Stattdessen auf einem Unix-Socket lauschen                                                             |
+| `--reject`            | Milter: E-Mails ab dem Ablehnungsschwellenwert abweisen                                                |
+| `--reject-code <n>`   | Milter: ein 4xx-Code, später erneut versuchen (451, der Standard), oder ein 5xx-Code wie 550           |
+| `--quarantine`        | Milter: Spam in der Quarantäne des Mailservers zurückhalten                                            |
+| `--on-error <answer>` | Milter: für E-Mails, die nicht vollständig geprüft werden konnten, `tempfail` (Standard) oder `accept` |
+| `--name <hostname>`   | Milter: der Name dieses Servers in Authentication-Results                                              |
+| `--token <secret>`    | HTTP: `Authorization: Bearer <secret>` verlangen; nötig für `/learn`                                   |
+| `--allow-tell`        | spamd: TELL-Anfragen (`spamc -L spam`) zum Lernen annehmen                                             |
+| `--out <file>`        | HTTP und spamd: Gelerntes in dieser Modelldatei speichern                                              |
+| `--subject-tag <tag>` | Milter und spamd: dem Betreff von Spam ein Präfix voranstellen                                         |
+| `--verbose`           | Milter: jede Prüfung protokollieren. TCP-Server: mit einer Textzeile antworten                         |
 
 Die obigen Scan-Optionen gelten auch für die Server. [Der Milter](postfix.md#milter), [die HTTP-API, der TCP-Server und spamd](http-api.md).
+
+spamd- und TCP-Clients senden die IP-Adresse des einliefernden Clients nicht, HTTP-Clients nur mit `?ip=`. Daher wirken `--auth` und `--dnsbl` nur beim Milter und bei HTTP-Anfragen, die sie angeben. Die Server weisen beim Start mit diesen Optionen darauf hin.
 
 
 ## train, eval und learn
@@ -157,6 +163,8 @@ spamscanner learn spam message.eml --model my-model.json
 
 `learn` aktualisiert die Modelldatei direkt und legt sie beim ersten Mal aus dem mitgelieferten Modell an. [Training](training.md)
 
+Mit `--model` und `--out` zusammen beginnt `learn` mit der Datei aus `--model` und schreibt das Ergebnis nach `--out`.
+
 
 ## llm-test und models
 
@@ -165,7 +173,7 @@ spamscanner models
 spamscanner llm-test --llm ollama --llm-model qwen3.5:4b
 ```
 
-`llm-test` sendet eine gewöhnliche Nachricht und zwei Betrugsnachrichten, auf Englisch und Italienisch, an das Modell, gibt dessen Urteile, die Dauer jedes Urteils, die verwendete Methode und die Hardware aus und beendet sich nur dann mit 0, wenn alle drei richtig sind.
+`llm-test` sendet eine gewöhnliche Nachricht und zwei Betrugsnachrichten, auf Englisch und Italienisch, an das Modell, gibt dessen Urteile, die Dauer jedes Urteils, die verwendete Methode und, bei einem Modell auf diesem Rechner, die Hardware aus und beendet sich nur dann mit 0, wenn alle drei richtig sind.
 
 
 ## Konfigurationsdatei

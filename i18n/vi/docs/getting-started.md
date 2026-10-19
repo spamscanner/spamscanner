@@ -1,4 +1,4 @@
-<!-- source: 8263c06f1dab -->
+<!-- source: 1a2009efd1f9 -->
 
 # Bắt đầu
 
@@ -25,6 +25,8 @@ Dưới dạng tệp nhị phân độc lập cho Linux hoặc macOS, đã tích
 ```sh
 curl -fsSL https://github.com/spamscanner/spamscanner/releases/latest/download/install.sh | bash
 ```
+
+Tập lệnh kiểm tra tệp nhị phân với tệp `SHA256SUMS` của bản phát hành trước khi cài đặt. Tệp nhị phân cho Linux cần glibc, nên trên Alpine và các hệ thống dựa trên musl khác, hãy cài đặt bằng npm.
 
 Tệp nhị phân cho Linux (x64 và arm64), macOS (Intel và Apple silicon) và Windows được đính kèm trong mỗi [bản phát hành](https://github.com/spamscanner/spamscanner/releases).
 
@@ -75,6 +77,8 @@ CommonJS cũng hoạt động:
 const SpamScanner = require('spamscanner');
 ```
 
+Gói đã kèm sẵn khai báo kiểu, cho TypeScript 4.7 trở lên (5.3 trở lên khi dùng `require`).
+
 `scan()` nhận thư thô dưới dạng Buffer, chuỗi, Uint8Array hoặc readable stream. Một chuỗi luôn được coi là nội dung thư: Spam Scanner không bao giờ đọc tệp chỉ vì chuỗi trông giống đường dẫn. Dùng `scanner.scanFile(path)` cho tệp.
 
 
@@ -113,7 +117,7 @@ Không phép nào trong số này được bật mặc định, vì mỗi phép 
 | SPF, DKIM, DMARC, ARC                | `authentication: true`                           | `--auth`                    |
 | Danh sách chặn IP                    | `dnsbl: {ip: ['zen.spamhaus.org']}`              | `--dnsbl zen.spamhaus.org`  |
 | Danh sách chặn tên miền cho liên kết | `dnsbl: {domain: ['dbl.spamhaus.org']}`          | `--uribl dbl.spamhaus.org`  |
-| ClamAV                               | `clamav: true` hoặc `clamav: {socket}`           | `--clamav [socket]`         |
+| ClamAV                               | `clamav: true` hoặc `clamav: {socket}`           | `--clamav[=socket]`         |
 | Mô hình ngôn ngữ                     | `llm: {provider: 'ollama', model: 'qwen3.5:4b'}` | `--llm ollama`              |
 | Danh sách cho phép và từ chối        | `allowlist: [...]`, `denylist: [...]`            | `--allowlist`, `--denylist` |
 

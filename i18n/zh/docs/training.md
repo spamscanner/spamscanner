@@ -1,4 +1,4 @@
-<!-- source: 7cc30ff4ad91 -->
+<!-- source: 4d7afeb36844 -->
 
 # 训练
 
@@ -15,12 +15,12 @@ spamscanner train --spam ~/Maildir/.Junk --ham ~/Maildir/cur --ham ~/Maildir/.Ar
 
 来源可以是：
 
-* **mbox** 文件，也可以是 gzip 压缩的（`.mbox.gz`），
+* **mbox** 文件，也可以是 gzip 压缩的（`.mbox.gz`；其他 `.gz` 文件会被跳过），
 * **Maildir**（读取其 `cur` 和 `new` 文件夹，跳过 `tmp`），
 * 存放 `.eml` 文件的**文件夹**，递归读取，
-* **数据集**：带有文本列和标签列的 CSV 或 JSON Lines 文件（`--dataset`）。名为 `text`、`message`、`body`、`email` 或 `content` 的列，以及名为 `label`、`category`、`class`、`spam` 或 `is_spam` 的列会被自动识别；否则请使用 `--text-column` 和 `--label-column`。可以识别 `spam`、`1`、`phishing` 以及 `ham`、`0`、`not_spam`、`legitimate` 等标签。
+* **数据集**：带有文本列和标签列的 CSV 或 JSON Lines 文件（`--dataset`）。名为 `text`、`message`、`body`、`email text`、`email`、`content`、`sms` 或 `v2` 的列或 JSON 字段，以及名为 `label`、`category`、`is_spam`、`spam`、`email type`、`class`、`type`、`label_text`、`v1` 或 `labels` 的列或 JSON 字段，不区分大小写，会被自动识别（在 JSON Lines 中，`label_text` 优先于 `label`）；否则请使用 `--text-column` 和 `--label-column`。不是对象的 JSON 行会被跳过。可以识别 `spam`、`1`、`phishing` 以及 `ham`、`0`、`not_spam`、`legitimate` 等标签。
 
-重复的邮件只计一次。要在内置模型的基础上训练而不是从空模型开始，请添加 `--merge`。
+重复的邮件只计一次。同时出现在垃圾邮件来源和正常邮件来源中的邮件会保留为垃圾邮件，因为垃圾邮件来源先被读取。要在内置模型的基础上训练而不是从空模型开始，请添加 `--merge`。
 
 使用模型：
 

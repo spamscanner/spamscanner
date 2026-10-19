@@ -1,4 +1,4 @@
-<!-- source: 1151282f29d3 -->
+<!-- source: 84dca86d95ea -->
 
 # שרתי דואר אחרים
 
@@ -20,8 +20,10 @@ Spam Scanner מדבר ארבעה פרוטוקולים, כך שרוב תוכנו�
 
 ```sh
 sudo systemctl disable --now spamd    # or spamassassin, depending on the distribution
-spamscanner spamd --port 783 --auth
+spamscanner spamd --port 783
 ```
+
+לקוחות spamd אינם שולחים את כתובת ה-IP של הלקוח ששלח את ההודעה, ולכן SPF, DKIM, DMARC ו-ARC (`--auth`) ורשימות חסימה של IP (`--dnsbl`) אינם יכולים לפעול כאן. השתמשו ב-[milter](postfix.md#milter) עבורם היכן ששרת הדואר תומך בו.
 
 עם spamc:
 
@@ -87,7 +89,7 @@ if header :is "X-Spam-Flag" "YES" {
 עם IMAPSieve, העברת הודעה אל Junk או ממנה יכולה ללמד את המודל. מפעילים את ה-HTTP API עם אסימון וקובץ מודל:
 
 ```sh
-spamscanner http --port 7832 --token "$SPAMSCANNER_TOKEN" --out /var/lib/spamscanner/model.json
+spamscanner http --port 7832 --out /var/lib/spamscanner/model.json    # token in SPAMSCANNER_TOKEN
 ```
 
 ומפנים את שרת ה-milter או ה-spamd לאותו מודל עם `--model /var/lib/spamscanner/model.json` (או `SPAMSCANNER_MODEL`). מדי פעם יש להפעיל אותו מחדש כדי שיטען את מה שנלמד. סקריפט שמורץ על ידי `sieve_pipe` שולח את ההודעה:
@@ -132,7 +134,7 @@ if (/^X-Spam-Flag: YES/)
 כל תוכנה שיכולה לשלוח בקשת HTTP יכולה לסרוק דואר:
 
 ```sh
-spamscanner http --port 7832 --token "$SPAMSCANNER_TOKEN"
+spamscanner http --port 7832    # token in SPAMSCANNER_TOKEN
 
 curl -s -X POST -H "Authorization: Bearer $SPAMSCANNER_TOKEN" \
   --data-binary @message.eml "http://127.0.0.1:7832/scan?ip=203.0.113.5&from=alice@example.com&to=bob@example.org"

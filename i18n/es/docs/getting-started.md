@@ -1,4 +1,4 @@
-<!-- source: 8263c06f1dab -->
+<!-- source: 1a2009efd1f9 -->
 
 # Primeros pasos
 
@@ -25,6 +25,8 @@ Como binario independiente para Linux o macOS, con Node.js y el modelo incluidos
 ```sh
 curl -fsSL https://github.com/spamscanner/spamscanner/releases/latest/download/install.sh | bash
 ```
+
+El script comprueba el binario con el archivo `SHA256SUMS` de la versión antes de instalarlo. Los binarios para Linux necesitan glibc, así que en Alpine y otros sistemas basados en musl instala con npm.
 
 Cada [versión](https://github.com/spamscanner/spamscanner/releases) incluye binarios para Linux (x64 y arm64), macOS (Intel y Apple silicon) y Windows.
 
@@ -75,6 +77,8 @@ CommonJS también funciona:
 const SpamScanner = require('spamscanner');
 ```
 
+Se incluyen declaraciones de tipos, para TypeScript 4.7 o posterior (5.3 o posterior con `require`).
+
 `scan()` recibe el mensaje sin procesar como Buffer, cadena, Uint8Array o flujo legible. Una cadena siempre es texto del mensaje: Spam Scanner nunca lee un archivo porque una cadena parezca una ruta. Usa `scanner.scanFile(path)` para los archivos.
 
 
@@ -113,7 +117,7 @@ Ninguna de estas está activada de forma predeterminada, porque cada una necesit
 | SPF, DKIM, DMARC, ARC                     | `authentication: true`                           | `--auth`                    |
 | Lista de bloqueo de IP                    | `dnsbl: {ip: ['zen.spamhaus.org']}`              | `--dnsbl zen.spamhaus.org`  |
 | Lista de bloqueo de dominios para enlaces | `dnsbl: {domain: ['dbl.spamhaus.org']}`          | `--uribl dbl.spamhaus.org`  |
-| ClamAV                                    | `clamav: true` o `clamav: {socket}`              | `--clamav [socket]`         |
+| ClamAV                                    | `clamav: true` o `clamav: {socket}`              | `--clamav[=socket]`         |
 | Un modelo de lenguaje                     | `llm: {provider: 'ollama', model: 'qwen3.5:4b'}` | `--llm ollama`              |
 | Listas de permitidos y bloqueados         | `allowlist: [...]`, `denylist: [...]`            | `--allowlist`, `--denylist` |
 

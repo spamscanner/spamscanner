@@ -1,4 +1,4 @@
-<!-- source: dc9016edd59e -->
+<!-- source: c70584655c0e -->
 
 # Forward Email
 
@@ -45,7 +45,7 @@ async function onData(stream, session, callback) {
 }
 ```
 
-تقبل `scanner.scan()` تدفق SMTP مباشرة. إذا كانت نتائج [mailauth](https://github.com/postalsys/mailauth) متاحة لديك مسبقًا، فتخطَّ `authentication` ومرّر عنوان IP فقط.
+تقبل `scanner.scan()` تدفق SMTP مباشرة. إذا كانت نتائج [mailauth](https://github.com/postalsys/mailauth) متاحة لديك مسبقًا، فمرّرها في `authenticationResults`: تُحتسب نقاطها بدلًا من التحقق منها مرة أخرى.
 
 الرد بـ 421 أو 451 يجعل الخادم المرسل يضع الرسالة في الطابور ويعيد المحاولة لاحقًا. يمكن أن تبدأ قواعد الرفض الجديدة برمز مؤقت ثم تنتقل إلى 550 بعد التحقق من نتائجها، دون فقدان أي بريد في الأثناء.
 

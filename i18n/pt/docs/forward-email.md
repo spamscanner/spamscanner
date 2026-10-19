@@ -1,4 +1,4 @@
-<!-- source: dc9016edd59e -->
+<!-- source: c70584655c0e -->
 
 # Forward Email
 
@@ -45,7 +45,7 @@ async function onData(stream, session, callback) {
 }
 ```
 
-O `scanner.scan()` aceita o stream SMTP diretamente. Se você já tem os resultados do [mailauth](https://github.com/postalsys/mailauth), pule o `authentication` e passe apenas o endereço IP.
+O `scanner.scan()` aceita o stream SMTP diretamente. Se você já tem os resultados do [mailauth](https://github.com/postalsys/mailauth), passe-os em `authenticationResults`: eles são pontuados em vez de verificados de novo.
 
 Uma resposta 421 ou 451 faz o servidor de envio colocar a mensagem na fila e tentar de novo mais tarde. Novas regras de rejeição podem começar com um código temporário e passar para 550 depois que os seus resultados forem conferidos, sem perder e-mails nesse meio-tempo.
 

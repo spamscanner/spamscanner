@@ -1,4 +1,4 @@
-<!-- source: 60f00f92b5aa -->
+<!-- source: df3e980c3ef1 -->
 
 # Keamanan dan privasi
 
@@ -11,13 +11,13 @@ Secara bawaan, satu hal: **nama host dari tautan** dalam pesan dicari di resolve
 
 Semua yang lain nonaktif sampai dikonfigurasi:
 
-| Pemeriksaan         | Mengirim                                                               | Ke                                                                  |
-| ------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| `authentication`    | Kueri DNS untuk catatan SPF, DKIM, DMARC, dan ARC milik pengirim       | Resolver Anda, atau `dnsServers`                                    |
-| `dnsbl`             | Alamat IP klien, dibalik, dan domain tautan, sebagai kueri DNS         | Name server daftar blokir, melalui resolver Anda atau `dns.servers` |
-| `llm`               | Ringkasan pesan, dengan data pribadi dihapus untuk penyedia jarak jauh | Server model bahasa yang Anda tentukan ([privasi](llm.md#privacy))  |
-| `reputation.apiUrl` | Alamat IP, domain, dan alamat pengirim                                 | Layanan yang Anda tentukan                                          |
-| `clamav`            | Lampiran                                                               | clamd Anda, melalui soketnya                                        |
+| Pemeriksaan         | Mengirim                                                                                                         | Ke                                                                  |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| `authentication`    | Kueri DNS untuk catatan SPF, DKIM, DMARC, dan ARC milik pengirim                                                 | Resolver Anda, atau `dnsServers`                                    |
+| `dnsbl`             | Alamat IP klien, dibalik, dan domain tautan, sebagai kueri DNS                                                   | Name server daftar blokir, melalui resolver Anda atau `dns.servers` |
+| `llm`               | Ringkasan pesan, dengan data pribadi dihapus untuk penyedia jarak jauh                                           | Server model bahasa yang Anda tentukan ([privasi](llm.md#privacy))  |
+| `reputation.apiUrl` | Alamat IP dan nama host terverifikasi klien, serta alamat From, pengirim amplop, dan Reply-To, beserta domainnya | Layanan yang Anda tentukan                                          |
+| `clamav`            | Lampiran                                                                                                         | clamd Anda, melalui soketnya                                        |
 
 Tidak ada telemetri, tidak ada pemeriksaan pembaruan, dan tidak ada unduhan saat berjalan. Model sudah disertakan di dalam paket.
 
@@ -26,14 +26,15 @@ Tidak ada telemetri, tidak ada pemeriksaan pembaruan, dan tidak ada unduhan saat
 
 Tidak ada, kecuali diminta. Hasil pemindaian tidak dicatat atau disimpan. `learn()` mengubah pengklasifikasi di memori; perubahan itu hanya ditulis ke disk oleh `saveModel()`, `spamscanner learn`, atau opsi `--out` pada server. File model berisi jumlah fitur yang di-hash, bukan kata atau teks pesan.
 
-Jawaban model bahasa di-cache di memori, dengan kunci berupa hash dari apa yang dikirim, sehingga salinan berulang dari pesan yang sama hanya ditanyakan sekali. Jawaban DNS di-cache di memori selama sepuluh menit.
+Jawaban model bahasa di-cache di memori, dengan kunci berupa hash dari apa yang dikirim, sehingga salinan berulang dari pesan yang sama hanya ditanyakan sekali. Jawaban DNS di-cache di memori selama sepuluh menit, dan jawaban layanan reputasi selama lima menit (`reputation.cacheTtl`; permintaan yang gagal selama satu menit).
 
 
 ## Input berbahaya
 
-* Lampiran dikenali dari byte-nya, tidak pernah dieksekusi atau dibuka oleh program lain. Arsip ZIP dibaca dari central directory-nya, dengan batas jumlah entri; arsip bersarang tidak dibongkar.
-* Teks isi pesan dibaca hingga `maxLength` (100.000 karakter) dan server menerima pesan hingga 25 MB.
-* Setiap pemeriksaan jaringan memiliki batas waktu (`timeout`, 10 detik secara bawaan). Pemeriksaan yang gagal atau melewati batas waktu dilewati dan pemindaian selesai tanpanya.
+* Lampiran dikenali dari byte-nya, tidak pernah dieksekusi atau dibuka oleh program lain. Arsip ZIP dibaca dari central directory-nya, dengan batas jumlah entri; arsip bersarang tidak dibongkar. Pesan yang dilampirkan (`message/rfc822`, atau lampiran yang nama filenya berakhiran `.eml`) dibuka hingga tiga tingkat ke dalam, untuk paling banyak 100 lampirannya dan total 25 MB pesan terlampir; lampiran milik pesan itu sendiri selalu diperiksa semuanya. Pesan yang melampaui batas parser MIME (lebih dari 1000 bagian, atau header bagian lebih dari 1 MB) dibaca sejauh yang diizinkan parser (bagian-bagian pertamanya, dengan header yang terlalu besar dipangkas agar pengirimnya tetap dihitung) dan mendapat `MIME_TOO_COMPLEX`, yang tidak dapat diimbangi kredit apa pun; ClamAV membacanya secara utuh. Pesan yang dilampirkan yang gagal diurai parser juga mendapatkannya, dan tidak pernah menggagalkan pemindaian. HTML dibaca oleh parser milik Spam Scanner sendiri, dalam waktu linear, seberapa pun dalam sarangnya.
+* Teks isi pesan dibaca hingga `maxLength` (100.000 karakter) dan server menerima pesan hingga 25 MB. Tautan dibaca hingga `phishing.maxLength` (1.000.000 karakter).
+* Setiap pemeriksaan jaringan memiliki batas waktu (`timeout`, 10 detik secara bawaan). Pemeriksaan yang gagal atau melewati batas waktu dilewati dan pemindaian selesai tanpanya. Autentikasi dan model gambar (10 gambar pertama) masing-masing selesai seluruhnya dalam batas itu. ClamAV (empat lampiran sekaligus) punya batas sendiri untuk semua lampiran sebuah pesan (`clamav.timeout`, 60 detik), dan lampiran yang tidak dapat dipindainya dicantumkan di `results.virusScanErrors`. Model bahasa punya batas waktunya sendiri (`llm.timeout`).
+* Daftar izin hanya memercayai hal yang tidak dapat dipalsukan pengirim: alamat dan nama host terverifikasi klien, serta domain pengirim yang dikonfirmasi autentikasi. [Daftar izin dan daftar tolak](api.md#allowlist-and-denylist)
 * Header `X-Spam-*` yang sudah ada dalam pesan dihapus oleh milter, content filter, dan `--headers`, sehingga pengirim tidak dapat menandai email mereka sendiri sebagai bersih.
 * Header vonis spam dari Microsoft hanya dipercaya jika pesan datang langsung dari server Microsoft, dan header Received tidak pernah digunakan untuk menentukan asal pesan.
 * Teks yang ditujukan kepada filter AI diberi skor sebagai spam, dan model bahasa diberi tahu bahwa pesan tersebut adalah data, bukan instruksi. [Injeksi prompt](llm.md#prompt-injection)

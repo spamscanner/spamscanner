@@ -1,4 +1,4 @@
-<!-- source: 7cc30ff4ad91 -->
+<!-- source: 4d7afeb36844 -->
 
 # Pelatihan
 
@@ -15,12 +15,12 @@ spamscanner train --spam ~/Maildir/.Junk --ham ~/Maildir/cur --ham ~/Maildir/.Ar
 
 Sumber dapat berupa:
 
-* file **mbox**, juga yang dikompresi gzip (`.mbox.gz`),
+* file **mbox**, juga yang dikompresi gzip (`.mbox.gz`; file `.gz` lainnya dilewati),
 * sebuah **Maildir** (folder `cur` dan `new` dibaca, `tmp` dilewati),
 * sebuah **folder** berisi file `.eml`, dibaca secara rekursif,
-* sebuah **dataset**: file CSV atau JSON Lines dengan kolom teks dan kolom label (`--dataset`). Kolom bernama `text`, `message`, `body`, `email`, atau `content`, dan `label`, `category`, `class`, `spam`, atau `is_spam` dikenali secara otomatis; jika tidak, gunakan `--text-column` dan `--label-column`. Label seperti `spam`, `1`, `phishing` dan `ham`, `0`, `not_spam`, `legitimate` dapat dipahami.
+* sebuah **dataset**: file CSV atau JSON Lines dengan kolom teks dan kolom label (`--dataset`). Kolom, atau bidang JSON, bernama `text`, `message`, `body`, `email text`, `email`, `content`, `sms`, atau `v2`, dan `label`, `category`, `is_spam`, `spam`, `email type`, `class`, `type`, `label_text`, `v1`, atau `labels`, dalam huruf besar maupun kecil, dikenali secara otomatis (dalam JSON Lines, `label_text` sebelum `label`); jika tidak, gunakan `--text-column` dan `--label-column`. Baris JSON yang bukan objek dilewati. Label seperti `spam`, `1`, `phishing` dan `ham`, `0`, `not_spam`, `legitimate` dapat dipahami.
 
-Pesan duplikat dihitung sekali. Untuk membangun di atas model bawaan alih-alih mulai dari kosong, tambahkan `--merge`.
+Pesan duplikat dihitung sekali. Pesan yang ada di sumber spam sekaligus sumber ham disimpan sebagai spam, karena sumber spam dibaca lebih dulu. Untuk membangun di atas model bawaan alih-alih mulai dari kosong, tambahkan `--merge`.
 
 Gunakan model:
 

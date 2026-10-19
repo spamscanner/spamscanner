@@ -1,4 +1,4 @@
-<!-- source: 9537a0e62eb0 -->
+<!-- source: 5d22e36f3f16 -->
 
 # Språk
 
@@ -9,7 +9,7 @@ Spam kommer på alla språk, och det gör vanlig e-post också. Spam Scanner lä
 
 * **Ord.** Texten delas upp med `Intl.Segmenter`, som följer Unicode-reglerna för ordgränser och använder ordlistor för kinesiska, japanska, thailändska, laotiska, khmer och burmesiska, skriftsystem som skrivs utan mellanslag. Långa texter delas först upp i bitar, eftersom segmenteraren i Node.js 18 blir långsam på mycket långa strängar.
 * **Normalisering.** Unicode NFKC gör om fullbreddsbokstäver och de flesta stiliserade bokstäver (𝐅𝐑𝐄𝐄, Ⓕⓡⓔⓔ) till vanliga. Texten görs om till gemener enligt Unicode-reglerna.
-* **Förklädnader.** Osynliga tecken inuti ord (`free` med ett nollbreddsmellanslag mellan två bokstäver, mjuka bindestreck) tas bort och räknas. Ord som blandar alfabet, som `pаypal` med ett kyrilliskt а, förs tillbaka till ett alfabet och räknas. Siffror som används som bokstäver (`v1agra`) viks ihop. Varje förklädnad är en egenskap i sig, och tre eller fler osynliga tecken, eller två eller fler blandade ord, ger också poäng.
+* **Förklädnader.** Osynliga tecken inuti ord (`free` med ett nollbreddsmellanslag mellan två bokstäver, eller `v1agra` med sådana runt ettan) tas bort och räknas, men inte de mellan siffror, som avsändare lägger i nummer så att telefoner inte gör dem till länkar, och inte heller ett nollbreddsmellanslag mellan bokstäver i thailändska, laotiska, khmer, burmesiska eller tibetanska, som de som skriver dessa skrifter sätter där ett ord slutar. Sammanfogarna (U+200C, U+200D), som persiska, indiska skrifter och emoji behöver, räknas bara mellan latinska bokstäver. Mjuka bindestreck, och de riktningsmarkeringar, inbäddningar och isoleringar som hebreisk och arabisk text behöver, tas bort utan att räknas; de åsidosättningar som visar bokstäver i en annan ordning (U+202D, U+202E) räknas i all text. Ord som blandar alfabet, som `pаypal` med ett kyrilliskt а, förs till det alfabet som de flesta av deras bokstäver tillhör och räknas; en rysk kasusändelse efter ett varumärkes namn och en apostrof (`iPhone'ы`) blandar ingenting. Siffror som används som bokstäver (`v1agra`) viks ihop. Varje förklädnad är en egenskap i sig, och tre eller fler osynliga tecken, eller två eller fler blandade ord, ger också poäng.
 
 
 ## Att identifiera språket
@@ -17,7 +17,7 @@ Spam kommer på alla språk, och det gör vanlig e-post också. Spam Scanner lä
 Språket i varje meddelande identifieras från dess skriftsystem och, för skriftsystem som delas av många språk, från dess bokstäver:
 
 * Hangul är koreanska; hiragana och katakana betyder japanska; thailändska, grekiska, hebreiska, armeniska, georgiska, bengaliska, tamilska och andra skriftsystem som används av ett enda språk anger det direkt.
-* Kyrilliska bokstäver som bara finns i ett språk avgör mellan ukrainska (і, ї, є, ґ), belarusiska (ў), serbiska (ђ, ћ, џ), makedonska (ѓ, ќ, ѕ) och ryska (ы, э, ё).
+* Kyrilliska bokstäver som bara finns i ett språk avgör mellan ukrainska (і, ї, є, ґ), belarusiska (ў), serbiska (ђ, ћ, џ), makedonska (ѓ, ќ, ѕ) och ryska (ы, э, ё) i de ord som inte är namn (ord med stor begynnelsebokstav någon annanstans än i början av en mening eller en rad, inte ord skrivna helt med versaler, vars bokstäver bara räknas i en text som är för kort för den statistiska detektorn: en bulgarisk text som nämner "господин Рыскулов" är bulgarisk), om inte texten också har bokstäver från kazakiska, uzbekiska, kirgiziska, tadzjikiska, tatariska, basjkiriska eller mongoliska (ә, ө, ү, ұ, қ, ғ, ң, һ, ҳ, ҷ med flera), vars alfabet delar några av de bokstäverna: då avgör den statistiska detektorn, och när den svarar med ett slaviskt språk (en rysk eller bulgarisk text med ett kazakiskt namn eller ord i), avgör orden utan de bokstäverna, utom namn, som ovan.
 * Text i skriftsystem som delas av flera språk (latinskt, kyrilliskt, arabiskt, devanagari med flera) går, när den är tillräckligt lång för att bedöma, till [franc](https://github.com/wooorm/franc), begränsat till språk som är vanliga i e-post så att korta meddelanden inte märks med ovanliga språk.
 
 Språket rapporteras som `result.language`, och `allowedLanguages: ['en', 'de']` (`--allow-language en,de`) lägger till 3 poäng på e-post som med säkerhet identifierats som något annat språk.
@@ -31,7 +31,7 @@ En klassificerare lär sig av exempel. Offentliga dataset med spam innehåller m
 2. **Ord vägs inom sitt språk.** Ett ords spamsannolikhet beräknas mot antalet spam- och hammeddelanden som klassificeraren har sett på meddelandets språk, inte på alla språk. Ett vardagligt portugisiskt ord i en modell som mest sett portugisisk spam förblir neutralt.
 3. **Konfidensen följer täckningen.** Resultatet dras mot ”osäker” i proportion till hur många meddelanden av varje slag klassificeraren har sett på det språket: full konfidens kräver 1 000 av varje (eller 2 % av den mindre klassen, för små personliga modeller). Ett språk utan ham i träningsdatan får alltid ”osäker”.
 
-Den medföljande modellen har aldrig sett [SMS Spam Multilingual Collection](https://huggingface.co/datasets/dbarbedillo/SMS_Spam_Multilingual_Collection_Dataset), sms som maskinöversatts till 21 språk. Före dessa regler markerade den 5,7 % av den hammen som spam, däribland 55 % av den portugisiska och 41 % av den franska. Med dem 0,18 %: ingen på kinesiska, arabiska, koreanska, japanska, hindi, portugisiska, franska eller 20 andra språk, och 0,27 % på engelska.
+Den medföljande modellen har aldrig sett [SMS Spam Multilingual Collection](https://huggingface.co/datasets/dbarbedillo/SMS_Spam_Multilingual_Collection_Dataset), sms som maskinöversatts till 21 språk. Före dessa regler markerade den 5,7 % av den hammen som spam, däribland 55 % av den portugisiska och 41 % av den franska. Med dem 0,18 %: ingen på kinesiska, arabiska, koreanska, japanska, hindi, portugisiska, franska eller 13 andra språk, och 0,27 % på engelska.
 
 
 ## Att fånga spam på de språken

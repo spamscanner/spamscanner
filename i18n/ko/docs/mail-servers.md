@@ -1,4 +1,4 @@
-<!-- source: 1151282f29d3 -->
+<!-- source: 84dca86d95ea -->
 
 # 기타 메일 서버
 
@@ -20,8 +20,10 @@ Spam Scanner는 네 가지 프로토콜을 지원하므로, 대부분의 메일 
 
 ```sh
 sudo systemctl disable --now spamd    # or spamassassin, depending on the distribution
-spamscanner spamd --port 783 --auth
+spamscanner spamd --port 783
 ```
+
+spamd 클라이언트는 메시지를 보낸 클라이언트의 IP 주소를 보내지 않으므로 SPF, DKIM, DMARC, ARC(`--auth`)와 IP 차단 목록(`--dnsbl`)은 여기서 실행할 수 없습니다. 메일 서버가 지원한다면 이를 위해 [milter](postfix.md#milter)를 사용하세요.
 
 spamc 사용 예:
 
@@ -87,7 +89,7 @@ if header :is "X-Spam-Flag" "YES" {
 IMAPSieve를 사용하면 메시지를 Junk 폴더로 옮기거나 Junk 폴더에서 꺼낼 때 모델을 학습시킬 수 있습니다. 토큰과 모델 파일을 지정해 HTTP API를 시작합니다.
 
 ```sh
-spamscanner http --port 7832 --token "$SPAMSCANNER_TOKEN" --out /var/lib/spamscanner/model.json
+spamscanner http --port 7832 --out /var/lib/spamscanner/model.json    # token in SPAMSCANNER_TOKEN
 ```
 
 그리고 milter나 spamd 서버가 `--model /var/lib/spamscanner/model.json`(또는 `SPAMSCANNER_MODEL`)으로 같은 모델을 사용하도록 지정합니다. 학습한 내용을 반영하려면 가끔 서버를 재시작하십시오. `sieve_pipe`가 실행하는 스크립트가 메시지를 전송합니다.
@@ -132,7 +134,7 @@ if (/^X-Spam-Flag: YES/)
 HTTP 요청을 보낼 수 있는 프로그램이라면 무엇이든 메일을 검사할 수 있습니다.
 
 ```sh
-spamscanner http --port 7832 --token "$SPAMSCANNER_TOKEN"
+spamscanner http --port 7832    # token in SPAMSCANNER_TOKEN
 
 curl -s -X POST -H "Authorization: Bearer $SPAMSCANNER_TOKEN" \
   --data-binary @message.eml "http://127.0.0.1:7832/scan?ip=203.0.113.5&from=alice@example.com&to=bob@example.org"

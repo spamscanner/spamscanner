@@ -57,16 +57,16 @@ Exit codes: 0 ham, 1 spam, 2 error.
 
 ### Checks
 
-| Option                | Meaning                                                                |
-| --------------------- | ---------------------------------------------------------------------- |
-| `--auth`              | Check SPF, DKIM, DMARC and ARC (needs `--ip`)                          |
-| `--dnsbl <zone>`      | IP blocklist, for example `zen.spamhaus.org`; repeatable               |
-| `--uribl <zone>`      | Domain blocklist for links, for example `dbl.spamhaus.org`; repeatable |
-| `--dns-server <ip>`   | Name server for DNS checks; repeatable                                 |
-| `--no-cloudflare`     | Do not ask Cloudflare's filtering resolvers about links                |
-| `--clamav [socket]`   | Scan attachments with clamd, at its default socket or the one given    |
-| `--allowlist <value>` | Always accept this IP address, domain or address; repeatable           |
-| `--denylist <value>`  | Always reject this IP address, domain or address; repeatable           |
+| Option                | Meaning                                                                                                                                    |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `--auth`              | Check SPF, DKIM, DMARC and ARC (needs `--ip`)                                                                                              |
+| `--dnsbl <zone>`      | IP blocklist, for example `zen.spamhaus.org`; repeatable                                                                                   |
+| `--uribl <zone>`      | Domain blocklist for links, for example `dbl.spamhaus.org`; repeatable                                                                     |
+| `--dns-server <ip>`   | Name server for DNS checks; repeatable                                                                                                     |
+| `--no-cloudflare`     | Do not ask Cloudflare's filtering resolvers about links                                                                                    |
+| `--clamav[=socket]`   | Scan attachments with clamd, at its default socket or the one given                                                                        |
+| `--allowlist <value>` | Always accept this client IP address or hostname, or this domain or address when authentication confirms the sender (`--auth`); repeatable |
+| `--denylist <value>`  | Always reject this IP address, domain or address; repeatable                                                                               |
 
 ### Language model
 
@@ -83,7 +83,7 @@ Exit codes: 0 ham, 1 spam, 2 error.
 | `--llm-auth-header <name>`                                 | Header for the key, with `--llm-auth header`                                                                                                   |
 | `--llm-username`, `--llm-password`                         | For `--llm-auth basic`                                                                                                                         |
 | `--llm-header "Name: value"`                               | Extra request header; repeatable                                                                                                               |
-| `--llm-mode <mode>`                                        | `auto` (close calls only, the default) or `always`                                                                                             |
+| `--llm-mode <mode>`                                        | `auto` (close calls only, the default), `always` or `off`                                                                                      |
 | `--llm-timeout <ms>`                                       | Default 30000                                                                                                                                  |
 | `--llm-policy <text>`                                      | Extra rules for the model, for example "We never send invoices"                                                                                |
 | `--llm-redact`, `--no-llm-redact`                          | Remove personal data first; on by default for remote providers                                                                                 |
@@ -97,43 +97,49 @@ A [Postfix content filter](postfix.md#content-filter). It reads a message from s
 spamscanner filter -f "$sender" -- "$recipient"
 ```
 
-| Option                | Meaning                                                      |
-| --------------------- | ------------------------------------------------------------ |
-| `--sendmail <path>`   | Default `/usr/sbin/sendmail`                                 |
-| `--subject-tag <tag>` | Prefix the subject of spam                                   |
-| `--reject`            | Bounce mail at the reject threshold instead of passing it on |
-| `--discard`           | Drop mail at the reject threshold instead of passing it on   |
+| Option                | Meaning                                                                        |
+| --------------------- | ------------------------------------------------------------------------------ |
+| `--sendmail <path>`   | Default `/usr/sbin/sendmail`                                                   |
+| `--subject-tag <tag>` | Prefix the subject of spam                                                     |
+| `--reject`            | Bounce mail at the reject threshold instead of passing it on                   |
+| `--discard`           | Drop mail at the reject threshold instead of passing it on                     |
+| `--on-error <answer>` | For mail that could not be fully scanned: `tempfail` (the default) or `accept` |
 
-Exit codes follow sendmail's conventions, which Postfix reads: 0 delivered (or discarded), 64 no recipients given, 69 rejected as spam (Postfix bounces it), 75 any failure, so Postfix keeps the message and tries again later.
+Exit codes follow sendmail's conventions, which Postfix reads: 0 delivered (or discarded), 64 no recipients given, 69 rejected as spam (Postfix bounces it), 75 any failure, so Postfix keeps the message and tries again later. A message with an attachment ClamAV could not scan is a failure too. With `--on-error accept`, such a message, or one whose scan failed, is passed on with `X-Spam-Virus-Scan: failed`, and without any `X-Spam-*` headers the sender added.
 
 
 ## milter, http, server and spamd
 
 ```sh
 spamscanner milter --port 7831 --reject --subject-tag "[SPAM]"
-spamscanner http --port 7832 --token "$SPAMSCANNER_TOKEN"
+spamscanner http --port 7832    # token in SPAMSCANNER_TOKEN
 spamscanner server --port 7830
 spamscanner spamd --port 783
 ```
 
+The HTTP API reads its token from the `SPAMSCANNER_TOKEN` environment variable. `--token` works too, but other users of the machine can see command-line options in `ps`.
+
 Port 783 is the port SpamAssassin clients use by default. Ports below 1024 need root or the `CAP_NET_BIND_SERVICE` capability; use another port, such as `--port 7833`, and tell the client.
 
-| Option                | Meaning                                                             |
-| --------------------- | ------------------------------------------------------------------- |
-| `--port <n>`          | TCP port                                                            |
-| `--host <ip>`         | Address to listen on (default 127.0.0.1)                            |
-| `--socket <path>`     | Listen on a Unix socket instead                                     |
-| `--reject`            | Milter: refuse mail at the reject threshold                         |
-| `--reject-code <n>`   | Milter: 451, try again later (the default), or 550                  |
-| `--quarantine`        | Milter: hold spam in the mail server's quarantine                   |
-| `--name <hostname>`   | Milter: this server's name in Authentication-Results                |
-| `--token <secret>`    | HTTP: require `Authorization: Bearer <secret>`; needed for `/learn` |
-| `--allow-tell`        | spamd: accept TELL requests (`spamc -L spam`) to learn              |
-| `--out <file>`        | HTTP and spamd: save what is learned to this model file             |
-| `--subject-tag <tag>` | Milter and spamd: prefix the subject of spam                        |
-| `--verbose`           | Milter: log every scan. TCP server: answer with one text line       |
+| Option                | Meaning                                                                                |
+| --------------------- | -------------------------------------------------------------------------------------- |
+| `--port <n>`          | TCP port                                                                               |
+| `--host <ip>`         | Address to listen on (default 127.0.0.1)                                               |
+| `--socket <path>`     | Listen on a Unix socket instead                                                        |
+| `--reject`            | Milter: refuse mail at the reject threshold                                            |
+| `--reject-code <n>`   | Milter: a 4xx code, try again later (451, the default), or a 5xx code such as 550      |
+| `--quarantine`        | Milter: hold spam in the mail server's quarantine                                      |
+| `--on-error <answer>` | Milter: for mail that could not be fully scanned, `tempfail` (the default) or `accept` |
+| `--name <hostname>`   | Milter: this server's name in Authentication-Results                                   |
+| `--token <secret>`    | HTTP: require `Authorization: Bearer <secret>`; needed for `/learn`                    |
+| `--allow-tell`        | spamd: accept TELL requests (`spamc -L spam`) to learn                                 |
+| `--out <file>`        | HTTP and spamd: save what is learned to this model file                                |
+| `--subject-tag <tag>` | Milter and spamd: prefix the subject of spam                                           |
+| `--verbose`           | Milter: log every scan. TCP server: answer with one text line                          |
 
 The scan options above apply to the servers too. [The milter](postfix.md#milter), [the HTTP API, the TCP server and spamd](http-api.md).
+
+spamd and TCP clients do not send the IP address of the client that sent the message, and HTTP clients send it only with `?ip=`, so `--auth` and `--dnsbl` work only with the milter and with HTTP requests that give it. The servers say so when they start with these options.
 
 
 ## train, eval and learn
@@ -155,6 +161,8 @@ spamscanner learn spam message.eml --model my-model.json
 
 `learn` updates the model file in place, creating it from the bundled model the first time. [Training](training.md)
 
+With both `--model` and `--out`, `learn` starts from the `--model` file and writes the result to `--out`.
+
 
 ## llm-test and models
 
@@ -163,7 +171,7 @@ spamscanner models
 spamscanner llm-test --llm ollama --llm-model qwen3.5:4b
 ```
 
-`llm-test` sends one ordinary message and two scams, in English and Italian, to the model, prints its verdicts, the time each took, the method used and the hardware, and exits 0 only if all three are right.
+`llm-test` sends one ordinary message and two scams, in English and Italian, to the model, prints its verdicts, the time each took, the method used and, for a model on this machine, the hardware, and exits 0 only if all three are right.
 
 
 ## Configuration file

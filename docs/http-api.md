@@ -4,14 +4,16 @@
 ## HTTP API
 
 ```sh
-spamscanner http --port 7832 --token "$SPAMSCANNER_TOKEN"
+spamscanner http --port 7832    # token in SPAMSCANNER_TOKEN
 ```
+
+The HTTP API reads its token from the `SPAMSCANNER_TOKEN` environment variable. `--token` works too, but other users of the machine can see command-line options in `ps`.
 
 It listens on 127.0.0.1 unless `--host` says otherwise. With a token, every request except `/health` needs `Authorization: Bearer <token>`. Put it behind a reverse proxy with TLS before exposing it beyond the machine.
 
 | Method and path    | Body            | Answer                                                         |
 | ------------------ | --------------- | -------------------------------------------------------------- |
-| `GET /health`      |                 | `{"ok": true, "version": "7.0.0"}`                             |
+| `GET /health`      |                 | `{"ok": true, "version": "..."}`                               |
 | `POST /scan`       | The raw message | The [scan result](api.md#the-result) as JSON                   |
 | `POST /check`      | The raw message | The message with `X-Spam-*` headers added, as `message/rfc822` |
 | `POST /learn/spam` | The raw message | `{"ok": true, "learned": "spam"}`; needs a token               |
@@ -28,6 +30,8 @@ Query parameters describe the SMTP session:
 | `to`         | A recipient; repeat it or separate several with commas         |
 | `verbose=1`  | `/scan`: also return the word list and the subject             |
 | `subjectTag` | `/check`: prefix the subject of spam, for example `%5BSPAM%5D` |
+
+Without `ip`, SPF, DKIM, DMARC, ARC and IP blocklist checks (`--auth`, `--dnsbl`) are skipped.
 
 `/check` also returns `X-Spam-Flag`, `X-Spam-Score` and `X-Spam-Action` as response headers, so a client can decide without parsing the message.
 
@@ -80,6 +84,8 @@ nc -N 127.0.0.1 7830 < message.eml
 
 With `--verbose`, the answer is a line of text instead: `SPAM 16.3/5.0 BAYES_999,PHISHING_LOOKALIKE_DOMAIN,DECEPTIVE_LINK,FROM_NAME_BRAND` or `HAM -2.5/5.0 BAYES_00`.
 
+The TCP server does not know the client's IP address, so `--auth` and `--dnsbl` have no effect. It closes connections that send nothing for 60 seconds, and answers messages larger than 25 MB with an error.
+
 
 ## spamd
 
@@ -102,3 +108,5 @@ A SpamAssassin-compatible server for spamc, Exim, Haraka and other SpamAssassin 
 | `TELL`          | Learns spam or ham, with `--allow-tell`; saves to `--out`          |
 
 Compressed requests (`Compress: zlib`) are refused.
+
+spamd clients do not send the client's IP address either, so `--auth` and `--dnsbl` have no effect. A message larger than 25 MB gets `65` (`EX_DATAERR`), a message shorter than its `Content-length` gets `76` (`EX_PROTOCOL`), and connections that send nothing for 60 seconds are closed.

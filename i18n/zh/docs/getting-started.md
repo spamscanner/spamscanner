@@ -1,4 +1,4 @@
-<!-- source: 8263c06f1dab -->
+<!-- source: 1a2009efd1f9 -->
 
 # 入门
 
@@ -25,6 +25,8 @@ npm install spamscanner
 ```sh
 curl -fsSL https://github.com/spamscanner/spamscanner/releases/latest/download/install.sh | bash
 ```
+
+安装前，脚本会用该版本发布中的 `SHA256SUMS` 文件校验二进制文件。Linux 二进制文件需要 glibc，因此在 Alpine 等基于 musl 的系统上请改用 npm 安装。
 
 每个[版本发布](https://github.com/spamscanner/spamscanner/releases)都附有适用于 Linux（x64 和 arm64）、macOS（Intel 和 Apple 芯片）和 Windows 的二进制文件。
 
@@ -75,6 +77,8 @@ CommonJS 同样可用：
 const SpamScanner = require('spamscanner');
 ```
 
+包内附带类型声明，适用于 TypeScript 4.7 或更高版本（使用 `require` 时需要 5.3 或更高版本）。
+
 `scan()` 接受 Buffer、字符串、Uint8Array 或可读流形式的原始邮件。字符串始终被视为邮件文本：Spam Scanner 绝不会因为字符串看起来像路径就去读取文件。读取文件请使用 `scanner.scanFile(path)`。
 
 
@@ -113,7 +117,7 @@ spamscanner scan message.eml --ip 203.0.113.5 --helo mail.example.com \
 | SPF、DKIM、DMARC、ARC | `authentication: true`                           | `--auth`                   |
 | IP 黑名单             | `dnsbl: {ip: ['zen.spamhaus.org']}`              | `--dnsbl zen.spamhaus.org` |
 | 链接域名黑名单            | `dnsbl: {domain: ['dbl.spamhaus.org']}`          | `--uribl dbl.spamhaus.org` |
-| ClamAV             | `clamav: true` 或 `clamav: {socket}`              | `--clamav [socket]`        |
+| ClamAV             | `clamav: true` 或 `clamav: {socket}`              | `--clamav[=socket]`        |
 | 语言模型               | `llm: {provider: 'ollama', model: 'qwen3.5:4b'}` | `--llm ollama`             |
 | 允许列表和拒绝列表          | `allowlist: [...]`、`denylist: [...]`             | `--allowlist`、`--denylist` |
 

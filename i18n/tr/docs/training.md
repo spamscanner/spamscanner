@@ -1,4 +1,4 @@
-<!-- source: 7cc30ff4ad91 -->
+<!-- source: 4d7afeb36844 -->
 
 # Eğitim
 
@@ -15,12 +15,12 @@ spamscanner train --spam ~/Maildir/.Junk --ham ~/Maildir/cur --ham ~/Maildir/.Ar
 
 Kaynaklar şunlar olabilir:
 
-* gzip ile sıkıştırılmış olanlar dahil (`.mbox.gz`) **mbox** dosyaları,
+* gzip ile sıkıştırılmış olanlar dahil (`.mbox.gz`; diğer `.gz` dosyaları atlanır) **mbox** dosyaları,
 * bir **Maildir** (`cur` ve `new` klasörleri okunur, `tmp` atlanır),
 * özyinelemeli olarak okunan, `.eml` dosyalarından oluşan bir **klasör**,
-* bir **veri kümesi**: bir metin sütunu ve bir etiket sütunu içeren CSV veya JSON Lines dosyası (`--dataset`). `text`, `message`, `body`, `email` veya `content` ile `label`, `category`, `class`, `spam` veya `is_spam` adlı sütunlar kendiliğinden bulunur; aksi hâlde `--text-column` ve `--label-column` kullanın. `spam`, `1`, `phishing` ve `ham`, `0`, `not_spam`, `legitimate` gibi etiketler anlaşılır.
+* bir **veri kümesi**: bir metin sütunu ve bir etiket sütunu içeren CSV veya JSON Lines dosyası (`--dataset`). `text`, `message`, `body`, `email text`, `email`, `content`, `sms` veya `v2` ile `label`, `category`, `is_spam`, `spam`, `email type`, `class`, `type`, `label_text`, `v1` veya `labels` adlı sütunlar ya da JSON alanları, büyük-küçük harf fark etmeksizin kendiliğinden bulunur (JSON Lines'ta `label_text`, `label` alanından önce); aksi hâlde `--text-column` ve `--label-column` kullanın. Nesne olmayan bir JSON satırı atlanır. `spam`, `1`, `phishing` ve `ham`, `0`, `not_spam`, `legitimate` gibi etiketler anlaşılır.
 
-Yinelenen iletiler bir kez sayılır. Boş bir modelle başlamak yerine paketle gelen modelin üzerine eklemek için `--merge` ekleyin.
+Yinelenen iletiler bir kez sayılır. Hem spam hem de ham kaynaklarında bulunan bir ileti spam olarak tutulur, çünkü önce spam kaynakları okunur. Boş bir modelle başlamak yerine paketle gelen modelin üzerine eklemek için `--merge` ekleyin.
 
 Modeli kullanın:
 

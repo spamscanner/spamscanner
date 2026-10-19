@@ -2,7 +2,7 @@
 //
 //   SPAMSCANNER_E2E_POSTFIX=1 npm run test:e2e
 //
-// Postfix must be set up as in .github/workflows/ci.yml:
+// Postfix must be set up by scripts/e2e-postfix.sh (as .github/workflows/ci.yml does):
 // - port 25 (SMTP_PORT) uses the milter at inet:127.0.0.1:7831, which this test starts;
 // - port 2525 (SMTP_FILTER_PORT) passes mail to "spamscanner filter" through a pipe;
 // - mail to E2E_RCPT (default testuser@mx.test) lands in E2E_MAILDIR

@@ -1,7 +1,7 @@
 import {Buffer} from 'node:buffer';
 import {EventEmitter} from 'node:events';
 import net from 'node:net';
-import {spamHeaders} from './headers.js';
+import {spamHeaders, taggedSubject} from './headers.js';
 import {formatAuthResultsHeader} from './auth.js';
 import {VERSION} from './version.js';
 
@@ -22,7 +22,9 @@ export const PROTOCOL = {
 	NOCONNECT: 0x1, NOHELO: 0x2, NOMAIL: 0x4, NORCPT: 0x8, NOBODY: 0x10, NOHDRS: 0x20, NOEOH: 0x40, NR_HDR: 0x80, NOUNKNOWN: 0x1_00, NODATA: 0x2_00, SKIP: 0x4_00, RCPT_REJ: 0x8_00, NR_CONN: 0x10_00, NR_HELO: 0x20_00, NR_MAIL: 0x40_00, NR_RCPT: 0x80_00, NR_DATA: 0x1_00_00, NR_UNKN: 0x2_00_00, NR_EOH: 0x4_00_00, NR_BODY: 0x8_00_00, HDR_LEADSPC: 0x10_00_00,
 };
 
-const MAX_PACKET = 64 * 1024 * 1024;
+// MTAs send the body in chunks of at most 65535 bytes, and Postfix limits a
+// header to 102400 bytes by default, so no real packet comes near 1 MB.
+export const MAX_PACKET = 1024 * 1024;
 
 /**
  * Encode one milter packet: a 4-byte length, a command letter and its data.
@@ -74,7 +76,11 @@ export class MilterSession {
 	constructor(socket, server) {
 		this.socket = socket;
 		this.server = server;
-		this.buffer = Buffer.alloc(0);
+		// Received bytes not yet split into packets, joined only once a whole
+		// packet (or its length) is there, so a large packet is copied once.
+		this.chunks = [];
+		this.buffered = 0;
+		this.needed = 4;
 		this.leadingSpace = false;
 		this.pending = [];
 		this.processing = false;
@@ -85,7 +91,7 @@ export class MilterSession {
 
 	resetConnection() {
 		this.connection = {};
-		this.macros = {};
+		this.clientResolve = undefined;
 		this.resetMessage();
 	}
 
@@ -104,22 +110,32 @@ export class MilterSession {
 	}
 
 	receive(chunk) {
-		this.buffer = Buffer.concat([this.buffer, chunk]);
-		while (this.buffer.length >= 4) {
-			const length = this.buffer.readUInt32BE(0);
+		this.chunks.push(chunk);
+		this.buffered += chunk.length;
+		if (this.buffered < this.needed) {
+			return;
+		}
+
+		let buffer = this.chunks.length === 1 ? this.chunks[0] : Buffer.concat(this.chunks);
+		this.needed = 4;
+		while (buffer.length >= 4) {
+			const length = buffer.readUInt32BE(0);
 			if (length === 0 || length > MAX_PACKET) {
 				this.socket.destroy(new Error(`Invalid milter packet length ${length}`));
 				return;
 			}
 
-			if (this.buffer.length < 4 + length) {
-				return;
+			if (buffer.length < 4 + length) {
+				this.needed = 4 + length;
+				break;
 			}
 
-			this.pending.push({command: String.fromCodePoint(this.buffer[4]), data: this.buffer.subarray(5, 4 + length)});
-			this.buffer = this.buffer.subarray(4 + length);
+			this.pending.push({command: String.fromCodePoint(buffer[4]), data: buffer.subarray(5, 4 + length)});
+			buffer = buffer.subarray(4 + length);
 		}
 
+		this.chunks = buffer.length > 0 ? [buffer] : [];
+		this.buffered = buffer.length;
 		if (!this.processing) {
 			this.process();
 		}
@@ -161,10 +177,17 @@ export class MilterSession {
 			}
 
 			case COMMANDS.MACRO: {
-				// The command letter the macros belong to, then name/value pairs.
-				const pairs = cstrings(data.subarray(1));
-				for (let i = 0; i + 1 < pairs.length; i += 2) {
-					this.macros[pairs[i].replaceAll(/^{|}$/g, '')] = pairs[i + 1];
+				// Macros need no answer, and the connect, HELO and envelope commands
+				// carry everything the scan uses but whether Sendmail verified the
+				// client's hostname: {client_resolve}, sent before the connect
+				// command when Milter.macros.connect names it.
+				if (data.length > 0 && String.fromCodePoint(data[0]) === COMMANDS.CONNECT) {
+					const parts = cstrings(data.subarray(1));
+					for (let i = 0; i + 1 < parts.length; i += 2) {
+						if (parts[i] === '{client_resolve}' || parts[i] === 'client_resolve') {
+							this.clientResolve = parts[i + 1];
+						}
+					}
 				}
 
 				break;
@@ -180,8 +203,9 @@ export class MilterSession {
 				}
 
 				this.connection = {
-					hostname, family, remoteAddress: ip && ip.replace(/^ipv6:/i, ''),
+					hostname, family, remoteAddress: ip && ip.replace(/^ipv6:/i, ''), clientResolve: this.clientResolve,
 				};
+				this.clientResolve = undefined;
 				this.send(RESPONSES.CONTINUE);
 				break;
 			}
@@ -213,11 +237,13 @@ export class MilterSession {
 			}
 
 			case COMMANDS.BODY: {
-				if (this.size + data.length <= options.maxSize) {
+				// Once a chunk is past the limit, later ones are dropped too, so the
+				// scanned body is a true prefix of the message.
+				if (this.truncated || this.size + data.length > options.maxSize) {
+					this.truncated = true;
+				} else {
 					this.body.push(Buffer.from(data));
 					this.size += data.length;
-				} else {
-					this.truncated = true;
 				}
 
 				this.send(RESPONSES.CONTINUE);
@@ -251,26 +277,14 @@ export class MilterSession {
 		}
 	}
 
+	/** @returns {Buffer} */
 	rawMessage() {
 		const head = this.headers.map(([name, value]) => `${name}:${this.leadingSpace || value.startsWith(' ') || value.startsWith('\t') ? '' : ' '}${value}`).join('\r\n');
 		return Buffer.concat([Buffer.from(this.headers.length > 0 ? `${head}\r\n\r\n` : '\r\n', 'latin1'), ...this.body]);
 	}
 
-	async endOfMessage() {
-		const {options, scanner} = this.server;
-		const {hostname} = this.connection;
-		const session = {
-			remoteAddress: this.connection.remoteAddress || undefined,
-			// Postfix and Sendmail send the client's hostname only when its reverse
-			// DNS was confirmed; otherwise "unknown" or "[address]".
-			resolvedClientHostname: hostname && hostname !== 'unknown' && !hostname.startsWith('[') ? hostname : undefined,
-			helo: this.connection.helo,
-			envelope: this.envelope,
-		};
-		const result = await scanner.scan(this.rawMessage(), {session});
-		this.server.emit('scan', {session, result});
-
-		// Remove X-Spam headers the sender added, so they cannot pose as ours.
+	// Remove X-Spam headers the sender added, so they cannot pose as ours.
+	removeForgedHeaders() {
 		const counts = new Map();
 		for (const [name] of this.headers) {
 			const key = name.toLowerCase();
@@ -281,6 +295,56 @@ export class MilterSession {
 				this.send(RESPONSES.CHGHEADER, Buffer.concat([index, cstring(name), cstring('')]));
 			}
 		}
+	}
+
+	async endOfMessage() {
+		const {options, scanner} = this.server;
+		const {hostname, clientResolve} = this.connection;
+		// Postfix sends the client's hostname only when its reverse DNS was
+		// confirmed by a forward lookup, otherwise "unknown" (or "[address]");
+		// Sendmail sends "[address]" without reverse DNS, but a reverse name
+		// that does not resolve back to the address as well, which
+		// {client_resolve} then gives as FORGED (or FAIL, TEMP) rather than OK.
+		const verified = hostname && hostname !== 'unknown' && !hostname.startsWith('[') && (clientResolve === undefined || clientResolve.toUpperCase() === 'OK');
+		const session = {
+			remoteAddress: this.connection.remoteAddress || undefined,
+			resolvedClientHostname: verified ? hostname : undefined,
+			helo: this.connection.helo,
+			envelope: this.envelope,
+		};
+		let result;
+		try {
+			result = await scanner.scan(this.rawMessage(), {session});
+		} catch (error) {
+			if (options.onError !== 'accept') {
+				throw error;
+			}
+
+			// (accepted unscanned: without the sender's X-Spam headers, and marked)
+			this.server.report(error);
+			this.removeForgedHeaders();
+			this.send(RESPONSES.ADDHEADER, Buffer.concat([cstring('X-Spam-Virus-Scan'), cstring(`${this.leadingSpace ? ' ' : ''}failed`)]));
+			this.send(RESPONSES.CONTINUE);
+			this.resetMessage();
+			return;
+		}
+
+		// (a listener that fails does not change the answer)
+		try {
+			this.server.emit('scan', {session, result});
+		} catch (error) {
+			this.server.report(error);
+		}
+
+		// (a message ClamAV could not scan may hold a virus: it is deferred, as
+		//  for a failed scan, unless failures are accepted)
+		if (result.results.virusScanErrors?.length > 0 && options.onError !== 'accept') {
+			this.send(RESPONSES.TEMPFAIL);
+			this.resetMessage();
+			return;
+		}
+
+		this.removeForgedHeaders();
 
 		const headers = spamHeaders(result, {version: VERSION});
 		if (result.results.authentication) {
@@ -293,11 +357,12 @@ export class MilterSession {
 
 		if (result.isSpam && options.subjectTag) {
 			const subject = this.headers.find(([name]) => name.toLowerCase() === 'subject');
-			const current = subject ? subject[1].trim() : '';
-			if (!current.startsWith(options.subjectTag)) {
+			// (folded with a bare line feed, as the MTA takes it)
+			const value = taggedSubject(options.subjectTag, subject ? subject[1].trim() : '', '\n');
+			if (value !== null) {
 				const index = Buffer.alloc(4);
 				index.writeUInt32BE(1);
-				this.send(RESPONSES.CHGHEADER, Buffer.concat([index, cstring('Subject'), cstring(`${this.leadingSpace ? ' ' : ''}${options.subjectTag}${current ? ` ${current}` : ''}`)]));
+				this.send(RESPONSES.CHGHEADER, Buffer.concat([index, cstring('Subject'), cstring(`${this.leadingSpace ? ' ' : ''}${value}`.replaceAll('\r\n', '\n'))]));
 			}
 		}
 
@@ -333,7 +398,7 @@ export class MilterServer extends EventEmitter {
 	 * @param {import('./index.js').SpamScanner} scanner
 	 * @param {object} [options]
 	 * @param {boolean} [options.reject] - refuse messages at the reject threshold (default: tag only)
-	 * @param {number} [options.rejectCode] - 451 (try again later, the default) or 550
+	 * @param {number} [options.rejectCode] - a 4xx or 5xx code: 451 (try again later, the default) or 550
 	 * @param {string} [options.rejectMessage]
 	 * @param {boolean} [options.quarantine] - hold spam in the MTA's quarantine
 	 * @param {string|null} [options.subjectTag] - e.g. "[SPAM]"
@@ -347,6 +412,10 @@ export class MilterServer extends EventEmitter {
 		this.options = {
 			reject: false, rejectCode: 451, rejectMessage: 'Message rejected as spam', quarantine: false, subjectTag: null, hostname: 'spamscanner', maxSize: 25 * 1024 * 1024, onError: 'tempfail', ...options,
 		};
+		if (!/^[45]\d\d$/.test(String(this.options.rejectCode))) {
+			throw new RangeError(`rejectCode must be a 4xx or 5xx SMTP code, not ${this.options.rejectCode}`);
+		}
+
 		this.sockets = new Set();
 		this.server = net.createServer(socket => {
 			this.sockets.add(socket);

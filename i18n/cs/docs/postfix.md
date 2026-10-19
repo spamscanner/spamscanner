@@ -1,4 +1,4 @@
-<!-- source: f1043eb5fc58 -->
+<!-- source: 6675649d593a -->
 
 # Postfix a Sendmail
 
@@ -13,11 +13,13 @@ Oba způsoby přidávají ke každé zprávě tyto hlavičky:
 X-Spam-Flag: YES
 X-Spam-Score: 8.0
 X-Spam-Level: ********
-X-Spam-Status: Yes, score=8.0 required=5.0 tests=BAYES_99,DECEPTIVE_LINK version=7.0.0
+X-Spam-Status: Yes, score=8.0 required=5.0 tests=BAYES_99,DECEPTIVE_LINK version=7.0.3
 X-Spam-Action: tag
 ```
 
 Hlavičky `X-Spam-*`, které už zpráva obsahuje, se nejprve odstraní, takže odesílatel nemůže svou vlastní poštu označit jako čistou.
+
+Zpráva s přílohou, kterou ClamAV nedokázal zkontrolovat, může obsahovat virus, proto ji oba odloží (Postfix nebo odesílatel to zkusí později znovu), stejně jako když kontrola selže. S `--on-error accept` se předá dál s přidanou hlavičkou `X-Spam-Virus-Scan: failed`.
 
 
 ## Milter
@@ -29,7 +31,7 @@ npm install --global spamscanner
 spamscanner milter --port 7831 --auth --subject-tag "[SPAM]" --verbose
 ```
 
-S `--reject` se zprávy na prahu odmítnutí (15 bodů) odmítají s `451 4.7.1 Message rejected as spam`. Kód 451 je dočasný: odesílatel to zkusí později znovu a chybu lze ještě opravit změnou nastavení. Až budou výsledky vypadat správně, použijte `--reject-code 550` pro trvalé odmítnutí. S `--quarantine` jde spam místo toho do fronty hold v Postfixu.
+S `--reject` se zprávy na prahu odmítnutí (15 bodů) odmítají s `451 4.7.1 Message rejected as spam`. Kód 451 je dočasný: odesílatel to zkusí později znovu a chybu lze ještě opravit změnou nastavení. Až budou výsledky vypadat správně, použijte `--reject-code 550` pro trvalé odmítnutí. S `--quarantine` jde spam místo toho do fronty hold v Postfixu. Zpráva, kterou milter nedokázal úplně zkontrolovat, dostane odpověď 4xx; `--on-error accept` ji místo toho propustí.
 
 Jako služba systemd v `/etc/systemd/system/spamscanner-milter.service`:
 
@@ -101,7 +103,7 @@ smtp      inet  n       -       n       -       -       smtpd
   -o content_filter=spamscanner:dummy
 spamscanner unix -      n       n       -       10      pipe
   flags=Rq user=spamscanner null_sender=
-  argv=/usr/bin/node /usr/local/lib/node_modules/spamscanner/dist/esm/cli.js filter --subject-tag [SPAM] -f ${sender} -- ${recipient}
+  argv=/usr/bin/node /usr/local/lib/node_modules/spamscanner/dist/esm/cli.js filter --subject-tag [SPAM] --from=${sender} -- ${recipient}
 ```
 
 Postfix spouští filtr s téměř prázdným prostředím, proto `argv` uvádí Node.js i skript plnými cestami (ukážou je `command -v node` a `npm root --global`). Potom:
@@ -112,7 +114,7 @@ sudo postfix reload
 
 Filtr vrací zprávu zpět pomocí `sendmail -G -i`. Pošta odeslaná tímto způsobem znovu neprochází naslouchačem `smtp`, takže se nefiltruje dvakrát.
 
-Návratové kódy říkají Postfixu, co se stalo: 0 doručeno, 69 odmítnuto (s `--reject`: Postfix zprávu vrátí odesílateli), 75 dočasné selhání (Postfix zprávu ponechá a zkusí to znovu). Jakékoli selhání kontroly nebo doručení vrací 75, takže chybné nastavení nikdy poštu neztratí ani nevrátí.
+Návratové kódy říkají Postfixu, co se stalo: 0 doručeno, 69 odmítnuto (s `--reject`: Postfix zprávu vrátí odesílateli), 75 dočasné selhání (Postfix zprávu ponechá a zkusí to znovu). Jakékoli selhání kontroly nebo doručení vrací 75, stejně jako zpráva s přílohou, kterou ClamAV nedokázal zkontrolovat, takže chybné nastavení nikdy poštu neztratí ani nevrátí. S `--on-error accept` se zpráva, jejíž kontrola selhala nebo kterou ClamAV nedokázal úplně zkontrolovat, místo toho předá dál, označená `X-Spam-Virus-Scan: failed` (viz [CLI](cli.md#filter)).
 
 
 ## Sendmail
@@ -124,6 +126,12 @@ INPUT_MAIL_FILTER(`spamscanner', `S=inet:7831@127.0.0.1, F=T, T=S:30s;R:30s;E:5m
 ```
 
 `F=T` zajistí, že Sendmail odpovídá dočasným selháním, dokud je milter nedostupný; když tuto volbu vynecháte, pošta se místo toho přijme nefiltrovaná. Znovu sestavte `sendmail.cf` a restartujte Sendmail.
+
+Název hostitele klienta může zprávu zařadit na seznam povolených, jen když je ověřený. Postfix ho posílá, jen když se reverzní DNS název klienta překládá zpět na jeho adresu, a jinak `unknown`. Sendmail posílá reverzní DNS název, i když se zpět nepřekládá (název, který si může zvolit kdokoli s reverzním DNS pro vlastní adresu), a uvádí to ve svém makru `{client_resolve}`, které ve výchozím stavu neposílá. Přidejte ho k makrům posílaným při připojení, před `INPUT_MAIL_FILTER`, aby se počítal jen název hostitele, který uvede jako `OK`:
+
+```text
+define(`confMILTER_MACROS_CONNECT', `j, _, {daemon_name}, {if_name}, {if_addr}, {client_resolve}')
+```
 
 
 ## Třídění spamu do složky Junk

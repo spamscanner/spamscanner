@@ -1,4 +1,4 @@
-<!-- source: 7cc30ff4ad91 -->
+<!-- source: 4d7afeb36844 -->
 
 # Træning
 
@@ -15,12 +15,12 @@ spamscanner train --spam ~/Maildir/.Junk --ham ~/Maildir/cur --ham ~/Maildir/.Ar
 
 Kilderne kan være:
 
-* **mbox**-filer, også gzip-komprimerede (`.mbox.gz`),
+* **mbox**-filer, også gzip-komprimerede (`.mbox.gz`; andre `.gz`-filer springes over),
 * en **Maildir** (dens mapper `cur` og `new` læses, `tmp` springes over),
 * en **mappe** med `.eml`-filer, der læses rekursivt,
-* et **datasæt**: en CSV- eller JSON Lines-fil med en tekstkolonne og en etiketkolonne (`--dataset`). Kolonner med navnene `text`, `message`, `body`, `email` eller `content` og `label`, `category`, `class`, `spam` eller `is_spam` findes automatisk; ellers bruger du `--text-column` og `--label-column`. Etiketter som `spam`, `1`, `phishing` og `ham`, `0`, `not_spam`, `legitimate` forstås.
+* et **datasæt**: en CSV- eller JSON Lines-fil med en tekstkolonne og en etiketkolonne (`--dataset`). Kolonner eller JSON-felter med navnene `text`, `message`, `body`, `email text`, `email`, `content`, `sms` eller `v2` og `label`, `category`, `is_spam`, `spam`, `email type`, `class`, `type`, `label_text`, `v1` eller `labels`, uanset store og små bogstaver, findes automatisk (i JSON Lines `label_text` før `label`); ellers bruger du `--text-column` og `--label-column`. En JSON-linje, der ikke er et objekt, springes over. Etiketter som `spam`, `1`, `phishing` og `ham`, `0`, `not_spam`, `legitimate` forstås.
 
-Dubletter tælles én gang. For at bygge videre på den medfølgende model i stedet for at starte tomt tilføjer du `--merge`.
+Dubletter tælles én gang. En besked, der findes i både spam- og ham-kilderne, beholdes som spam, da spamkilderne læses først. For at bygge videre på den medfølgende model i stedet for at starte tomt tilføjer du `--merge`.
 
 Brug modellen:
 

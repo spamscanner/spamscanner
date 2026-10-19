@@ -1,4 +1,4 @@
-<!-- source: 8a788c19971e -->
+<!-- source: a7dfb7c0fde2 -->
 
 # Fonctionnement
 
@@ -19,9 +19,9 @@ Spam Scanner conserve ce qui fonctionne dans le comptage de mots, les statistiqu
 
 ### Ce qu’il compte
 
-Le texte lu est celui qu’affiche un client de messagerie : celui de la partie HTML s’il y en a une (une partie texte brut à côté n’est affichée que là où le HTML ne peut pas l’être, si bien qu’une partie inoffensive ne peut pas parler à la place du HTML), sans les balises, commentaires, scripts et styles, les balises en ligne joignant un mot comme le fait un navigateur (`Free Sp<span>ins</span>`), et le texte que le HTML cache étant écarté et compté : par un élément qui cache ce qu’il contient (display, opacity, l’attribut hidden, une boîte rognée de taille nulle, du texte déplacé hors de la page), ou invisible, transparent ou dans une police d’un pixel ou moins là où il se trouve (ce qu’un élément intérieur peut rétablir, comme le font les modèles adaptatifs). Les styles sont lus comme les navigateurs les lisent (la dernière déclaration l’emporte, commentaires, références de caractères) ; les couleurs sur un fond et les classes de feuilles de style ne le sont pas, et un tel texte est donc lu tel qu’il est affiché. Un HTML affichant moins de 20 mots, comme une image du message, est lu avec sa partie texte brut. Les liens et les noms d’hôte sont lus dans les deux parties et dans le texte caché.
+Le texte lu est celui qu’affiche un client de messagerie : celui de la partie HTML s’il y en a une (une partie texte brut à côté n’est affichée que là où le HTML ne peut pas l’être, si bien qu’une partie inoffensive ne peut pas parler à la place du HTML), sans les balises, commentaires, scripts et styles, les balises en ligne joignant un mot comme le fait un navigateur (`Free Sp<span>ins</span>`), les blocs, les cellules et les sauts de ligne le coupant (ainsi qu’un élément qu’un style affiche comme un bloc, un bloc qu’un navigateur termine de lui-même et un bloc caché qui garde sa place, mais pas un bloc qui ne prend aucune place), et le texte que le HTML cache étant écarté et compté : par un élément qui cache ce qu’il contient (display, opacity, l’attribut hidden, une boîte rognée de taille nulle, du texte déplacé hors de la page), ou invisible, transparent ou dans une police d’un pixel ou moins là où il se trouve (ce qu’un élément intérieur peut rétablir, comme le font les modèles adaptatifs). Les styles sont lus comme les navigateurs les lisent (la dernière déclaration l’emporte, commentaires, références de caractères) ; les couleurs sur un fond et les classes de feuilles de style ne le sont pas, et un tel texte est donc lu tel qu’il est affiché. Un HTML affichant moins de 20 mots, comme une image du message, est lu avec sa partie texte brut. Les liens sont lus dans les deux parties, dans le texte caché et dans le texte qu’affiche le HTML, où une adresse coupée par des balises en ligne (`https://www.pay<b></b>pa1.com/`) se lit d’un seul tenant. Les noms d’hôte écrits sans lien sont lus dans l’objet, dans le texte lu et dans une partie texte brut à côté du HTML.
 
-Le texte est d’abord normalisé : la normalisation Unicode NFKC ramène les lettres stylisées et pleine chasse à des lettres simples, les caractères invisibles sont retirés et comptés, les lettres sosies à l’intérieur de mots par ailleurs latins ou cyrilliques sont rétablies, et les chiffres utilisés comme lettres (`v1agra`) sont convertis. Les mots sont ensuite segmentés avec `Intl.Segmenter`, les règles Unicode de découpage en mots avec des dictionnaires pour le chinois, le japonais, le thaï, le lao, le khmer et le birman.
+Le texte est d’abord normalisé : la normalisation Unicode NFKC ramène les lettres stylisées et pleine chasse à des lettres simples, les caractères invisibles sont retirés et comptés (pas une espace sans chasse entre des lettres thaïes, laotiennes, khmères, birmanes ou tibétaines, qui y sépare les mots, et les liants seulement entre lettres latines), les lettres sosies d’un mot qui mélange lettres latines, cyrilliques ou grecques sont ramenées à l’écriture de la plupart de ses lettres (`рaypal` avec un р cyrillique devient `paypal`, `пpивет` avec un p latin devient `привет`), les parties d’un mot entre apostrophes sont lues séparément (`iPhone'ы`, une désinence casuelle russe, ne mélange rien), et les chiffres utilisés comme lettres (`v1agra`) sont convertis. Les mots sont ensuite segmentés avec `Intl.Segmenter`, les règles Unicode de découpage en mots avec des dictionnaires pour le chinois, le japonais, le thaï, le lao, le khmer et le birman.
 
 Il en extrait :
 
@@ -63,22 +63,23 @@ Le paquet inclut un modèle entraîné sur des jeux de données publics sous lic
 Chaque lien est vérifié :
 
 * **Domaines sosies.** Chaque domaine est réduit à un squelette à l’aide de la table Unicode des caractères confusables : `pаypal.com` (а cyrillique), `paypa1.com`, `rnicrosoft.com` et `xn--pple-43d.com` correspondent ainsi tous à la marque qu’ils imitent. Les écritures mélangées dans une même étiquette, les noms de marque dans les sous-domaines (`paypal.com.example.net`) et les fautes de frappe d’une lettre obtiennent un score plus faible. Près de 100 marques couramment usurpées sont intégrées, et d’autres peuvent être ajoutées.
-* **Liens trompeurs.** Les liens HTML dont le texte visible est une autre adresse que la cible.
+* **Liens trompeurs.** Les liens HTML dont le texte visible est une autre adresse que la cible : tout le texte, ou une adresse contenant `http://` ou `https://` (`Sign in at https://www.paypal.com`). Un nom de fichier ou le nom d’un site dans une phrase (`Download report.zip`, `Read why Booking.com switched`) n’est pas une adresse. Un lien qui passe par le suivi des clics d’un service d’envoi (SendGrid, Mailchimp, Amazon SES, Kit, Brevo, beehiiv, Substack et d’autres) ou par une passerelle de sécurité qui réécrit les liens (Microsoft Safe Links, Proofpoint, Mimecast, Barracuda, Cisco) mène ailleurs par conception : il ne compte donc que lorsque son texte est l’adresse complète d’une marque, sans chemin ou avec un chemin de connexion (pas un lien vers un réseau social, le produit d’une boutique ou une carte), et que l’expéditeur n’est ni cette marque ni l’un de ses domaines d’envoi. Quand le lien d’une passerelle contient l’adresse vers laquelle il mène ensuite (Safe Links, Proofpoint), c’est cette adresse qui est comparée.
 * **Résolveurs filtrants de Cloudflare.** Les hôtes des liens sont interrogés sur 1.1.1.2, qui répond `0.0.0.0` pour les logiciels malveillants et l’hameçonnage connus, et sur 1.1.1.3, qui bloque aussi le contenu pour adultes.
 * **Noms d’affichage.** Un nom comme « PayPal Security » associé à une adresse d’un autre domaine, ou un nom contenant une autre adresse e-mail.
 
 
 ## Pièces jointes
 
-Les pièces jointes sont identifiées d’après leurs octets, pas d’après leur nom ou leur type déclaré :
+Les pièces jointes sont identifiées par leurs octets et leurs noms, non par leurs types déclarés :
 
 * exécutables, raccourcis et scripts Windows, Linux et macOS, y compris renommés en `.pdf` ou `.jpg`
 * doubles extensions (`invoice.pdf.exe`) et caractères de forçage de droite à gauche qui masquent la véritable extension
 * exécutables dans des archives ZIP, et archives chiffrées que les antivirus ne peuvent pas ouvrir
 * fichiers Office contenant des macros, PDF contenant du JavaScript ou des actions de lancement, fichiers RTF contenant des objets incorporés
 * pièces jointes HTML, que l’hameçonnage utilise pour afficher hors ligne une fausse page de connexion
+* les pièces jointes des messages joints (`message/rfc822`, `.eml`), jusqu'à trois niveaux de profondeur et 100 pièces jointes (les pièces jointes du message lui-même sont toujours toutes inspectées)
 
-Avec ClamAV, les pièces jointes sont aussi analysées par `clamd` via son socket.
+Avec ClamAV, les pièces jointes sont aussi analysées par `clamd` via son socket. Quatre sont analysées à la fois, toutes dans le délai `clamav.timeout` (60 secondes), et celles qui n'ont pas pu l'être sont listées dans `results.virusScanErrors`. Celles qui sont plus grandes que ce qu’accepte clamd (son `StreamMaxLength`) sont listées à la place dans `results.virusScanSkipped` : clamd les refuse à chaque tentative.
 
 
 ## Authentification

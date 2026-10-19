@@ -1,4 +1,4 @@
-<!-- source: faf44f093f8b -->
+<!-- source: 9caf3ffb803a -->
 
 # HTTP API, TCP server a spamd
 
@@ -6,14 +6,16 @@
 ## HTTP API
 
 ```sh
-spamscanner http --port 7832 --token "$SPAMSCANNER_TOKEN"
+spamscanner http --port 7832    # token in SPAMSCANNER_TOKEN
 ```
+
+HTTP API čte svůj token z proměnné prostředí `SPAMSCANNER_TOKEN`. Funguje i `--token`, ale ostatní uživatelé počítače vidí volby příkazového řádku v `ps`.
 
 Naslouchá na 127.0.0.1, pokud `--host` neurčí jinak. S tokenem vyžaduje každý požadavek kromě `/health` hlavičku `Authorization: Bearer <token>`. Než ho zpřístupníte mimo počítač, postavte ho za reverzní proxy s TLS.
 
 | Metoda a cesta     | Tělo          | Odpověď                                                        |
 | ------------------ | ------------- | -------------------------------------------------------------- |
-| `GET /health`      |               | `{"ok": true, "version": "7.0.0"}`                             |
+| `GET /health`      |               | `{"ok": true, "version": "..."}`                               |
 | `POST /scan`       | Surová zpráva | [Výsledek kontroly](api.md#the-result) jako JSON               |
 | `POST /check`      | Surová zpráva | Zpráva s přidanými hlavičkami `X-Spam-*` jako `message/rfc822` |
 | `POST /learn/spam` | Surová zpráva | `{"ok": true, "learned": "spam"}`; vyžaduje token              |
@@ -30,6 +32,8 @@ Parametry dotazu popisují relaci SMTP:
 | `to`         | Příjemce; parametr opakujte, nebo více příjemců oddělte čárkami    |
 | `verbose=1`  | `/scan`: vrátit také seznam slov a předmět                         |
 | `subjectTag` | `/check`: přidat předponu k předmětu spamu, například `%5BSPAM%5D` |
+
+Bez `ip` se kontroly SPF, DKIM, DMARC, ARC a IP blocklistů (`--auth`, `--dnsbl`) přeskočí.
 
 `/check` vrací také `X-Spam-Flag`, `X-Spam-Score` a `X-Spam-Action` jako hlavičky odpovědi, takže klient se může rozhodnout bez rozebírání zprávy.
 
@@ -82,6 +86,8 @@ nc -N 127.0.0.1 7830 < message.eml
 
 S `--verbose` je odpovědí místo toho řádek textu: `SPAM 16.3/5.0 BAYES_999,PHISHING_LOOKALIKE_DOMAIN,DECEPTIVE_LINK,FROM_NAME_BRAND` nebo `HAM -2.5/5.0 BAYES_00`.
 
+TCP server nezná IP adresu klienta, takže `--auth` a `--dnsbl` nemají žádný účinek. Zavírá spojení, která 60 sekund nic neposílají, a na zprávy větší než 25 MB odpoví chybou.
+
 
 ## spamd
 
@@ -104,3 +110,5 @@ Server kompatibilní se SpamAssassinem pro spamc, Exim, Haraka a další klienty
 | `TELL`          | S `--allow-tell` se naučí spam nebo ham; ukládá do `--out` |
 
 Komprimované požadavky (`Compress: zlib`) se odmítají.
+
+Ani klienti spamd neposílají IP adresu klienta, takže `--auth` a `--dnsbl` nemají žádný účinek. Zpráva větší než 25 MB dostane `65` (`EX_DATAERR`), zpráva kratší, než udává její `Content-length`, dostane `76` (`EX_PROTOCOL`) a spojení, která 60 sekund nic neposílají, se zavřou.

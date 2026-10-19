@@ -6,7 +6,8 @@
 // * every translated page starts with the hash of the English file it was
 //   translated from, so an edit to the English page shows up here,
 // * a translated page keeps the English page's headings, code blocks, inline
-//   code, links and front matter, which the build relies on.
+//   code, links, front matter and the shape of each table (rows by columns),
+//   which the build relies on.
 //
 //   node scripts/i18n-check.js            all languages
 //   node scripts/i18n-check.js de fr      some
@@ -71,9 +72,10 @@ function frontMatter(text) {
 }
 
 // What a translation has to keep: headings by level, code blocks verbatim,
-// inline code, and link and image targets.
+// inline code, link and image targets, and tables as rows by columns.
 function structure(markdown) {
 	const headings = [];
+	const tables = [];
 	const code = [];
 	const inline = [];
 	const links = [];
@@ -110,6 +112,7 @@ function structure(markdown) {
 			}
 
 			if (token.type === 'table') {
+				tables.push(`${token.rows.length}×${token.header.length}`);
 				for (const cell of [...token.header, ...token.rows.flat()]) {
 					walk(cell.tokens);
 				}
@@ -119,7 +122,7 @@ function structure(markdown) {
 
 	walk(new Lexer({gfm: true}).lex(markdown));
 	return {
-		headings, code, inline, links,
+		headings, code, inline, links, tables,
 	};
 }
 
@@ -193,6 +196,11 @@ function checkPage(code, name) {
 	const b = structure(translated.body);
 	if (!sameList(a.headings, b.headings)) {
 		fail(file, `headings differ: levels ${b.headings.join(' ')}, expected ${a.headings.join(' ')}`);
+	}
+
+	if (!sameList(a.tables, b.tables)) {
+		const index = a.tables.findIndex((shape, i) => shape !== b.tables[i]);
+		fail(file, `tables differ in rows × columns: ${b.tables.join(' ') || 'none'}, expected ${a.tables.join(' ') || 'none'} (table ${(index === -1 ? a.tables.length : index) + 1})`);
 	}
 
 	if (!sameList(a.code, b.code)) {

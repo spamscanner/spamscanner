@@ -1,4 +1,4 @@
-<!-- source: faf44f093f8b -->
+<!-- source: 9caf3ffb803a -->
 
 # HTTP API, server TCP, dan spamd
 
@@ -6,14 +6,16 @@
 ## HTTP API
 
 ```sh
-spamscanner http --port 7832 --token "$SPAMSCANNER_TOKEN"
+spamscanner http --port 7832    # token in SPAMSCANNER_TOKEN
 ```
+
+API HTTP membaca tokennya dari variabel lingkungan `SPAMSCANNER_TOKEN`. `--token` juga berfungsi, tetapi pengguna lain di mesin itu dapat melihat opsi baris perintah di `ps`.
 
 Server mendengarkan di 127.0.0.1 kecuali `--host` menentukan lain. Dengan token, setiap permintaan kecuali `/health` memerlukan `Authorization: Bearer <token>`. Tempatkan di belakang reverse proxy dengan TLS sebelum membukanya ke luar mesin.
 
 | Metode dan path    | Body         | Jawaban                                                                   |
 | ------------------ | ------------ | ------------------------------------------------------------------------- |
-| `GET /health`      |              | `{"ok": true, "version": "7.0.0"}`                                        |
+| `GET /health`      |              | `{"ok": true, "version": "..."}`                                          |
 | `POST /scan`       | Pesan mentah | [Hasil pemindaian](api.md#the-result) sebagai JSON                        |
 | `POST /check`      | Pesan mentah | Pesan dengan header `X-Spam-*` yang ditambahkan, sebagai `message/rfc822` |
 | `POST /learn/spam` | Pesan mentah | `{"ok": true, "learned": "spam"}`; memerlukan token                       |
@@ -30,6 +32,8 @@ Parameter kueri menjelaskan sesi SMTP:
 | `to`         | Penerima; ulangi parameter ini atau pisahkan beberapa dengan koma |
 | `verbose=1`  | `/scan`: juga mengembalikan daftar kata dan subjek                |
 | `subjectTag` | `/check`: awalan untuk subjek spam, misalnya `%5BSPAM%5D`         |
+
+Tanpa `ip`, pemeriksaan SPF, DKIM, DMARC, ARC, dan daftar blokir IP (`--auth`, `--dnsbl`) dilewati.
 
 `/check` juga mengembalikan `X-Spam-Flag`, `X-Spam-Score`, dan `X-Spam-Action` sebagai header respons, sehingga klien dapat memutuskan tanpa mengurai pesan.
 
@@ -82,6 +86,8 @@ nc -N 127.0.0.1 7830 < message.eml
 
 Dengan `--verbose`, jawabannya berupa satu baris teks: `SPAM 16.3/5.0 BAYES_999,PHISHING_LOOKALIKE_DOMAIN,DECEPTIVE_LINK,FROM_NAME_BRAND` atau `HAM -2.5/5.0 BAYES_00`.
 
+Server TCP tidak mengetahui alamat IP klien, sehingga `--auth` dan `--dnsbl` tidak berpengaruh. Server menutup koneksi yang tidak mengirim apa pun selama 60 detik, dan menjawab pesan yang lebih besar dari 25 MB dengan galat.
+
 
 ## spamd
 
@@ -104,3 +110,5 @@ Server yang kompatibel dengan SpamAssassin untuk spamc, Exim, Haraka, dan klien 
 | `TELL`          | Mempelajari spam atau ham, dengan `--allow-tell`; menyimpan ke `--out` |
 
 Permintaan terkompresi (`Compress: zlib`) ditolak.
+
+Klien spamd juga tidak mengirim alamat IP klien, sehingga `--auth` dan `--dnsbl` tidak berpengaruh. Pesan yang lebih besar dari 25 MB mendapat `65` (`EX_DATAERR`), pesan yang lebih pendek dari `Content-length`-nya mendapat `76` (`EX_PROTOCOL`), dan koneksi yang tidak mengirim apa pun selama 60 detik ditutup.

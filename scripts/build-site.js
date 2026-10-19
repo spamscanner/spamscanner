@@ -784,7 +784,7 @@ function wordsDemo() {
 
 const INTEGRATIONS = [
 	['postfix', 'Postfix', 'A milter checks mail during the SMTP session, so spam at the reject threshold is refused before it is accepted.', 'spamscanner milter --port 7831 --auth --subject-tag "[SPAM]"\n\n# /etc/postfix/main.cf\nsmtpd_milters = inet:127.0.0.1:7831\nmilter_default_action = accept', 'sh', '/docs/postfix/', 'Postfix guide'],
-	['spamd', 'Exim, Haraka, spamc', 'A SpamAssassin-compatible spamd server: stop spamd, start Spam Scanner on the same port, and SpamAssassin clients keep working.', 'spamscanner spamd --port 783 --auth\n\nspamc -c < message.eml     # prints 16.3/5.0 and exits 1', 'sh', '/docs/mail-servers/#a-drop-in-for-spamassassins-spamd', 'spamd guide'],
+	['spamd', 'Exim, Haraka, spamc', 'A SpamAssassin-compatible spamd server: stop spamd, start Spam Scanner on the same port, and SpamAssassin clients keep working.', 'spamscanner spamd --port 783\n\nspamc -c < message.eml     # prints 16.3/5.0 and exits 1', 'sh', '/docs/mail-servers/#a-drop-in-for-spamassassins-spamd', 'spamd guide'],
 	['node', 'Node.js', 'The library, for smtp-server, Haraka plugins or any service that handles mail.', 'import SpamScanner from \'spamscanner\';\n\nconst scanner = new SpamScanner({authentication: true});\nconst result = await scanner.scan(stream, {session});\n\nif (result.action === \'reject\') {\n  // refuse with a 4xx or 5xx reply\n}', 'js', '/docs/api/', 'API reference'],
 	['http', 'HTTP API', 'For any language and any server that can make an HTTP request.', 'spamscanner http --port 7832 --token "$TOKEN"\n\ncurl -s -X POST -H "Authorization: Bearer $TOKEN" \\\n  --data-binary @message.eml "http://127.0.0.1:7832/scan?ip=203.0.113.5"', 'sh', '/docs/http-api/', 'HTTP API guide'],
 ];

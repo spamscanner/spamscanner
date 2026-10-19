@@ -1,4 +1,4 @@
-<!-- source: 7cc30ff4ad91 -->
+<!-- source: 4d7afeb36844 -->
 
 # 学習
 
@@ -15,12 +15,12 @@ spamscanner train --spam ~/Maildir/.Junk --ham ~/Maildir/cur --ham ~/Maildir/.Ar
 
 使えるソース：
 
-* **mbox**ファイル（gzip圧縮したもの`.mbox.gz`も含む）
+* **mbox**ファイル（gzip圧縮したもの`.mbox.gz`も含む。その他の`.gz`ファイルはスキップする）
 * **Maildir**（`cur`と`new`フォルダーを読み、`tmp`は読み飛ばします）
 * `.eml`ファイルの**フォルダー**（再帰的に読みます）
-* **データセット**：テキストの列とラベルの列を持つCSVまたはJSON Linesのファイル（`--dataset`）。`text`、`message`、`body`、`email`、`content`という名前の列と、`label`、`category`、`class`、`spam`、`is_spam`という名前の列は自動的に見つけます。それ以外の場合は`--text-column`と`--label-column`を使ってください。`spam`、`1`、`phishing`や、`ham`、`0`、`not_spam`、`legitimate`といったラベルを理解します。
+* **データセット**：テキストの列とラベルの列を持つCSVまたはJSON Linesのファイル（`--dataset`）。`text`、`message`、`body`、`email text`、`email`、`content`、`sms`、`v2`という名前の列またはJSONフィールドと、`label`、`category`、`is_spam`、`spam`、`email type`、`class`、`type`、`label_text`、`v1`、`labels`という名前の列またはJSONフィールドは、大文字小文字を問わず自動的に見つけます（JSON Linesでは`label`より`label_text`を優先）。それ以外の場合は`--text-column`と`--label-column`を使ってください。オブジェクトでないJSONの行はスキップします。`spam`、`1`、`phishing`や、`ham`、`0`、`not_spam`、`legitimate`といったラベルを理解します。
 
-重複したメッセージは1回だけ数えます。空の状態からではなく同梱モデルをもとに学習させるには、`--merge`を追加します。
+重複したメッセージは1回だけ数えます。スパムとハムの両方のソースにあるメッセージは、スパムのソースを先に読むため、スパムとして残ります。空の状態からではなく同梱モデルをもとに学習させるには、`--merge`を追加します。
 
 モデルを使う：
 

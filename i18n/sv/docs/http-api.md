@@ -1,4 +1,4 @@
-<!-- source: faf44f093f8b -->
+<!-- source: 9caf3ffb803a -->
 
 # HTTP-API, TCP-server och spamd
 
@@ -6,14 +6,16 @@
 ## HTTP-API
 
 ```sh
-spamscanner http --port 7832 --token "$SPAMSCANNER_TOKEN"
+spamscanner http --port 7832    # token in SPAMSCANNER_TOKEN
 ```
+
+HTTP-API:t läser sin token från miljövariabeln `SPAMSCANNER_TOKEN`. `--token` fungerar också, men andra användare på datorn kan se kommandoradsflaggor i `ps`.
 
 Det lyssnar på 127.0.0.1 om inte `--host` anger något annat. Med en token kräver varje förfrågan utom `/health` huvudet `Authorization: Bearer <token>`. Placera det bakom en omvänd proxy med TLS innan du gör det tillgängligt utanför datorn.
 
 | Metod och sökväg   | Brödtext            | Svar                                                              |
 | ------------------ | ------------------- | ----------------------------------------------------------------- |
-| `GET /health`      |                     | `{"ok": true, "version": "7.0.0"}`                                |
+| `GET /health`      |                     | `{"ok": true, "version": "..."}`                                  |
 | `POST /scan`       | Det råa meddelandet | [Skanningsresultatet](api.md#the-result) som JSON                 |
 | `POST /check`      | Det råa meddelandet | Meddelandet med `X-Spam-*`-huvuden tillagda, som `message/rfc822` |
 | `POST /learn/spam` | Det råa meddelandet | `{"ok": true, "learned": "spam"}`; kräver en token                |
@@ -30,6 +32,8 @@ Frågeparametrar beskriver SMTP-sessionen:
 | `to`         | En mottagare; upprepa parametern eller separera flera med kommatecken |
 | `verbose=1`  | `/scan`: returnera även ordlistan och ämnesraden                      |
 | `subjectTag` | `/check`: prefix för ämnesraden på spam, till exempel `%5BSPAM%5D`    |
+
+Utan `ip` hoppas kontrollerna av SPF, DKIM, DMARC, ARC och IP-blocklistor (`--auth`, `--dnsbl`) över.
 
 `/check` returnerar också `X-Spam-Flag`, `X-Spam-Score` och `X-Spam-Action` som svarshuvuden, så en klient kan avgöra utan att tolka meddelandet.
 
@@ -82,6 +86,8 @@ nc -N 127.0.0.1 7830 < message.eml
 
 Med `--verbose` är svaret i stället en textrad: `SPAM 16.3/5.0 BAYES_999,PHISHING_LOOKALIKE_DOMAIN,DECEPTIVE_LINK,FROM_NAME_BRAND` eller `HAM -2.5/5.0 BAYES_00`.
 
+TCP-servern känner inte till klientens IP-adress, så `--auth` och `--dnsbl` har ingen effekt. Den stänger anslutningar som inte skickar något på 60 sekunder och svarar med ett fel på meddelanden större än 25 MB.
+
 
 ## spamd
 
@@ -104,3 +110,5 @@ En SpamAssassin-kompatibel server för spamc, Exim, Haraka och andra SpamAssassi
 | `TELL`          | Lär in spam eller ham, med `--allow-tell`; sparar till `--out` |
 
 Komprimerade förfrågningar (`Compress: zlib`) nekas.
+
+Inte heller spamd-klienter skickar klientens IP-adress, så `--auth` och `--dnsbl` har ingen effekt. Ett meddelande större än 25 MB får `65` (`EX_DATAERR`), ett meddelande kortare än sitt `Content-length` får `76` (`EX_PROTOCOL`), och anslutningar som inte skickar något på 60 sekunder stängs.

@@ -5,6 +5,7 @@ import {readFileSync} from 'node:fs';
 import net from 'node:net';
 import path from 'node:path';
 import {describe, it} from 'node:test';
+import {setTimeout as delay} from 'node:timers/promises';
 import SpamScanner from '../src/index.js';
 import {GTUBE} from '../src/is-arbitrary.js';
 import {
@@ -48,6 +49,22 @@ async function request(port, command, body = '', {headers = {}, length = true, e
 	return {
 		status, headers: Object.fromEntries(fields.map(line => line.split(': '))), body: split === -1 ? '' : text.slice(split + 4), text,
 	};
+}
+
+// Send raw bytes and read the whole answer, optionally closing the sending
+// side afterwards.
+async function raw(port, data, {end = true} = {}) {
+	const socket = net.createConnection(port, '127.0.0.1');
+	await once(socket, 'connect');
+	const chunks = [];
+	socket.on('data', chunk => chunks.push(chunk));
+	socket.write(data);
+	if (end) {
+		socket.end();
+	}
+
+	await once(socket, 'close');
+	return Buffer.concat(chunks).toString('utf8');
 }
 
 describe('spamd protocol', () => {
@@ -206,5 +223,134 @@ describe('spamd protocol', () => {
 			isSpam: false, score: -1, threshold: 5, tests: [{name: 'BAYES_00', score: -2.5, description: 'Classifier spam probability 0.0%'}],
 		});
 		assert.match(text, /\(-1\.0 points, 5\.0 required\)[\s\S]*-2\.5 BAYES_00 {15}Classifier spam probability 0\.0%\r\n$/);
+	});
+	it('limits messages without a Content-length, and needs the whole message with one', {timeout: 10_000}, async () => {
+		const {port, close} = await start({maxSize: 100});
+		try {
+			// The limit applies while the message arrives, not only at its end.
+			assert.match((await request(port, 'CHECK', 'x'.repeat(500), {length: false, end: false})).status, /^SPAMD\/1\.5 65 Message larger than 100 bytes/);
+			assert.equal(await raw(port, 'CHECK SPAMC/1.5\r\nContent-length: 50\r\n\r\nhello'), 'SPAMD/1.5 76 Message shorter than its Content-length of 50 bytes\r\n\r\n');
+			for (const value of ['0x5', '+5', '1e3', '5.0', '']) {
+				assert.match(await raw(port, `CHECK SPAMC/1.5\r\nContent-length:${value}\r\n\r\nhello`), /^SPAMD\/1\.5 76 Bad Content-length/, value);
+			}
+
+			// An explicit zero is an empty message, answered without waiting.
+			assert.match((await request(port, 'CHECK', '', {end: false})).status, /^SPAMD\/1\.5 0 EX_OK/);
+		} finally {
+			await close();
+		}
+	});
+
+	it('copies a message that arrives in many reads only once', async () => {
+		let scanned = 0;
+		const {port, close} = await start({}, {
+			async scan(message) {
+				scanned = message.length;
+				return {
+					isSpam: false, score: 0, threshold: 5, tests: [],
+				};
+			},
+		});
+		const body = Buffer.alloc(256 * 1024, 'a');
+		const {concat} = Buffer;
+		let copied = 0;
+		Buffer.concat = (list, ...rest) => {
+			const result = concat.call(Buffer, list, ...rest);
+			copied += result.length;
+			return result;
+		};
+
+		try {
+			const socket = net.createConnection(port, '127.0.0.1');
+			await once(socket, 'connect');
+			socket.on('data', () => {});
+			// The answer, and the close, can come before the last write returns.
+			const closed = once(socket, 'close');
+			socket.write(`CHECK SPAMC/1.5\r\nContent-length: ${body.length}\r\n\r\n`);
+			for (let offset = 0; offset < body.length; offset += 8 * 1024) {
+				socket.write(body.subarray(offset, offset + (8 * 1024)));
+
+				await delay(1);
+			}
+
+			socket.end();
+			await closed;
+		} finally {
+			Buffer.concat = concat;
+			await close();
+		}
+
+		assert.equal(scanned, body.length);
+		assert.ok(copied < 2 * body.length, `copied ${copied} bytes for a ${body.length} byte message`);
+	});
+
+	it('does not let a request add lines to the answer', async () => {
+		const {port, close} = await start();
+		try {
+			assert.equal(await raw(port, 'BAD\nSpam: True ; 99.0 / 5.0\r\n\r\n'), 'SPAMD/1.5 76 Bad request line: BAD Spam: True ; 99.0 / 5.0\r\n\r\n');
+		} finally {
+			await close();
+		}
+	});
+
+	it('answers EX_SOFTWARE for errors without a numeric code', async () => {
+		const {port, close} = await start({}, {
+			async scan() {
+				throw Object.assign(new Error('permission denied'), {code: 'EACCES'});
+			},
+		});
+		try {
+			assert.equal((await request(port, 'CHECK', ham)).status, 'SPAMD/1.5 70 permission denied');
+		} finally {
+			await close();
+		}
+	});
+
+	it('closes idle connections, but not while a scan runs', {timeout: 10_000}, async () => {
+		const slow = scanner();
+		const {port, close} = await start({timeout: 100}, {
+			async scan(...arguments_) {
+				await delay(300);
+				return slow.scan(...arguments_);
+			},
+		});
+		try {
+			assert.equal(await raw(port, 'CHECK SPAMC/1.5\r\nContent-length: 50\r\n\r\npartial', {end: false}), '');
+			assert.equal(await raw(port, '', {end: false}), '');
+			assert.match((await request(port, 'CHECK', ham, {end: false})).headers.Spam, /^False/);
+		} finally {
+			await close();
+		}
+	});
+
+	it('closes a connection the client leaves open after its answer', {timeout: 10_000}, async () => {
+		const {port, close} = await start({timeout: 100});
+		const socket = net.connect({port, host: '127.0.0.1', allowHalfOpen: true});
+		try {
+			await once(socket, 'connect');
+			socket.write('PING SPAMC/1.5\r\n\r\n');
+			socket.resume();
+			await once(socket, 'end');
+			// (the server closes once its last connection is gone)
+			const timer = new AbortController();
+			const late = async () => {
+				try {
+					await delay(5000, undefined, {signal: timer.signal});
+				} catch {
+					return;
+				}
+
+				throw new Error('the connection was left open');
+			};
+
+			try {
+				await Promise.race([close(), late()]);
+			} finally {
+				timer.abort();
+			}
+		} finally {
+			socket.destroy();
+			await close();
+		}
 	});
 });

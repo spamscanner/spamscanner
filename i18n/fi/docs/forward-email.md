@@ -1,4 +1,4 @@
-<!-- source: dc9016edd59e -->
+<!-- source: c70584655c0e -->
 
 # Forward Email
 
@@ -45,7 +45,7 @@ async function onData(stream, session, callback) {
 }
 ```
 
-`scanner.scan()` hyväksyy SMTP-virran suoraan. Jos [mailauthin](https://github.com/postalsys/mailauth) tulokset ovat jo käytettävissä, jätä `authentication` pois ja välitä pelkkä IP-osoite.
+`scanner.scan()` hyväksyy SMTP-virran suoraan. Jos [mailauthin](https://github.com/postalsys/mailauth) tulokset ovat jo käytettävissä, välitä ne `authenticationResults`-asetuksena: ne pisteytetään sen sijaan, että ne tarkistettaisiin uudelleen.
 
 Vastaus 421 tai 451 saa lähettävän palvelimen asettamaan viestin jonoon ja yrittämään myöhemmin uudelleen. Uudet hylkäyssäännöt voivat aloittaa väliaikaisella koodilla ja siirtyä koodiin 550, kun niiden tulokset on tarkistettu, menettämättä postia siinä välissä.
 

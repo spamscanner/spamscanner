@@ -1,4 +1,4 @@
-<!-- source: faf44f093f8b -->
+<!-- source: 9caf3ffb803a -->
 
 # HTTP API、TCPサーバー、spamd
 
@@ -6,14 +6,16 @@
 ## HTTP API
 
 ```sh
-spamscanner http --port 7832 --token "$SPAMSCANNER_TOKEN"
+spamscanner http --port 7832    # token in SPAMSCANNER_TOKEN
 ```
+
+HTTP API はトークンを環境変数 `SPAMSCANNER_TOKEN` から読み込みます。`--token` も使えますが、同じマシンの他のユーザーは `ps` でコマンドラインオプションを見ることができます。
 
 `--host`で指定しない限り、127.0.0.1で待ち受けます。トークンを設定すると、`/health`以外のすべてのリクエストに`Authorization: Bearer <token>`が必要になります。マシンの外に公開する前に、TLSを使うリバースプロキシの背後に置いてください。
 
 | メソッドとパス            | 本文      | 応答                                         |
 | ------------------ | ------- | ------------------------------------------ |
-| `GET /health`      |         | `{"ok": true, "version": "7.0.0"}`         |
+| `GET /health`      |         | `{"ok": true, "version": "..."}`           |
 | `POST /scan`       | 生のメッセージ | JSON形式の[スキャン結果](api.md#the-result)         |
 | `POST /check`      | 生のメッセージ | `X-Spam-*`ヘッダーを追加したメッセージ（`message/rfc822`） |
 | `POST /learn/spam` | 生のメッセージ | `{"ok": true, "learned": "spam"}`。トークンが必要  |
@@ -30,6 +32,8 @@ spamscanner http --port 7832 --token "$SPAMSCANNER_TOKEN"
 | `to`         | 受信者。繰り返すか、複数をカンマで区切る                  |
 | `verbose=1`  | `/scan`：単語の一覧と件名も返す                   |
 | `subjectTag` | `/check`：スパムの件名の先頭に付ける。例：`%5BSPAM%5D` |
+
+`ip` がないと、SPF、DKIM、DMARC、ARC と IP ブロックリストのチェック（`--auth`、`--dnsbl`）は行われません。
 
 `/check`は、`X-Spam-Flag`、`X-Spam-Score`、`X-Spam-Action`をレスポンスヘッダーとしても返すため、クライアントはメッセージを解析せずに判断できます。
 
@@ -82,6 +86,8 @@ nc -N 127.0.0.1 7830 < message.eml
 
 `--verbose`を指定すると、代わりに1行のテキストで応答します：`SPAM 16.3/5.0 BAYES_999,PHISHING_LOOKALIKE_DOMAIN,DECEPTIVE_LINK,FROM_NAME_BRAND`または`HAM -2.5/5.0 BAYES_00`。
 
+TCP サーバーはクライアントの IP アドレスを知らないため、`--auth` と `--dnsbl` は効果がありません。60 秒間何も送らない接続は閉じ、25 MB を超えるメッセージにはエラーを返します。
+
 
 ## spamd
 
@@ -104,3 +110,5 @@ spamc、Exim、Harakaなど、SpamAssassinのクライアント向けのSpamAssa
 | `TELL`          | `--allow-tell`を指定するとスパムまたはハムを学習し、`--out`に保存する |
 
 圧縮されたリクエスト（`Compress: zlib`）は拒否します。
+
+spamd のクライアントもクライアントの IP アドレスを送らないため、`--auth` と `--dnsbl` は効果がありません。25 MB を超えるメッセージには `65`（`EX_DATAERR`）、`Content-length` より短いメッセージには `76`（`EX_PROTOCOL`）を返し、60 秒間何も送らない接続は閉じます。

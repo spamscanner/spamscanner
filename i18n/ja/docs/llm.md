@@ -1,4 +1,4 @@
-<!-- source: 79e50e309869 -->
+<!-- source: 7564838c2408 -->
 
 # 言語モデル
 
@@ -114,11 +114,11 @@ Cloudflareは、自社ネットワーク上での中央値をClef Flashで39 ms�
 | `always`      | すべてのメッセージ                                                          |
 | `off`         | 問い合わせない                                                            |
 
-`minScore`と`maxScore`で`auto`の範囲を変更できます。明らかなスパムと明らかなハムはモデルに渡りません。
+`minScore`と`maxScore`で`auto`の範囲を変更できます。明らかなスパムと明らかなハムはモデルに渡りません。`mode`にそれ以外の値を指定するとエラーになり、1回の`scan()`で`llm: false`を指定するとモデルに問い合わせません。
 
 判定は`spam`、`phishing`、`scam`、`malware`、`ham`のいずれかです。`decision`では、spam、phishing、scam、malwareを合算してhamと比べます。モデルがspam 30%、phishing 30%、ham 40%としたメッセージは60%で不要なメッセージとなり、判定は最も可能性の高い種類になります。スパムの判定は最大6点を加算し（`LLM_SPAM`、`LLM_PHISHING`、`LLM_SCAM`、`LLM_MALWARE`）、ハムの判定は最大3点を減算します（`LLM_HAM`）。いずれも確信度を掛けた値です。モデル単独では、確信がない限りメッセージをスパムにできません。確信度85%の6点は5.1点で、しきい値をわずかに超える程度です。モデルが失敗したりタイムアウトしたりした場合、スキャンはモデルなしで続行し、`results.llm.error`に理由が示されます。
 
-回答はメッセージごとにキャッシュされるため、多くの受信者に送られた同じメッセージについて問い合わせるのは1回だけです。
+回答はメッセージごとにキャッシュされるため、多くの受信者に送られた同じメッセージについて問い合わせるのは1回だけです。そのコピーが同時にスキャンされる場合も同様です。`timeout`は、メッセージに対するリクエストだけでなく、空きリクエスト枠（`concurrency`）を待つ時間も含みます。その間ずっとビジーのままのモデルは、そのメッセージではスキップされます。
 
 
 ## プロバイダー
@@ -188,7 +188,7 @@ const scanner = new SpamScanner({
     username: 'spam', password: '…', // with auth: 'basic'
     headers: {'x-team': 'mail'},
     ca: fs.readFileSync('internal-ca.pem'), // a private certificate authority
-    timeout: 30_000,
+    timeout: 30_000,                 // waiting and requests, per message
     concurrency: 4,                  // requests at once
     cacheSize: 1000,                 // answers kept in memory
     keepAlive: '24h',                // Ollama: keep the model loaded between messages
@@ -259,7 +259,7 @@ spamscanner milter --llm ollama --llm-policy "We never send invoices by email. A
 
 モデルが受け取るのは、ヘッダーの要約（From、Reply-To、To、Subject）、リンク（あるアドレスを表示して別のアドレスへ向かうものが先）、添付ファイルの名前と種類、認証結果、HTMLがプレビューテキストより多くのテキストを隠している場合はその量、そしてメールクライアントが表示するとおりの本文（HTMLがあればHTMLのもので、隠しテキスト、不可視文字、装飾文字は除く）を6,000文字（`maxInputChars`）で切り詰めたものです。
 
-ネットワーク外のプロバイダーに対しては、先に個人データを削除します。メールアドレスのローカル部（ドメインはフィッシングの判定に重要なため残します）、カード番号と口座番号、電話番号、そしてリンクのクエリパラメーターの値です。クエリパラメーターにはログイン用のトークンが含まれていることがよくあります。この処理は、決定モデルを含むリモートのプロバイダーではデフォルトで有効、ローカルのプロバイダー（Ollama、LM Studio、llama.cpp、vLLM、LocalAI、Jan、TEI、およびlocalhost上の任意のサーバー）ではデフォルトで無効です。`redact: true`または`false`（`--llm-redact`、`--no-llm-redact`）で上書きできます。
+ネットワーク外のプロバイダーに対しては、先に個人データを削除します。メールアドレスのローカル部（ドメインはフィッシングの判定に重要なため残します）、カード番号と口座番号、国際電話番号（+または00で始まるもの）、そしてリンクのクエリパラメーターの値です。クエリパラメーターにはログイン用のトークンが含まれていることがよくあります。この処理は、決定モデルを含むリモートのプロバイダーではデフォルトで有効、このマシン上またはプライベートネットワーク内（プライベートアドレス、ドットを含まない名前、または.local、.internal、.lan、.home.arpa配下の名前）のローカルのプロバイダー（Ollama、LM Studio、llama.cpp、vLLM、LocalAI、Jan、TEI）と、localhost上の任意のサーバーではデフォルトで無効です。別の場所のホストを指すローカルのプロバイダーには、個人データを削除したメールが送られます。`redact: true`または`false`（`--llm-redact`、`--no-llm-redact`）で上書きできます。
 
 メールを送る前に、プロバイダーのデータ保持に関する規約を確認してください。ローカルモデルなら、この問題は生じません。
 

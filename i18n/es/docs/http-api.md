@@ -1,4 +1,4 @@
-<!-- source: faf44f093f8b -->
+<!-- source: 9caf3ffb803a -->
 
 # API HTTP, servidor TCP y spamd
 
@@ -6,14 +6,16 @@
 ## API HTTP
 
 ```sh
-spamscanner http --port 7832 --token "$SPAMSCANNER_TOKEN"
+spamscanner http --port 7832    # token in SPAMSCANNER_TOKEN
 ```
+
+La API HTTP lee su token de la variable de entorno `SPAMSCANNER_TOKEN`. `--token` también funciona, pero los demás usuarios de la máquina pueden ver las opciones de la línea de comandos en `ps`.
 
 Escucha en 127.0.0.1 salvo que `--host` indique otra cosa. Con un token, todas las peticiones excepto `/health` necesitan `Authorization: Bearer <token>`. Ponlo detrás de un proxy inverso con TLS antes de exponerlo fuera de la máquina.
 
 | Método y ruta      | Cuerpo                  | Respuesta                                                                 |
 | ------------------ | ----------------------- | ------------------------------------------------------------------------- |
-| `GET /health`      |                         | `{"ok": true, "version": "7.0.0"}`                                        |
+| `GET /health`      |                         | `{"ok": true, "version": "..."}`                                          |
 | `POST /scan`       | El mensaje sin procesar | El [resultado del análisis](api.md#the-result) en JSON                    |
 | `POST /check`      | El mensaje sin procesar | El mensaje con los encabezados `X-Spam-*` añadidos, como `message/rfc822` |
 | `POST /learn/spam` | El mensaje sin procesar | `{"ok": true, "learned": "spam"}`; necesita un token                      |
@@ -30,6 +32,8 @@ Los parámetros de consulta describen la sesión SMTP:
 | `to`         | Un destinatario; repítelo o separa varios con comas                     |
 | `verbose=1`  | `/scan`: devuelve también la lista de palabras y el asunto              |
 | `subjectTag` | `/check`: añade un prefijo al asunto del spam, por ejemplo `%5BSPAM%5D` |
+
+Sin `ip`, se omiten las comprobaciones de SPF, DKIM, DMARC, ARC y listas de bloqueo de IP (`--auth`, `--dnsbl`).
 
 `/check` también devuelve `X-Spam-Flag`, `X-Spam-Score` y `X-Spam-Action` como encabezados de la respuesta, así que un cliente puede decidir sin procesar el mensaje.
 
@@ -82,6 +86,8 @@ nc -N 127.0.0.1 7830 < message.eml
 
 Con `--verbose`, la respuesta es en cambio una línea de texto: `SPAM 16.3/5.0 BAYES_999,PHISHING_LOOKALIKE_DOMAIN,DECEPTIVE_LINK,FROM_NAME_BRAND` o `HAM -2.5/5.0 BAYES_00`.
 
+El servidor TCP no conoce la dirección IP del cliente, así que `--auth` y `--dnsbl` no tienen efecto. Cierra las conexiones que no envían nada durante 60 segundos y responde con un error a los mensajes de más de 25 MB.
+
 
 ## spamd
 
@@ -104,3 +110,5 @@ Un servidor compatible con SpamAssassin para spamc, Exim, Haraka y otros cliente
 | `TELL`          | Aprende spam o ham, con `--allow-tell`; guarda en `--out`                          |
 
 Las peticiones comprimidas (`Compress: zlib`) se rechazan.
+
+Los clientes de spamd tampoco envían la dirección IP del cliente, así que `--auth` y `--dnsbl` no tienen efecto. Un mensaje de más de 25 MB recibe `65` (`EX_DATAERR`), un mensaje más corto que su `Content-length` recibe `76` (`EX_PROTOCOL`), y las conexiones que no envían nada durante 60 segundos se cierran.

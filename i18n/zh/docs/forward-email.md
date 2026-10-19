@@ -1,4 +1,4 @@
-<!-- source: dc9016edd59e -->
+<!-- source: c70584655c0e -->
 
 # Forward Email
 
@@ -45,7 +45,7 @@ async function onData(stream, session, callback) {
 }
 ```
 
-`scanner.scan()` 直接接受 SMTP 流。如果手头已有 [mailauth](https://github.com/postalsys/mailauth) 的结果，可以跳过 `authentication`，只传入 IP 地址。
+`scanner.scan()` 直接接受 SMTP 流。如果手头已有 [mailauth](https://github.com/postalsys/mailauth) 的结果，请通过 `authenticationResults` 传入：这些结果会直接计分，而不会重新检查。
 
 421 或 451 回复会让发送方服务器把邮件放入队列并稍后重试。新的拒收规则可以先使用临时性代码，在结果经过检查后再改为 550，期间不会丢失邮件。
 

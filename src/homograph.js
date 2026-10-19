@@ -22,11 +22,82 @@ export const BRANDS = [
 // Words phishing domains add to a brand ("paypallogin", "secure-chase"):
 // asking to sign in, verify, unlock or pay, not words a shop or service puts
 // in an ordinary name.
-const PHISHING_WORDS = ['account', 'accounts', 'alert', 'alerts', 'auth', 'authentication', 'billing', 'confirm', 'login', 'logon', 'password', 'recovery', 'refund', 'secure', 'security', 'signin', 'signon', 'suspended', 'unlock', 'update', 'validate', 'verification', 'verify'];
+export const PHISHING_WORDS = ['account', 'accounts', 'alert', 'alerts', 'auth', 'authentication', 'billing', 'confirm', 'login', 'logon', 'password', 'recovery', 'refund', 'secure', 'security', 'signin', 'signon', 'suspended', 'unlock', 'update', 'validate', 'verification', 'verify'];
 
 // Brands that are also words: joined to a phishing word ("securebooking",
 // "officesecurity") they name something else as often as the brand.
 const WORD_BRANDS = new Set(['apple', 'blockchain', 'booking', 'chase', 'discord', 'kraken', 'ledger', 'office', 'proton', 'slack', 'steam', 'stripe']);
+
+// Words phishing domains put beside a brand that is a word, offering help,
+// a gift or the brand's own wallet, bank or files ("apple-support",
+// "discord-nitro", "chase-bank"): with one of these, the word is the brand
+// ("apple-tree" and "chase-hotel" are not).
+const BRAND_SERVICE_WORDS = new Set(['bank', 'banking', 'customer', 'files', 'gift', 'giftcard', 'gifts', 'help', 'helpdesk', 'id', 'nitro', 'online', 'pay', 'payment', 'payments', 'service', 'services', 'support', 'trade', 'trading', 'wallet', 'wallets']);
+// Brands that are the most common of these words, in the names of ordinary
+// businesses beside words of services too ("office-help", "booking-online",
+// "ledger-services", "steam-service", "kraken-services"): only the names of
+// the brand's own products and help count beside them ("ledger-live",
+// "ledger-wallet", "steam-community", "steam-gift", "stripe-payments",
+// "ledger-support"), and in another label only a word asking to sign in
+// makes them the brand ("login.steam.example.com", not
+// "auth.steam.example.edu"). For "office" and "booking", nothing does.
+const HELP_WORDS = ['help', 'helpdesk', 'support'];
+const COMMON_WORD_BRANDS = new Map([
+	['blockchain', ['wallet', 'wallets', ...HELP_WORDS]],
+	['booking', []],
+	['kraken', ['trade', 'trading', 'wallet', 'wallets', ...HELP_WORDS]],
+	['ledger', ['live', 'wallet', 'wallets', ...HELP_WORDS]],
+	['office', []],
+	['proton', ['pay', 'wallet', ...HELP_WORDS]],
+	['steam', ['community', 'gift', 'giftcard', 'gifts', 'trade', 'trading', 'wallet', ...HELP_WORDS]],
+	['stripe', ['payment', 'payments', ...HELP_WORDS]],
+]);
+const SIGN_IN_LABELS = new Set(['account', 'accounts', 'login', 'logon', 'signin', 'signon']);
+
+// Brands one letter away from common words ("finance", "mobile", "email",
+// "cloud", "adore", "morton", "belle", "cedex", "tresor", "twister"), or
+// from names of places ("venlo", "samsun") or their own other domains
+// ("tiktokv"):
+// only two swapped neighbouring letters count as a typo of these ("gmial"),
+// and, but for the brands that are words, a letter left out inside the name
+// ("twiter", "samsng": not the first or the last, as "cloud", "mobile" and
+// "samsun" are) or one doubled ("twittter", "samssung").
+const TYPO_WORDS = new Set([...WORD_BRANDS, 'adobe', 'binance', 'fedex', 'gmail', 'icloud', 'norton', 'samsung', 'tiktok', 'tmobile', 'trezor', 'twitter', 'venmo', 'zelle']);
+// (and not words that are such a typo: "titter")
+const TYPO_EXCEPTIONS = new Set(['titter']);
+
+/**
+ * Whether a name is a brand with one letter left out inside it, or with one
+ * of its letters doubled.
+ * @param {string} name
+ * @param {string} brand
+ * @returns {boolean}
+ */
+export function isDroppedOrDoubled(name, brand) {
+	if (name.length === brand.length - 1) {
+		let i = 0;
+		while (name[i] === brand[i]) {
+			i++;
+		}
+
+		return i > 0 && i < brand.length - 1 && name.slice(i) === brand.slice(i + 1);
+	}
+
+	if (name.length === brand.length + 1) {
+		let i = 0;
+		while (i < brand.length && name[i] === brand[i]) {
+			i++;
+		}
+
+		return i > 0 && name[i] === name[i - 1] && name.slice(i + 1) === brand.slice(i);
+	}
+
+	return false;
+}
+
+// Whether a name one edit from a brand is taken for a typo of it (see
+// TYPO_WORDS)
+const isTypo = (name, brand) => !TYPO_WORDS.has(brand) || isSwap(name, brand) || (!WORD_BRANDS.has(brand) && !TYPO_EXCEPTIONS.has(name) && isDroppedOrDoubled(name, brand));
 
 // Words one letter or two swapped letters away from a brand ("applied",
 // "appleid"; "raketen", "rakuten"), in the dictionaries of English, German,
@@ -38,8 +109,11 @@ const SWAPPED_WORDS = new Set([
 // Official domains of the brands above whose names also hold a brand
 // ("deutsche-bank.de"), never flagged.
 const OFFICIAL_DOMAINS = [
-	'adobelogin.com', 'amazon-adsystem.com', 'apple-cloudkit.com', 'apple-dns.net', 'bnpparibas-am.com', 'canadapost-postescanada.ca', 'cdn-apple.com', 'cloudflare-dns.com', 'credit-agricole.com', 'credit-agricole.fr', 'deutsche-bank.de', 'google-analytics.com', 'icloud-content.com', 'images-amazon.com', 'instagram-engineering.com', 'media-amazon.com', 'okta-emea.com', 'paypal-community.com', 'paypal-objects.com', 'paypal-prepaid.com', 'paypal-status.com', 'rakuten-bank.co.jp', 'rakuten-card.co.jp', 'rakuten-sec.co.jp', 'sberbank-ast.ru', 'slack-edge.com', 'slack-msgs.com', 'ssl-images-amazon.com', 't-mobile.com', 'yahoo-corp.jp', 'yandex-team.ru',
+	'adobelogin.com', 'amazon-adsystem.com', 'apple-cloudkit.com', 'apple-dns.net', 'bnpparibas-am.com', 'canadapost-postescanada.ca', 'cdn-apple.com', 'cloudflare-dns.com', 'cloudflare-ipfs.com', 'credit-agricole.com', 'credit-agricole.fr', 'deutsche-bank.de', 'ebay-kleinanzeigen.de', 'google-analytics.com', 'icloud-content.com', 'images-amazon.com', 'instagram-engineering.com', 'media-amazon.com', 'okta-emea.com', 'paypal-communication.com', 'paypal-community.com', 'paypal-objects.com', 'paypal-prepaid.com', 'paypal-status.com', 'rakuten-bank.co.jp', 'rakuten-card.co.jp', 'rakuten-sec.co.jp', 'sberbank-ast.ru', 'slack-edge.com', 'slack-msgs.com', 'ssl-images-amazon.com', 't-mobile.com', 'tiktokcdn.com', 'tiktokv.com', 'yahoo-corp.jp', 'yandex-team.ru',
 ];
+// (and each Sparkasse's own, "sparkasse-koelnbonn.de", unless a part of it is
+// a phishing word)
+const SPARKASSE = /^sparkasse-[a-z\d-]+\.(?:de|at)$/;
 
 // Suffixes put after a brand inside another domain ("paypal.com-verify.example"):
 // the generic ones, which no ordinary name starts with, and country codes and
@@ -49,6 +123,9 @@ const SUFFIX_DASH = /^(?:com|net|org|gov|edu)-/;
 const OTHER_SUFFIX_DASH = /^(?:co|info|biz|io|app|us|uk|de|fr|es|it|ca|au|jp|br|in)-/;
 // (and fully, a second-level suffix spelled out: "paypal.co-uk.example")
 const SECOND_SUFFIX_DASH = /^(?:co|com)-(?:uk|jp|au|nz|za|in|kr|br)\b/;
+// (the label after a brand in a subdomain that makes it the brand's address:
+// "apple.com.verify.example", not "www.steam.ncsu.edu")
+const SUFFIX_LABEL = /^(?:com|net|org|gov|edu|co|info|biz|io|app|us|uk|de|fr|es|it|ca|au|jp|br|in)$/;
 
 // Letters from other scripts, and accented Latin letters, folded to the plain
 // Latin letter they look like.
@@ -94,9 +171,14 @@ export function skeleton(label) {
 // of its first seven, rather than thousands)
 const MAX_VARIANTS = 256;
 
-function trickVariants(label) {
+// (the tricks of letters alone that no ordinary word or name has: "cl" for
+// "d", "vv" for "w", and below, "l" for "i"; not "rn" for "m", as in the
+// name "stearn")
+const LETTER_TRICKS = ASCII_TRICKS.filter(([pattern]) => pattern.source === 'cl' || pattern.source === 'vv');
+
+function trickVariants(label, tricks = ASCII_TRICKS) {
 	const variants = new Set([label]);
-	for (const [pattern, letter] of ASCII_TRICKS) {
+	for (const [pattern, letter] of tricks) {
 		if (!label.includes(pattern.source)) {
 			continue;
 		}
@@ -190,10 +272,32 @@ export function brandWithPhishingWord(name, brands) {
 	return null;
 }
 
+/**
+ * Whether two names differ only by two neighbouring letters swapped (not
+ * when they are the same).
+ * @param {string} a
+ * @param {string} b
+ * @returns {boolean}
+ */
+export function isSwap(a, b) {
+	if (a.length !== b.length || a === b) {
+		return false;
+	}
+
+	let first = 0;
+	while (a[first] === b[first]) {
+		first++;
+	}
+
+	return a[first] === b[first + 1] && a[first + 1] === b[first] && a.slice(first + 2) === b.slice(first + 2);
+}
+
+// (letters of no one script, as the long vowel mark of Japanese "コーヒー",
+//  are left out)
 function labelScripts(label) {
 	const scripts = new Set();
 	for (const char of label) {
-		if (/\p{L}/u.test(char)) {
+		if (/\p{L}/u.test(char) && !/[\p{Script=Common}\p{Script=Inherited}]/u.test(char)) {
 			scripts.add(scriptOf(char));
 		}
 	}
@@ -229,7 +333,8 @@ export default class HomographDetector {
 	 * @param {string[]} [options.allowlist] - registrable domains never flagged
 	 * @param {boolean} [options.strictMode] - flag any brand name in a subdomain
 	 */
-	constructor(options = {}) {
+	constructor(options) {
+		options ??= {};
 		this.options = options;
 		this.brands = new Set([...(options.brands || BRANDS), ...(options.extraBrands || [])].map(brand => brand.toLowerCase()));
 		this.allowlist = new Set([...OFFICIAL_DOMAINS, ...(options.allowlist || [])].map(domain => domain.toLowerCase()));
@@ -242,13 +347,16 @@ export default class HomographDetector {
 	 * @returns {{domain: string, unicode: string, isIDN: boolean, riskScore: number, riskFactors: string[], brand: string|null, recommendations: string[], confidence: number}}
 	 */
 	detectHomographAttack(domain) {
-		const input = typeof domain === 'string' ? domain.trim().toLowerCase().replace(/\.$/, '') : '';
-		if (this.cache.has(input)) {
-			return this.cache.get(input);
+		const written = typeof domain === 'string' ? domain.trim().replace(/\.$/, '') : '';
+		const input = written.toLowerCase();
+		// (as written when it has a capital "I", which may stand for "l")
+		const key = written.includes('I') ? written : input;
+		if (this.cache.has(key)) {
+			return this.cache.get(key);
 		}
 
-		const result = this.analyse(input);
-		this.cache.set(input, result);
+		const result = this.analyse(input, written);
+		this.cache.set(key, result);
 		if (this.cache.size > 5000) {
 			this.cache.delete(this.cache.keys().next().value);
 		}
@@ -256,7 +364,7 @@ export default class HomographDetector {
 		return result;
 	}
 
-	analyse(input) {
+	analyse(input, written = input) {
 		const unicode = (input && domainToUnicode(input)) || input;
 		const result = {
 			domain: input,
@@ -287,12 +395,34 @@ export default class HomographDetector {
 			return result;
 		}
 
+		// A capital "I" for "l" in a name of small letters ("googIe",
+		// "paypaI-secure"), as the name or a part of it: not in one all in
+		// capitals ("AIRBNB"), or in the suffix ("google.IE")
+		const start = input.length - parsed.domain.length;
+		const writtenName = written.slice(start, start + name.length);
+		if (writtenName.includes('I') && /[a-z]/.test(writtenName) && /^[\w.-]+$/.test(written)) {
+			const read = writtenName.replaceAll('I', 'l').toLowerCase();
+			const lower = [name, ...name.split('-')];
+			const capital = [read, ...read.split('-')].find((part, index) => part.length >= 4 && part !== lower[index] && this.brands.has(part));
+			if (capital) {
+				flag(0.85, `"${written}" imitates ${capital} with a capital I for l`, capital);
+			}
+		}
+
+		// (a short brand, or one that is a word, reached by letters alone, as
+		//  real names are: "lrs" for irs, "arnex" for amex, "stearn" for
+		//  steam; a digit for a letter is plainly a trick, and so are "cl"
+		//  for "d", "vv" for "w" and "l" for "i" in a brand of five letters
+		//  or more, which no word has: "discorcl", "offlce", "strlpe")
+		const trickScore = (brand, label) => (/\d/.test(label) || (brand.length >= 5 && (!WORD_BRANDS.has(brand) || trickVariants(label, LETTER_TRICKS).has(brand))) ? 0.85 : 0.6);
 		const scripts = labelScripts(name);
 		const folded = skeleton(name);
 		if (isSuspiciousMix(scripts)) {
 			flag(0.6, `"${unicode}" mixes ${[...scripts].join(' and ')} letters`, null);
 		}
 
+		const pieces = /^[a-z\d-]+$/.test(folded) && folded.includes('-') ? folded.split('-') : [];
+		const phishy = pieces.some(piece => PHISHING_WORDS.includes(piece));
 		const viaConfusable = folded === name ? null : [folded, folded.replaceAll('-', '')].find(value => this.brands.has(value));
 		if (viaConfusable) {
 			flag(0.95, `"${unicode}" imitates ${viaConfusable} with lookalike letters`, viaConfusable);
@@ -300,28 +430,43 @@ export default class HomographDetector {
 			const variants = trickVariants(folded);
 			const trick = [...variants].find(variant => this.brands.has(variant));
 			if (trick) {
-				flag(0.85, `"${unicode}" imitates ${trick} by swapping characters`, trick);
+				flag(trickScore(trick, folded), `"${unicode}" imitates ${trick} by swapping characters`, trick);
 			} else if (folded.length >= 5 && !SWAPPED_WORDS.has(folded)) {
-				const near = [...this.brands].find(brand => brand.length >= 5 && editDistance(folded, brand, 1) === 1);
+				const near = [...this.brands].find(brand => brand.length >= 5 && editDistance(folded, brand, 1) === 1 && isTypo(folded, brand));
 				if (near) {
 					flag(0.5, `"${unicode}" is one letter away from ${near}`, near);
 				}
 			}
 
-			const pieces = folded.includes('-') ? folded.split('-') : [];
-			for (const piece of pieces) {
-				if (piece.length < 4) {
+			const written = name.split('-');
+			// (a brand that is a word or short, "home-office", "zoom-lens",
+			//  "e-visa", counts beside a phishing word only, or a brand that is
+			//  a word of five letters or more beside only words of its
+			//  services, "apple-support", "support-apple-id")
+			const official = SPARKASSE.test(parsed.domain) && !phishy;
+			// (beside nothing else: not "apple-valley-bank", "steam-trains-online")
+			const service = piece => pieces.every(other => other === piece || (COMMON_WORD_BRANDS.get(piece)?.includes(other) ?? BRAND_SERVICE_WORDS.has(other)));
+			const counts = piece => phishy || (piece.length >= 5 && (!WORD_BRANDS.has(piece) || service(piece)));
+			for (const [index, piece] of pieces.entries()) {
+				if (piece.length < 4 || official) {
 					continue;
 				}
 
-				if (this.brands.has(piece)) {
+				// (with lookalike letters, as any brand of five letters or more:
+				//  "applé-store", not "e-vísa")
+				if (this.brands.has(piece) && piece !== written[index] && (piece.length >= 5 || phishy)) {
+					flag(0.95, `"${unicode}" imitates ${piece} with lookalike letters`, piece);
+					break;
+				}
+
+				if (this.brands.has(piece) && counts(piece)) {
 					flag(0.6, `"${unicode}" puts ${piece} inside another domain name`, piece);
 					break;
 				}
 
 				const disguised = [...trickVariants(piece)].find(variant => this.brands.has(variant));
 				if (disguised) {
-					flag(0.85, `"${unicode}" imitates ${disguised} by swapping characters`, disguised);
+					flag(trickScore(disguised, piece), `"${unicode}" imitates ${disguised} by swapping characters`, disguised);
 					break;
 				}
 			}
@@ -339,7 +484,16 @@ export default class HomographDetector {
 
 		// "paypal.com.account-check.example": a brand as a subdomain label.
 		const subdomain = parsed.subdomain ? parsed.subdomain.split('.') : [];
-		const brandLabel = subdomain.map(label => skeleton(label)).find(label => label.length >= 4 && this.brands.has(label));
+		// (a brand that is a word or short, "www.steam.ncsu.edu", only as the
+		//  start of an address, "apple.com.verify.example")
+		const labels = subdomain.map(label => skeleton(label));
+		// (or a brand that is a word of five letters or more, but for the
+		//  common nouns, beside a phishing word in the rest of the name:
+		//  "login.apple.example.com", "secure.apple.verify-account.com")
+		const phishyHost = phishy || labels.some(label => PHISHING_WORDS.includes(label));
+		const signInHost = labels.some(label => SIGN_IN_LABELS.has(label));
+		const asBrand = label => (COMMON_WORD_BRANDS.has(label) ? signInHost && COMMON_WORD_BRANDS.get(label).length > 0 : phishyHost);
+		const brandLabel = labels.find((label, index) => label.length >= 4 && this.brands.has(label) && (this.options.strictMode || (label.length >= 5 && (!WORD_BRANDS.has(label) || asBrand(label))) || SUFFIX_LABEL.test(labels[index + 1] ?? '')));
 		if (brandLabel && (this.options.strictMode || subdomain.length >= 2)) {
 			flag(0.6, `"${unicode}" puts ${brandLabel} in front of another domain`, brandLabel);
 		}

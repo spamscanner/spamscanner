@@ -4,7 +4,6 @@
 // Run in-process (RE2) and in a child process without re2 (test/linear.test.js),
 // it times the functions that read message content.
 import {Buffer} from 'node:buffer';
-import process from 'node:process';
 import {parseReportFields} from '../../src/arf.js';
 import {inspectAttachments} from '../../src/attachments.js';
 import {isArbitrary} from '../../src/is-arbitrary.js';
@@ -13,14 +12,15 @@ import {describeMessage, parseVerdict, redact} from '../../src/llm.js';
 import {
 	decodeEntities, extractLinks, getFeatures, visibleText,
 } from '../../src/tokenizer.js';
+import {cpuTime} from './cpu-time.js';
 
 const SIZE = 100_000;
 const fill = unit => unit.repeat(Math.ceil(SIZE / unit.length)).slice(0, SIZE);
 
 function time(run) {
-	const started = process.hrtime.bigint();
+	const started = cpuTime();
 	run();
-	return Number(process.hrtime.bigint() - started) / 1e6;
+	return cpuTime() - started;
 }
 
 const from = name => ({value: [{name, address: 'sender@example.com'}], text: `${name} <sender@example.com>`});
@@ -59,6 +59,10 @@ export function run() {
 		'html: references with no ;': () => decodeEntities(fill('&#1')),
 		'display name: letters with no @': () => getFeatures({from: from(letters)}),
 		'display name: rules': () => isArbitrary({from: from(letters), subject: '', text: ''}),
+		'html: rules on attributes': () => isArbitrary({html: fill('<a title="x" data-a=\'y\'>')}),
+		'html: rules on unclosed quotes of attributes': () => isArbitrary({html: fill('<a b="<a b=\'')}),
+		'text: rules on amounts of money': () => isArbitrary({subject: 'You\'ve been hacked', text: fill('pay 1,')}),
+		'text: rules on digits': () => isArbitrary({subject: 'You\'ve been hacked', text: fill('9')}),
 		'llm: redact letters with no @': () => redact(letters),
 		'llm: redact ? with no =': () => redact(fill('?')),
 		'llm: describe unclosed html': () => describeMessage({html: fill('<script ')}),

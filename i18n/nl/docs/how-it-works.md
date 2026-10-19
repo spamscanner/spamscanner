@@ -1,4 +1,4 @@
-<!-- source: 8a788c19971e -->
+<!-- source: a7dfb7c0fde2 -->
 
 # Hoe het werkt
 
@@ -19,9 +19,9 @@ Spam Scanner houdt wat werkt aan het tellen van woorden, de statistiek, en veran
 
 ### Wat het telt
 
-De gelezen tekst is wat een mailclient toont: die van het HTML-deel als dat er is (een tekstdeel ernaast wordt alleen getoond waar HTML dat niet kan, zodat een onschuldig tekstdeel niet namens de HTML kan spreken), zonder tags, commentaar, scripts en stijlen, met inline tags die een woord samenvoegen zoals een browser dat doet (`Free Sp<span>ins</span>`), en met tekst die de HTML verbergt weggelaten en geteld: door een element dat verbergt wat het bevat (display, opacity, het hidden-attribuut, een bijgesneden vak zonder afmeting, tekst die buiten de pagina is geschoven), of onzichtbaar, transparant of in een lettertype van een pixel of kleiner waar het staat (wat een element erbinnen weer kan terugzetten, zoals responsive templates doen). Stijlen worden gelezen zoals browsers ze lezen (de laatste declaratie wint, commentaar, tekenreferenties); kleuren op een achtergrond en klassen uit stylesheets niet, dus zulke tekst wordt gelezen zoals getoond. HTML die minder dan 20 woorden toont, zoals een afbeelding van het bericht, wordt samen met het tekstdeel gelezen. Links en hostnamen worden uit beide delen en uit verborgen tekst gelezen.
+De gelezen tekst is wat een mailclient toont: die van het HTML-deel als dat er is (een tekstdeel ernaast wordt alleen getoond waar HTML dat niet kan, zodat een onschuldig tekstdeel niet namens de HTML kan spreken), zonder tags, commentaar, scripts en stijlen, met inline tags die een woord samenvoegen zoals een browser dat doet (`Free Sp<span>ins</span>`), met blokken, cellen en regeleinden die het breken (ook een element dat een stijl als blok toont, een blok dat een browser zelf afsluit en een blok dat op zijn plaats verborgen is, maar niet een dat geen plaats inneemt), en met tekst die de HTML verbergt weggelaten en geteld: door een element dat verbergt wat het bevat (display, opacity, het hidden-attribuut, een bijgesneden vak zonder afmeting, tekst die buiten de pagina is geschoven), of onzichtbaar, transparant of in een lettertype van een pixel of kleiner waar het staat (wat een element erbinnen weer kan terugzetten, zoals responsive templates doen). Stijlen worden gelezen zoals browsers ze lezen (de laatste declaratie wint, commentaar, tekenreferenties); kleuren op een achtergrond en klassen uit stylesheets niet, dus zulke tekst wordt gelezen zoals getoond. HTML die minder dan 20 woorden toont, zoals een afbeelding van het bericht, wordt samen met het tekstdeel gelezen. Links worden gelezen uit beide delen, uit verborgen tekst en uit de tekst die de HTML toont, waarin een adres dat door inline tags is opgesplitst (`https://www.pay<b></b>pa1.com/`) als één geheel wordt gelezen. Hostnamen die zonder link zijn geschreven, worden gelezen uit het onderwerp, de gelezen tekst en een tekstdeel naast de HTML.
 
-Eerst wordt de tekst genormaliseerd: Unicode NFKC zet opgemaakte letters en letters met volle breedte om naar gewone, onzichtbare tekens worden verwijderd en geteld, lookalike-letters in verder Latijnse of Cyrillische woorden worden teruggezet, en cijfers die als letters worden gebruikt (`v1agra`) worden omgezet. Daarna worden woorden gesegmenteerd met `Intl.Segmenter`, de Unicode-regels voor woordgrenzen met woordenboeken voor Chinees, Japans, Thai, Lao, Khmer en Birmaans.
+Eerst wordt de tekst genormaliseerd: Unicode NFKC zet opgemaakte letters en letters met volle breedte om naar gewone, onzichtbare tekens worden verwijderd en geteld (niet een spatie zonder breedte tussen letters van Thai, Lao, Khmer, Birmaans of Tibetaans, die daar woorden scheidt, en joiners alleen tussen Latijnse letters), lookalike-letters in een woord dat Latijnse, Cyrillische of Griekse letters mengt, worden omgezet naar het schrift waarin de meeste letters staan (`рaypal` met een Cyrillische р wordt `paypal`, `пpивет` met een Latijnse p wordt `привет`), delen van een woord tussen apostrofs worden apart gelezen (`iPhone'ы`, een Russische naamvalsuitgang, mengt niets), en cijfers die als letters worden gebruikt (`v1agra`) worden omgezet. Daarna worden woorden gesegmenteerd met `Intl.Segmenter`, de Unicode-regels voor woordgrenzen met woordenboeken voor Chinees, Japans, Thai, Lao, Khmer en Birmaans.
 
 Daaruit haalt het:
 
@@ -63,22 +63,23 @@ Het pakket bevat een model dat is getraind op openbare datasets met een open lic
 Elke link wordt gecontroleerd:
 
 * **Lookalike-domeinen.** Elk domein wordt met de Unicode-tabel van verwarrende tekens tot een skelet teruggebracht, zodat `pаypal.com` (Cyrillische а), `paypa1.com`, `rnicrosoft.com` en `xn--pple-43d.com` allemaal overeenkomen met het merk dat ze nabootsen. Gemengde schriften in één label, merknamen in subdomeinen (`paypal.com.example.net`) en typefouten van één letter krijgen minder punten. Bijna 100 merken die vaak worden nagebootst zijn ingebouwd, en er kunnen er meer worden toegevoegd.
-* **Misleidende links.** HTML-links waarvan de zichtbare tekst een ander adres is dan het doel.
+* **Misleidende links.** HTML-links waarvan de zichtbare tekst een ander adres is dan het doel: de hele tekst, of een adres met `http://` of `https://` erin (`Sign in at https://www.paypal.com`). Een bestandsnaam of de naam van een site in een zin (`Download report.zip`, `Read why Booking.com switched`) is geen adres. Een link via de kliktracking van een maildienst (SendGrid, Mailchimp, Amazon SES, Kit, Brevo, beehiiv, Substack en andere) of een beveiligingsgateway die links herschrijft (Microsoft Safe Links, Proofpoint, Mimecast, Barracuda, Cisco) gaat bewust ergens anders heen, dus telt die alleen wanneer de tekst het volledige adres van een merk is, zonder pad of met een aanmeldpad (geen link naar een sociaal netwerk, een product in een webwinkel of een kaart), en de afzender niet dat merk of een van zijn verzenddomeinen is. Waar de link van een gateway het adres bevat waar hij naartoe doorgaat (Safe Links, Proofpoint), wordt in plaats daarvan dat adres vergeleken.
 * **De filterende resolvers van Cloudflare.** Linkhosts worden opgezocht op 1.1.1.2, dat `0.0.0.0` antwoordt voor bekende malware en phishing, en 1.1.1.3, dat ook content voor volwassenen blokkeert.
 * **Weergavenamen.** Een naam zoals „PayPal Security” vanaf een adres op een ander domein, of een naam met een ander e-mailadres erin.
 
 
 ## Bijlagen
 
-Bijlagen worden herkend aan hun bytes, niet aan hun namen of opgegeven typen:
+Bijlagen worden herkend aan hun bytes en hun namen, niet aan hun opgegeven types:
 
 * uitvoerbare bestanden, snelkoppelingen en scripts voor Windows, Linux en macOS, ook als ze hernoemd zijn naar `.pdf` of `.jpg`
 * dubbele extensies (`invoice.pdf.exe`) en right-to-left-override-tekens die de echte extensie verbergen
 * uitvoerbare bestanden in ZIP-archieven, en versleutelde archieven die scanners niet kunnen openen
 * Office-bestanden met macro's, pdf's met JavaScript of startacties, RTF-bestanden met ingesloten objecten
 * HTML-bijlagen, die phishing gebruikt om offline een nep-inlogpagina te tonen
+* bijlagen van bijgevoegde berichten (`message/rfc822`, `.eml`), tot drie niveaus diep en 100 bijlagen (de eigen bijlagen van het bericht worden altijd allemaal gecontroleerd)
 
-Met ClamAV worden bijlagen ook gescand met `clamd` via de socket.
+Met ClamAV worden bijlagen ook gescand met `clamd` via de socket. Er worden er vier tegelijk gescand, alle binnen `clamav.timeout` (60 seconden), en de bijlagen die niet gescand konden worden staan in `results.virusScanErrors`. Bijlagen die groter zijn dan clamd accepteert (zijn `StreamMaxLength`), staan in plaats daarvan in `results.virusScanSkipped`: clamd weigert ze bij elke poging.
 
 
 ## Authenticatie

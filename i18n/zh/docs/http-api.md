@@ -1,4 +1,4 @@
-<!-- source: faf44f093f8b -->
+<!-- source: 9caf3ffb803a -->
 
 # HTTP API、TCP 服务器和 spamd
 
@@ -6,14 +6,16 @@
 ## HTTP API
 
 ```sh
-spamscanner http --port 7832 --token "$SPAMSCANNER_TOKEN"
+spamscanner http --port 7832    # token in SPAMSCANNER_TOKEN
 ```
+
+HTTP API 从环境变量 `SPAMSCANNER_TOKEN` 读取令牌。`--token` 也可以用，但本机的其他用户能在 `ps` 中看到命令行选项。
 
 它默认监听 127.0.0.1，除非 `--host` 另行指定。设置令牌后，除 `/health` 以外的每个请求都需要 `Authorization: Bearer <token>`。在把它暴露到本机以外之前，请将其置于带 TLS 的反向代理之后。
 
 | 方法和路径              | 请求体  | 响应                                         |
 | ------------------ | ---- | ------------------------------------------ |
-| `GET /health`      |      | `{"ok": true, "version": "7.0.0"}`         |
+| `GET /health`      |      | `{"ok": true, "version": "..."}`           |
 | `POST /scan`       | 原始邮件 | JSON 格式的[扫描结果](api.md#the-result)          |
 | `POST /check`      | 原始邮件 | 添加了 `X-Spam-*` 邮件头的邮件，格式为 `message/rfc822` |
 | `POST /learn/spam` | 原始邮件 | `{"ok": true, "learned": "spam"}`；需要令牌     |
@@ -30,6 +32,8 @@ spamscanner http --port 7832 --token "$SPAMSCANNER_TOKEN"
 | `to`         | 一个收件人；可重复该参数，或用逗号分隔多个收件人              |
 | `verbose=1`  | `/scan`：同时返回词语列表和主题                   |
 | `subjectTag` | `/check`：为垃圾邮件的主题添加前缀，例如 `%5BSPAM%5D` |
+
+没有 `ip` 时，会跳过 SPF、DKIM、DMARC、ARC 和 IP 黑名单检查（`--auth`、`--dnsbl`）。
 
 `/check` 还会把 `X-Spam-Flag`、`X-Spam-Score` 和 `X-Spam-Action` 作为响应头返回，因此客户端无需解析邮件即可作出决定。
 
@@ -82,6 +86,8 @@ nc -N 127.0.0.1 7830 < message.eml
 
 使用 `--verbose` 时，响应改为一行文本：`SPAM 16.3/5.0 BAYES_999,PHISHING_LOOKALIKE_DOMAIN,DECEPTIVE_LINK,FROM_NAME_BRAND` 或 `HAM -2.5/5.0 BAYES_00`。
 
+TCP 服务器不知道客户端的 IP 地址，因此 `--auth` 和 `--dnsbl` 不起作用。它会关闭 60 秒内没有发送任何内容的连接，并对大于 25 MB 的邮件返回错误。
+
 
 ## spamd
 
@@ -104,3 +110,5 @@ spamscanner spamd --port 783
 | `TELL`          | 学习垃圾邮件或正常邮件，需要 `--allow-tell`；保存到 `--out` |
 
 压缩请求（`Compress: zlib`）会被拒绝。
+
+spamd 客户端同样不发送客户端的 IP 地址，因此 `--auth` 和 `--dnsbl` 不起作用。大于 25 MB 的邮件得到 `65`（`EX_DATAERR`），比其 `Content-length` 短的邮件得到 `76`（`EX_PROTOCOL`），60 秒内没有发送任何内容的连接会被关闭。

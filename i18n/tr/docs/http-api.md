@@ -1,4 +1,4 @@
-<!-- source: faf44f093f8b -->
+<!-- source: 9caf3ffb803a -->
 
 # HTTP API, TCP sunucusu ve spamd
 
@@ -6,14 +6,16 @@
 ## HTTP API
 
 ```sh
-spamscanner http --port 7832 --token "$SPAMSCANNER_TOKEN"
+spamscanner http --port 7832    # token in SPAMSCANNER_TOKEN
 ```
+
+HTTP API'si belirtecini `SPAMSCANNER_TOKEN` ortam değişkeninden okur. `--token` da çalışır, ancak makinedeki diğer kullanıcılar komut satırı seçeneklerini `ps` ile görebilir.
 
 `--host` aksini belirtmedikçe 127.0.0.1 adresini dinler. Bir belirteç ayarlandığında `/health` dışındaki her istek `Authorization: Bearer <token>` gerektirir. Makinenin dışına açmadan önce TLS'li bir ters vekil sunucunun arkasına koyun.
 
 | Yöntem ve yol      | Gövde     | Yanıt                                                            |
 | ------------------ | --------- | ---------------------------------------------------------------- |
-| `GET /health`      |           | `{"ok": true, "version": "7.0.0"}`                               |
+| `GET /health`      |           | `{"ok": true, "version": "..."}`                                 |
 | `POST /scan`       | Ham ileti | JSON olarak [tarama sonucu](api.md#the-result)                   |
 | `POST /check`      | Ham ileti | `X-Spam-*` üst bilgileri eklenmiş ileti, `message/rfc822` olarak |
 | `POST /learn/spam` | Ham ileti | `{"ok": true, "learned": "spam"}`; belirteç gerektirir           |
@@ -30,6 +32,8 @@ Sorgu parametreleri SMTP oturumunu tanımlar:
 | `to`         | Bir alıcı; tekrarlayın veya birkaç alıcıyı virgülle ayırın    |
 | `verbose=1`  | `/scan`: sözcük listesini ve konuyu da döndürür               |
 | `subjectTag` | `/check`: spamın konusunun başına ekler, örneğin `%5BSPAM%5D` |
+
+`ip` olmadan SPF, DKIM, DMARC, ARC ve IP engel listesi denetimleri (`--auth`, `--dnsbl`) atlanır.
 
 `/check` ayrıca `X-Spam-Flag`, `X-Spam-Score` ve `X-Spam-Action` değerlerini yanıt üst bilgileri olarak döndürür; böylece bir istemci iletiyi ayrıştırmadan karar verebilir.
 
@@ -82,6 +86,8 @@ nc -N 127.0.0.1 7830 < message.eml
 
 `--verbose` ile yanıt bunun yerine bir metin satırıdır: `SPAM 16.3/5.0 BAYES_999,PHISHING_LOOKALIKE_DOMAIN,DECEPTIVE_LINK,FROM_NAME_BRAND` veya `HAM -2.5/5.0 BAYES_00`.
 
+TCP sunucusu istemcinin IP adresini bilmez, bu yüzden `--auth` ve `--dnsbl` etkisizdir. 60 saniye boyunca hiçbir şey göndermeyen bağlantıları kapatır ve 25 MB'tan büyük iletilere hatayla yanıt verir.
+
 
 ## spamd
 
@@ -104,3 +110,5 @@ spamc, Exim, Haraka ve diğer SpamAssassin istemcileri için SpamAssassin uyumlu
 | `TELL`          | `--allow-tell` ile spam veya ham öğrenir; `--out` dosyasına kaydeder |
 
 Sıkıştırılmış istekler (`Compress: zlib`) reddedilir.
+
+spamd istemcileri de istemcinin IP adresini göndermez, bu yüzden `--auth` ve `--dnsbl` etkisizdir. 25 MB'tan büyük bir ileti `65` (`EX_DATAERR`), `Content-length` değerinden kısa bir ileti `76` (`EX_PROTOCOL`) alır ve 60 saniye boyunca hiçbir şey göndermeyen bağlantılar kapatılır.

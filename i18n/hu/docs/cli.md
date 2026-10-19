@@ -1,4 +1,4 @@
-<!-- source: c061da9312ad -->
+<!-- source: f8a77c318b83 -->
 
 # Parancssor
 
@@ -59,16 +59,16 @@ Kilépési kódok: 0 ham, 1 spam, 2 hiba.
 
 ### Ellenőrzések
 
-| Kapcsoló              | Jelentés                                                                      |
-| --------------------- | ----------------------------------------------------------------------------- |
-| `--auth`              | SPF, DKIM, DMARC és ARC ellenőrzése (a `--ip` szükséges hozzá)                |
-| `--dnsbl <zone>`      | IP-tiltólista, például `zen.spamhaus.org`; ismételhető                        |
-| `--uribl <zone>`      | Domain-tiltólista a hivatkozásokhoz, például `dbl.spamhaus.org`; ismételhető  |
-| `--dns-server <ip>`   | Névszerver a DNS-ellenőrzésekhez; ismételhető                                 |
-| `--no-cloudflare`     | A Cloudflare szűrő DNS-feloldóinak mellőzése a hivatkozásoknál                |
-| `--clamav [socket]`   | Mellékletek vizsgálata clamd-vel, az alapértelmezett vagy a megadott socketen |
-| `--allowlist <value>` | Ennek az IP-címnek, domainnek vagy címnek mindig elfogadása; ismételhető      |
-| `--denylist <value>`  | Ennek az IP-címnek, domainnek vagy címnek mindig elutasítása; ismételhető     |
+| Kapcsoló              | Jelentés                                                                                                                                                  |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--auth`              | SPF, DKIM, DMARC és ARC ellenőrzése (a `--ip` szükséges hozzá)                                                                                            |
+| `--dnsbl <zone>`      | IP-tiltólista, például `zen.spamhaus.org`; ismételhető                                                                                                    |
+| `--uribl <zone>`      | Domain-tiltólista a hivatkozásokhoz, például `dbl.spamhaus.org`; ismételhető                                                                              |
+| `--dns-server <ip>`   | Névszerver a DNS-ellenőrzésekhez; ismételhető                                                                                                             |
+| `--no-cloudflare`     | A Cloudflare szűrő DNS-feloldóinak mellőzése a hivatkozásoknál                                                                                            |
+| `--clamav[=socket]`   | Mellékletek vizsgálata clamd-vel, az alapértelmezett vagy a megadott socketen                                                                             |
+| `--allowlist <value>` | Mindig elfogadja ezt az ügyfél-IP-címet vagy gépnevet, illetve ezt a tartományt vagy címet, ha a hitelesítés megerősíti a feladót (`--auth`); ismételhető |
+| `--denylist <value>`  | Ennek az IP-címnek, domainnek vagy címnek mindig elutasítása; ismételhető                                                                                 |
 
 ### Nyelvi modell
 
@@ -85,7 +85,7 @@ Kilépési kódok: 0 ham, 1 spam, 2 hiba.
 | `--llm-auth-header <name>`                                 | A kulcs fejléce, a `--llm-auth header` beállítással                                                                                                       |
 | `--llm-username`, `--llm-password`                         | A `--llm-auth basic` beállításhoz                                                                                                                         |
 | `--llm-header "Name: value"`                               | További kérésfejléc; ismételhető                                                                                                                          |
-| `--llm-mode <mode>`                                        | `auto` (csak a kétes esetek, alapértelmezés) vagy `always`                                                                                                |
+| `--llm-mode <mode>`                                        | `auto` (csak a kétes esetek, alapértelmezés), `always` vagy `off`                                                                                         |
 | `--llm-timeout <ms>`                                       | Alapértelmezés: 30000                                                                                                                                     |
 | `--llm-policy <text>`                                      | További szabályok a modellnek, például „Soha nem küldünk számlát”                                                                                         |
 | `--llm-redact`, `--no-llm-redact`                          | A személyes adatok előzetes eltávolítása; távoli szolgáltatóknál alapértelmezetten bekapcsolva                                                            |
@@ -99,43 +99,49 @@ Kilépési kódok: 0 ham, 1 spam, 2 hiba.
 spamscanner filter -f "$sender" -- "$recipient"
 ```
 
-| Kapcsoló              | Jelentés                                                                |
-| --------------------- | ----------------------------------------------------------------------- |
-| `--sendmail <path>`   | Alapértelmezés: `/usr/sbin/sendmail`                                    |
-| `--subject-tag <tag>` | A spam tárgyának előtaggal való ellátása                                |
-| `--reject`            | Az elutasítási küszöböt elérő levél visszapattintása továbbadás helyett |
-| `--discard`           | Az elutasítási küszöböt elérő levél eldobása továbbadás helyett         |
+| Kapcsoló              | Jelentés                                                                          |
+| --------------------- | --------------------------------------------------------------------------------- |
+| `--sendmail <path>`   | Alapértelmezés: `/usr/sbin/sendmail`                                              |
+| `--subject-tag <tag>` | A spam tárgyának előtaggal való ellátása                                          |
+| `--reject`            | Az elutasítási küszöböt elérő levél visszapattintása továbbadás helyett           |
+| `--discard`           | Az elutasítási küszöböt elérő levél eldobása továbbadás helyett                   |
+| `--on-error <answer>` | A nem teljesen átvizsgálható levelekre: `tempfail` (alapértelmezés) vagy `accept` |
 
-A kilépési kódok a sendmail konvencióit követik, amelyeket a Postfix értelmez: 0 kézbesítve (vagy eldobva), 64 nincs megadva címzett, 69 spamként elutasítva (a Postfix visszapattintja), 75 bármilyen hiba, így a Postfix megtartja a levelet, és később újra próbálkozik.
+A kilépési kódok a sendmail konvencióit követik, amelyeket a Postfix értelmez: 0 kézbesítve (vagy eldobva), 64 nincs megadva címzett, 69 spamként elutasítva (a Postfix visszapattintja), 75 bármilyen hiba, így a Postfix megtartja a levelet, és később újra próbálkozik. Az olyan levél is hibának számít, amelynek egy mellékletét a ClamAV nem tudta átvizsgálni. A `--on-error accept` kapcsolóval az ilyen levél, illetve az, amelynek a vizsgálata sikertelen volt, `X-Spam-Virus-Scan: failed` fejléccel továbbmegy, a feladó által hozzáadott `X-Spam-*` fejlécek nélkül.
 
 
 ## milter, http, server és spamd
 
 ```sh
 spamscanner milter --port 7831 --reject --subject-tag "[SPAM]"
-spamscanner http --port 7832 --token "$SPAMSCANNER_TOKEN"
+spamscanner http --port 7832    # token in SPAMSCANNER_TOKEN
 spamscanner server --port 7830
 spamscanner spamd --port 783
 ```
 
+A HTTP API a tokenjét a `SPAMSCANNER_TOKEN` környezeti változóból olvassa. A `--token` is működik, de a gép többi felhasználója a `ps` paranccsal láthatja a parancssori kapcsolókat.
+
 A 783-as port az, amelyet a SpamAssassin-kliensek alapértelmezetten használnak. Az 1024 alatti portokhoz root jogosultság vagy a `CAP_NET_BIND_SERVICE` képesség szükséges; ehelyett használható egy másik port, például `--port 7833`, amelyet a kliensnek is meg kell adni.
 
-| Kapcsoló              | Jelentés                                                                      |
-| --------------------- | ----------------------------------------------------------------------------- |
-| `--port <n>`          | TCP-port                                                                      |
-| `--host <ip>`         | A figyelési cím (alapértelmezés: 127.0.0.1)                                   |
-| `--socket <path>`     | Figyelés ehelyett Unix-socketen                                               |
-| `--reject`            | Milter: az elutasítási küszöböt elérő levelek visszautasítása                 |
-| `--reject-code <n>`   | Milter: 451, próbálja később (alapértelmezés), vagy 550                       |
-| `--quarantine`        | Milter: a spam visszatartása a levelezőszerver karanténjában                  |
-| `--name <hostname>`   | Milter: ennek a szervernek a neve az Authentication-Results fejlécben         |
-| `--token <secret>`    | HTTP: `Authorization: Bearer <secret>` megkövetelése; a `/learn` igényli      |
-| `--allow-tell`        | spamd: TELL kérések (`spamc -L spam`) elfogadása tanuláshoz                   |
-| `--out <file>`        | HTTP és spamd: a tanultak mentése ebbe a modellfájlba                         |
-| `--subject-tag <tag>` | Milter és spamd: a spam tárgyának előtaggal való ellátása                     |
-| `--verbose`           | Milter: minden vizsgálat naplózása. TCP-szerver: válasz egyetlen szövegsorban |
+| Kapcsoló              | Jelentés                                                                                  |
+| --------------------- | ----------------------------------------------------------------------------------------- |
+| `--port <n>`          | TCP-port                                                                                  |
+| `--host <ip>`         | A figyelési cím (alapértelmezés: 127.0.0.1)                                               |
+| `--socket <path>`     | Figyelés ehelyett Unix-socketen                                                           |
+| `--reject`            | Milter: az elutasítási küszöböt elérő levelek visszautasítása                             |
+| `--reject-code <n>`   | Milter: egy 4xx kód, próbálja később (451, alapértelmezés), vagy egy 5xx kód, például 550 |
+| `--quarantine`        | Milter: a spam visszatartása a levelezőszerver karanténjában                              |
+| `--on-error <answer>` | Milter: a nem teljesen átvizsgálható levelekre `tempfail` (alapértelmezés) vagy `accept`  |
+| `--name <hostname>`   | Milter: ennek a szervernek a neve az Authentication-Results fejlécben                     |
+| `--token <secret>`    | HTTP: `Authorization: Bearer <secret>` megkövetelése; a `/learn` igényli                  |
+| `--allow-tell`        | spamd: TELL kérések (`spamc -L spam`) elfogadása tanuláshoz                               |
+| `--out <file>`        | HTTP és spamd: a tanultak mentése ebbe a modellfájlba                                     |
+| `--subject-tag <tag>` | Milter és spamd: a spam tárgyának előtaggal való ellátása                                 |
+| `--verbose`           | Milter: minden vizsgálat naplózása. TCP-szerver: válasz egyetlen szövegsorban             |
 
 A fenti vizsgálati kapcsolók a szerverekre is vonatkoznak. [A milter](postfix.md#milter), [a HTTP API, a TCP-szerver és a spamd](http-api.md).
+
+A spamd- és TCP-kliensek nem küldik el az üzenetet beküldő kliens IP-címét, a HTTP-kliensek pedig csak a `?ip=` paraméterrel, ezért a `--auth` és a `--dnsbl` csak a milterrel és az azt megadó HTTP-kérésekkel működik. A szerverek ezt jelzik, amikor ezekkel a kapcsolókkal indulnak.
 
 
 ## train, eval és learn
@@ -157,6 +163,8 @@ spamscanner learn spam message.eml --model my-model.json
 
 A `learn` helyben frissíti a modellfájlt, első alkalommal a beépített modellből hozza létre. [Tanítás](training.md)
 
+Ha a `--model` és a `--out` is meg van adva, a `learn` a `--model` fájlból indul, és az eredményt a `--out` fájlba írja.
+
 
 ## llm-test és models
 
@@ -165,7 +173,7 @@ spamscanner models
 spamscanner llm-test --llm ollama --llm-model qwen3.5:4b
 ```
 
-Az `llm-test` egy hétköznapi levelet és két csalást küld a modellnek angolul és olaszul, kiírja az ítéleteit, az egyes ítéletek idejét, a használt módszert és a hardvert, és csak akkor lép ki 0-s kóddal, ha mindhárom helyes.
+Az `llm-test` egy hétköznapi levelet és két csalást küld a modellnek angolul és olaszul, kiírja az ítéleteit, az egyes ítéletek idejét, a használt módszert és, ha a modell ezen a gépen fut, a hardvert, és csak akkor lép ki 0-s kóddal, ha mindhárom helyes.
 
 
 ## Konfigurációs fájl

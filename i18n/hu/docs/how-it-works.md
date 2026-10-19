@@ -1,4 +1,4 @@
-<!-- source: 8a788c19971e -->
+<!-- source: a7dfb7c0fde2 -->
 
 # Működés
 
@@ -19,9 +19,9 @@ A Spam Scanner megtartja azt, ami a szószámlálásban működik, vagyis a stat
 
 ### Mit számol
 
-A beolvasott szöveg az, amit egy levelezőprogram megjelenít: a HTML-rész szövege, ha van ilyen (a mellette lévő egyszerű szöveges részt csak ott jelenítik meg, ahol a HTML nem jeleníthető meg, így egy ártalmatlan szöveges rész nem beszélhet a HTML nevében), a címkék, megjegyzések, szkriptek és stílusok nélkül, a soron belüli címkék úgy illesztik össze a szót, ahogy egy böngésző (`Free Sp<span>ins</span>`), a HTML által elrejtett szöveget pedig kihagyja és megszámolja: ha egy elem elrejti a tartalmát (display, opacity, a hidden attribútum, nulla méretűre vágott doboz, a lapról kitolt szöveg), vagy ha a szöveg ott, ahol van, láthatatlan, átlátszó vagy legfeljebb egy pixeles betűméretű (amit egy belső elem visszaállíthat, ahogy a reszponzív sablonok teszik). A stílusokat úgy olvassa, ahogy a böngészők (az utolsó deklaráció nyer, megjegyzések, karakterhivatkozások); a háttér előtti színeket és a stíluslap-osztályokat nem, így az ilyen szöveget úgy olvassa, ahogy megjelenik. A 20-nál kevesebb szót megjelenítő HTML-t, például a levélről készült képet, az egyszerű szöveges részével együtt olvassa. A hivatkozásokat és a gépneveket mindkét részből és a rejtett szövegből is kiolvassa.
+A beolvasott szöveg az, amit egy levelezőprogram megjelenít: a HTML-rész szövege, ha van ilyen (a mellette lévő egyszerű szöveges részt csak ott jelenítik meg, ahol a HTML nem jeleníthető meg, így egy ártalmatlan szöveges rész nem beszélhet a HTML nevében), a címkék, megjegyzések, szkriptek és stílusok nélkül, a soron belüli címkék úgy illesztik össze a szót, ahogy egy böngésző (`Free Sp<span>ins</span>`), a blokkok, cellák és sortörések viszont megtörik (egy elem is, amelyet egy stílus blokként jelenít meg, egy blokk, amelyet a böngésző magától lezár, és egy rejtett blokk, amely megtartja a helyét, de nem az, amely nem foglal helyet), a HTML által elrejtett szöveget pedig kihagyja és megszámolja: ha egy elem elrejti a tartalmát (display, opacity, a hidden attribútum, nulla méretűre vágott doboz, a lapról kitolt szöveg), vagy ha a szöveg ott, ahol van, láthatatlan, átlátszó vagy legfeljebb egy pixeles betűméretű (amit egy belső elem visszaállíthat, ahogy a reszponzív sablonok teszik). A stílusokat úgy olvassa, ahogy a böngészők (az utolsó deklaráció nyer, megjegyzések, karakterhivatkozások); a háttér előtti színeket és a stíluslap-osztályokat nem, így az ilyen szöveget úgy olvassa, ahogy megjelenik. A 20-nál kevesebb szót megjelenítő HTML-t, például a levélről készült képet, az egyszerű szöveges részével együtt olvassa. A hivatkozásokat mindkét részből, a rejtett szövegből és a HTML által megjelenített szövegből is kiolvassa, ahol a soron belüli címkékkel szétválasztott cím (`https://www.pay<b></b>pa1.com/`) egy címként olvasódik. A hivatkozás nélkül írt gépneveket a tárgyból, a beolvasott szövegből és a HTML melletti egyszerű szöveges részből olvassa ki.
 
-A szöveget előbb normalizálja: a Unicode NFKC a díszített és teljes szélességű betűket egyszerű betűkké alakítja, a láthatatlan karaktereket eltávolítja és megszámolja, az egyébként latin vagy cirill szavakon belüli hasonmás betűket visszaalakítja, a betűként használt számjegyeket (`v1agra`) pedig visszaírja. Ezután a szavakat az `Intl.Segmenter` szegmentálja, a Unicode szóhatár-szabályai szerint, a kínaihoz, japánhoz, thaihoz, laóhoz, khmerhez és burmaihoz szótárakkal.
+A szöveget előbb normalizálja: a Unicode NFKC a díszített és teljes szélességű betűket egyszerű betűkké alakítja, a láthatatlan karaktereket eltávolítja és megszámolja (a thai, lao, khmer, burmai vagy tibeti betűk közötti nulla szélességű szóközt nem, mert ott az választja el a szavakat, az összekötőket pedig csak latin betűk között), a latin, cirill vagy görög betűket keverő szó hasonmás betűit arra az írásrendszerre alakítja, amelyhez a betűi többsége tartozik (a cirill р-t tartalmazó `рaypal` szóból `paypal`, a latin p-t tartalmazó `пpивет` szóból `привет` lesz), az aposztrófok közötti szórészeket külön olvassa (az `iPhone'ы`, egy orosz esetrag, semmit sem kever), a betűként használt számjegyeket (`v1agra`) pedig visszaírja. Ezután a szavakat az `Intl.Segmenter` szegmentálja, a Unicode szóhatár-szabályai szerint, a kínaihoz, japánhoz, thaihoz, laóhoz, khmerhez és burmaihoz szótárakkal.
 
 Ebből a következőket nyeri ki:
 
@@ -63,22 +63,23 @@ A csomag nyilvános, nyílt licencű adatkészleteken tanított modellt tartalma
 Minden hivatkozást ellenőriz:
 
 * **Hasonmás domainek.** Minden domaint a Unicode confusables táblázatával egy vázra egyszerűsít, így a `pаypal.com` (cirill а), a `paypa1.com`, az `rnicrosoft.com` és az `xn--pple-43d.com` mind illeszkedik az általa utánzott márkára. Az egy címkén belül kevert írásrendszerek, az aldomainekben szereplő márkanevek (`paypal.com.example.net`) és az egybetűs elírások alacsonyabb pontszámot kapnak. Közel 100 gyakran utánzott márka beépített, és továbbiak adhatók hozzá.
-* **Megtévesztő hivatkozások.** Olyan HTML-hivatkozások, amelyek látható szövege más címet mutat, mint a cél.
+* **Megtévesztő hivatkozások.** Olyan HTML-hivatkozások, amelyek látható szövege más címet mutat, mint a cél: a teljes szöveg, vagy egy benne lévő, `http://` vagy `https://` kezdetű cím (`Sign in at https://www.paypal.com`). Egy fájlnév vagy egy webhely neve egy mondatban (`Download report.zip`, `Read why Booking.com switched`) nem cím. A levelezőszolgáltatások kattintáskövetésén (SendGrid, Mailchimp, Amazon SES, Kit, Brevo, beehiiv, Substack és mások) vagy egy hivatkozásokat átíró biztonsági átjárón (Microsoft Safe Links, Proofpoint, Mimecast, Barracuda, Cisco) átmenő hivatkozás szándékosan máshová vezet, ezért csak akkor számít, ha a szövege egy márka teljes címe, útvonal nélkül vagy bejelentkezési útvonallal (nem egy közösségi hálózatra, egy bolt termékére vagy egy térképre mutató hivatkozás), és a feladó nem az a márka, és nem is annak egyik küldő domainje. Ahol az átjáró hivatkozása tartalmazza a címet, ahová továbbvezet (Safe Links, Proofpoint), ott helyette azt a címet veti össze.
 * **A Cloudflare szűrő DNS-feloldói.** A hivatkozások gépneveit lekérdezi az 1.1.1.2-n, amely az ismert kártevő- és adathalász oldalakra `0.0.0.0` választ ad, valamint az 1.1.1.3-on, amely a felnőtt tartalmat is blokkolja.
 * **Megjelenített nevek.** Egy olyan név, mint a „PayPal Security”, egy másik domainhez tartozó címről, vagy egy másik e-mail-címet tartalmazó név.
 
 
 ## Mellékletek
 
-A mellékleteket a bájtjaik alapján azonosítja, nem a nevük vagy a megadott típusuk szerint:
+A mellékleteket a bájtjaik és a nevük alapján azonosítja, nem a megadott típusuk alapján:
 
 * Windows-, Linux- és macOS-futtatható fájlok, parancsikonok és szkriptek, akkor is, ha `.pdf` vagy `.jpg` kiterjesztésre nevezték át őket
 * dupla kiterjesztések (`invoice.pdf.exe`) és a valódi kiterjesztést elrejtő jobbról balra író felülíró karakterek
 * ZIP-archívumokban lévő futtatható fájlok és a vírusirtók által meg nem nyitható titkosított archívumok
 * makrókat tartalmazó Office-fájlok, JavaScriptet vagy indítási műveleteket tartalmazó PDF-ek, beágyazott objektumokat tartalmazó RTF-fájlok
 * HTML-mellékletek, amelyekkel az adathalászok offline jelenítenek meg hamis bejelentkezési oldalt
+* a csatolt üzenetek (`message/rfc822`, `.eml`) mellékletei, legfeljebb három szint mélységig és 100 mellékletig (a levél saját mellékleteit mindig mind megvizsgálja)
 
-ClamAV-vel a mellékleteket a `clamd` is megvizsgálja a socketén keresztül.
+ClamAV-vel a mellékleteket a `clamd` is megvizsgálja a socketén keresztül. Egyszerre négyet vizsgál, mindet a `clamav.timeout` (60 másodperc) időn belül, az át nem vizsgálhatók pedig a `results.virusScanErrors` listában szerepelnek. Azok, amelyek nagyobbak, mint amit a clamd elfogad (a `StreamMaxLength` értéke), ehelyett a `results.virusScanSkipped` listában szerepelnek: ezeket a clamd minden próbálkozáskor elutasítja.
 
 
 ## Hitelesítés

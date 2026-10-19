@@ -1,4 +1,4 @@
-<!-- source: dc9016edd59e -->
+<!-- source: c70584655c0e -->
 
 # Forward Email
 
@@ -45,7 +45,7 @@ async function onData(stream, session, callback) {
 }
 ```
 
-`scanner.scan()` accepteert de SMTP-stream direct. Heb je al resultaten van [mailauth](https://github.com/postalsys/mailauth), sla `authentication` dan over en geef alleen het IP-adres mee.
+`scanner.scan()` accepteert de SMTP-stream direct. Heb je al resultaten van [mailauth](https://github.com/postalsys/mailauth), geef ze dan mee als `authenticationResults`: ze worden gescoord in plaats van opnieuw gecontroleerd.
 
 Een antwoord 421 of 451 laat de verzendende server het bericht in de wachtrij zetten en later opnieuw proberen. Nieuwe weigerregels kunnen met een tijdelijke code beginnen en naar 550 gaan zodra hun resultaten zijn gecontroleerd, zonder dat er in de tussentijd mail verloren gaat.
 

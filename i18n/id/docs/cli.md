@@ -1,4 +1,4 @@
-<!-- source: c061da9312ad -->
+<!-- source: f8a77c318b83 -->
 
 # Baris perintah
 
@@ -59,16 +59,16 @@ Kode keluar: 0 ham, 1 spam, 2 galat.
 
 ### Pemeriksaan
 
-| Opsi                  | Arti                                                                          |
-| --------------------- | ----------------------------------------------------------------------------- |
-| `--auth`              | Memeriksa SPF, DKIM, DMARC, dan ARC (memerlukan `--ip`)                       |
-| `--dnsbl <zone>`      | Daftar blokir IP, misalnya `zen.spamhaus.org`; dapat diulang                  |
-| `--uribl <zone>`      | Daftar blokir domain untuk tautan, misalnya `dbl.spamhaus.org`; dapat diulang |
-| `--dns-server <ip>`   | Name server untuk pemeriksaan DNS; dapat diulang                              |
-| `--no-cloudflare`     | Tidak menanyakan tautan ke resolver penyaring Cloudflare                      |
-| `--clamav [socket]`   | Memindai lampiran dengan clamd, di soket bawaannya atau soket yang diberikan  |
-| `--allowlist <value>` | Selalu menerima alamat IP, domain, atau alamat ini; dapat diulang             |
-| `--denylist <value>`  | Selalu menolak alamat IP, domain, atau alamat ini; dapat diulang              |
+| Opsi                  | Arti                                                                                                                                              |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--auth`              | Memeriksa SPF, DKIM, DMARC, dan ARC (memerlukan `--ip`)                                                                                           |
+| `--dnsbl <zone>`      | Daftar blokir IP, misalnya `zen.spamhaus.org`; dapat diulang                                                                                      |
+| `--uribl <zone>`      | Daftar blokir domain untuk tautan, misalnya `dbl.spamhaus.org`; dapat diulang                                                                     |
+| `--dns-server <ip>`   | Name server untuk pemeriksaan DNS; dapat diulang                                                                                                  |
+| `--no-cloudflare`     | Tidak menanyakan tautan ke resolver penyaring Cloudflare                                                                                          |
+| `--clamav[=socket]`   | Memindai lampiran dengan clamd, di soket bawaannya atau soket yang diberikan                                                                      |
+| `--allowlist <value>` | Selalu terima alamat IP atau nama host klien ini, atau domain atau alamat ini ketika autentikasi mengonfirmasi pengirim (`--auth`); dapat diulang |
+| `--denylist <value>`  | Selalu menolak alamat IP, domain, atau alamat ini; dapat diulang                                                                                  |
 
 ### Model bahasa
 
@@ -85,7 +85,7 @@ Kode keluar: 0 ham, 1 spam, 2 galat.
 | `--llm-auth-header <name>`                                 | Header untuk kunci, dengan `--llm-auth header`                                                                                                   |
 | `--llm-username`, `--llm-password`                         | Untuk `--llm-auth basic`                                                                                                                         |
 | `--llm-header "Name: value"`                               | Header permintaan tambahan; dapat diulang                                                                                                        |
-| `--llm-mode <mode>`                                        | `auto` (hanya kasus yang meragukan, bawaan) atau `always`                                                                                        |
+| `--llm-mode <mode>`                                        | `auto` (hanya kasus yang meragukan, bawaan), `always`, atau `off`                                                                                |
 | `--llm-timeout <ms>`                                       | Bawaan 30000                                                                                                                                     |
 | `--llm-policy <text>`                                      | Aturan tambahan untuk model, misalnya "Kami tidak pernah mengirim tagihan"                                                                       |
 | `--llm-redact`, `--no-llm-redact`                          | Menghapus data pribadi terlebih dahulu; aktif secara bawaan untuk penyedia jarak jauh                                                            |
@@ -99,43 +99,49 @@ Kode keluar: 0 ham, 1 spam, 2 galat.
 spamscanner filter -f "$sender" -- "$recipient"
 ```
 
-| Opsi                  | Arti                                                                 |
-| --------------------- | -------------------------------------------------------------------- |
-| `--sendmail <path>`   | Bawaan `/usr/sbin/sendmail`                                          |
-| `--subject-tag <tag>` | Menambahkan awalan pada subjek spam                                  |
-| `--reject`            | Memantulkan email yang mencapai ambang tolak alih-alih meneruskannya |
-| `--discard`           | Membuang email yang mencapai ambang tolak alih-alih meneruskannya    |
+| Opsi                  | Arti                                                                                |
+| --------------------- | ----------------------------------------------------------------------------------- |
+| `--sendmail <path>`   | Bawaan `/usr/sbin/sendmail`                                                         |
+| `--subject-tag <tag>` | Menambahkan awalan pada subjek spam                                                 |
+| `--reject`            | Memantulkan email yang mencapai ambang tolak alih-alih meneruskannya                |
+| `--discard`           | Membuang email yang mencapai ambang tolak alih-alih meneruskannya                   |
+| `--on-error <answer>` | Untuk email yang tidak dapat dipindai sepenuhnya: `tempfail` (bawaan) atau `accept` |
 
-Kode keluar mengikuti konvensi sendmail, yang dibaca Postfix: 0 terkirim (atau dibuang), 64 tidak ada penerima yang diberikan, 69 ditolak sebagai spam (Postfix memantulkannya), 75 kegagalan apa pun, sehingga Postfix menyimpan pesan dan mencoba lagi nanti.
+Kode keluar mengikuti konvensi sendmail, yang dibaca Postfix: 0 terkirim (atau dibuang), 64 tidak ada penerima yang diberikan, 69 ditolak sebagai spam (Postfix memantulkannya), 75 kegagalan apa pun, sehingga Postfix menyimpan pesan dan mencoba lagi nanti. Pesan dengan lampiran yang tidak dapat dipindai ClamAV juga merupakan kegagalan. Dengan `--on-error accept`, pesan seperti itu, atau pesan yang pemindaiannya gagal, diteruskan dengan `X-Spam-Virus-Scan: failed`, dan tanpa header `X-Spam-*` apa pun yang ditambahkan pengirim.
 
 
 ## milter, http, server, dan spamd
 
 ```sh
 spamscanner milter --port 7831 --reject --subject-tag "[SPAM]"
-spamscanner http --port 7832 --token "$SPAMSCANNER_TOKEN"
+spamscanner http --port 7832    # token in SPAMSCANNER_TOKEN
 spamscanner server --port 7830
 spamscanner spamd --port 783
 ```
 
+API HTTP membaca tokennya dari variabel lingkungan `SPAMSCANNER_TOKEN`. `--token` juga berfungsi, tetapi pengguna lain di mesin itu dapat melihat opsi baris perintah di `ps`.
+
 Port 783 adalah port yang dipakai klien SpamAssassin secara bawaan. Port di bawah 1024 memerlukan root atau capability `CAP_NET_BIND_SERVICE`; gunakan port lain, seperti `--port 7833`, dan beri tahu kliennya.
 
-| Opsi                  | Arti                                                                            |
-| --------------------- | ------------------------------------------------------------------------------- |
-| `--port <n>`          | Port TCP                                                                        |
-| `--host <ip>`         | Alamat yang didengarkan (bawaan 127.0.0.1)                                      |
-| `--socket <path>`     | Mendengarkan di soket Unix sebagai gantinya                                     |
-| `--reject`            | Milter: menolak email yang mencapai ambang tolak                                |
-| `--reject-code <n>`   | Milter: 451, coba lagi nanti (bawaan), atau 550                                 |
-| `--quarantine`        | Milter: menahan spam di karantina server email                                  |
-| `--name <hostname>`   | Milter: nama server ini di Authentication-Results                               |
-| `--token <secret>`    | HTTP: mensyaratkan `Authorization: Bearer <secret>`; diperlukan untuk `/learn`  |
-| `--allow-tell`        | spamd: menerima permintaan TELL (`spamc -L spam`) untuk pembelajaran            |
-| `--out <file>`        | HTTP dan spamd: menyimpan hasil pembelajaran ke file model ini                  |
-| `--subject-tag <tag>` | Milter dan spamd: menambahkan awalan pada subjek spam                           |
-| `--verbose`           | Milter: mencatat setiap pemindaian. Server TCP: menjawab dengan satu baris teks |
+| Opsi                  | Arti                                                                                        |
+| --------------------- | ------------------------------------------------------------------------------------------- |
+| `--port <n>`          | Port TCP                                                                                    |
+| `--host <ip>`         | Alamat yang didengarkan (bawaan 127.0.0.1)                                                  |
+| `--socket <path>`     | Mendengarkan di soket Unix sebagai gantinya                                                 |
+| `--reject`            | Milter: menolak email yang mencapai ambang tolak                                            |
+| `--reject-code <n>`   | Milter: kode 4xx, coba lagi nanti (451, bawaan), atau kode 5xx seperti 550                  |
+| `--quarantine`        | Milter: menahan spam di karantina server email                                              |
+| `--on-error <answer>` | Milter: untuk email yang tidak dapat dipindai sepenuhnya, `tempfail` (bawaan) atau `accept` |
+| `--name <hostname>`   | Milter: nama server ini di Authentication-Results                                           |
+| `--token <secret>`    | HTTP: mensyaratkan `Authorization: Bearer <secret>`; diperlukan untuk `/learn`              |
+| `--allow-tell`        | spamd: menerima permintaan TELL (`spamc -L spam`) untuk pembelajaran                        |
+| `--out <file>`        | HTTP dan spamd: menyimpan hasil pembelajaran ke file model ini                              |
+| `--subject-tag <tag>` | Milter dan spamd: menambahkan awalan pada subjek spam                                       |
+| `--verbose`           | Milter: mencatat setiap pemindaian. Server TCP: menjawab dengan satu baris teks             |
 
 Opsi pemindaian di atas juga berlaku untuk server. [Milter](postfix.md#milter), [HTTP API, server TCP, dan spamd](http-api.md).
+
+Klien spamd dan TCP tidak mengirim alamat IP klien yang mengirim pesan, dan klien HTTP hanya mengirimnya dengan `?ip=`, sehingga `--auth` dan `--dnsbl` hanya berfungsi dengan milter dan dengan permintaan HTTP yang menyertakannya. Server memberi tahu hal ini saat dijalankan dengan opsi tersebut.
 
 
 ## train, eval, dan learn
@@ -157,6 +163,8 @@ spamscanner learn spam message.eml --model my-model.json
 
 `learn` memperbarui file model di tempat, dan membuatnya dari model bawaan pada kali pertama. [Pelatihan](training.md)
 
+Dengan `--model` dan `--out` sekaligus, `learn` mulai dari berkas `--model` dan menulis hasilnya ke `--out`.
+
 
 ## llm-test dan models
 
@@ -165,7 +173,7 @@ spamscanner models
 spamscanner llm-test --llm ollama --llm-model qwen3.5:4b
 ```
 
-`llm-test` mengirim satu pesan biasa dan dua penipuan, dalam bahasa Inggris dan Italia, ke model, mencetak vonisnya, waktu yang dibutuhkan masing-masing, metode yang digunakan, dan perangkat kerasnya, lalu keluar dengan kode 0 hanya jika ketiganya benar.
+`llm-test` mengirim satu pesan biasa dan dua penipuan, dalam bahasa Inggris dan Italia, ke model, mencetak vonisnya, waktu yang dibutuhkan masing-masing, metode yang digunakan, dan, untuk model di mesin ini, perangkat kerasnya, lalu keluar dengan kode 0 hanya jika ketiganya benar.
 
 
 ## File konfigurasi

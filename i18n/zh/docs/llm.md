@@ -1,4 +1,4 @@
-<!-- source: 79e50e309869 -->
+<!-- source: 7564838c2408 -->
 
 # 语言模型
 
@@ -114,11 +114,11 @@ Cloudflare 报告，在其自身网络上，Clef Flash 的中位用时为 39 毫
 | `always`   | 每封邮件                                           |
 | `off`      | 从不                                             |
 
-`minScore` 和 `maxScore` 修改 `auto` 的范围。明确的垃圾邮件和明确的 ham（正常邮件）不会交给模型。
+`minScore` 和 `maxScore` 修改 `auto` 的范围。明确的垃圾邮件和明确的 ham（正常邮件）不会交给模型。其他任何 `mode` 都会报错，对单次 `scan()` 设置 `llm: false` 则不询问任何模型。
 
 判定为 `spam`、`phishing`、`scam`、`malware` 或 `ham`。使用 `decision` 时，垃圾邮件、钓鱼、诈骗和恶意软件合在一起与正常邮件相对：如果模型给一封邮件的概率为 30% 垃圾邮件、30% 钓鱼和 40% 正常邮件，那么它是不需要邮件的概率为 60%，判定取其中可能性最大的类别。垃圾邮件类判定最多加 6 分（`LLM_SPAM`、`LLM_PHISHING`、`LLM_SCAM`、`LLM_MALWARE`）；正常邮件判定最多减 3 分（`LLM_HAM`），两者都要乘以置信度。除非模型很有把握，否则它无法单独把邮件判为垃圾邮件：置信度 85% 时，6 分变为 5.1 分，刚好超过阈值。如果模型出错或超时，扫描会在没有它的情况下继续，`results.llm.error` 会说明原因。
 
-回答按邮件缓存，因此发给许多收件人的同一封邮件只会询问一次。
+回答按邮件缓存，因此发给许多收件人的同一封邮件只会询问一次，即使它的多个副本同时扫描也是如此。`timeout` 既包括等待空闲请求名额（`concurrency`）的时间，也包括该邮件的请求：在这段时间内一直忙碌的模型，对这封邮件会被跳过。
 
 
 ## 服务商
@@ -188,7 +188,7 @@ const scanner = new SpamScanner({
     username: 'spam', password: '…', // with auth: 'basic'
     headers: {'x-team': 'mail'},
     ca: fs.readFileSync('internal-ca.pem'), // a private certificate authority
-    timeout: 30_000,
+    timeout: 30_000,                 // waiting and requests, per message
     concurrency: 4,                  // requests at once
     cacheSize: 1000,                 // answers kept in memory
     keepAlive: '24h',                // Ollama: keep the model loaded between messages
@@ -259,7 +259,7 @@ spamscanner milter --llm ollama --llm-policy "We never send invoices by email. A
 
 模型看到的是邮件头摘要（From、Reply-To、To 和 Subject）、链接（显示一个地址却指向另一个地址的链接排在前面）、附件名称和类型、身份验证结果、HTML 隐藏的文字多于预览文字时所隐藏的文字量，以及邮件客户端所显示的正文（有 HTML 时取 HTML，不含隐藏文字、不可见字符和花式字母），正文截断为 6,000 个字符（`maxInputChars`）。
 
-对于你的网络之外的服务商，会先移除个人数据：电子邮件地址的本地部分（域名保留，因为它对钓鱼判断很重要）、银行卡号和账号、电话号码，以及链接中查询参数的值，这些值常常携带登录令牌。对远程服务商（包括决策模型）默认开启，对本地服务商（Ollama、LM Studio、llama.cpp、vLLM、LocalAI、Jan、TEI，以及 localhost 上的任何服务器）默认关闭。`redact: true` 或 `false`（`--llm-redact`、`--no-llm-redact`）可以覆盖默认设置。
+对于你的网络之外的服务商，会先移除个人数据：电子邮件地址的本地部分（域名保留，因为它对钓鱼判断很重要）、银行卡号和账号、国际电话号码（以 + 或 00 开头），以及链接中查询参数的值，这些值常常携带登录令牌。对远程服务商（包括决策模型）默认开启，对位于本机或私有网络（私有地址、不含点的名称，或 .local、.internal、.lan、.home.arpa 下的名称）中的本地服务商（Ollama、LM Studio、llama.cpp、vLLM、LocalAI、Jan、TEI）以及 localhost 上的任何服务器默认关闭。指向其他地方主机的本地服务商收到的是已移除个人数据的邮件。`redact: true` 或 `false`（`--llm-redact`、`--no-llm-redact`）可以覆盖默认设置。
 
 在把邮件发送给服务商之前，请查看其数据保留条款。使用本地模型则不存在这个问题。
 

@@ -1,4 +1,4 @@
-<!-- source: 8263c06f1dab -->
+<!-- source: 1a2009efd1f9 -->
 
 # Aan de slag
 
@@ -25,6 +25,8 @@ Als standalone binary voor Linux of macOS, met Node.js en het model ingebouwd:
 ```sh
 curl -fsSL https://github.com/spamscanner/spamscanner/releases/latest/download/install.sh | bash
 ```
+
+Het script controleert de binary vóór installatie aan de hand van het `SHA256SUMS`-bestand van de release. De Linux-binaries hebben glibc nodig, dus installeer op Alpine en andere op musl gebaseerde systemen met npm.
 
 Binaries voor Linux (x64 en arm64), macOS (Intel en Apple silicon) en Windows zijn bij elke [release](https://github.com/spamscanner/spamscanner/releases) gevoegd.
 
@@ -75,6 +77,8 @@ CommonJS werkt ook:
 const SpamScanner = require('spamscanner');
 ```
 
+Typedeclaraties zijn inbegrepen, voor TypeScript 4.7 of hoger (5.3 of hoger met `require`).
+
 `scan()` neemt het ruwe bericht aan als Buffer, string, Uint8Array of readable stream. Een string is altijd berichttekst: Spam Scanner leest nooit een bestand omdat een string op een pad lijkt. Gebruik `scanner.scanFile(path)` voor bestanden.
 
 
@@ -113,7 +117,7 @@ Geen van deze staat standaard aan, omdat elk een dienst of een beslissing vereis
 | SPF, DKIM, DMARC, ARC      | `authentication: true`                           | `--auth`                    |
 | IP-blocklist               | `dnsbl: {ip: ['zen.spamhaus.org']}`              | `--dnsbl zen.spamhaus.org`  |
 | Domeinblocklist voor links | `dnsbl: {domain: ['dbl.spamhaus.org']}`          | `--uribl dbl.spamhaus.org`  |
-| ClamAV                     | `clamav: true` of `clamav: {socket}`             | `--clamav [socket]`         |
+| ClamAV                     | `clamav: true` of `clamav: {socket}`             | `--clamav[=socket]`         |
 | Een taalmodel              | `llm: {provider: 'ollama', model: 'qwen3.5:4b'}` | `--llm ollama`              |
 | Allow- en denylists        | `allowlist: [...]`, `denylist: [...]`            | `--allowlist`, `--denylist` |
 

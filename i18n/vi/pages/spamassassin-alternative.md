@@ -1,4 +1,4 @@
-<!-- source: 1562b843d858 -->
+<!-- source: e38668f057b9 -->
 
 <!--
 label: Thay thế SpamAssassin
@@ -17,7 +17,7 @@ Spam Scanner trả lời theo giao thức spamd của SpamAssassin, nên phần 
 ```sh
 sudo systemctl disable --now spamd       # or spamassassin
 npm install --global spamscanner
-spamscanner spamd --port 783 --auth
+spamscanner spamd --port 783
 ```
 
 ```sh

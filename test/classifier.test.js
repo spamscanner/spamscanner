@@ -127,6 +127,20 @@ describe('Classifier', () => {
 		assert.equal(frozen.nham, 21);
 	});
 
+	it('merges a loaded classifier into itself, doubling every count once', () => {
+		const model = Classifier.fromJSON(trained().toJSON());
+		model.learn(['free', 'newword'], 'ham');
+		const before = new Map([...model.entries()].map(([hash, pair]) => [hash, [...pair]]));
+		const {nspam, nham} = model;
+		model.merge(model);
+		assert.deepEqual([model.nspam, model.nham], [nspam * 2, nham * 2]);
+		const after = new Map(model.entries());
+		assert.equal(after.size, before.size);
+		for (const [hash, [spam, ham]] of before) {
+			assert.deepEqual(after.get(hash), [spam * 2, ham * 2]);
+		}
+	});
+
 	it('rejects files that are not models', () => {
 		assert.throws(() => Classifier.fromJSON({type: 'other'}), /Not a Spam Scanner classifier/);
 		assert.throws(() => Classifier.fromJSON(null), /Not a Spam Scanner classifier/);
@@ -178,5 +192,89 @@ describe('Classifier', () => {
 		small.learn(['lang:fr', 'réunion'], 'ham');
 		assert.equal(small.classify(['lang:fr', 'gratuit']).coverage.confidence, 1);
 		assert.equal(Classifier.fromJSON(classifier.toJSON()).options.minLanguageExamples, 10);
+	});
+});
+
+describe('model data', () => {
+	const json = trained().toJSON();
+	const encode = values => Buffer.from(new Uint32Array(values).buffer).toString('base64');
+
+	it('throws one error for damaged or hostile model data', () => {
+		const cases = [
+			'{not json',
+			{
+				...json, keys: Buffer.from([1, 2, 3]).toString('base64'), spam: Buffer.from([1, 2, 3]).toString('base64'), ham: Buffer.from([1, 2, 3]).toString('base64'),
+			},
+			{...json, keys: 12},
+			{...json, nspam: '1'},
+			{...json, nham: -1},
+			{...json, nspam: 1.5},
+			{
+				...json, keys: encode([2, 1]), spam: encode([1, 1]), ham: encode([1, 1]),
+			},
+			{
+				...json, keys: encode([1, 1]), spam: encode([1, 1]), ham: encode([1, 1]),
+			},
+			{...json, options: null},
+			{...json, options: [1]},
+			{...json, options: {strength: '1'}},
+			{...json, options: {strength: -1}},
+			{...json, options: {unknown: '0.5'}},
+			{...json, options: {hamCutoff: true}},
+			{...json, options: {languagePrior: 'yes'}},
+		];
+		for (const data of cases) {
+			assert.throws(() => Classifier.fromJSON(typeof data === 'string' ? data : JSON.stringify(data)), {name: 'TypeError', message: /^Corrupt classifier model: /}, JSON.stringify(data).slice(0, 80));
+		}
+	});
+
+	it('keeps only the options it knows, and reads a model without options', () => {
+		const polluted = Classifier.fromJSON(JSON.stringify(json).replace('"options":{', '"options":{"__proto__":{"polluted":1},"extra":1,'));
+		assert.equal(polluted.options.extra, undefined);
+		assert.equal(Object.hasOwn(Object.prototype, 'polluted'), false);
+		const {options, ...bare} = json;
+		assert.equal(Classifier.fromJSON(bare).options.maxClues, 150);
+		assert.equal(Classifier.fromJSON({...json, options: {minLanguageExamples: 5, languagePrior: false}}).options.minLanguageExamples, 5);
+	});
+
+	it('reads back options without a limit, and every option earlier releases saved', () => {
+		const unlimited = trained({maxClues: Infinity, minLanguageExamples: Infinity, minDistance: Infinity});
+		const copy = Classifier.fromJSON(JSON.stringify(unlimited.toJSON()));
+		assert.deepEqual([copy.options.maxClues, copy.options.minLanguageExamples, copy.options.minDistance], [Infinity, Infinity, Infinity]);
+		assert.deepEqual(copy.toJSON(), unlimited.toJSON());
+		assert.equal(Classifier.fromJSON(unlimited.toJSON()).options.maxClues, Infinity);
+		// (as 7.0.3 read them: a classifier that never finds a clue, and cutoffs
+		//  that overlap, where spam wins)
+		for (const options of [{minDistance: 0.5}, {minDistance: 2}, {maxClues: 0}, {hamCutoff: 0.9, spamCutoff: 0.5}, {spamCutoff: 0.1}, {unknown: 2}, {strength: 0}]) {
+			const model = {...json, options: {...json.options, ...options}};
+			assert.deepEqual(Classifier.fromJSON(JSON.stringify(model)).toJSON(), model, JSON.stringify(options));
+		}
+
+		// (null, as 7.0.3 saved an infinite option: the infinity it can mean,
+		//  else the default)
+		const nulls = Classifier.fromJSON({
+			...json, options: {
+				strength: null, unknown: null, hamCutoff: null, spamCutoff: null, languageShare: null,
+			},
+		}).options;
+		assert.deepEqual([nulls.strength, nulls.unknown, nulls.hamCutoff, nulls.spamCutoff, nulls.languageShare], [0.45, 0.5, Number.NEGATIVE_INFINITY, Number.POSITIVE_INFINITY, 0.02]);
+		const never = trained({hamCutoff: Number.NEGATIVE_INFINITY, spamCutoff: Number.POSITIVE_INFINITY});
+		const reloaded = Classifier.fromJSON(JSON.stringify(never.toJSON()));
+		assert.deepEqual([reloaded.options.hamCutoff, reloaded.options.spamCutoff], [-1, 2]);
+		assert.equal(reloaded.classify(['free', 'prize', 'winner']).category, 'unsure');
+		assert.equal(reloaded.classify(['meeting', 'report', 'thanks']).category, 'unsure');
+		const always = Classifier.fromJSON(JSON.stringify(trained({hamCutoff: Number.POSITIVE_INFINITY}).toJSON()));
+		assert.equal(always.classify(['meeting', 'report', 'thanks']).category, 'ham');
+		assert.equal(Classifier.fromJSON(JSON.stringify(trained({spamCutoff: Number.NEGATIVE_INFINITY}).toJSON())).classify(['meeting']).category, 'spam');
+
+		const overlapping = Classifier.fromJSON(JSON.stringify(trained({hamCutoff: 0.9, spamCutoff: 0.5}).toJSON()));
+		assert.equal(overlapping.classify(['free', 'prize', 'winner']).category, 'spam');
+		assert.equal(Classifier.fromJSON({...json, options: {maxClues: 0}}).classify(['free', 'prize']).category, 'unsure');
+	});
+
+	it('saves languagePrior', () => {
+		const classifier = trained({languagePrior: false});
+		assert.equal(classifier.toJSON().options.languagePrior, false);
+		assert.equal(Classifier.fromJSON(classifier.toJSON()).options.languagePrior, false);
 	});
 });

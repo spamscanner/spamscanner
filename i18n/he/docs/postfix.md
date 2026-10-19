@@ -1,4 +1,4 @@
-<!-- source: f1043eb5fc58 -->
+<!-- source: 6675649d593a -->
 
 # Postfix ו-Sendmail
 
@@ -13,11 +13,13 @@ Spam Scanner מתחבר ל-Postfix בשתי דרכים:
 X-Spam-Flag: YES
 X-Spam-Score: 8.0
 X-Spam-Level: ********
-X-Spam-Status: Yes, score=8.0 required=5.0 tests=BAYES_99,DECEPTIVE_LINK version=7.0.0
+X-Spam-Status: Yes, score=8.0 required=5.0 tests=BAYES_99,DECEPTIVE_LINK version=7.0.3
 X-Spam-Action: tag
 ```
 
 כותרות `X-Spam-*` שכבר נמצאות בהודעה מוסרות קודם, כך ששולח לא יכול לסמן את הדואר שלו כנקי.
+
+הודעה עם קובץ מצורף ש-ClamAV לא הצליח לסרוק עלולה להכיל וירוס, ולכן שניהם דוחים אותה למועד מאוחר יותר (Postfix או השולח מנסים שוב מאוחר יותר), כמו שהם עושים כשסריקה נכשלת. עם `--on-error accept` היא מועברת הלאה עם התוספת `X-Spam-Virus-Scan: failed`.
 
 
 ## Milter
@@ -29,7 +31,7 @@ npm install --global spamscanner
 spamscanner milter --port 7831 --auth --subject-tag "[SPAM]" --verbose
 ```
 
-עם `--reject`, הודעות שמגיעות לסף הדחייה (15 נקודות) נדחות עם `451 4.7.1 Message rejected as spam`. ‏451 הוא זמני: השולח מנסה שוב מאוחר יותר, ועדיין אפשר לתקן טעות על ידי שינוי הגדרה. כשהתוצאות נראות נכונות, אפשר להשתמש ב-`--reject-code 550` לדחייה קבועה. עם `--quarantine`, ספאם עובר במקום זאת לתור ההשהיה (hold) של Postfix.
+עם `--reject`, הודעות שמגיעות לסף הדחייה (15 נקודות) נדחות עם `451 4.7.1 Message rejected as spam`. ‏451 הוא זמני: השולח מנסה שוב מאוחר יותר, ועדיין אפשר לתקן טעות על ידי שינוי הגדרה. כשהתוצאות נראות נכונות, אפשר להשתמש ב-`--reject-code 550` לדחייה קבועה. עם `--quarantine`, ספאם עובר במקום זאת לתור ההשהיה (hold) של Postfix. הודעה שה-milter לא הצליח לסרוק במלואה מקבלת תשובת 4xx; ‏`--on-error accept` מעביר אותה במקום זאת.
 
 כשירות systemd, ב-`/etc/systemd/system/spamscanner-milter.service`:
 
@@ -101,7 +103,7 @@ smtp      inet  n       -       n       -       -       smtpd
   -o content_filter=spamscanner:dummy
 spamscanner unix -      n       n       -       10      pipe
   flags=Rq user=spamscanner null_sender=
-  argv=/usr/bin/node /usr/local/lib/node_modules/spamscanner/dist/esm/cli.js filter --subject-tag [SPAM] -f ${sender} -- ${recipient}
+  argv=/usr/bin/node /usr/local/lib/node_modules/spamscanner/dist/esm/cli.js filter --subject-tag [SPAM] --from=${sender} -- ${recipient}
 ```
 
 Postfix מריץ את המסנן עם סביבה כמעט ריקה, ולכן `argv` מציין את Node.js ואת הסקריפט בנתיבים המלאים שלהם (`command -v node` ו-`npm root --global` מציגים אותם). אחר כך:
@@ -112,7 +114,7 @@ sudo postfix reload
 
 המסנן מחזיר את ההודעה עם `sendmail -G -i`. דואר שנשלח בדרך הזו לא עובר שוב דרך המאזין `smtp`, כך שהוא לא מסונן פעמיים.
 
-קודי היציאה אומרים ל-Postfix מה קרה: 0 נמסר, 69 נדחה (עם `--reject`: ‏Postfix מחזיר אותו לשולח), 75 כישלון זמני (Postfix שומר את ההודעה ומנסה שוב). כל כישלון בסריקה או במסירה הוא 75, כך שהגדרה שבורה לעולם לא גורמת לאובדן דואר או להחזרתו.
+קודי היציאה אומרים ל-Postfix מה קרה: 0 נמסר, 69 נדחה (עם `--reject`: ‏Postfix מחזיר אותו לשולח), 75 כישלון זמני (Postfix שומר את ההודעה ומנסה שוב). כל כישלון בסריקה או במסירה הוא 75, וכך גם הודעה עם קובץ מצורף ש-ClamAV לא הצליח לסרוק, כך שהגדרה שבורה לעולם לא גורמת לאובדן דואר או להחזרתו. עם `--on-error accept`, הודעה שהסריקה שלה נכשלה, או ש-ClamAV לא הצליח לסרוק אותה במלואה, מועברת הלאה במקום זאת, מסומנת ב-`X-Spam-Virus-Scan: failed` (ראו [את ה-CLI](cli.md#filter)).
 
 
 ## Sendmail
@@ -124,6 +126,12 @@ INPUT_MAIL_FILTER(`spamscanner', `S=inet:7831@127.0.0.1, F=T, T=S:30s;R:30s;E:5m
 ```
 
 `F=T` גורם ל-Sendmail לענות בכישלון זמני כל עוד ה-milter לא זמין; בלעדיו, הדואר מתקבל בלי סינון. יש לבנות מחדש את `sendmail.cf` ולהפעיל מחדש את Sendmail.
+
+שם המארח של הלקוח יכול להכניס הודעה לרשימת ההיתר רק כשהוא מאומת. Postfix שולח אותו רק כששם ה-DNS ההפוך של הלקוח מתורגם בחזרה לכתובת שלו, ו-`unknown` אחרת. Sendmail שולח את שם ה-DNS ההפוך גם כשהוא אינו מתורגם בחזרה (שם שכל מי שיש לו DNS הפוך לכתובת שלו יכול לבחור), ומציין זאת במאקרו `{client_resolve}` שלו, שהוא אינו שולח כברירת מחדל. הוסיפו אותו למאקרו שנשלחים בעת ההתחברות, לפני `INPUT_MAIL_FILTER`, כך שרק שם מארח שהוא מציין כ-`OK` ייחשב:
+
+```text
+define(`confMILTER_MACROS_CONNECT', `j, _, {daemon_name}, {if_name}, {if_addr}, {client_resolve}')
+```
 
 
 ## מיון ספאם לתיקיית Junk

@@ -1,4 +1,4 @@
-<!-- source: f1043eb5fc58 -->
+<!-- source: 6675649d593a -->
 
 # Postfix ve Sendmail
 
@@ -13,11 +13,13 @@ Spam Scanner, Postfix'e iki şekilde bağlanır:
 X-Spam-Flag: YES
 X-Spam-Score: 8.0
 X-Spam-Level: ********
-X-Spam-Status: Yes, score=8.0 required=5.0 tests=BAYES_99,DECEPTIVE_LINK version=7.0.0
+X-Spam-Status: Yes, score=8.0 required=5.0 tests=BAYES_99,DECEPTIVE_LINK version=7.0.3
 X-Spam-Action: tag
 ```
 
 İletide zaten bulunan `X-Spam-*` üst bilgileri önce kaldırılır; böylece bir gönderici kendi postasını temiz olarak işaretleyemez.
+
+ClamAV'ın tarayamadığı bir ek içeren ileti virüs içerebilir; bu yüzden ikisi de, bir tarama başarısız olduğunda yaptıkları gibi, iletiyi erteler (Postfix ya da gönderici daha sonra yeniden dener). `--on-error accept` ile ileti, `X-Spam-Virus-Scan: failed` eklenerek aktarılır.
 
 
 ## Milter
@@ -29,7 +31,7 @@ npm install --global spamscanner
 spamscanner milter --port 7831 --auth --subject-tag "[SPAM]" --verbose
 ```
 
-`--reject` ile reddetme eşiğindeki (15 puan) iletiler `451 4.7.1 Message rejected as spam` ile geri çevrilir. 451 geçici bir hatadır: gönderici daha sonra yeniden dener ve bir hata bir ayar değiştirilerek hâlâ düzeltilebilir. Sonuçlar doğru görünmeye başladığında kalıcı geri çevirme için `--reject-code 550` kullanın. `--quarantine` ile spam bunun yerine Postfix'in bekletme kuyruğuna (hold queue) gider.
+`--reject` ile reddetme eşiğindeki (15 puan) iletiler `451 4.7.1 Message rejected as spam` ile geri çevrilir. 451 geçici bir hatadır: gönderici daha sonra yeniden dener ve bir hata bir ayar değiştirilerek hâlâ düzeltilebilir. Sonuçlar doğru görünmeye başladığında kalıcı geri çevirme için `--reject-code 550` kullanın. `--quarantine` ile spam bunun yerine Postfix'in bekletme kuyruğuna (hold queue) gider. Milter'ın tam olarak tarayamadığı bir ileti 4xx yanıtı alır; `--on-error accept` ise bunun yerine onu geçirir.
 
 `/etc/systemd/system/spamscanner-milter.service` içinde bir systemd hizmeti olarak:
 
@@ -101,7 +103,7 @@ smtp      inet  n       -       n       -       -       smtpd
   -o content_filter=spamscanner:dummy
 spamscanner unix -      n       n       -       10      pipe
   flags=Rq user=spamscanner null_sender=
-  argv=/usr/bin/node /usr/local/lib/node_modules/spamscanner/dist/esm/cli.js filter --subject-tag [SPAM] -f ${sender} -- ${recipient}
+  argv=/usr/bin/node /usr/local/lib/node_modules/spamscanner/dist/esm/cli.js filter --subject-tag [SPAM] --from=${sender} -- ${recipient}
 ```
 
 Postfix filtreyi neredeyse boş bir ortamla çalıştırır; bu nedenle `argv` Node.js'i ve betiği tam yollarıyla belirtir (`command -v node` ve `npm root --global` bu yolları gösterir). Ardından:
@@ -112,7 +114,7 @@ sudo postfix reload
 
 Filtre iletiyi `sendmail -G -i` ile geri verir. Bu şekilde gönderilen posta `smtp` dinleyicisinden yeniden geçmez, bu yüzden iki kez filtrelenmez.
 
-Çıkış kodları Postfix'e ne olduğunu bildirir: 0 teslim edildi, 69 geri çevrildi (`--reject` ile: Postfix iletiyi göndericiye geri döndürür), 75 geçici hata (Postfix iletiyi saklar ve yeniden dener). Her tarama veya teslimat hatası 75'tir; böylece bozuk bir ayar hiçbir zaman postayı kaybettirmez veya geri döndürmez.
+Çıkış kodları Postfix'e ne olduğunu bildirir: 0 teslim edildi, 69 geri çevrildi (`--reject` ile: Postfix iletiyi göndericiye geri döndürür), 75 geçici hata (Postfix iletiyi saklar ve yeniden dener). Her tarama veya teslimat hatası 75'tir, ClamAV'ın tarayamadığı bir ek içeren ileti de öyle; böylece bozuk bir ayar hiçbir zaman postayı kaybettirmez veya geri döndürmez. `--on-error accept` ile taraması başarısız olan ya da ClamAV'ın tam olarak tarayamadığı bir ileti bunun yerine `X-Spam-Virus-Scan: failed` ile işaretlenerek aktarılır (bkz. [komut satırı](cli.md#filter)).
 
 
 ## Sendmail
@@ -124,6 +126,12 @@ INPUT_MAIL_FILTER(`spamscanner', `S=inet:7831@127.0.0.1, F=T, T=S:30s;R:30s;E:5m
 ```
 
 `F=T`, milter kullanılamazken Sendmail'in geçici hatayla yanıt vermesini sağlar; postayı bunun yerine filtrelenmeden kabul etmek için kaldırın. `sendmail.cf` dosyasını yeniden oluşturun ve Sendmail'i yeniden başlatın.
+
+İstemcinin ana makine adı, bir iletiyi yalnızca doğrulanmışsa izin listesine alabilir. Postfix bu adı yalnızca istemcinin ters DNS adı yeniden onun adresine çözümlendiğinde gönderir, aksi hâlde `unknown` gönderir. Sendmail ise ters DNS adını yeniden çözümlenmediğinde bile gönderir (kendi adresi için ters DNS'i olan herkesin seçebileceği bir ad) ve bunu varsayılan olarak göndermediği `{client_resolve}` makrosunda belirtir. Yalnızca `OK` olarak verdiği bir ana makine adının sayılması için bu makroyu, `INPUT_MAIL_FILTER` öncesinde, bağlantıda gönderilen makrolara ekleyin:
+
+```text
+define(`confMILTER_MACROS_CONNECT', `j, _, {daemon_name}, {if_name}, {if_addr}, {client_resolve}')
+```
 
 
 ## Spamı Junk klasörüne ayırmak

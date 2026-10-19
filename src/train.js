@@ -1,6 +1,6 @@
 import {createHash} from 'node:crypto';
 import path from 'node:path';
-import {simpleParser} from 'mailparser';
+import {parseMessage} from './parse.js';
 import {Classifier} from './classifier.js';
 import {getFeatures} from './tokenizer.js';
 import {readCsv, readJsonl, readMessages} from './sources.js';
@@ -12,7 +12,7 @@ import {readCsv, readJsonl, readMessages} from './sources.js';
  * @returns {Promise<string[]>}
  */
 export async function featuresFromMessage(raw, options = {}) {
-	const mail = await simpleParser(raw, {skipImageLinks: true, skipTextToHtml: true, skipTextLinks: true});
+	const mail = await parseMessage(raw);
 	return getFeatures(mail, options).features;
 }
 

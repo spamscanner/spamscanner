@@ -1,11 +1,11 @@
 import {Buffer} from 'node:buffer';
 import {spawn} from 'node:child_process';
-import {existsSync, readFileSync} from 'node:fs';
+import {existsSync, readFileSync, statSync} from 'node:fs';
 import process from 'node:process';
 import {parseArgs} from 'node:util';
 import {Classifier} from './classifier.js';
 import {rewriteMessage, spamHeaders} from './headers.js';
-import {PROVIDERS, describeHardware} from './llm.js';
+import {LOCALHOST, PROVIDERS, describeHardware} from './llm.js';
 import {MilterServer} from './milter.js';
 import {loadDefaultModel, loadModel, saveModel} from './model.js';
 import {CLASSIFIER_MODELS, DECISION_MODELS, RECOMMENDED_MODELS} from './models.js';
@@ -62,7 +62,7 @@ Checks:
   --uribl <zone>       Domain blocklist for links, e.g. dbl.spamhaus.org (repeatable)
   --dns-server <ip>    Name server for DNS checks (repeatable)
   --no-cloudflare      Do not ask Cloudflare's filtering resolvers about links
-  --clamav [socket]    Scan attachments with clamd (default socket if none given)
+  --clamav[=socket]    Scan attachments with clamd (default socket if none given)
   --allowlist <value>  Always accept this IP, domain or address (repeatable)
   --denylist <value>   Always reject this IP, domain or address (repeatable)
 
@@ -95,9 +95,11 @@ Filter (Postfix pipe):
 Servers:
   --port <n>  --host <ip>  --socket <path>
   --reject             Milter: refuse mail at the reject threshold
-  --reject-code <n>    Milter: 451 (try later; default) or 550
+  --reject-code <n>    Milter: a 4xx or 5xx code, 451 (try later; default) or 550
   --name <hostname>    Milter: this server's name in Authentication-Results
   --quarantine         Milter: hold spam in the mail server's quarantine
+  --on-error <answer>  Milter and filter: for mail that could not be fully scanned,
+                       tempfail (try later; default) or accept (pass it on)
   --token <secret>     HTTP: require "Authorization: Bearer <secret>"
   --allow-tell         spamd: accept TELL (learning) requests; saves to --out
 
@@ -173,6 +175,7 @@ const OPTIONS = {
 	host: {type: 'string'},
 	socket: {type: 'string'},
 	'reject-code': {type: 'string'},
+	'on-error': {type: 'string'},
 	name: {type: 'string'},
 	quarantine: {type: 'boolean'},
 	token: {type: 'string'},
@@ -188,6 +191,16 @@ const OPTIONS = {
 
 const COMMANDS = new Set(['scan', 'filter', 'milter', 'http', 'server', 'spamd', 'train', 'eval', 'learn', 'llm-test', 'models', 'version', 'help']);
 
+// What the milter and filter do with mail they could not fully scan.
+function onError(values) {
+	const value = values['on-error'] ?? 'tempfail';
+	if (!['tempfail', 'accept'].includes(value)) {
+		throw new TypeError(`--on-error must be tempfail or accept, not "${value}"`);
+	}
+
+	return value;
+}
+
 function number(value, name) {
 	const parsed = Number(value);
 	if (!Number.isFinite(parsed)) {
@@ -198,8 +211,20 @@ function number(value, name) {
 }
 
 /**
+ * Whether an argument after a bare --clamav is its socket rather than the
+ * message file: a path or address, or a .sock or .ctl name, that is not an
+ * existing regular file.
+ * @param {string} value
+ * @returns {boolean}
+ */
+function isSocketArgument(value) {
+	return /[/:]|\.(?:sock|ctl)$/.test(value) && !statSync(value, {throwIfNoEntry: false})?.isFile();
+}
+
+/**
  * The --clamav option is optional-valued: "--clamav" alone uses the default
- * socket. parseArgs needs a value, so a bare flag is given an empty one first.
+ * socket, and "--clamav=<socket>" names one. parseArgs needs a value, so a
+ * bare flag is given an empty one first, unless the next argument is a socket.
  * @param {string[]} argv
  * @returns {string[]}
  */
@@ -207,7 +232,7 @@ function normalizeArgv(argv) {
 	const out = [];
 	for (let i = 0; i < argv.length; i++) {
 		out.push(argv[i]);
-		if (argv[i] === '--clamav' && (i + 1 >= argv.length || argv[i + 1].startsWith('-'))) {
+		if (argv[i] === '--clamav' && (i + 1 >= argv.length || argv[i + 1].startsWith('-') || !isSocketArgument(argv[i + 1]))) {
 			out.push('');
 		}
 	}
@@ -422,6 +447,17 @@ export function deliver(sendmail, args, message) {
 	});
 }
 
+// Deliver, or defer (EX_TEMPFAIL) if sendmail fails.
+async function deliverOrDefer(sendmail, args, message, stderr) {
+	const code = await deliver(sendmail, args, message);
+	if (code !== 0) {
+		stderr.write(`filter: sendmail exited with ${code}, deferring\n`);
+		return 75;
+	}
+
+	return 0;
+}
+
 const SAMPLES = [
 	['ham', 'From: Alice <alice@example.org>\r\nTo: bob@example.net\r\nSubject: Lunch on Thursday?\r\n\r\nHi Bob, are we still on for lunch on Thursday at noon? I can book the usual place. Alice\r\n'],
 	['spam', 'From: "Account Security" <security@account-verify.example>\r\nTo: bob@example.net\r\nSubject: Your mailbox will be closed today\r\n\r\nWe detected unusual sign-in activity. Confirm your password within 24 hours or your mailbox will be deleted: http://account-verify.example/login\r\n'],
@@ -430,6 +466,16 @@ const SAMPLES = [
 
 function datasetsFrom(values) {
 	return (values.dataset || []).map(file => ({file, textColumn: values['text-column'], labelColumn: values['label-column']}));
+}
+
+// Spamd and TCP clients do not send the client's IP address, and HTTP clients
+// only with ?ip=, so authentication and IP blocklists cannot run without it.
+function warnWithoutClientIp(command, config, stderr) {
+	if (config.authentication || config.dnsbl?.ip?.length > 0) {
+		stderr.write(command === 'http'
+			? 'http: SPF, DKIM, DMARC, ARC and IP blocklist checks run only for requests that give the client\'s address with ?ip=\n'
+			: `${command}: SPF, DKIM, DMARC, ARC and IP blocklist checks need the client's IP address, which ${command} clients do not send, so they are skipped; use the milter or the HTTP API with ?ip= for them\n`);
+	}
 }
 
 function waitForClose(server) {
@@ -465,6 +511,8 @@ const HANDLERS = {
 			return 64;
 		}
 
+		const accept = onError(values) === 'accept';
+		const sendmail = ['-G', '-i', '-f', values.from ?? values.sender ?? '', '--', ...recipients];
 		let message;
 		let result;
 		try {
@@ -472,9 +520,27 @@ const HANDLERS = {
 			result = await scanner.scan(raw, {session});
 			message = rewriteMessage(raw, spamHeaders(result, {version: VERSION}), {subjectTag: result.isSpam ? (values['subject-tag'] ?? null) : null});
 		} catch (error) {
-			// Defer: Postfix keeps the message and tries again later.
-			stderr.write(`filter: scan failed, deferring: ${error.message}\n`);
+			if (!accept) {
+				// Defer: Postfix keeps the message and tries again later.
+				stderr.write(`filter: scan failed, deferring: ${error.message}\n`);
+				return 75;
+			}
+
+			// (without the sender's X-Spam headers, and marked)
+			stderr.write(`filter: scan failed, passing the message on: ${error.message}\n`);
+			result = null;
+			message = rewriteMessage(raw, [['X-Spam-Virus-Scan', 'failed']]);
+		}
+
+		// (a message ClamAV could not scan may hold a virus; passed on, it is
+		//  marked X-Spam-Virus-Scan: failed)
+		if (result?.results.virusScanErrors?.length > 0 && !accept) {
+			stderr.write('filter: ClamAV could not scan every attachment, deferring\n');
 			return 75;
+		}
+
+		if (result === null) {
+			return deliverOrDefer(values.sendmail, sendmail, message, stderr);
 		}
 
 		if (result.action === 'reject' && values.reject) {
@@ -486,19 +552,13 @@ const HANDLERS = {
 			return 0;
 		}
 
-		const code = await deliver(values.sendmail, ['-G', '-i', '-f', values.from ?? values.sender ?? '', '--', ...recipients], message);
-		if (code !== 0) {
-			stderr.write(`filter: sendmail exited with ${code}, deferring\n`);
-			return 75;
-		}
-
-		return 0;
+		return deliverOrDefer(values.sendmail, sendmail, message, stderr);
 	},
 
 	async milter({values, config, stderr, io}) {
 		const scanner = new SpamScanner(config);
 		const milter = new MilterServer(scanner, {
-			reject: Boolean(values.reject), rejectCode: values['reject-code'] ? number(values['reject-code'], '--reject-code') : 451, quarantine: Boolean(values.quarantine), subjectTag: values['subject-tag'] ?? null, hostname: values.name || 'spamscanner',
+			reject: Boolean(values.reject), rejectCode: values['reject-code'] ? number(values['reject-code'], '--reject-code') : 451, quarantine: Boolean(values.quarantine), subjectTag: values['subject-tag'] ?? null, hostname: values.name || 'spamscanner', onError: onError(values),
 		});
 		milter.on('error', error => stderr.write(`milter: ${error.message}\n`));
 		if (values.verbose) {
@@ -511,6 +571,7 @@ const HANDLERS = {
 	},
 
 	async http({values, config, env, stderr, io}) {
+		warnWithoutClientIp('http', config, stderr);
 		const server = createHttpServer(new SpamScanner(config), {token: values.token || env.SPAMSCANNER_TOKEN || null, modelPath: values.out || null});
 		await listen(server, values, 7832, {stderr});
 		io.onListening?.(server);
@@ -518,6 +579,7 @@ const HANDLERS = {
 	},
 
 	async server({values, config, stderr, io}) {
+		warnWithoutClientIp('server', config, stderr);
 		const server = createTcpServer(new SpamScanner(config), {json: !values.verbose});
 		await listen(server, values, 7830, {stderr});
 		io.onListening?.(server);
@@ -525,6 +587,7 @@ const HANDLERS = {
 	},
 
 	async spamd({values, config, stderr, io}) {
+		warnWithoutClientIp('spamd', config, stderr);
 		const server = createSpamdServer(new SpamScanner(config), {allowTell: Boolean(values['allow-tell']), modelPath: values.out || null, subjectTag: values['subject-tag'] ?? null});
 		await listen(server, values, 783, {stderr});
 		io.onListening?.(server);
@@ -584,8 +647,10 @@ const HANDLERS = {
 			return 2;
 		}
 
+		// Start from --model, else the --out file, else the bundled model.
+		const base = [values.model, values.out].find(candidate => candidate && existsSync(candidate));
 		const raw = await readInput(source, stdin);
-		const scanner = new SpamScanner({...config, classifier: existsSync(file) ? file : undefined});
+		const scanner = new SpamScanner({...config, classifier: base});
 		await scanner.learn(raw, category);
 		scanner.saveModel(file);
 		out(`Learned one ${category} message; saved ${file}`);
@@ -615,7 +680,9 @@ const HANDLERS = {
 		const {name, model, baseUrl} = scanner.llm.config;
 		out(`${correct} of ${SAMPLES.length} correct with ${name} ${model} at ${baseUrl} (method: ${scanner.llm.method()})`);
 		// Times depend on the hardware the model runs on.
-		out(scanner.llm.config.local ? `Hardware (model on this machine): ${describeHardware()}` : `Times include the round trip to ${new URL(baseUrl).host}`);
+		// (on this machine only: a model elsewhere on the network runs on other hardware)
+		const here = LOCALHOST.test(new URL(baseUrl).hostname);
+		out(here ? `Hardware (model on this machine): ${describeHardware()}` : `Times include the round trip to ${new URL(baseUrl).host}`);
 		return correct === SAMPLES.length ? 0 : 1;
 	},
 
@@ -656,7 +723,10 @@ export async function main(argv = process.argv.slice(2), io = {}) {
 		parsed = parseCli(argv);
 	} catch (error) {
 		stderr.write(`${error.message}\nRun "spamscanner help" for usage.\n`);
-		return 2;
+		// A content filter must defer rather than bounce, even for a mistake in
+		// its own command line.
+		const end = argv.indexOf('--');
+		return (end === -1 ? argv : argv.slice(0, end)).includes('filter') ? 75 : 2;
 	}
 
 	const {command, positionals, values} = parsed;

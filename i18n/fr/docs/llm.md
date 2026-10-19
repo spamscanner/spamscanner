@@ -1,4 +1,4 @@
-<!-- source: 79e50e309869 -->
+<!-- source: 7564838c2408 -->
 
 # Modèles de langage
 
@@ -114,11 +114,11 @@ Ce sont des services hébergés : les données personnelles sont donc retirées
 | `always`            | Pour chaque message                                                                                                                          |
 | `off`               | Jamais                                                                                                                                       |
 
-`minScore` et `maxScore` modifient la plage pour `auto`. Le spam évident et le ham évident ne parviennent jamais au modèle.
+`minScore` et `maxScore` modifient la plage pour `auto`. Le spam évident et le ham évident ne parviennent jamais au modèle. Toute autre valeur de `mode` est une erreur, et `llm: false` pour un seul `scan()` n’interroge aucun modèle.
 
 Le verdict est `spam`, `phishing`, `scam`, `malware` ou `ham`. Avec `decision`, spam, hameçonnage, arnaque et logiciel malveillant comptent ensemble contre le ham : un message que le modèle estime à 30 % spam, 30 % hameçonnage et 40 % ham est indésirable à 60 %, et le verdict est la catégorie la plus probable. Un verdict de spam ajoute jusqu’à 6 points (`LLM_SPAM`, `LLM_PHISHING`, `LLM_SCAM`, `LLM_MALWARE`) ; un verdict de ham en retire jusqu’à 3 (`LLM_HAM`), chaque fois multipliés par la confiance. Un modèle ne peut pas marquer à lui seul un message comme spam s’il n’est pas confiant : 6 points à 85 % donnent 5,1, juste au-dessus du seuil. Si le modèle échoue ou dépasse le délai, l’analyse se poursuit sans lui et `results.llm.error` en donne la raison.
 
-Les réponses sont mises en cache par message : un même message envoyé à de nombreux destinataires n’est soumis qu’une seule fois.
+Les réponses sont mises en cache par message : un même message envoyé à de nombreux destinataires n’est soumis qu’une seule fois, y compris quand ses copies sont analysées en même temps. `timeout` couvre l’attente d’un créneau de requête libre (`concurrency`) ainsi que les requêtes pour un message : un modèle qui reste occupé aussi longtemps est ignoré pour ce message.
 
 
 ## Fournisseurs
@@ -188,7 +188,7 @@ const scanner = new SpamScanner({
     username: 'spam', password: '…', // with auth: 'basic'
     headers: {'x-team': 'mail'},
     ca: fs.readFileSync('internal-ca.pem'), // a private certificate authority
-    timeout: 30_000,
+    timeout: 30_000,                 // waiting and requests, per message
     concurrency: 4,                  // requests at once
     cacheSize: 1000,                 // answers kept in memory
     keepAlive: '24h',                // Ollama: keep the model loaded between messages
@@ -259,7 +259,7 @@ spamscanner milter --llm ollama --llm-policy "We never send invoices by email. A
 
 Le modèle voit un résumé des en-têtes (From, Reply-To, To et Subject), les liens (d’abord ceux qui affichent une adresse et mènent à une autre), les noms et types des pièces jointes, les résultats d’authentification, la quantité de texte que le HTML cache lorsqu’il en cache plus qu’un texte d’aperçu, et le corps tel que l’affiche un client de messagerie (celui du HTML s’il y en a un, sans texte caché, caractères invisibles ni lettres stylisées), tronqué à 6 000 caractères (`maxInputChars`).
 
-Pour les fournisseurs extérieurs à votre réseau, les données personnelles sont d’abord retirées : la partie locale des adresses e-mail (le domaine reste, car il compte pour l’hameçonnage), les numéros de carte et de compte, les numéros de téléphone et les valeurs des paramètres de requête dans les liens, qui contiennent souvent des jetons de connexion. Ce comportement est activé par défaut pour les fournisseurs distants, modèles de décision compris, et désactivé pour les fournisseurs locaux (Ollama, LM Studio, llama.cpp, vLLM, LocalAI, Jan, TEI, et tout serveur sur localhost). `redact: true` ou `false` (`--llm-redact`, `--no-llm-redact`) le remplace.
+Pour les fournisseurs extérieurs à votre réseau, les données personnelles sont d’abord retirées : la partie locale des adresses e-mail (le domaine reste, car il compte pour l’hameçonnage), les numéros de carte et de compte, les numéros de téléphone internationaux (écrits avec + ou 00) et les valeurs des paramètres de requête dans les liens, qui contiennent souvent des jetons de connexion. Ce comportement est activé par défaut pour les fournisseurs distants, modèles de décision compris, et désactivé pour les fournisseurs locaux (Ollama, LM Studio, llama.cpp, vLLM, LocalAI, Jan, TEI) sur cette machine ou dans un réseau privé (une adresse privée, un nom sans point, ou un nom sous .local, .internal, .lan ou .home.arpa), ainsi que pour tout serveur sur localhost. Un fournisseur local qui pointe vers un hôte situé ailleurs reçoit des e-mails expurgés. `redact: true` ou `false` (`--llm-redact`, `--no-llm-redact`) le remplace.
 
 Vérifiez les conditions de conservation des données de votre fournisseur avant de lui envoyer du courrier. Un modèle local évite la question.
 

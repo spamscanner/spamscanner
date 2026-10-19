@@ -1,4 +1,4 @@
-<!-- source: 1151282f29d3 -->
+<!-- source: 84dca86d95ea -->
 
 # Muut postipalvelimet
 
@@ -20,8 +20,10 @@ Spam Scanner puhuu neljää protokollaa, joten useimmat postiohjelmistot voivat 
 
 ```sh
 sudo systemctl disable --now spamd    # or spamassassin, depending on the distribution
-spamscanner spamd --port 783 --auth
+spamscanner spamd --port 783
 ```
+
+spamd-asiakkaat eivät lähetä viestin lähettäneen asiakkaan IP-osoitetta, joten SPF, DKIM, DMARC ja ARC (`--auth`) sekä IP-estolistat (`--dnsbl`) eivät voi toimia tässä. Käytä niihin [milteriä](postfix.md#milter), jos postipalvelin tukee sitä.
 
 spamc:n kanssa:
 
@@ -87,7 +89,7 @@ if header :is "X-Spam-Flag" "YES" {
 IMAPSieven avulla viestin siirtäminen Junk-kansioon tai sieltä pois voi opettaa mallia. Käynnistä HTTP API tunnisteen ja mallitiedoston kanssa:
 
 ```sh
-spamscanner http --port 7832 --token "$SPAMSCANNER_TOKEN" --out /var/lib/spamscanner/model.json
+spamscanner http --port 7832 --out /var/lib/spamscanner/model.json    # token in SPAMSCANNER_TOKEN
 ```
 
 ja osoita milter- tai spamd-palvelin samaan malliin valitsimella `--model /var/lib/spamscanner/model.json` (tai muuttujalla `SPAMSCANNER_MODEL`). Käynnistä se aika ajoin uudelleen, jotta opittu otetaan käyttöön. `sieve_pipe`:n ajama skripti lähettää viestin:
@@ -132,7 +134,7 @@ if (/^X-Spam-Flag: YES/)
 Mikä tahansa ohjelma, joka osaa tehdä HTTP-pyynnön, voi tarkistaa postia:
 
 ```sh
-spamscanner http --port 7832 --token "$SPAMSCANNER_TOKEN"
+spamscanner http --port 7832    # token in SPAMSCANNER_TOKEN
 
 curl -s -X POST -H "Authorization: Bearer $SPAMSCANNER_TOKEN" \
   --data-binary @message.eml "http://127.0.0.1:7832/scan?ip=203.0.113.5&from=alice@example.com&to=bob@example.org"

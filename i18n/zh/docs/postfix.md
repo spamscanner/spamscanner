@@ -1,4 +1,4 @@
-<!-- source: f1043eb5fc58 -->
+<!-- source: 6675649d593a -->
 
 # Postfix 和 Sendmail
 
@@ -13,11 +13,13 @@ Spam Scanner 有两种方式接入 Postfix：
 X-Spam-Flag: YES
 X-Spam-Score: 8.0
 X-Spam-Level: ********
-X-Spam-Status: Yes, score=8.0 required=5.0 tests=BAYES_99,DECEPTIVE_LINK version=7.0.0
+X-Spam-Status: Yes, score=8.0 required=5.0 tests=BAYES_99,DECEPTIVE_LINK version=7.0.3
 X-Spam-Action: tag
 ```
 
 邮件中已有的 `X-Spam-*` 邮件头会先被移除，因此发件人无法把自己的邮件标记为干净。
+
+带有 ClamAV 未能扫描的附件的邮件可能含有病毒，因此两者都会推迟处理它（由 Postfix 或发件方稍后重试），与扫描失败时相同。使用 `--on-error accept` 时，它会加上 `X-Spam-Virus-Scan: failed` 后被传递下去。
 
 
 ## Milter
@@ -29,7 +31,7 @@ npm install --global spamscanner
 spamscanner milter --port 7831 --auth --subject-tag "[SPAM]" --verbose
 ```
 
-使用 `--reject` 时，达到拒收阈值（15 分）的邮件会以 `451 4.7.1 Message rejected as spam` 被拒收。451 是临时性错误：发件方稍后会重试，判定有误时仍可通过修改设置来纠正。确认结果无误后，使用 `--reject-code 550` 改为永久拒收。使用 `--quarantine` 时，垃圾邮件会改为进入 Postfix 的暂留队列（hold queue）。
+使用 `--reject` 时，达到拒收阈值（15 分）的邮件会以 `451 4.7.1 Message rejected as spam` 被拒收。451 是临时性错误：发件方稍后会重试，判定有误时仍可通过修改设置来纠正。确认结果无误后，使用 `--reject-code 550` 改为永久拒收。使用 `--quarantine` 时，垃圾邮件会改为进入 Postfix 的暂留队列（hold queue）。milter 未能完整扫描的邮件会收到 4xx 应答；`--on-error accept` 则改为放行。
 
 作为 systemd 服务，写入 `/etc/systemd/system/spamscanner-milter.service`：
 
@@ -101,7 +103,7 @@ smtp      inet  n       -       n       -       -       smtpd
   -o content_filter=spamscanner:dummy
 spamscanner unix -      n       n       -       10      pipe
   flags=Rq user=spamscanner null_sender=
-  argv=/usr/bin/node /usr/local/lib/node_modules/spamscanner/dist/esm/cli.js filter --subject-tag [SPAM] -f ${sender} -- ${recipient}
+  argv=/usr/bin/node /usr/local/lib/node_modules/spamscanner/dist/esm/cli.js filter --subject-tag [SPAM] --from=${sender} -- ${recipient}
 ```
 
 Postfix 在几乎为空的环境中运行过滤器，因此 `argv` 要用完整路径指定 Node.js 和脚本（`command -v node` 和 `npm root --global` 会显示这些路径）。然后：
@@ -112,7 +114,7 @@ sudo postfix reload
 
 过滤器用 `sendmail -G -i` 把邮件交回。以这种方式提交的邮件不会再次经过 `smtp` 监听器，因此不会被过滤两次。
 
-退出码告诉 Postfix 发生了什么：0 表示已投递，69 表示拒收（使用 `--reject` 时，Postfix 会把邮件退回给发件人），75 表示临时性失败（Postfix 保留邮件并重试）。任何扫描或投递失败都返回 75，因此错误的设置永远不会导致邮件丢失或被退回。
+退出码告诉 Postfix 发生了什么：0 表示已投递，69 表示拒收（使用 `--reject` 时，Postfix 会把邮件退回给发件人），75 表示临时性失败（Postfix 保留邮件并重试）。任何扫描或投递失败都返回 75，带有 ClamAV 未能扫描的附件的邮件也是如此，因此错误的设置永远不会导致邮件丢失或被退回。使用 `--on-error accept` 时，扫描失败或 ClamAV 未能完整扫描的邮件会改为加上 `X-Spam-Virus-Scan: failed` 标记后被传递下去（参见[命令行](cli.md#filter)）。
 
 
 ## Sendmail
@@ -124,6 +126,12 @@ INPUT_MAIL_FILTER(`spamscanner', `S=inet:7831@127.0.0.1, F=T, T=S:30s;R:30s;E:5m
 ```
 
 `F=T` 让 Sendmail 在 milter 不可用时以临时性失败作答；去掉它则改为不经过滤直接接收邮件。重新生成 `sendmail.cf` 并重启 Sendmail。
+
+客户端的主机名只有经过验证，才能让邮件进入允许列表。Postfix 只在客户端的反向 DNS 名称能正向解析回其地址时才发送它，否则发送 `unknown`。Sendmail 即使反向 DNS 名称无法正向解析回来也会发送它（任何为自己的地址设置了反向 DNS 的人都能选择这样的名称），并在其 `{client_resolve}` 宏中说明这一点，但默认不发送该宏。请在 `INPUT_MAIL_FILTER` 之前把它加入连接时发送的宏，这样只有它标为 `OK` 的主机名才计入：
+
+```text
+define(`confMILTER_MACROS_CONNECT', `j, _, {daemon_name}, {if_name}, {if_addr}, {client_resolve}')
+```
 
 
 ## 把垃圾邮件归入 Junk 文件夹

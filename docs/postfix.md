@@ -11,11 +11,13 @@ Both add these headers to every message:
 X-Spam-Flag: YES
 X-Spam-Score: 8.0
 X-Spam-Level: ********
-X-Spam-Status: Yes, score=8.0 required=5.0 tests=BAYES_99,DECEPTIVE_LINK version=7.0.0
+X-Spam-Status: Yes, score=8.0 required=5.0 tests=BAYES_99,DECEPTIVE_LINK version=7.0.3
 X-Spam-Action: tag
 ```
 
 `X-Spam-*` headers already in the message are removed first, so a sender cannot mark its own mail as clean.
+
+A message with an attachment ClamAV could not scan may hold a virus, so both defer it (Postfix or the sender tries again later), as they do when a scan fails. With `--on-error accept` it is passed on with `X-Spam-Virus-Scan: failed` added.
 
 
 ## Milter
@@ -27,7 +29,7 @@ npm install --global spamscanner
 spamscanner milter --port 7831 --auth --subject-tag "[SPAM]" --verbose
 ```
 
-With `--reject`, messages at the reject threshold (15 points) are refused with `451 4.7.1 Message rejected as spam`. A 451 is temporary: the sender tries again later and a mistake can still be corrected by changing a setting. Use `--reject-code 550` for a permanent refusal once the results look right. With `--quarantine`, spam goes to Postfix's hold queue instead.
+With `--reject`, messages at the reject threshold (15 points) are refused with `451 4.7.1 Message rejected as spam`. A 451 is temporary: the sender tries again later and a mistake can still be corrected by changing a setting. Use `--reject-code 550` for a permanent refusal once the results look right. With `--quarantine`, spam goes to Postfix's hold queue instead. A message the milter could not fully scan gets a 4xx reply; `--on-error accept` lets it through instead.
 
 As a systemd service, in `/etc/systemd/system/spamscanner-milter.service`:
 
@@ -99,7 +101,7 @@ smtp      inet  n       -       n       -       -       smtpd
   -o content_filter=spamscanner:dummy
 spamscanner unix -      n       n       -       10      pipe
   flags=Rq user=spamscanner null_sender=
-  argv=/usr/bin/node /usr/local/lib/node_modules/spamscanner/dist/esm/cli.js filter --subject-tag [SPAM] -f ${sender} -- ${recipient}
+  argv=/usr/bin/node /usr/local/lib/node_modules/spamscanner/dist/esm/cli.js filter --subject-tag [SPAM] --from=${sender} -- ${recipient}
 ```
 
 Postfix runs the filter with an almost empty environment, so `argv` names Node.js and the script by their full paths (`command -v node` and `npm root --global` show them). Then:
@@ -110,7 +112,7 @@ sudo postfix reload
 
 The filter passes the message back with `sendmail -G -i`. Mail submitted this way does not pass through the `smtp` listener again, so it is not filtered twice.
 
-Exit codes tell Postfix what happened: 0 delivered, 69 refused (with `--reject`: Postfix bounces it to the sender), 75 temporary failure (Postfix keeps the message and tries again). Any scan or delivery failure is 75, so a broken setting never loses or bounces mail.
+Exit codes tell Postfix what happened: 0 delivered, 69 refused (with `--reject`: Postfix bounces it to the sender), 75 temporary failure (Postfix keeps the message and tries again). Any scan or delivery failure is 75, and so is a message with an attachment ClamAV could not scan, so a broken setting never loses or bounces mail. With `--on-error accept`, a message whose scan failed, or that ClamAV could not fully scan, is passed on instead, marked `X-Spam-Virus-Scan: failed` (see [the CLI](cli.md#filter)).
 
 
 ## Sendmail
@@ -122,6 +124,12 @@ INPUT_MAIL_FILTER(`spamscanner', `S=inet:7831@127.0.0.1, F=T, T=S:30s;R:30s;E:5m
 ```
 
 `F=T` makes Sendmail answer with a temporary failure while the milter is unavailable; drop it to accept mail unfiltered instead. Rebuild `sendmail.cf` and restart Sendmail.
+
+The client's hostname can put a message on the allowlist only when it is verified. Postfix sends it only when the client's reverse DNS name resolves back to its address, and `unknown` otherwise. Sendmail sends the reverse DNS name even when it does not resolve back (a name anyone with reverse DNS for their own address can choose), and says so in its `{client_resolve}` macro, which it does not send by default. Add it to the macros sent on connect, before `INPUT_MAIL_FILTER`, so that only a hostname it gives as `OK` counts:
+
+```text
+define(`confMILTER_MACROS_CONNECT', `j, _, {daemon_name}, {if_name}, {if_addr}, {client_resolve}')
+```
 
 
 ## Sorting spam into a Junk folder

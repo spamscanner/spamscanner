@@ -1,4 +1,4 @@
-<!-- source: 7cc30ff4ad91 -->
+<!-- source: 4d7afeb36844 -->
 
 # Tanítás
 
@@ -15,12 +15,12 @@ spamscanner train --spam ~/Maildir/.Junk --ham ~/Maildir/cur --ham ~/Maildir/.Ar
 
 A források lehetnek:
 
-* **mbox**-fájlok, gzip-pel tömörítve is (`.mbox.gz`),
+* **mbox**-fájlok, gzip-pel tömörítve is (`.mbox.gz`; a többi `.gz` fájlt kihagyja),
 * egy **Maildir** (a `cur` és `new` mappáit olvassa, a `tmp` mappát kihagyja),
 * `.eml` fájlokat tartalmazó **mappa**, rekurzívan beolvasva,
-* egy **adatkészlet**: szöveg- és címkeoszlopot tartalmazó CSV- vagy JSON Lines-fájl (`--dataset`). A `text`, `message`, `body`, `email` vagy `content`, illetve a `label`, `category`, `class`, `spam` vagy `is_spam` nevű oszlopokat magától megtalálja; egyébként a `--text-column` és a `--label-column` használható. Az olyan címkéket, mint a `spam`, `1`, `phishing` és a `ham`, `0`, `not_spam`, `legitimate`, felismeri.
+* egy **adatkészlet**: szöveg- és címkeoszlopot tartalmazó CSV- vagy JSON Lines-fájl (`--dataset`). A `text`, `message`, `body`, `email text`, `email`, `content`, `sms` vagy `v2`, illetve a `label`, `category`, `is_spam`, `spam`, `email type`, `class`, `type`, `label_text`, `v1` vagy `labels` nevű oszlopokat vagy JSON-mezőket kis- és nagybetűtől függetlenül magától megtalálja (JSON Linesban a `label_text` mezőt a `label` előtt); egyébként a `--text-column` és a `--label-column` használható. Azt a JSON-sort, amely nem objektum, kihagyja. Az olyan címkéket, mint a `spam`, `1`, `phishing` és a `ham`, `0`, `not_spam`, `legitimate`, felismeri.
 
-Az ismétlődő leveleket egyszer számolja. Ha üres modell helyett a beépített modellre kell építeni, adja hozzá a `--merge` kapcsolót.
+Az ismétlődő leveleket egyszer számolja. A spam- és a ham-forrásokban egyaránt szereplő levelet spamként tartja meg, mert a spamforrásokat olvassa be először. Ha üres modell helyett a beépített modellre kell építeni, adja hozzá a `--merge` kapcsolót.
 
 A modell használata:
 

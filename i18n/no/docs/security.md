@@ -1,4 +1,4 @@
-<!-- source: 60f00f92b5aa -->
+<!-- source: df3e980c3ef1 -->
 
 # Sikkerhet og personvern
 
@@ -11,13 +11,13 @@ Som standard én ting: **vertsnavnene i lenker** i en melding slås opp på Clou
 
 Alt annet er av inntil det konfigureres:
 
-| Sjekk               | Sender                                                                               | Til                                                                        |
-| ------------------- | ------------------------------------------------------------------------------------ | -------------------------------------------------------------------------- |
-| `authentication`    | DNS-forespørsler etter avsenderens SPF-, DKIM-, DMARC- og ARC-poster                 | Din resolver, eller `dnsServers`                                           |
-| `dnsbl`             | Klientens IP-adresse, reversert, og domener i lenker, som DNS-forespørsler           | Navneserverne til blokkeringslistene, via din resolver eller `dns.servers` |
-| `llm`               | Et sammendrag av meldingen, med personopplysninger fjernet for eksterne leverandører | Serveren for språkmodellen som du angir ([personvern](llm.md#privacy))     |
-| `reputation.apiUrl` | Avsenderens IP-adresse, domene og adresse                                            | Tjenesten du angir                                                         |
-| `clamav`            | Vedlegg                                                                              | Din clamd, over socketen                                                   |
+| Sjekk               | Sender                                                                                                                | Til                                                                        |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| `authentication`    | DNS-forespørsler etter avsenderens SPF-, DKIM-, DMARC- og ARC-poster                                                  | Din resolver, eller `dnsServers`                                           |
+| `dnsbl`             | Klientens IP-adresse, reversert, og domener i lenker, som DNS-forespørsler                                            | Navneserverne til blokkeringslistene, via din resolver eller `dns.servers` |
+| `llm`               | Et sammendrag av meldingen, med personopplysninger fjernet for eksterne leverandører                                  | Serveren for språkmodellen som du angir ([personvern](llm.md#privacy))     |
+| `reputation.apiUrl` | Klientens IP-adresse og verifiserte vertsnavn, og From-, konvoluttavsender- og Reply-To-adressene, med domenene deres | Tjenesten du angir                                                         |
+| `clamav`            | Vedlegg                                                                                                               | Din clamd, over socketen                                                   |
 
 Det finnes ingen telemetri, ingen oppdateringssjekk og ingen nedlasting under kjøring. Modellen følger med i pakken.
 
@@ -26,14 +26,15 @@ Det finnes ingen telemetri, ingen oppdateringssjekk og ingen nedlasting under kj
 
 Ingenting, med mindre du ber om det. Skanninger blir ikke logget eller lagret. `learn()` endrer klassifisereren i minnet; den skrives bare til disk av `saveModel()`, `spamscanner learn` eller serverens `--out`-alternativ. En modellfil inneholder hashede tellinger av egenskaper, ikke ord eller meldingstekst.
 
-Svar fra språkmodellen mellomlagres i minnet, med en hash av det som ble sendt som nøkkel, så det spørres bare én gang om gjentatte kopier av den samme meldingen. DNS-svar mellomlagres i minnet i ti minutter.
+Svar fra språkmodellen mellomlagres i minnet, med en hash av det som ble sendt som nøkkel, så det spørres bare én gang om gjentatte kopier av den samme meldingen. DNS-svar mellomlagres i minnet i ti minutter, og svar fra en omdømmetjeneste i fem (`reputation.cacheTtl`; en mislykket forespørsel i ett minutt).
 
 
 ## Fiendtlige inndata
 
-* Vedlegg identifiseres ut fra bytene, og blir aldri kjørt eller åpnet av et annet program. ZIP-arkiver leses fra den sentrale katalogen, med en grense for antall oppføringer; nøstede arkiver pakkes ikke ut.
-* Brødteksten leses opp til `maxLength` (100 000 tegn), og serverne godtar meldinger på opptil 25 MB.
-* Hver nettverkssjekk har en tidsgrense (`timeout`, 10 sekunder som standard). En sjekk som feiler eller får tidsavbrudd, hoppes over, og skanningen fullføres uten den.
+* Vedlegg identifiseres ut fra bytene, og blir aldri kjørt eller åpnet av et annet program. ZIP-arkiver leses fra den sentrale katalogen, med en grense for antall oppføringer; nøstede arkiver pakkes ikke ut. Vedlagte meldinger (`message/rfc822`, eller vedlegg der filnavnet slutter på `.eml`) åpnes opptil tre nivåer dypt, for høyst 100 av vedleggene deres og 25 MB vedlagte meldinger totalt; meldingens egne vedlegg undersøkes alltid alle. En melding som går ut over MIME-parserens grenser (mer enn 1000 deler, eller en dels header over 1 MB), leses så langt parseren tillater (de første delene, med en for stor header kortet ned slik at avsenderen fortsatt teller) og får `MIME_TOO_COMPLEX`, som ingen kreditt oppveier; ClamAV leser den i sin helhet. En vedlagt melding som parseren feiler på, får den også, og får aldri skanningen til å mislykkes. HTML leses av Spam Scanners egen parser, i lineær tid, uansett hvor dypt den er nøstet.
+* Brødteksten leses opp til `maxLength` (100 000 tegn), og serverne godtar meldinger på opptil 25 MB. Lenker leses opptil `phishing.maxLength` (1 000 000 tegn).
+* Hver nettverkssjekk har en tidsgrense (`timeout`, 10 sekunder som standard). En sjekk som feiler eller får tidsavbrudd, hoppes over, og skanningen fullføres uten den. Autentisering og bildemodellen (de første 10 bildene) blir hver for seg ferdige innenfor den totalt. ClamAV (fire vedlegg om gangen) har sin egen grense for alle vedleggene i en melding (`clamav.timeout`, 60 sekunder), og vedlegg den ikke kunne skanne, står i `results.virusScanErrors`. Språkmodellen har sin egen (`llm.timeout`).
+* Tillatelseslisten stoler bare på det en avsender ikke kan forfalske: klientens adresse og verifiserte vertsnavn, og avsenderdomener som autentiseringen bekrefter. [Tillatelses- og blokkeringsliste](api.md#allowlist-and-denylist)
 * `X-Spam-*`-hoder som allerede finnes i en melding, fjernes av milteren, innholdsfilteret og `--headers`, så avsendere ikke kan merke sin egen e-post som ren.
 * Microsofts hoder med spamvurdering stoles bare på når meldingen kom direkte fra Microsofts servere, og Received-hoder brukes aldri til å avgjøre hvor en melding kom fra.
 * Tekst rettet mot KI-filtre får poeng som spam, og språkmodellen får beskjed om at meldingen er data, ikke instruksjoner. [Prompt injection](llm.md#prompt-injection)

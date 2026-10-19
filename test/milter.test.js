@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {Buffer} from 'node:buffer';
-import {once} from 'node:events';
+import {EventEmitter, once} from 'node:events';
 import net from 'node:net';
 import path from 'node:path';
 import {describe, it} from 'node:test';
@@ -8,7 +8,7 @@ import {setTimeout as delay} from 'node:timers/promises';
 import SpamScanner from '../src/index.js';
 import {GTUBE} from '../src/is-arbitrary.js';
 import {
-	MilterServer, PROTOCOL, cstrings, packet,
+	MAX_PACKET, MilterServer, MilterSession, PROTOCOL, cstrings, packet,
 } from '../src/milter.js';
 import {
 	cstr, dnsServer, milterClient, temporaryDirectory,
@@ -38,13 +38,13 @@ async function start(options, scan = scanner) {
 
 // Run one SMTP transaction through the milter and return its answers.
 async function transaction(port, {
-	headers = [['From', 'alice@example.org'], ['Subject', 'Hello']], body = 'Hi Bob, see you at lunch.\r\n', leadingSpace = false, hostname = 'mail.example.org', family = '4', address = '192.0.2.1',
+	headers = [['From', 'alice@example.org'], ['Subject', 'Hello']], body = 'Hi Bob, see you at lunch.\r\n', leadingSpace = false, hostname = 'mail.example.org', family = '4', address = '192.0.2.1', macros = [],
 } = {}) {
 	const client = await milterClient(port);
 	try {
 		client.send('O', optneg({leadingSpace}));
 		const negotiated = await client.read();
-		client.send('D', Buffer.concat([Buffer.from('C'), cstr('j', 'mx.example.com', '{daemon_name}', 'smtpd')]));
+		client.send('D', Buffer.concat([Buffer.from('C'), cstr('j', 'mx.example.com', '{daemon_name}', 'smtpd', ...macros)]));
 		client.send('C', connect(hostname, family, address));
 		assert.equal((await client.read()).command, 'c');
 		client.send('H', cstr('mail.example.org'));
@@ -187,6 +187,51 @@ describe('MilterServer', () => {
 		} finally {
 			await server.close();
 		}
+
+		// (a tag that is not ASCII as an encoded word)
+		const encoded = await start({subjectTag: '[垃圾]'});
+		try {
+			const {answers, client} = await transaction(encoded.port, {body: GTUBE});
+			client.close();
+			assert.deepEqual(changed(answers), [[1, 'Subject', `=?UTF-8?B?${Buffer.from('[垃圾]').toString('base64')}?= Hello`]]);
+			// (with a space inside it before an encoded subject, where a space
+			//  between the words would not show)
+			const before = await transaction(encoded.port, {headers: [['Subject', '=?UTF-8?B?SGVsbG8=?=']], body: GTUBE});
+			before.client.close();
+			assert.deepEqual(changed(before.answers), [[1, 'Subject', `=?UTF-8?B?${Buffer.from('[垃圾] ').toString('base64')}?= =?UTF-8?B?SGVsbG8=?=`]]);
+		} finally {
+			await encoded.server.close();
+		}
+
+		// (a long tag as encoded words of at most 75 characters, folded with a
+		//  line feed so each line stays within 76)
+		const tag = `[${'垃圾'.repeat(30)}]`;
+		const long = await start({subjectTag: tag});
+		try {
+			const {answers, client} = await transaction(long.port, {body: GTUBE});
+			client.close();
+			const value = changed(answers)[0][2];
+			assert.ok(!value.includes('\r'));
+			const lines = value.split('\n');
+			assert.ok(lines.length > 1);
+			assert.ok(lines.every((line, index) => (index === 0 ? 'Subject: ' : '').length + line.length <= 76), value);
+			const words = [...value.matchAll(/=\?UTF-8\?B\?([^?]*)\?=/g)];
+			assert.ok(words.every(([word]) => word.length <= 75));
+			assert.equal(words.map(([, data]) => Buffer.from(data, 'base64').toString('utf8')).join(''), tag);
+			assert.ok(value.endsWith('?= Hello'));
+		} finally {
+			await long.server.close();
+		}
+
+		// (a tag empty after cleanup changes nothing)
+		const empty = await start({subjectTag: ' \t '});
+		try {
+			const {answers, client} = await transaction(empty.port, {headers: [['From', 'x@example.org']], body: GTUBE});
+			client.close();
+			assert.deepEqual(changed(answers), []);
+		} finally {
+			await empty.server.close();
+		}
 	});
 
 	it('adds Authentication-Results when authentication is on', async () => {
@@ -202,6 +247,43 @@ describe('MilterServer', () => {
 		} finally {
 			await server.close();
 			await dns.close();
+		}
+	});
+
+	it('trusts a client hostname only when Sendmail\'s {client_resolve} does not say otherwise', async () => {
+		const {server, port} = await start();
+		const scans = [];
+		server.on('scan', scan => scans.push(scan));
+		try {
+			for (const macros of [['{client_resolve}', 'FORGED'], ['{client_resolve}', 'FAIL'], ['client_resolve', 'TEMP'], ['{client_resolve}', 'OK'], ['{client_resolve}', 'ok'], ['{client_addr}', '192.0.2.1'], []]) {
+				const {client} = await transaction(port, {hostname: 'ptr.attacker.example', macros});
+				client.close();
+			}
+
+			assert.deepEqual(scans.map(scan => scan.session.resolvedClientHostname), [undefined, undefined, undefined, 'ptr.attacker.example', 'ptr.attacker.example', 'ptr.attacker.example', 'ptr.attacker.example']);
+			// (macros of another stage, an empty macro packet, and a new
+			//  connection on the same socket forget the last connection's)
+			const client = await milterClient(port);
+			client.send('O', optneg());
+			await client.read();
+			client.send('D', Buffer.concat([Buffer.from('C'), cstr('{client_resolve}', 'FORGED')]));
+			client.send('C', connect('first.example'));
+			await client.read();
+			client.send('D', Buffer.from(''));
+			client.send('D', Buffer.concat([Buffer.from('M'), cstr('{client_resolve}', 'OK')]));
+			client.send('K');
+			client.send('C', connect('second.example'));
+			await client.read();
+			client.send('M', cstr('<a@example.org>'));
+			await client.read();
+			client.send('L', cstr('From', 'a@example.org'));
+			await client.read();
+			client.send('E');
+			await client.readUntilFinal();
+			client.close();
+			assert.equal(scans.at(-1).session.resolvedClientHostname, 'second.example');
+		} finally {
+			await server.close();
 		}
 	});
 
@@ -314,23 +396,93 @@ describe('MilterServer', () => {
 		}
 	});
 
-	it('answers tempfail, or accept if asked, when a scan fails', async () => {
+	it('answers tempfail when a scan fails, or passes the message on marked if asked', async () => {
 		const failing = {
 			async scan() {
 				throw new Error('scanner broke');
 			},
 		};
-		for (const [onError, expected] of [[undefined, 't'], ['accept', 'a']]) {
+		for (const onError of [undefined, 'accept']) {
 			const {server, port} = await start(onError ? {onError} : {}, failing);
 			const errors = [];
 			server.on('error', error => errors.push(error.message));
 			try {
-				const client = await milterClient(port);
-				client.send('E');
-
-				assert.equal((await client.read()).command, expected);
+				const {answers, client} = await transaction(port, {headers: [['From', 'alice@example.org'], ['X-Spam-Flag', 'NO']]});
 				client.close();
-				assert.deepEqual(errors, ['scanner broke']);
+				assert.deepEqual(errors.slice(0, 1), ['scanner broke']);
+				if (onError) {
+					// (without the sender's X-Spam headers)
+					assert.equal(answers.at(-1).command, 'c');
+					assert.deepEqual(changed(answers), [[1, 'X-Spam-Flag', '']]);
+					assert.equal(added(answers)['X-Spam-Virus-Scan'], 'failed');
+					const spaced = await transaction(port, {leadingSpace: true});
+					spaced.client.close();
+					assert.equal(added(spaced.answers)['X-Spam-Virus-Scan'], ' failed');
+				} else {
+					assert.deepEqual(answers.map(answer => answer.command), ['t']);
+				}
+			} finally {
+				await server.close();
+			}
+		}
+	});
+
+	it('answers tempfail, or accept if asked, for any other failure', async () => {
+		// (a scanner that answers without results)
+		const broken = {
+			async scan() {
+				return {};
+			},
+		};
+		for (const [onError, expected] of [[undefined, 't'], ['accept', 'a']]) {
+			const {server, port} = await start(onError ? {onError} : {}, broken);
+			const errors = [];
+			server.on('error', error => errors.push(error.message));
+			try {
+				const {answers, client} = await transaction(port);
+				client.close();
+				assert.equal(answers.at(-1).command, expected);
+				assert.equal(errors.length, 1);
+			} finally {
+				await server.close();
+			}
+		}
+	});
+
+	it('reports a scan listener that fails, and answers as usual', async () => {
+		const {server, port} = await start({});
+		const errors = [];
+		server.on('error', error => errors.push(error.message));
+		server.on('scan', () => {
+			throw new Error('listener broke');
+		});
+		try {
+			const {answers, client} = await transaction(port, {headers: [['From', 'alice@example.org'], ['X-Spam-Flag', 'NO']]});
+			client.close();
+			assert.equal(answers.at(-1).command, 'c');
+			assert.deepEqual(changed(answers), [[1, 'X-Spam-Flag', '']]);
+			assert.equal(added(answers)['X-Spam-Flag'], 'NO');
+			assert.deepEqual(errors, ['listener broke']);
+		} finally {
+			await server.close();
+		}
+	});
+
+	it('defers a message ClamAV could not scan, or marks it if failures are accepted', async () => {
+		const unscanned = {
+			async scan(raw, options) {
+				const result = await scanner.scan(raw, options);
+				result.results.virusScanErrors = [{filename: 'a.zip', error: 'timed out'}];
+				return result;
+			},
+		};
+		for (const [onError, final] of [[undefined, 't'], ['accept', 'c']]) {
+			const {server, port} = await start(onError ? {onError} : {}, unscanned);
+			try {
+				const {answers, client} = await transaction(port);
+				client.close();
+				assert.equal(answers.at(-1).command, final);
+				assert.equal(added(answers)['X-Spam-Virus-Scan'], onError ? 'failed' : undefined);
 			} finally {
 				await server.close();
 			}
@@ -394,5 +546,93 @@ describe('MilterServer', () => {
 		second.server.emit('error', new Error('later'));
 		assert.deepEqual(errors, ['later']);
 		await first.close();
+	});
+	it('keeps nothing after the first body chunk past the limit', async () => {
+		const {server, port} = await start({maxSize: 10});
+		const scanned = once(server, 'scan');
+		try {
+			const client = await milterClient(port);
+			for (const chunk of ['short', 'this part is past the limit', 'tiny']) {
+				client.send('B', chunk);
+
+				await client.read();
+			}
+
+			client.send('E');
+			await client.readUntilFinal();
+			const [{result}] = await scanned;
+			assert.equal(result.mail.text, 'short');
+			client.close();
+		} finally {
+			await server.close();
+		}
+	});
+
+	it('copies a packet that arrives in many reads only once', () => {
+		const written = [];
+		const socket = Object.assign(new EventEmitter(), {destroyed: false, write: data => written.push(data)});
+		const session = new MilterSession(socket, {options: {maxSize: 1024 * 1024}, report() {}});
+		const body = Buffer.alloc(512 * 1024, 'a');
+		const bytes = packet('B', body);
+		const {concat} = Buffer;
+		let copied = 0;
+		Buffer.concat = (list, ...rest) => {
+			const result = concat.call(Buffer, list, ...rest);
+			copied += result.length;
+			return result;
+		};
+
+		try {
+			for (let offset = 0; offset < bytes.length; offset += 1024) {
+				socket.emit('data', bytes.subarray(offset, offset + 1024));
+			}
+		} finally {
+			Buffer.concat = concat;
+		}
+
+		assert.ok(copied < 2 * bytes.length, `copied ${copied} bytes for a ${bytes.length} byte packet`);
+		assert.equal(session.size, body.length);
+		assert.equal(written.length, 1);
+	});
+
+	it('answers a whole packet at once, even when part of the next one came with it', async () => {
+		const {server, port} = await start();
+		try {
+			const client = await milterClient(port);
+			const next = packet('H', cstr('later'));
+			client.socket.write(Buffer.concat([packet('H', cstr('helo')), next.subarray(0, 6)]));
+			assert.equal((await client.read()).command, 'c');
+			client.socket.write(next.subarray(6));
+			assert.equal((await client.read()).command, 'c');
+			client.close();
+		} finally {
+			await server.close();
+		}
+	});
+
+	it('refuses packets larger than any MTA sends', async () => {
+		assert.equal(MAX_PACKET, 1024 * 1024);
+		const {server, port} = await start();
+		const errors = [];
+		server.on('error', error => errors.push(error.message));
+		try {
+			const socket = net.createConnection(port, '127.0.0.1');
+			await once(socket, 'connect');
+			const bytes = Buffer.alloc(5);
+			bytes.writeUInt32BE(MAX_PACKET + 1);
+			socket.write(bytes);
+			await once(socket, 'close');
+			assert.deepEqual(errors, [`Invalid milter packet length ${MAX_PACKET + 1}`]);
+		} finally {
+			await server.close();
+		}
+	});
+
+	it('accepts only 4xx and 5xx reject codes', () => {
+		for (const code of [250, 600, 45, '5xx']) {
+			assert.throws(() => new MilterServer(scanner, {rejectCode: code}), /rejectCode must be a 4xx or 5xx SMTP code/);
+		}
+
+		assert.equal(new MilterServer(scanner, {rejectCode: 550}).options.rejectCode, 550);
 	});
 });

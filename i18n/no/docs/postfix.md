@@ -1,4 +1,4 @@
-<!-- source: f1043eb5fc58 -->
+<!-- source: 6675649d593a -->
 
 # Postfix og Sendmail
 
@@ -13,11 +13,13 @@ Begge legger til disse hodene i hver melding:
 X-Spam-Flag: YES
 X-Spam-Score: 8.0
 X-Spam-Level: ********
-X-Spam-Status: Yes, score=8.0 required=5.0 tests=BAYES_99,DECEPTIVE_LINK version=7.0.0
+X-Spam-Status: Yes, score=8.0 required=5.0 tests=BAYES_99,DECEPTIVE_LINK version=7.0.3
 X-Spam-Action: tag
 ```
 
 `X-Spam-*`-hoder som allerede finnes i meldingen, fjernes først, så en avsender ikke kan merke sin egen e-post som ren.
+
+En melding med et vedlegg ClamAV ikke kunne skanne, kan inneholde virus, så begge utsetter den (Postfix eller avsenderen prøver igjen senere), slik de gjør når en skanning mislykkes. Med `--on-error accept` sendes den videre med `X-Spam-Virus-Scan: failed` lagt til.
 
 
 ## Milter
@@ -29,7 +31,7 @@ npm install --global spamscanner
 spamscanner milter --port 7831 --auth --subject-tag "[SPAM]" --verbose
 ```
 
-Med `--reject` avvises meldinger ved avvisningsterskelen (15 poeng) med `451 4.7.1 Message rejected as spam`. En 451 er midlertidig: avsenderen prøver igjen senere, og en feil kan fortsatt rettes ved å endre en innstilling. Bruk `--reject-code 550` for en permanent avvisning når resultatene ser riktige ut. Med `--quarantine` går spam i stedet til hold-køen i Postfix.
+Med `--reject` avvises meldinger ved avvisningsterskelen (15 poeng) med `451 4.7.1 Message rejected as spam`. En 451 er midlertidig: avsenderen prøver igjen senere, og en feil kan fortsatt rettes ved å endre en innstilling. Bruk `--reject-code 550` for en permanent avvisning når resultatene ser riktige ut. Med `--quarantine` går spam i stedet til hold-køen i Postfix. En melding milteren ikke kunne skanne fullt ut, får et 4xx-svar; `--on-error accept` slipper den gjennom i stedet.
 
 Som systemd-tjeneste, i `/etc/systemd/system/spamscanner-milter.service`:
 
@@ -101,7 +103,7 @@ smtp      inet  n       -       n       -       -       smtpd
   -o content_filter=spamscanner:dummy
 spamscanner unix -      n       n       -       10      pipe
   flags=Rq user=spamscanner null_sender=
-  argv=/usr/bin/node /usr/local/lib/node_modules/spamscanner/dist/esm/cli.js filter --subject-tag [SPAM] -f ${sender} -- ${recipient}
+  argv=/usr/bin/node /usr/local/lib/node_modules/spamscanner/dist/esm/cli.js filter --subject-tag [SPAM] --from=${sender} -- ${recipient}
 ```
 
 Postfix kjører filteret med et nesten tomt miljø, så `argv` oppgir Node.js og skriptet med fulle stier (`command -v node` og `npm root --global` viser dem). Deretter:
@@ -112,7 +114,7 @@ sudo postfix reload
 
 Filteret sender meldingen tilbake med `sendmail -G -i`. E-post som sendes inn på denne måten, går ikke gjennom `smtp`-lytteren igjen, så den filtreres ikke to ganger.
 
-Avslutningskodene forteller Postfix hva som skjedde: 0 levert, 69 avvist (med `--reject`: Postfix returnerer den til avsenderen), 75 midlertidig feil (Postfix beholder meldingen og prøver igjen). Enhver feil ved skanning eller levering gir 75, så en feil innstilling aldri fører til at e-post går tapt eller returneres.
+Avslutningskodene forteller Postfix hva som skjedde: 0 levert, 69 avvist (med `--reject`: Postfix returnerer den til avsenderen), 75 midlertidig feil (Postfix beholder meldingen og prøver igjen). Enhver feil ved skanning eller levering gir 75, og det samme gjør en melding med et vedlegg ClamAV ikke kunne skanne, så en feil innstilling aldri fører til at e-post går tapt eller returneres. Med `--on-error accept` sendes en melding der skanningen mislyktes, eller som ClamAV ikke kunne skanne fullstendig, videre i stedet, merket med `X-Spam-Virus-Scan: failed` (se [CLI-en](cli.md#filter)).
 
 
 ## Sendmail
@@ -124,6 +126,12 @@ INPUT_MAIL_FILTER(`spamscanner', `S=inet:7831@127.0.0.1, F=T, T=S:30s;R:30s;E:5m
 ```
 
 `F=T` får Sendmail til å svare med en midlertidig feil mens milteren er utilgjengelig; fjern den for i stedet å motta e-post ufiltrert. Bygg `sendmail.cf` på nytt og start Sendmail på nytt.
+
+Klientens vertsnavn kan bare sette en melding på tillatelseslisten når det er verifisert. Postfix sender det bare når klientens omvendte DNS-navn slås opp tilbake til adressen, og ellers `unknown`. Sendmail sender det omvendte DNS-navnet selv når det ikke slås opp tilbake (et navn hvem som helst med omvendt DNS for sin egen adresse kan velge), og sier fra om det i makroen `{client_resolve}`, som den ikke sender som standard. Legg den til i makroene som sendes ved tilkobling, før `INPUT_MAIL_FILTER`, slik at bare et vertsnavn den oppgir som `OK`, teller:
+
+```text
+define(`confMILTER_MACROS_CONNECT', `j, _, {daemon_name}, {if_name}, {if_addr}, {client_resolve}')
+```
 
 
 ## Sortere spam i en Søppelpost-mappe

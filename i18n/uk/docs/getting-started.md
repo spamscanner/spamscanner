@@ -1,4 +1,4 @@
-<!-- source: 8263c06f1dab -->
+<!-- source: 1a2009efd1f9 -->
 
 # Початок роботи
 
@@ -25,6 +25,8 @@ npm install spamscanner
 ```sh
 curl -fsSL https://github.com/spamscanner/spamscanner/releases/latest/download/install.sh | bash
 ```
+
+Перед встановленням скрипт перевіряє виконуваний файл за файлом `SHA256SUMS` того самого випуску. Виконуваним файлам для Linux потрібна glibc, тому в Alpine та інших системах на основі musl встановлюйте через npm.
 
 Виконувані файли для Linux (x64 і arm64), macOS (Intel і Apple silicon) і Windows додаються до кожного [випуску](https://github.com/spamscanner/spamscanner/releases).
 
@@ -75,6 +77,8 @@ CommonJS теж працює:
 const SpamScanner = require('spamscanner');
 ```
 
+Оголошення типів входять до пакета, для TypeScript 4.7 або новішого (5.3 або новішого з `require`).
+
 `scan()` приймає необроблений лист як Buffer, рядок, Uint8Array або потік для читання. Рядок завжди вважається текстом листа: Spam Scanner ніколи не читає файл лише тому, що рядок схожий на шлях. Для файлів використовуйте `scanner.scanFile(path)`.
 
 
@@ -113,7 +117,7 @@ spamscanner scan message.eml --ip 203.0.113.5 --helo mail.example.com \
 | SPF, DKIM, DMARC, ARC              | `authentication: true`                           | `--auth`                    |
 | Чорний список IP                   | `dnsbl: {ip: ['zen.spamhaus.org']}`              | `--dnsbl zen.spamhaus.org`  |
 | Чорний список доменів для посилань | `dnsbl: {domain: ['dbl.spamhaus.org']}`          | `--uribl dbl.spamhaus.org`  |
-| ClamAV                             | `clamav: true` або `clamav: {socket}`            | `--clamav [socket]`         |
+| ClamAV                             | `clamav: true` або `clamav: {socket}`            | `--clamav[=socket]`         |
 | Мовна модель                       | `llm: {provider: 'ollama', model: 'qwen3.5:4b'}` | `--llm ollama`              |
 | Списки дозволу й заборони          | `allowlist: [...]`, `denylist: [...]`            | `--allowlist`, `--denylist` |
 

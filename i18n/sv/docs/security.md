@@ -1,4 +1,4 @@
-<!-- source: 60f00f92b5aa -->
+<!-- source: df3e980c3ef1 -->
 
 # Säkerhet och integritet
 
@@ -11,13 +11,13 @@ Som standard en sak: **värdnamnen i länkar** i ett meddelande slås upp hos Cl
 
 Allt annat är avstängt tills det konfigureras:
 
-| Kontroll            | Skickar                                                                                  | Till                                                             |
-| ------------------- | ---------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| `authentication`    | DNS-frågor efter avsändarens SPF-, DKIM-, DMARC- och ARC-poster                          | Din resolver, eller `dnsServers`                                 |
-| `dnsbl`             | Klientens IP-adress, omvänd, och länkdomäner, som DNS-frågor                             | Blocklistornas namnservrar, via din resolver eller `dns.servers` |
-| `llm`               | En sammanfattning av meddelandet, med personuppgifter borttagna för externa leverantörer | Den språkmodellserver du anger ([integritet](llm.md#privacy))    |
-| `reputation.apiUrl` | Avsändarens IP-adress, domän och adress                                                  | Den tjänst du anger                                              |
-| `clamav`            | Bilagor                                                                                  | Din clamd, över dess socket                                      |
+| Kontroll            | Skickar                                                                                                               | Till                                                             |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| `authentication`    | DNS-frågor efter avsändarens SPF-, DKIM-, DMARC- och ARC-poster                                                       | Din resolver, eller `dnsServers`                                 |
+| `dnsbl`             | Klientens IP-adress, omvänd, och länkdomäner, som DNS-frågor                                                          | Blocklistornas namnservrar, via din resolver eller `dns.servers` |
+| `llm`               | En sammanfattning av meddelandet, med personuppgifter borttagna för externa leverantörer                              | Den språkmodellserver du anger ([integritet](llm.md#privacy))    |
+| `reputation.apiUrl` | Klientens IP-adress och verifierade värdnamn, och adresserna i From, kuvertavsändaren och Reply-To, med deras domäner | Den tjänst du anger                                              |
+| `clamav`            | Bilagor                                                                                                               | Din clamd, över dess socket                                      |
 
 Det finns ingen telemetri, ingen uppdateringskontroll och ingen nedladdning vid körning. Modellen levereras i paketet.
 
@@ -26,14 +26,15 @@ Det finns ingen telemetri, ingen uppdateringskontroll och ingen nedladdning vid 
 
 Ingenting, om du inte ber om det. Skanningar loggas eller lagras inte. `learn()` ändrar klassificeraren i minnet; den skrivs till disk bara av `saveModel()`, `spamscanner learn` eller servrarnas alternativ `--out`. En modellfil innehåller hashade räknare för egenskaper, inte ord eller meddelandetext.
 
-Svar från språkmodellen cachas i minnet, med en hash av det som skickades som nyckel, så upprepade kopior av samma meddelande frågas om en gång. DNS-svar cachas i minnet i tio minuter.
+Svar från språkmodellen cachas i minnet, med en hash av det som skickades som nyckel, så upprepade kopior av samma meddelande frågas om en gång. DNS-svar cachas i minnet i tio minuter, och en ryktestjänsts svar i fem (`reputation.cacheTtl`; en misslyckad förfrågan i en minut).
 
 
 ## Fientlig indata
 
-* Bilagor identifieras genom sina byte och körs aldrig eller öppnas av något annat program. ZIP-arkiv läses från sin centrala katalog, med en gräns för antalet poster; nästlade arkiv packas inte upp.
-* Brödtext läses upp till `maxLength` (100 000 tecken) och servrarna tar emot meddelanden upp till 25 MB.
-* Varje nätverkskontroll har en tidsgräns (`timeout`, 10 sekunder som standard). En kontroll som misslyckas eller överskrider tidsgränsen hoppas över och skanningen slutförs utan den.
+* Bilagor identifieras genom sina byte och körs aldrig eller öppnas av något annat program. ZIP-arkiv läses från sin centrala katalog, med en gräns för antalet poster; nästlade arkiv packas inte upp. Bifogade meddelanden (`message/rfc822`, eller bilagor vars filnamn slutar på `.eml`) öppnas upp till tre nivåer djupt, för högst 100 av deras bilagor och 25 MB bifogade meddelanden totalt; meddelandets egna bilagor granskas alltid samtliga. Ett meddelande som överskrider MIME-tolkarens gränser (fler än 1000 delar, eller en dels header över 1 MB) läses så långt tolkaren tillåter (dess första delar, med en för stor header nedkortad så att avsändaren fortfarande räknas) och får `MIME_TOO_COMPLEX`, som inget avdrag väger upp; ClamAV läser det i sin helhet. Ett bifogat meddelande som tolkaren misslyckas med får det också, och får aldrig skanningen att misslyckas. HTML läses av Spam Scanners egen tolkare, i linjär tid, hur djupt nästlad den än är.
+* Brödtext läses upp till `maxLength` (100 000 tecken) och servrarna tar emot meddelanden upp till 25 MB. Länkar läses upp till `phishing.maxLength` (1 000 000 tecken).
+* Varje nätverkskontroll har en tidsgräns (`timeout`, 10 sekunder som standard). En kontroll som misslyckas eller överskrider tidsgränsen hoppas över och skanningen slutförs utan den. Autentisering och bildmodellen (de första 10 bilderna) blir var för sig klara inom den totalt. ClamAV (fyra bilagor åt gången) har en egen gräns för alla ett meddelandes bilagor (`clamav.timeout`, 60 sekunder), och bilagor som den inte kunde skanna listas i `results.virusScanErrors`. Språkmodellen har en egen (`llm.timeout`).
+* Tillåtelselistan litar bara på det en avsändare inte kan förfalska: klientens adress och verifierade värdnamn, och avsändardomäner som autentiseringen bekräftar. [Tillåtelse- och spärrlista](api.md#allowlist-and-denylist)
 * `X-Spam-*`-huvuden som redan finns i ett meddelande tas bort av miltern, innehållsfiltret och `--headers`, så avsändare kan inte märka sin egen e-post som ren.
 * Microsofts huvuden med spamutslag litas bara på när meddelandet kom direkt från Microsofts servrar, och Received-huvuden används aldrig för att avgöra var ett meddelande kom ifrån.
 * Text som riktar sig till AI-filter poängsätts som spam, och språkmodellen får veta att meddelandet är data, inte instruktioner. [Promptinjektion](llm.md#prompt-injection)

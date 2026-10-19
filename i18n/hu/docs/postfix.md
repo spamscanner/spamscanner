@@ -1,4 +1,4 @@
-<!-- source: f1043eb5fc58 -->
+<!-- source: 6675649d593a -->
 
 # Postfix és Sendmail
 
@@ -13,11 +13,13 @@ Mindkettő hozzáadja ezeket a fejléceket minden levélhez:
 X-Spam-Flag: YES
 X-Spam-Score: 8.0
 X-Spam-Level: ********
-X-Spam-Status: Yes, score=8.0 required=5.0 tests=BAYES_99,DECEPTIVE_LINK version=7.0.0
+X-Spam-Status: Yes, score=8.0 required=5.0 tests=BAYES_99,DECEPTIVE_LINK version=7.0.3
 X-Spam-Action: tag
 ```
 
 A levélben már meglévő `X-Spam-*` fejléceket előbb eltávolítja, így a feladó nem jelölheti tisztának a saját levelét.
+
+Az a levél, amelynek egy mellékletét a ClamAV nem tudta átvizsgálni, vírust tartalmazhat, ezért mindkettő elhalasztja (a Postfix vagy a feladó később újra próbálkozik), ahogy akkor is, ha egy vizsgálat sikertelen. A `--on-error accept` kapcsolóval a levél továbbmegy, kiegészítve az `X-Spam-Virus-Scan: failed` fejléccel.
 
 
 ## Milter
@@ -29,7 +31,7 @@ npm install --global spamscanner
 spamscanner milter --port 7831 --auth --subject-tag "[SPAM]" --verbose
 ```
 
-A `--reject` kapcsolóval az elutasítási küszöböt (15 pont) elérő leveleket `451 4.7.1 Message rejected as spam` válasszal utasítja vissza. A 451 ideiglenes: a feladó később újra próbálkozik, és a hiba egy beállítás módosításával még javítható. Ha az eredmények megfelelőnek tűnnek, a `--reject-code 550` véglegessé teszi az elutasítást. A `--quarantine` kapcsolóval a spam ehelyett a Postfix hold sorába kerül.
+A `--reject` kapcsolóval az elutasítási küszöböt (15 pont) elérő leveleket `451 4.7.1 Message rejected as spam` válasszal utasítja vissza. A 451 ideiglenes: a feladó később újra próbálkozik, és a hiba egy beállítás módosításával még javítható. Ha az eredmények megfelelőnek tűnnek, a `--reject-code 550` véglegessé teszi az elutasítást. A `--quarantine` kapcsolóval a spam ehelyett a Postfix hold sorába kerül. Az a levél, amelyet a milter nem tudott teljesen átvizsgálni, 4xx választ kap; a `--on-error accept` ehelyett átengedi.
 
 systemd szolgáltatásként, a `/etc/systemd/system/spamscanner-milter.service` fájlban:
 
@@ -101,7 +103,7 @@ smtp      inet  n       -       n       -       -       smtpd
   -o content_filter=spamscanner:dummy
 spamscanner unix -      n       n       -       10      pipe
   flags=Rq user=spamscanner null_sender=
-  argv=/usr/bin/node /usr/local/lib/node_modules/spamscanner/dist/esm/cli.js filter --subject-tag [SPAM] -f ${sender} -- ${recipient}
+  argv=/usr/bin/node /usr/local/lib/node_modules/spamscanner/dist/esm/cli.js filter --subject-tag [SPAM] --from=${sender} -- ${recipient}
 ```
 
 A Postfix szinte üres környezettel futtatja a szűrőt, ezért az `argv` teljes elérési úttal adja meg a Node.js-t és a szkriptet (a `command -v node` és az `npm root --global` megmutatja ezeket). Ezután:
@@ -112,7 +114,7 @@ sudo postfix reload
 
 A szűrő a `sendmail -G -i` paranccsal adja vissza a levelet. Az így beküldött levél nem halad át újra az `smtp` figyelőn, így nem kerül kétszer szűrésre.
 
-A kilépési kódok közlik a Postfixszel, mi történt: 0 kézbesítve, 69 visszautasítva (a `--reject` kapcsolóval: a Postfix visszapattintja a feladónak), 75 ideiglenes hiba (a Postfix megtartja a levelet, és újra próbálkozik). Minden vizsgálati vagy kézbesítési hiba 75-ös kódot ad, így egy hibás beállítás soha nem okoz levélvesztést vagy visszapattanást.
+A kilépési kódok közlik a Postfixszel, mi történt: 0 kézbesítve, 69 visszautasítva (a `--reject` kapcsolóval: a Postfix visszapattintja a feladónak), 75 ideiglenes hiba (a Postfix megtartja a levelet, és újra próbálkozik). Minden vizsgálati vagy kézbesítési hiba 75-ös kódot ad, és az a levél is, amelynek egy mellékletét a ClamAV nem tudta átvizsgálni, így egy hibás beállítás soha nem okoz levélvesztést vagy visszapattanást. A `--on-error accept` kapcsolóval az a levél, amelynek a vizsgálata sikertelen volt, vagy amelyet a ClamAV nem tudott teljesen átvizsgálni, ehelyett továbbmegy, `X-Spam-Virus-Scan: failed` jelöléssel (lásd [a parancssori felületet](cli.md#filter)).
 
 
 ## Sendmail
@@ -124,6 +126,12 @@ INPUT_MAIL_FILTER(`spamscanner', `S=inet:7831@127.0.0.1, F=T, T=S:30s;R:30s;E:5m
 ```
 
 Az `F=T` hatására a Sendmail ideiglenes hibával válaszol, amíg a milter nem érhető el; ha ehelyett szűrés nélkül kell átvenni a leveleket, ezt el kell hagyni. Ezután újra kell építeni a `sendmail.cf` fájlt, és újra kell indítani a Sendmailt.
+
+Az ügyfél gépneve csak akkor teheti a levelet az engedélyezési listára, ha ellenőrzött. A Postfix csak akkor küldi el, ha az ügyfél fordított DNS-neve visszafelé a címére oldódik fel, egyébként pedig `unknown` értéket küld. A Sendmail akkor is elküldi a fordított DNS-nevet, ha az nem oldódik vissza (ezt a nevet bárki megválaszthatja, akinek a saját címéhez fordított DNS-e van), és ezt a `{client_resolve}` makrójában jelzi, amelyet alapértelmezés szerint nem küld el. Adja hozzá a kapcsolódáskor küldött makrókhoz az `INPUT_MAIL_FILTER` előtt, hogy csak az `OK` értékkel megadott gépnév számítson:
+
+```text
+define(`confMILTER_MACROS_CONNECT', `j, _, {daemon_name}, {if_name}, {if_addr}, {client_resolve}')
+```
 
 
 ## A spam áthelyezése a Levélszemét mappába

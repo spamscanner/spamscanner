@@ -1,4 +1,4 @@
-<!-- source: c061da9312ad -->
+<!-- source: f8a77c318b83 -->
 
 # Dòng lệnh
 
@@ -59,16 +59,16 @@ Mã thoát: 0 là ham, 1 là spam, 2 là lỗi.
 
 ### Phép kiểm tra
 
-| Tùy chọn              | Ý nghĩa                                                                        |
-| --------------------- | ------------------------------------------------------------------------------ |
-| `--auth`              | Kiểm tra SPF, DKIM, DMARC và ARC (cần `--ip`)                                  |
-| `--dnsbl <zone>`      | Danh sách chặn IP, ví dụ `zen.spamhaus.org`; có thể lặp lại                    |
-| `--uribl <zone>`      | Danh sách chặn tên miền cho liên kết, ví dụ `dbl.spamhaus.org`; có thể lặp lại |
-| `--dns-server <ip>`   | Name server cho các phép kiểm tra DNS; có thể lặp lại                          |
-| `--no-cloudflare`     | Không hỏi các resolver có lọc của Cloudflare về liên kết                       |
-| `--clamav [socket]`   | Quét tệp đính kèm bằng clamd, qua socket mặc định hoặc socket được chỉ định    |
-| `--allowlist <value>` | Luôn chấp nhận địa chỉ IP, tên miền hoặc địa chỉ này; có thể lặp lại           |
-| `--denylist <value>`  | Luôn từ chối địa chỉ IP, tên miền hoặc địa chỉ này; có thể lặp lại             |
+| Tùy chọn              | Ý nghĩa                                                                                                                                                |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `--auth`              | Kiểm tra SPF, DKIM, DMARC và ARC (cần `--ip`)                                                                                                          |
+| `--dnsbl <zone>`      | Danh sách chặn IP, ví dụ `zen.spamhaus.org`; có thể lặp lại                                                                                            |
+| `--uribl <zone>`      | Danh sách chặn tên miền cho liên kết, ví dụ `dbl.spamhaus.org`; có thể lặp lại                                                                         |
+| `--dns-server <ip>`   | Name server cho các phép kiểm tra DNS; có thể lặp lại                                                                                                  |
+| `--no-cloudflare`     | Không hỏi các resolver có lọc của Cloudflare về liên kết                                                                                               |
+| `--clamav[=socket]`   | Quét tệp đính kèm bằng clamd, qua socket mặc định hoặc socket được chỉ định                                                                            |
+| `--allowlist <value>` | Luôn chấp nhận địa chỉ IP hoặc tên máy chủ của máy khách này, hoặc tên miền hay địa chỉ này khi xác thực xác nhận người gửi (`--auth`); có thể lặp lại |
+| `--denylist <value>`  | Luôn từ chối địa chỉ IP, tên miền hoặc địa chỉ này; có thể lặp lại                                                                                     |
 
 ### Mô hình ngôn ngữ
 
@@ -85,7 +85,7 @@ Mã thoát: 0 là ham, 1 là spam, 2 là lỗi.
 | `--llm-auth-header <name>`                                 | Header chứa khóa, dùng với `--llm-auth header`                                                                                                   |
 | `--llm-username`, `--llm-password`                         | Dùng cho `--llm-auth basic`                                                                                                                      |
 | `--llm-header "Name: value"`                               | Header bổ sung cho yêu cầu; có thể lặp lại                                                                                                       |
-| `--llm-mode <mode>`                                        | `auto` (chỉ các trường hợp sát nút, mặc định) hoặc `always`                                                                                      |
+| `--llm-mode <mode>`                                        | `auto` (chỉ các trường hợp sát nút, mặc định), `always` hoặc `off`                                                                               |
 | `--llm-timeout <ms>`                                       | Mặc định 30000                                                                                                                                   |
 | `--llm-policy <text>`                                      | Quy tắc bổ sung cho mô hình, ví dụ “Chúng tôi không bao giờ gửi hóa đơn”                                                                         |
 | `--llm-redact`, `--no-llm-redact`                          | Xóa dữ liệu cá nhân trước; mặc định bật với các nhà cung cấp từ xa                                                                               |
@@ -99,24 +99,27 @@ Một [content filter cho Postfix](postfix.md#content-filter). Nó đọc thư t
 spamscanner filter -f "$sender" -- "$recipient"
 ```
 
-| Tùy chọn              | Ý nghĩa                                            |
-| --------------------- | -------------------------------------------------- |
-| `--sendmail <path>`   | Mặc định `/usr/sbin/sendmail`                      |
-| `--subject-tag <tag>` | Thêm tiền tố vào tiêu đề của spam                  |
-| `--reject`            | Trả lại thư đạt ngưỡng từ chối thay vì chuyển tiếp |
-| `--discard`           | Bỏ thư đạt ngưỡng từ chối thay vì chuyển tiếp      |
+| Tùy chọn              | Ý nghĩa                                                             |
+| --------------------- | ------------------------------------------------------------------- |
+| `--sendmail <path>`   | Mặc định `/usr/sbin/sendmail`                                       |
+| `--subject-tag <tag>` | Thêm tiền tố vào tiêu đề của spam                                   |
+| `--reject`            | Trả lại thư đạt ngưỡng từ chối thay vì chuyển tiếp                  |
+| `--discard`           | Bỏ thư đạt ngưỡng từ chối thay vì chuyển tiếp                       |
+| `--on-error <answer>` | Với thư không quét được đầy đủ: `tempfail` (mặc định) hoặc `accept` |
 
-Mã thoát tuân theo quy ước của sendmail, mà Postfix đọc được: 0 là đã chuyển (hoặc đã bỏ), 64 là không có người nhận, 69 là bị từ chối vì spam (Postfix trả thư về), 75 là mọi lỗi, khi đó Postfix giữ thư và thử lại sau.
+Mã thoát tuân theo quy ước của sendmail, mà Postfix đọc được: 0 là đã chuyển (hoặc đã bỏ), 64 là không có người nhận, 69 là bị từ chối vì spam (Postfix trả thư về), 75 là mọi lỗi, khi đó Postfix giữ thư và thử lại sau. Thư có tệp đính kèm mà ClamAV không quét được cũng là một lỗi. Với `--on-error accept`, thư như vậy, hoặc thư mà việc quét thất bại, được chuyển tiếp kèm `X-Spam-Virus-Scan: failed` và không kèm bất kỳ header `X-Spam-*` nào mà người gửi đã thêm.
 
 
 ## milter, http, server và spamd
 
 ```sh
 spamscanner milter --port 7831 --reject --subject-tag "[SPAM]"
-spamscanner http --port 7832 --token "$SPAMSCANNER_TOKEN"
+spamscanner http --port 7832    # token in SPAMSCANNER_TOKEN
 spamscanner server --port 7830
 spamscanner spamd --port 783
 ```
+
+API HTTP đọc token từ biến môi trường `SPAMSCANNER_TOKEN`. `--token` cũng dùng được, nhưng những người dùng khác trên máy có thể thấy các tùy chọn dòng lệnh trong `ps`.
 
 Cổng 783 là cổng mà các client SpamAssassin dùng mặc định. Các cổng dưới 1024 cần quyền root hoặc capability `CAP_NET_BIND_SERVICE`; hãy dùng cổng khác, như `--port 7833`, và báo cho client biết.
 
@@ -126,8 +129,9 @@ Cổng 783 là cổng mà các client SpamAssassin dùng mặc định. Các c�
 | `--host <ip>`         | Địa chỉ để lắng nghe (mặc định 127.0.0.1)                                    |
 | `--socket <path>`     | Lắng nghe trên một Unix socket thay vào đó                                   |
 | `--reject`            | Milter: từ chối thư đạt ngưỡng từ chối                                       |
-| `--reject-code <n>`   | Milter: 451, thử lại sau (mặc định), hoặc 550                                |
+| `--reject-code <n>`   | Milter: một mã 4xx, thử lại sau (451, mặc định), hoặc một mã 5xx như 550     |
 | `--quarantine`        | Milter: giữ spam trong khu cách ly của máy chủ thư                           |
+| `--on-error <answer>` | Milter: với thư không quét được đầy đủ, `tempfail` (mặc định) hoặc `accept`  |
 | `--name <hostname>`   | Milter: tên của máy chủ này trong Authentication-Results                     |
 | `--token <secret>`    | HTTP: yêu cầu `Authorization: Bearer <secret>`; cần cho `/learn`             |
 | `--allow-tell`        | spamd: chấp nhận yêu cầu TELL (`spamc -L spam`) để học                       |
@@ -136,6 +140,8 @@ Cổng 783 là cổng mà các client SpamAssassin dùng mặc định. Các c�
 | `--verbose`           | Milter: ghi nhật ký mọi lần quét. Máy chủ TCP: trả lời bằng một dòng văn bản |
 
 Các tùy chọn quét ở trên cũng áp dụng cho các máy chủ. [Milter](postfix.md#milter), [HTTP API, máy chủ TCP và spamd](http-api.md).
+
+Client spamd và TCP không gửi địa chỉ IP của client đã gửi thư, còn client HTTP chỉ gửi khi có `?ip=`, nên `--auth` và `--dnsbl` chỉ hoạt động với milter và với các yêu cầu HTTP có cung cấp địa chỉ đó. Các máy chủ sẽ báo điều này khi khởi động với các tùy chọn này.
 
 
 ## train, eval và learn
@@ -157,6 +163,8 @@ spamscanner learn spam message.eml --model my-model.json
 
 `learn` cập nhật trực tiếp tệp mô hình, và tạo tệp từ mô hình đi kèm ở lần đầu. [Huấn luyện](training.md)
 
+Khi có cả `--model` và `--out`, `learn` bắt đầu từ tệp `--model` và ghi kết quả vào `--out`.
+
 
 ## llm-test và models
 
@@ -165,7 +173,7 @@ spamscanner models
 spamscanner llm-test --llm ollama --llm-model qwen3.5:4b
 ```
 
-`llm-test` gửi một thư bình thường và hai thư lừa đảo, bằng tiếng Anh và tiếng Ý, đến mô hình, in ra các kết luận, thời gian của từng thư, phương thức đã dùng và phần cứng, và chỉ thoát với mã 0 nếu cả ba đều đúng.
+`llm-test` gửi một thư bình thường và hai thư lừa đảo, bằng tiếng Anh và tiếng Ý, đến mô hình, in ra các kết luận, thời gian của từng thư, phương thức đã dùng và, với mô hình chạy trên máy này, phần cứng, và chỉ thoát với mã 0 nếu cả ba đều đúng.
 
 
 ## Tệp cấu hình

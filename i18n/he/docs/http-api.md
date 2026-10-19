@@ -1,4 +1,4 @@
-<!-- source: faf44f093f8b -->
+<!-- source: 9caf3ffb803a -->
 
 # HTTP API, שרת TCP ו-spamd
 
@@ -6,14 +6,16 @@
 ## HTTP API
 
 ```sh
-spamscanner http --port 7832 --token "$SPAMSCANNER_TOKEN"
+spamscanner http --port 7832    # token in SPAMSCANNER_TOKEN
 ```
+
+ממשק ה-HTTP קורא את האסימון שלו ממשתנה הסביבה `SPAMSCANNER_TOKEN`. גם `--token` עובד, אבל משתמשים אחרים במחשב יכולים לראות אפשרויות שורת פקודה ב-`ps`.
 
 הוא מאזין על 127.0.0.1, אלא אם `--host` קובע אחרת. כשמוגדר אסימון, כל בקשה חוץ מ-`/health` צריכה `Authorization: Bearer <token>`. לפני שחושפים אותו מחוץ למחשב, יש להציב אותו מאחורי reverse proxy עם TLS.
 
 | שיטה ונתיב         | גוף הבקשה      | תשובה                                                     |
 | ------------------ | -------------- | --------------------------------------------------------- |
-| `GET /health`      |                | `{"ok": true, "version": "7.0.0"}`                        |
+| `GET /health`      |                | `{"ok": true, "version": "..."}`                          |
 | `POST /scan`       | ההודעה הגולמית | [תוצאת הסריקה](api.md#the-result) כ-JSON                  |
 | `POST /check`      | ההודעה הגולמית | ההודעה עם כותרות `X-Spam-*` שנוספו לה, כ-`message/rfc822` |
 | `POST /learn/spam` | ההודעה הגולמית | `{"ok": true, "learned": "spam"}`; דורש אסימון            |
@@ -30,6 +32,8 @@ spamscanner http --port 7832 --token "$SPAMSCANNER_TOKEN"
 | `to`         | נמען; אפשר לחזור עליו או להפריד כמה נמענים בפסיקים |
 | `verbose=1`  | `/scan`: מחזיר גם את רשימת המילים ואת הנושא        |
 | `subjectTag` | `/check`: קידומת לנושא של ספאם, למשל `%5BSPAM%5D`  |
+
+ללא `ip`, בדיקות SPF, DKIM, DMARC, ARC ורשימות חסימה של IP (`--auth`, `--dnsbl`) מדולגות.
 
 `/check` מחזיר גם את `X-Spam-Flag`, ‏`X-Spam-Score` ו-`X-Spam-Action` ככותרות תגובה, כך שלקוח יכול להחליט בלי לפענח את ההודעה.
 
@@ -82,6 +86,8 @@ nc -N 127.0.0.1 7830 < message.eml
 
 עם `--verbose`, התשובה היא שורת טקסט: `SPAM 16.3/5.0 BAYES_999,PHISHING_LOOKALIKE_DOMAIN,DECEPTIVE_LINK,FROM_NAME_BRAND` או `HAM -2.5/5.0 BAYES_00`.
 
+שרת ה-TCP אינו יודע את כתובת ה-IP של הלקוח, ולכן ל-`--auth` ול-`--dnsbl` אין השפעה. הוא סוגר חיבורים שאינם שולחים דבר במשך 60 שניות, ועונה בשגיאה על הודעות גדולות מ-25 MB.
+
 
 ## spamd
 
@@ -104,3 +110,5 @@ spamscanner spamd --port 783
 | `TELL`          | לומד ספאם או ham, עם `--allow-tell`; שומר ל-`--out`  |
 
 בקשות דחוסות (`Compress: zlib`) נדחות.
+
+גם לקוחות spamd אינם שולחים את כתובת ה-IP של הלקוח, ולכן ל-`--auth` ול-`--dnsbl` אין השפעה. הודעה גדולה מ-25 MB מקבלת `65` (`EX_DATAERR`), הודעה קצרה מה-`Content-length` שלה מקבלת `76` (`EX_PROTOCOL`), וחיבורים שאינם שולחים דבר במשך 60 שניות נסגרים.

@@ -85,6 +85,19 @@ describe('reading sources', () => {
 		await assert.rejects(collect(readCsv(custom)), /could not find the text and label columns/);
 	});
 
+	it('gives up on a record a stray quote leaves open, and reads on', async () => {
+		const dir = temporaryDirectory();
+		const lines = path.join(dir, 'lines.csv');
+		writeFileSync(lines, `label,text\nspam,"unterminated quote\n${'ham,an ordinary row\n'.repeat(10_100)}ham,"say ""hi""\nthere"\n`);
+		const rows = await collect(readCsv(lines));
+		// (the open record, with the lines it swallowed, up to 10,000 lines)
+		assert.equal(rows.length, 102);
+		assert.deepEqual(rows.at(-1), {text: 'say "hi"\nthere', subject: '', label: 'ham'});
+		const long = path.join(dir, 'long.csv');
+		writeFileSync(long, `label,text\nspam,"unterminated quote\n${`ham,${'x'.repeat(2000)}\n`.repeat(600)}`);
+		assert.equal((await collect(readCsv(long))).length, 600 - 523);
+	});
+
 	it('reads labelled JSON Lines', async () => {
 		const dir = temporaryDirectory();
 		const file = path.join(dir, 'data.jsonl');
@@ -99,6 +112,33 @@ describe('reading sources', () => {
 		].join('\n')}\n`);
 		assert.deepEqual(await collect(readJsonl(file)), [{text: 'win now', subject: 'Prize', label: 'spam'}, {text: 'see you', subject: '', label: 'ham'}]);
 		assert.deepEqual(await collect(readJsonl(file, {textColumn: 'mytext', labelColumn: 'mylabel', subjectColumn: 'title'})), [{text: 'custom', subject: 'T', label: 'spam'}]);
+	});
+
+	it('skips JSON Lines that are not objects', async () => {
+		const file = path.join(temporaryDirectory(), 'values.jsonl');
+		writeFileSync(file, `${['null', '42', '"spam"', '[1, "spam"]', 'true', JSON.stringify({text: 'hi', label: 'ham'})].join('\n')}\n`);
+		assert.deepEqual(await collect(readJsonl(file)), [{text: 'hi', subject: '', label: 'ham'}]);
+	});
+
+	it('finds the fields of JSON Lines by the column names of CSV files, in any case', async () => {
+		const file = path.join(temporaryDirectory(), 'names.jsonl');
+		writeFileSync(file, `${[
+			JSON.stringify({'Email Text': 'win a prize', 'Email Type': 'Phishing Email'}),
+			JSON.stringify({v1: 'ham', v2: 'see you at lunch'}),
+			JSON.stringify({sms: 'call now', class: 'spam'}),
+			JSON.stringify({
+				Text: 'quarterly report', Label: 'ham', label: 'spam', Subject: 'Report',
+			}),
+			JSON.stringify({text: 'free money', label: 1, label_text: 'spam'}),
+		].join('\n')}\n`);
+		assert.deepEqual(await collect(readJsonl(file)), [
+			{text: 'win a prize', subject: '', label: 'spam'},
+			{text: 'see you at lunch', subject: '', label: 'ham'},
+			{text: 'call now', subject: '', label: 'spam'},
+			{text: 'quarterly report', subject: 'Report', label: 'ham'},
+			{text: 'free money', subject: '', label: 'spam'},
+		]);
+		assert.deepEqual(await collect(readJsonl(file, {textColumn: 'EMAIL TEXT', labelColumn: 'email type'})), [{text: 'win a prize', subject: '', label: 'spam'}]);
 	});
 
 	it('normalizes labels', () => {

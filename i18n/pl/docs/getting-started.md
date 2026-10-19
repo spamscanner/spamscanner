@@ -1,4 +1,4 @@
-<!-- source: 8263c06f1dab -->
+<!-- source: 1a2009efd1f9 -->
 
 # Pierwsze kroki
 
@@ -25,6 +25,8 @@ Jako samodzielny plik binarny dla Linux lub macOS, z wbudowanym Node.js i modele
 ```sh
 curl -fsSL https://github.com/spamscanner/spamscanner/releases/latest/download/install.sh | bash
 ```
+
+Skrypt przed instalacją sprawdza plik binarny z plikiem `SHA256SUMS` danego wydania. Pliki binarne dla Linux wymagają glibc, więc w Alpine i innych systemach opartych na musl zainstaluj pakiet przez npm.
 
 Pliki binarne dla Linux (x64 i arm64), macOS (Intel i Apple silicon) oraz Windows są dołączone do każdego [wydania](https://github.com/spamscanner/spamscanner/releases).
 
@@ -75,6 +77,8 @@ CommonJS też działa:
 const SpamScanner = require('spamscanner');
 ```
 
+Deklaracje typów są dołączone, dla TypeScript 4.7 lub nowszego (5.3 lub nowszego z `require`).
+
 `scan()` przyjmuje surową wiadomość jako Buffer, string, Uint8Array lub strumień do odczytu. Ciąg znaków to zawsze tekst wiadomości: Spam Scanner nigdy nie czyta pliku tylko dlatego, że ciąg wygląda jak ścieżka. Dla plików użyj `scanner.scanFile(path)`.
 
 
@@ -113,7 +117,7 @@ spamscanner scan message.eml --ip 203.0.113.5 --helo mail.example.com \
 | SPF, DKIM, DMARC, ARC             | `authentication: true`                           | `--auth`                    |
 | Czarna lista IP                   | `dnsbl: {ip: ['zen.spamhaus.org']}`              | `--dnsbl zen.spamhaus.org`  |
 | Czarna lista domen dla linków     | `dnsbl: {domain: ['dbl.spamhaus.org']}`          | `--uribl dbl.spamhaus.org`  |
-| ClamAV                            | `clamav: true` lub `clamav: {socket}`            | `--clamav [socket]`         |
+| ClamAV                            | `clamav: true` lub `clamav: {socket}`            | `--clamav[=socket]`         |
 | Model językowy                    | `llm: {provider: 'ollama', model: 'qwen3.5:4b'}` | `--llm ollama`              |
 | Listy dozwolonych i zablokowanych | `allowlist: [...]`, `denylist: [...]`            | `--allowlist`, `--denylist` |
 

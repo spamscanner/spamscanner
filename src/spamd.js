@@ -42,7 +42,8 @@ export function parseRequest(head) {
 }
 
 function reply(code, text, headers = [], body = null) {
-	const lines = [`SPAMD/1.5 ${code} ${text}`];
+	// The text can quote the request, which must not add lines to the answer.
+	const lines = [`SPAMD/1.5 ${code} ${text.replaceAll(/[\r\n]/g, ' ')}`];
 	if (body !== null) {
 		lines.push(`Content-length: ${body.length}`);
 	}
@@ -142,32 +143,47 @@ export async function answer(scanner, request, message, options) {
  * Supports CHECK, SYMBOLS, REPORT, REPORT_IFSPAM, PROCESS, HEADERS, PING,
  * SKIP and (with allowTell) TELL. Compressed requests are refused.
  *
+ * spamd clients do not send the client's IP address, so authentication
+ * (SPF, DKIM, DMARC, ARC) and IP blocklists do not run for these scans.
+ *
  * @param {import('./index.js').SpamScanner} scanner
  * @param {object} [options]
  * @param {number} [options.maxSize] - largest message accepted, in bytes
  * @param {boolean} [options.allowTell] - accept TELL (learning) requests
  * @param {string} [options.modelPath] - where TELL saves the classifier
  * @param {string|null} [options.subjectTag] - tag for spam in PROCESS and HEADERS answers
+ * @param {number} [options.timeout] - close a connection that sends nothing for this many milliseconds (default 60000)
  * @returns {net.Server}
  */
 export function createSpamdServer(scanner, options = {}) {
 	const settings = {
-		maxSize: 25 * 1024 * 1024, allowTell: false, modelPath: null, subjectTag: null, ...options,
+		maxSize: 25 * 1024 * 1024, allowTell: false, modelPath: null, subjectTag: null, timeout: 60_000, ...options,
 	};
 	return net.createServer({allowHalfOpen: true}, socket => {
-		let buffer = Buffer.alloc(0);
+		let head = Buffer.alloc(0);
+		const chunks = [];
+		let size = 0;
 		let request = null;
 		let done = false;
+		socket.setTimeout(settings.timeout, () => socket.destroy());
 		const finish = async message => {
 			done = true;
+			// The scan itself may take a while; the client is waiting for it.
+			socket.setTimeout(0);
 			try {
 				const output = await answer(scanner, request, message, settings);
 				socket.end(output ?? undefined);
 			} catch (error) {
-				socket.end(reply(error.code ?? EX_SOFTWARE, error.message.replaceAll(/[\r\n]/g, ' ')));
+				// A failed scan or learn, whatever its own error code.
+				socket.end(reply(EX_SOFTWARE, error.message));
 			}
+
+			// (and a client that never closes its side is dropped once idle)
+			socket.setTimeout(settings.timeout);
 		};
 
+		// Anything the client sends after the answer is read and dropped, so it
+		// gets the answer rather than a reset connection.
 		const fail = (code, text) => {
 			done = true;
 			socket.end(reply(code, text));
@@ -178,11 +194,11 @@ export function createSpamdServer(scanner, options = {}) {
 				return;
 			}
 
-			buffer = Buffer.concat([buffer, chunk]);
 			if (!request) {
-				const end = buffer.indexOf('\r\n\r\n');
+				head = Buffer.concat([head, chunk]);
+				const end = head.indexOf('\r\n\r\n');
 				if (end === -1) {
-					if (buffer.length > 64 * 1024) {
+					if (head.length > 64 * 1024) {
 						fail(EX_PROTOCOL, 'Request head too long');
 					}
 
@@ -190,24 +206,27 @@ export function createSpamdServer(scanner, options = {}) {
 				}
 
 				try {
-					request = parseRequest(buffer.subarray(0, end).toString('latin1'));
+					request = parseRequest(head.subarray(0, end).toString('latin1'));
 				} catch (error) {
 					fail(error.code, error.message);
 					return;
 				}
 
-				buffer = buffer.subarray(end + 4);
+				chunk = head.subarray(end + 4);
+				head = null;
 				if (request.headers.compress) {
 					fail(EX_PROTOCOL, 'Compressed requests are not supported');
 					return;
 				}
 
-				const length = Number(request.headers['content-length'] ?? 0);
-				if (!Number.isSafeInteger(length) || length < 0) {
+				const value = request.headers['content-length'];
+				if (value !== undefined && !/^\d+$/.test(value)) {
 					fail(EX_PROTOCOL, 'Bad Content-length');
 					return;
 				}
 
+				// Without a Content-length, the end of the input ends the message.
+				const length = value === undefined ? null : Number(value);
 				if (length > settings.maxSize) {
 					fail(EX_DATAERR, `Message larger than ${settings.maxSize} bytes`);
 					return;
@@ -216,19 +235,26 @@ export function createSpamdServer(scanner, options = {}) {
 				request.length = length;
 			}
 
-			if (buffer.length >= request.length && (request.length > 0 || ['PING', 'SKIP'].includes(request.command))) {
-				finish(buffer.subarray(0, request.length));
+			chunks.push(chunk);
+			size += chunk.length;
+			if (request.length === null ? ['PING', 'SKIP'].includes(request.command) : size >= request.length) {
+				finish(Buffer.concat(chunks).subarray(0, request.length ?? 0));
+			} else if (size > settings.maxSize) {
+				fail(EX_DATAERR, `Message larger than ${settings.maxSize} bytes`);
 			}
 		});
-		// Spamc closes its side after the message; without a Content-length the
-		// end of the input ends the message.
+		// Spamc closes its side after the message.
 		socket.on('end', () => {
-			if (!done) {
-				if (request) {
-					finish(buffer.subarray(0, settings.maxSize));
-				} else {
-					fail(EX_PROTOCOL, 'Incomplete request');
-				}
+			if (done) {
+				return;
+			}
+
+			if (!request) {
+				fail(EX_PROTOCOL, 'Incomplete request');
+			} else if (request.length === null) {
+				finish(Buffer.concat(chunks));
+			} else {
+				fail(EX_PROTOCOL, `Message shorter than its Content-length of ${request.length} bytes`);
 			}
 		});
 		socket.on('error', () => {});

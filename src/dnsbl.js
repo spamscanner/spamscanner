@@ -1,6 +1,17 @@
 import dns from 'node:dns';
 import {isIP} from 'node:net';
 
+// Whether a name can be looked up: not an address (also "[2001:db8::1]"),
+// at most 253 characters, in labels of 1 to 63
+export function isLookupName(name) {
+	if (typeof name !== 'string') {
+		return false;
+	}
+
+	const host = name.replaceAll(/^\[|]$/g, '').replace(/\.$/, '');
+	return host !== '' && isIP(host) === 0 && host.length <= 253 && host.split('.').every(label => label.length > 0 && label.length <= 63);
+}
+
 /**
  * Blocklists that answer DNS queries. None is enabled by default: each has its
  * own terms (Spamhaus, for example, is free only for low-volume
@@ -28,35 +39,118 @@ export const KNOWN_LISTS = {
 export const CLOUDFLARE_MALWARE = ['1.1.1.2', '1.0.0.2'];
 export const CLOUDFLARE_FAMILY = ['1.1.1.3', '1.0.0.3'];
 
+// The eight 16-bit groups of an IPv6 address (an IPv4 address at its end,
+// as in "::ffff:192.0.2.1", is two groups).
+function ipv6Groups(address) {
+	const expanded = address.replace(/(\d+)\.(\d+)\.(\d+)\.(\d+)$/, (...match) => {
+		const [a, b, c, d] = match.slice(1, 5).map(Number);
+		return `${((a * 256) + b).toString(16)}:${((c * 256) + d).toString(16)}`;
+	});
+	const [head, tail = ''] = expanded.split('::');
+	const left = head ? head.split(':') : [];
+	const right = tail ? tail.split(':') : [];
+	return [...left, ...Array.from({length: 8 - left.length - right.length}).fill('0'), ...right].map(group => Number.parseInt(group, 16));
+}
+
+/**
+ * An IP address as blocklists and allowlists know it: without an IPv6 zone
+ * ("fe80::1%eth0"), and an IPv4 address mapped into IPv6 ("::ffff:192.0.2.1",
+ * as a dual-stack server reports IPv4 clients) as the IPv4 address, and any
+ * other IPv6 address in its canonical form (RFC 5952: "2001:db8::1", and an
+ * IPv4 address translated into IPv6 or under the NAT64 prefix in dotted form:
+ * "::ffff:0:192.0.2.1", "64:ff9b::192.0.2.1"). Anything
+ * that is not an IP address is returned as it is.
+ * @param {string} ip
+ * @returns {string}
+ */
+export function normalizeIp(ip) {
+	const address = String(ip).replace(/%.*$/, '');
+	const version = isIP(address);
+	if (version === 4) {
+		return address;
+	}
+
+	if (version !== 6) {
+		return String(ip);
+	}
+
+	const groups = ipv6Groups(address);
+	const ipv4 = [Math.floor(groups[6] / 256), groups[6] % 256, Math.floor(groups[7] / 256), groups[7] % 256].join('.');
+	if (groups.slice(0, 5).every(group => group === 0) && groups[5] === 0xFF_FF) {
+		return ipv4;
+	}
+
+	// (an IPv4 address translated into IPv6, "::ffff:0:192.0.2.1", or under
+	//  the NAT64 prefix, "64:ff9b::192.0.2.1", keeps it in dotted form, as
+	//  RFC 5952 (section 5) asks)
+	const embedded = (groups.slice(0, 4).every(group => group === 0) && groups[4] === 0xFF_FF && groups[5] === 0)
+		|| (groups[0] === 0x64 && groups[1] === 0xFF_9B && groups.slice(2, 6).every(group => group === 0));
+	const count = embedded ? 6 : 8;
+
+	// (in the one form of RFC 5952, so "2001:0DB8:0:0::0001" is
+	//  "2001:db8::1": lowercase, without leading zeros, the longest run of two
+	//  or more zero groups, the first of equals, as "::")
+	let run = {start: -1, length: 1};
+	for (let i = 0; i < count; i++) {
+		let length = 0;
+		while (i + length < count && groups[i + length] === 0) {
+			length++;
+		}
+
+		if (length > run.length) {
+			run = {start: i, length};
+		}
+
+		i += length;
+	}
+
+	const hex = groups.slice(0, count).map(group => group.toString(16));
+	const written = run.start === -1 ? hex.join(':') : `${hex.slice(0, run.start).join(':')}::${hex.slice(run.start + run.length).join(':')}`;
+	if (!embedded) {
+		return written;
+	}
+
+	return `${written}${written.endsWith(':') ? '' : ':'}${ipv4}`;
+}
+
 /**
  * The DNS name to query for an IP address in a blocklist zone: reversed
  * octets for IPv4 ("4.3.2.1.zen.spamhaus.org"), reversed nibbles for IPv6.
+ * An IPv4 address mapped into IPv6 is looked up as IPv4.
  * @param {string} ip
  * @param {string} zone
  * @returns {string|null}
  */
 export function reverseName(ip, zone) {
-	const version = isIP(ip);
+	const address = normalizeIp(ip);
+	const version = isIP(address);
 	if (version === 4) {
-		return `${ip.split('.').reverse().join('.')}.${zone}`;
+		return `${address.split('.').reverse().join('.')}.${zone}`;
 	}
 
 	if (version === 6) {
-		const [head, tail = ''] = ip.split('::');
-		const left = head ? head.split(':') : [];
-		const right = tail ? tail.split(':') : [];
-		const groups = [...left, ...Array.from({length: 8 - left.length - right.length}).fill('0'), ...right];
-		const nibbles = groups.map(group => group.padStart(4, '0')).join('');
+		const nibbles = ipv6Groups(address).map(group => group.toString(16).padStart(4, '0')).join('');
 		return `${[...nibbles].reverse().join('.')}.${zone}`;
 	}
 
 	return null;
 }
 
+// A zone of a list, or of a mirror of it ("multi.surbl.org", or
+// "key.dq.spamhaus.net" for Spamhaus's own service)
+function inZone(zone, domain) {
+	const name = String(zone).toLowerCase().replace(/\.$/, '');
+	return name === domain || name.endsWith(`.${domain}`);
+}
+
 /**
  * Whether an answer means "listed": an address in 127.0.0.0/8 that is not one
- * of the error codes lists return when queries are refused (127.255.255.x at
- * Spamhaus, 127.0.0.255 at SURBL, 127.0.0.1 at URIBL for blocked resolvers).
+ * of the error codes lists return when queries are refused or wrong: at
+ * Spamhaus, 127.255.255.x (127.255.255.252 for a misspelled zone,
+ * .254 for queries through a public resolver, .255 for too many queries) and
+ * 127.0.1.255 (an address looked up in the DBL), 127.0.0.255 anywhere, and
+ * 127.0.0.1 at SURBL and URIBL, which answer it to resolvers they block
+ * (SpamAssassin's SURBL_BLOCKED and URIBL_BLOCKED).
  * @param {string} address
  * @param {string} zone
  * @returns {boolean}
@@ -70,7 +164,11 @@ export function isListedAnswer(address, zone) {
 		return false;
 	}
 
-	if (zone.endsWith('uribl.com') && address === '127.0.0.1') {
+	if (address === '127.0.1.255' && (inZone(zone, 'spamhaus.org') || inZone(zone, 'spamhaus.net'))) {
+		return false;
+	}
+
+	if (address === '127.0.0.1' && (inZone(zone, 'uribl.com') || inZone(zone, 'surbl.org'))) {
 		return false;
 	}
 
@@ -122,6 +220,19 @@ export class DnsChecker {
 	 * @returns {Promise<string[]>}
 	 */
 	async resolve4(name, servers = this.servers) {
+		return (await this.answer(name, servers)) ?? [];
+	}
+
+	/**
+	 * A records for a name, an empty list when the name does not exist or has
+	 * no A records, and null when no answer came: the lookup timed out or
+	 * failed (SERVFAIL, refused, unreachable). Only answers are cached, so a
+	 * failed lookup is tried again for the next message.
+	 * @param {string} name
+	 * @param {string[]|null} [servers]
+	 * @returns {Promise<string[]|null>}
+	 */
+	async answer(name, servers = this.servers) {
 		const key = `${servers ? servers.join(',') : ''}|${name}`;
 		const hit = this.cache.get(key);
 		if (hit && hit.expires > Date.now()) {
@@ -138,15 +249,14 @@ export class DnsChecker {
 					timer = setTimeout(() => resolve(null), this.timeout);
 				}),
 			]);
-		} catch {
-			value = [];
+		} catch (error) {
+			value = ['ENOTFOUND', 'ENODATA'].includes(error?.code) ? [] : null;
 		} finally {
 			clearTimeout(timer);
 		}
 
 		if (value === null) {
-			// Timed out: not cached, so the next message tries again.
-			return [];
+			return null;
 		}
 
 		this.cache.set(key, {value, expires: Date.now() + this.cacheTtl});
@@ -206,33 +316,42 @@ export class DnsChecker {
 	/**
 	 * Ask Cloudflare's filtering resolvers about host names. A name blocked by
 	 * the malware resolver is "malware"; one blocked only by the family
-	 * resolver is "adult".
+	 * resolver is "adult". The hosts that got no answer (from the malware
+	 * resolver, or from the family resolver when asked) are listed in the
+	 * result's (non-enumerable) `unanswered` property.
 	 * @param {string[]} hosts
 	 * @param {object} [options]
 	 * @param {boolean} [options.adult] - also ask the family resolver
 	 * @param {string[]} [options.malwareServers]
 	 * @param {string[]} [options.familyServers]
-	 * @returns {Promise<Array<{host: string, category: 'malware'|'adult'}>>}
+	 * @returns {Promise<Array<{host: string, category: 'malware'|'adult'}> & {unanswered: string[]}>}
 	 */
 	async checkCloudflare(hosts = [], options = {}) {
 		const {adult = true, malwareServers = CLOUDFLARE_MALWARE, familyServers = CLOUDFLARE_FAMILY} = options;
+		const unanswered = [];
 		const results = await Promise.all(hosts.map(async host => {
-			if (isIP(host)) {
+			// (an address, or a name no lookup could answer: not asked)
+			if (!isLookupName(host)) {
 				return null;
 			}
 
-			const malware = await this.resolve4(host, malwareServers);
-			if (malware.includes('0.0.0.0')) {
+			const malware = await this.answer(host, malwareServers);
+			if (malware?.includes('0.0.0.0')) {
 				return {host, category: 'malware'};
 			}
 
-			const family = adult ? await this.resolve4(host, familyServers) : [];
-			if (family.includes('0.0.0.0')) {
+			const family = malware && adult ? await this.answer(host, familyServers) : [];
+			if (family?.includes('0.0.0.0')) {
 				return {host, category: 'adult'};
+			}
+
+			if (!malware || !family) {
+				unanswered.push(host);
 			}
 
 			return null;
 		}));
-		return results.filter(Boolean);
+		// (not enumerable: the result is still a plain list of findings)
+		return Object.defineProperty(results.filter(Boolean), 'unanswered', {value: unanswered});
 	}
 }

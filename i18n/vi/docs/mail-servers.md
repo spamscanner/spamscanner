@@ -1,4 +1,4 @@
-<!-- source: 1151282f29d3 -->
+<!-- source: 84dca86d95ea -->
 
 # Các máy chủ thư khác
 
@@ -20,8 +20,10 @@ Spam Scanner hỗ trợ bốn giao thức, nên hầu hết phần mềm thư c�
 
 ```sh
 sudo systemctl disable --now spamd    # or spamassassin, depending on the distribution
-spamscanner spamd --port 783 --auth
+spamscanner spamd --port 783
 ```
+
+Client spamd không gửi địa chỉ IP của client đã gửi thư, nên SPF, DKIM, DMARC và ARC (`--auth`) cùng danh sách chặn IP (`--dnsbl`) không thể chạy ở đây. Hãy dùng [milter](postfix.md#milter) cho chúng nếu máy chủ thư hỗ trợ.
 
 Với spamc:
 
@@ -87,7 +89,7 @@ if header :is "X-Spam-Flag" "YES" {
 Với IMAPSieve, việc chuyển thư vào hoặc ra khỏi Junk có thể dạy mô hình. Khởi động HTTP API với một token và một tệp mô hình:
 
 ```sh
-spamscanner http --port 7832 --token "$SPAMSCANNER_TOKEN" --out /var/lib/spamscanner/model.json
+spamscanner http --port 7832 --out /var/lib/spamscanner/model.json    # token in SPAMSCANNER_TOKEN
 ```
 
 rồi trỏ máy chủ milter hoặc spamd đến cùng mô hình đó bằng `--model /var/lib/spamscanner/model.json` (hoặc `SPAMSCANNER_MODEL`). Thỉnh thoảng khởi động lại nó để nạp những gì đã học. Một script được `sieve_pipe` chạy sẽ gửi thư lên:
@@ -132,7 +134,7 @@ if (/^X-Spam-Flag: YES/)
 Bất kỳ chương trình nào có thể gửi yêu cầu HTTP đều có thể quét thư:
 
 ```sh
-spamscanner http --port 7832 --token "$SPAMSCANNER_TOKEN"
+spamscanner http --port 7832    # token in SPAMSCANNER_TOKEN
 
 curl -s -X POST -H "Authorization: Bearer $SPAMSCANNER_TOKEN" \
   --data-binary @message.eml "http://127.0.0.1:7832/scan?ip=203.0.113.5&from=alice@example.com&to=bob@example.org"

@@ -1,4 +1,4 @@
-<!-- source: 8263c06f1dab -->
+<!-- source: 1a2009efd1f9 -->
 
 # البدء
 
@@ -25,6 +25,8 @@ npm install spamscanner
 ```sh
 curl -fsSL https://github.com/spamscanner/spamscanner/releases/latest/download/install.sh | bash
 ```
+
+يتحقق السكربت من الملف التنفيذي بمقارنته بملف `SHA256SUMS` الخاص بالإصدار قبل تثبيته. تحتاج الملفات التنفيذية لـ Linux إلى glibc، لذا ثبّت عبر npm بدلًا من ذلك على Alpine والأنظمة الأخرى المبنية على musl.
 
 الملفات التنفيذية لـ Linux (x64 وarm64) وmacOS (Intel وApple silicon) وWindows مرفقة بكل [إصدار](https://github.com/spamscanner/spamscanner/releases).
 
@@ -75,6 +77,8 @@ for (const test of result.tests) {
 const SpamScanner = require('spamscanner');
 ```
 
+تعريفات الأنواع مضمّنة، لـ TypeScript 4.7 أو أحدث (5.3 أو أحدث مع `require`).
+
 تأخذ `scan()` الرسالة الخام على شكل Buffer أو سلسلة نصية أو Uint8Array أو تدفق قابل للقراءة. السلسلة النصية دائمًا نص رسالة: لا يقرأ Spam Scanner ملفًا أبدًا لمجرد أن السلسلة تشبه مسارًا. استخدم `scanner.scanFile(path)` للملفات.
 
 
@@ -113,7 +117,7 @@ spamscanner scan message.eml --ip 203.0.113.5 --helo mail.example.com \
 | SPF وDKIM وDMARC وARC    | `authentication: true`                           | `--auth`                    |
 | قائمة حظر IP             | `dnsbl: {ip: ['zen.spamhaus.org']}`              | `--dnsbl zen.spamhaus.org`  |
 | قائمة حظر نطاقات للروابط | `dnsbl: {domain: ['dbl.spamhaus.org']}`          | `--uribl dbl.spamhaus.org`  |
-| ClamAV                   | `clamav: true` أو `clamav: {socket}`             | `--clamav [socket]`         |
+| ClamAV                   | `clamav: true` أو `clamav: {socket}`             | `--clamav[=socket]`         |
 | نموذج لغوي               | `llm: {provider: 'ollama', model: 'qwen3.5:4b'}` | `--llm ollama`              |
 | قوائم السماح والمنع      | `allowlist: [...]`، `denylist: [...]`            | `--allowlist`، `--denylist` |
 

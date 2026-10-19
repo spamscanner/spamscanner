@@ -103,7 +103,8 @@ function readBody(request, limit) {
  * - POST /learn/spam, /learn/ham → teach the classifier (only with a token)
  *
  * The request body is the raw message. Query parameters: ip, hostname, helo,
- * from, to (see sessionFromQuery), and for /check, subjectTag.
+ * from, to (see sessionFromQuery), and for /check, subjectTag. Authentication
+ * (SPF, DKIM, DMARC, ARC) and IP blocklists run only when ip is given.
  *
  * @param {import('./index.js').SpamScanner} scanner
  * @param {object} [options]
@@ -144,13 +145,15 @@ export function createHttpServer(scanner, options = {}) {
 				return;
 			}
 
+			// Refused before the body is read, so a client cannot make the server
+			// read a large message for nothing.
+			if (learn && !token) {
+				send(403, {error: 'Learning needs the server to be started with a token'});
+				return;
+			}
+
 			const raw = await readBody(request, maxSize);
 			if (learn) {
-				if (!token) {
-					send(403, {error: 'Learning needs the server to be started with a token'});
-					return;
-				}
-
 				await scanner.learn(raw, learn[1]);
 				if (modelPath) {
 					scanner.saveModel(modelPath);
@@ -179,40 +182,50 @@ export function createHttpServer(scanner, options = {}) {
  * A plain TCP server: a client sends a raw message and closes its side; the
  * server answers with the result as one line of JSON (or a short text line)
  * and closes the connection.
+ *
+ * The client's IP address is not known, so authentication (SPF, DKIM, DMARC,
+ * ARC) and IP blocklists do not run for these scans.
  * @param {import('./index.js').SpamScanner} scanner
  * @param {object} [options]
  * @param {boolean} [options.json] - answer in JSON (default true)
  * @param {number} [options.maxSize]
+ * @param {number} [options.timeout] - close a connection that sends nothing for this many milliseconds (default 60000)
  * @returns {net.Server}
  */
 export function createTcpServer(scanner, options = {}) {
-	const {json = true, maxSize = 25 * 1024 * 1024} = options;
+	const {json = true, maxSize = 25 * 1024 * 1024, timeout = 60_000} = options;
 	// Half-open: the client closes its side to mark the end of the message and
 	// still reads the answer.
 	return net.createServer({allowHalfOpen: true}, socket => {
 		const chunks = [];
 		let size = 0;
-		socket.on('data', chunk => {
-			size += chunk.length;
-			if (size > maxSize) {
-				socket.end(`${JSON.stringify({error: `Message larger than ${maxSize} bytes`})}\n`);
-				return;
-			}
-
-			chunks.push(chunk);
-		});
-		socket.on('end', async () => {
-			if (size > maxSize) {
-				return;
-			}
-
+		socket.setTimeout(timeout, () => socket.destroy());
+		const onEnd = async () => {
+			// The scan itself may take a while; the client is waiting for it.
+			socket.setTimeout(0);
 			try {
 				const result = await scanner.scan(Buffer.concat(chunks));
 				socket.end(json ? `${JSON.stringify(serializeResult(result))}\n` : `${result.isSpam ? 'SPAM' : 'HAM'} ${result.score.toFixed(1)}/${result.threshold.toFixed(1)} ${result.tests.map(test => test.name).join(',')}\n`);
 			} catch (error) {
 				socket.end(json ? `${JSON.stringify({error: error.message})}\n` : `ERROR ${error.message}\n`);
 			}
-		});
+		};
+
+		const onData = chunk => {
+			size += chunk.length;
+			if (size > maxSize) {
+				// Answer once, stop reading the rest of the message and close.
+				socket.off('data', onData);
+				socket.off('end', onEnd);
+				socket.end(`${JSON.stringify({error: `Message larger than ${maxSize} bytes`})}\n`, () => socket.destroy());
+				return;
+			}
+
+			chunks.push(chunk);
+		};
+
+		socket.on('data', onData);
+		socket.on('end', onEnd);
 		socket.on('error', () => {});
 	});
 }

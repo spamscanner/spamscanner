@@ -10,8 +10,21 @@ import {characterClass} from './tokenizer.js';
  * campaigns.
  */
 export const EXECUTABLE_EXTENSIONS = new Set([
-	'ade', 'adp', 'apk', 'app', 'appimage', 'application', 'appref-ms', 'appx', 'appxbundle', 'asp', 'aspx', 'asx', 'bas', 'bat', 'bgi', 'cab', 'cer', 'chm', 'cmd', 'cnt', 'com', 'command', 'cpl', 'csh', 'der', 'diagcab', 'dll', 'dmg', 'docm', 'dotm', 'elf', 'exe', 'fxp', 'gadget', 'grp', 'hlp', 'hpj', 'hta', 'htc', 'img', 'inf', 'ins', 'ipa', 'iso', 'isp', 'its', 'jar', 'jnlp', 'js', 'jse', 'ksh', 'lnk', 'mad', 'maf', 'mag', 'mam', 'maq', 'mar', 'mas', 'mat', 'mau', 'mav', 'maw', 'mcf', 'mda', 'mde', 'mdt', 'mdw', 'mdz', 'msc', 'msh', 'msh1', 'msh1xml', 'msh2', 'msh2xml', 'mshxml', 'msi', 'msix', 'msixbundle', 'msp', 'mst', 'msu', 'nsh', 'ops', 'osd', 'pcd', 'pif', 'pkg', 'pl', 'plg', 'potm', 'ppam', 'ppsm', 'pptm', 'prf', 'prg', 'ps1', 'ps1xml', 'ps2', 'ps2xml', 'psc1', 'psc2', 'pst', 'py', 'pyc', 'pyo', 'pyw', 'pyz', 'pyzw', 'reg', 'scf', 'scpt', 'scr', 'sct', 'settingcontent-ms', 'sh', 'shb', 'shs', 'slk', 'sys', 'theme', 'tmp', 'url', 'vb', 'vbe', 'vbp', 'vbs', 'vhd', 'vhdx', 'vsmacros', 'vsw', 'webpnp', 'website', 'ws', 'wsb', 'wsc', 'wsf', 'wsh', 'xbap', 'xlam', 'xll', 'xlsm', 'xltm', 'xnk',
+	'ade', 'adp', 'apk', 'app', 'appimage', 'application', 'appref-ms', 'appx', 'appxbundle', 'asp', 'aspx', 'asx', 'bas', 'bat', 'bgi', 'cab', 'chm', 'cmd', 'cnt', 'com', 'command', 'cpl', 'csh', 'diagcab', 'dll', 'dmg', 'docm', 'dotm', 'elf', 'exe', 'fxp', 'gadget', 'grp', 'hlp', 'hpj', 'hta', 'htc', 'img', 'inf', 'ins', 'ipa', 'iso', 'isp', 'its', 'jar', 'jnlp', 'js', 'jse', 'ksh', 'lnk', 'mad', 'maf', 'mag', 'mam', 'maq', 'mar', 'mas', 'mau', 'mav', 'maw', 'mcf', 'mda', 'mde', 'mdt', 'mdw', 'mdz', 'msc', 'msh', 'msh1', 'msh1xml', 'msh2', 'msh2xml', 'mshxml', 'msi', 'msix', 'msixbundle', 'msp', 'mst', 'msu', 'nsh', 'ops', 'osd', 'pcd', 'pif', 'pkg', 'pl', 'plg', 'potm', 'ppam', 'ppsm', 'pptm', 'prf', 'prg', 'ps1', 'ps1xml', 'ps2', 'ps2xml', 'psc1', 'psc2', 'py', 'pyc', 'pyo', 'pyw', 'pyz', 'pyzw', 'reg', 'scf', 'scpt', 'scr', 'sct', 'settingcontent-ms', 'sh', 'shb', 'shs', 'slk', 'sys', 'vb', 'vbe', 'vbp', 'vbs', 'vhd', 'vhdx', 'vsmacros', 'vsw', 'webpnp', 'website', 'ws', 'wsb', 'wsc', 'wsf', 'wsh', 'xbap', 'xlam', 'xll', 'xlsm', 'xltm', 'xnk',
 ]);
+
+/**
+ * File extensions Outlook blocks that are risky by name rather than programs:
+ * certificates (installing one trusts whoever holds its key), Internet
+ * shortcuts, Windows themes, and data files people send every day (MATLAB
+ * data, Outlook data, temporary files). Reported as risky_attachment, with
+ * few points.
+ */
+export const RISKY_EXTENSIONS = new Set(['cer', 'der', 'mat', 'pst', 'theme', 'tmp', 'url']);
+
+// Scripts that developers and students share (a zipped website or homework):
+// in an archive they count for fewer points than native programs.
+const SCRIPT_EXTENSIONS = new Set(['asp', 'aspx', 'csh', 'js', 'ksh', 'pl', 'py', 'pyc', 'pyo', 'pyw', 'pyz', 'pyzw', 'sh']);
 
 // Office formats whose file name says they may contain macros.
 const MACRO_EXTENSIONS = new Set(['docm', 'dotm', 'xlsm', 'xltm', 'xlam', 'pptm', 'potm', 'ppsm', 'ppam', 'sldm']);
@@ -19,6 +32,10 @@ const MACRO_EXTENSIONS = new Set(['docm', 'dotm', 'xlsm', 'xltm', 'xlam', 'pptm'
 // Formats people send every day; one of these before an executable extension
 // ("invoice.pdf.exe") is a disguise.
 const DOCUMENT_EXTENSIONS = new Set(['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'rtf', 'jpg', 'jpeg', 'png', 'gif', 'zip', 'csv', 'odt', 'ods', 'html', 'htm', 'mp3', 'mp4', 'mov', 'wav', 'eml', 'msg', 'xml', 'json']);
+
+// Suffixes Office and editors add to a document's name for a temporary copy
+// ("report.xlsx.tmp"): not a disguise.
+const TEMPORARY_EXTENSIONS = new Set(['tmp']);
 
 const BIDI_CONTROLS = characterClass([[0x20_2A, 0x20_2E], [0x20_66, 0x20_69]], 'u');
 
@@ -164,8 +181,8 @@ export function sniff(buffer) {
 const ZIP_FAMILY = new Set(['zip', 'docx', 'xlsx', 'pptx']);
 const OFFICE_TYPES = new Set(['docx', 'xlsx', 'pptx']);
 // What Office embeds in a document: other documents (with macros too, which
-// are reported as macros) and certificates.
-const OFFICE_EMBEDDED = new Set([...MACRO_EXTENSIONS, 'cer', 'der']);
+// are reported as macros).
+const OFFICE_EMBEDDED = MACRO_EXTENSIONS;
 
 // The entries of each ZIP attachment, read once (by sniff and by
 // inspectAttachments).
@@ -275,18 +292,39 @@ function extensionOf(name) {
 	return dot === -1 ? '' : base.slice(dot + 1).trim();
 }
 
+// The names of the storages and streams of a VBA project (case does not
+// matter in a compound file).
+const VBA_NAMES = new Set(['vba', '_vba_project', '_vba_project_cur', 'macros']);
+
 function oleHasMacros(buffer) {
-	// VBA projects live in storages named "VBA" and "_VBA_PROJECT", stored as
-	// UTF-16LE names in the compound file's directory.
-	const names = ['_VBA_PROJECT', 'VBA', 'Macros'].map(name => Buffer.from(name, 'utf16le'));
-	return names.some(name => buffer.includes(name));
+	// VBA projects live in storages named "VBA", "_VBA_PROJECT_CUR" (Excel)
+	// or "Macros" (Word), with a "_VBA_PROJECT" stream. These are entries of
+	// the compound file's directory: 128 bytes each, at 128-byte boundaries
+	// after the header, with a UTF-16LE name, its length in bytes (with the
+	// final null) at 64 and its type at 66 (1 storage, 2 stream). Text that
+	// mentions these names, as an Outlook message may, is not an entry.
+	for (let offset = 512; offset + 128 <= buffer.length; offset += 128) {
+		const length = buffer.readUInt16LE(offset + 64);
+		const type = buffer[offset + 66];
+		if ((type === 1 || type === 2) && length >= 4 && length <= 64 && length % 2 === 0 && VBA_NAMES.has(buffer.subarray(offset, offset + length - 2).toString('utf16le').toLowerCase())) {
+			return true;
+		}
+	}
+
+	return false;
 }
 
-// Actions a PDF runs or files it carries. (An /OpenAction that runs script
-// names /JS or /JavaScript, which this matches wherever it is, so the action
-// itself is not looked for: "<<[^>]*" would read the rest of the file again
-// from every /OpenAction.)
-const PDF_ACTIVE = linear(String.raw`\/(?:JavaScript|JS|Launch|EmbeddedFile)\b`);
+// Actions a PDF runs: script and launch actions. (An /OpenAction that runs
+// script names /JS or /JavaScript, which this matches wherever it is, so the
+// action itself is not looked for: "<<[^>]*" would read the rest of the file
+// again from every /OpenAction.) Embedded files are not active content: every
+// ZUGFeRD or Factur-X e-invoice carries one.
+const PDF_ACTIVE = linear(String.raw`\/(?:JavaScript|JS|Launch)\b`);
+
+// A PDF name with a character written as #xx ("/J#61vaScript" is
+// "/JavaScript"), decoded before it is matched.
+const PDF_ESCAPED_NAME = /\/[^\s/<>[\]()%{}]*#[\dA-Fa-f]{2}[^\s/<>[\]()%{}]*/g;
+const decodePdfNames = text => text.replaceAll(PDF_ESCAPED_NAME, name => name.replaceAll(/#([\dA-Fa-f]{2})/g, (_, hex) => String.fromCodePoint(Number.parseInt(hex, 16))));
 
 /**
  * Inspect a message's attachments.
@@ -296,11 +334,15 @@ const PDF_ACTIVE = linear(String.raw`\/(?:JavaScript|JS|Launch|EmbeddedFile)\b`)
  * - disguised_executable: content is a program but the name says otherwise
  * - double_extension: "invoice.pdf.exe"
  * - rtl_override: a right-to-left override hides the real extension (a file named "invoice", U+202E, "fdp.exe" shows as "invoiceexe.pdf")
+ * - risky_attachment: a type that is risky by name but not a program
+ *   (a certificate, an Internet shortcut, a theme; see RISKY_EXTENSIONS)
  * - executable_in_archive: a ZIP holds a program, read without unpacking
  *   (extension: the first program's, extensions: every program's)
+ * - script_in_archive: a ZIP holds scripts (JavaScript, Python, shell, Perl)
+ *   but no other programs
  * - encrypted_archive: a password-protected ZIP, which virus scanners cannot open
  * - macro: an Office document with a VBA project
- * - pdf_active: a PDF with JavaScript, launch actions or embedded files
+ * - pdf_active: a PDF with JavaScript or launch actions
  * - rtf_object: an RTF document with an embedded OLE object
  * - html_attachment: an HTML or SVG file, the usual carrier of fake login pages
  *
@@ -323,8 +365,9 @@ export function inspectAttachments(attachments = []) {
 			add('rtl_override', `Attachment "${name}" uses a right-to-left override to hide its real extension`);
 		}
 
+		// (also "invoice.pdf .exe", a space before the last dot)
 		const parts = trimEndOf(filename.toLowerCase(), '. ').split('.');
-		if (parts.length >= 3 && EXECUTABLE_EXTENSIONS.has(extension) && DOCUMENT_EXTENSIONS.has(parts.at(-2))) {
+		if (parts.length >= 3 && (EXECUTABLE_EXTENSIONS.has(extension) || RISKY_EXTENSIONS.has(extension)) && !TEMPORARY_EXTENSIONS.has(extension) && DOCUMENT_EXTENSIONS.has(parts.at(-2).trim())) {
 			add('double_extension', `Attachment "${name}" has a document extension followed by a program extension`, {extension});
 		}
 
@@ -336,13 +379,13 @@ export function inspectAttachments(attachments = []) {
 			add(extension && !EXECUTABLE_EXTENSIONS.has(extension) ? 'disguised_executable' : 'executable', `Attachment "${name}" contains a program (${detected.type})${extension && extension !== detected.type ? ` but is named .${extension}` : ''}`, {extension: detected.type});
 		} else if (byName) {
 			add('executable', `Attachment "${name}" is a file type that runs code (.${extension})`, {extension});
+		} else if (RISKY_EXTENSIONS.has(extension)) {
+			add('risky_attachment', `Attachment "${name}" is a risky file type (.${extension})`, {extension});
 		}
 
+		// (a document named as one that holds macros counts only with a VBA
+		//  project inside)
 		if (!content) {
-			if (MACRO_EXTENSIONS.has(extension)) {
-				add('macro', `Attachment "${name}" is an Office document type that holds macros (.${extension})`, {extension});
-			}
-
 			continue;
 		}
 
@@ -354,8 +397,6 @@ export function inspectAttachments(attachments = []) {
 			const office = OFFICE_TYPES.has(detected?.type);
 			if (entries.some(entry => /(?:^|\/)vbaproject\.bin$/i.test(entry.name))) {
 				add('macro', `Attachment "${name}" is an Office document with a VBA macro project`, {extension});
-			} else if (MACRO_EXTENSIONS.has(extension)) {
-				add('macro', `Attachment "${name}" is an Office document type that holds macros (.${extension})`, {extension});
 			} else if (office && entries.some(entry => MACRO_EXTENSIONS.has(extensionOf(entry.name)))) {
 				// (as Office names an embedded workbook or document with macros:
 				//  "word/embeddings/Microsoft_Excel_Macro-Enabled_Worksheet.xlsm")
@@ -365,8 +406,12 @@ export function inspectAttachments(attachments = []) {
 			// (an Office document holding a program is an archive of programs
 			// too; not the documents and certificates Office itself embeds)
 			const inner = entries.filter(entry => EXECUTABLE_EXTENSIONS.has(extensionOf(entry.name)) && !(office && OFFICE_EMBEDDED.has(extensionOf(entry.name))));
-			if (inner.length > 0) {
-				add('executable_in_archive', `Archive "${name}" contains ${inner.length === 1 ? 'a program' : `${inner.length} programs`} (${inner.slice(0, 3).map(entry => entry.name.split('/').pop()).join(', ')})`, {extension: extensionOf(inner[0].name), extensions: [...new Set(inner.map(entry => extensionOf(entry.name)))]});
+			const details = {extension: extensionOf(inner[0]?.name ?? ''), extensions: [...new Set(inner.map(entry => extensionOf(entry.name)))]};
+			const listed = inner.slice(0, 3).map(entry => entry.name.split('/').pop()).join(', ');
+			if (inner.some(entry => !SCRIPT_EXTENSIONS.has(extensionOf(entry.name)))) {
+				add('executable_in_archive', `Archive "${name}" contains ${inner.length === 1 ? 'a program' : `${inner.length} programs`} (${listed})`, details);
+			} else if (inner.length > 0) {
+				add('script_in_archive', `Archive "${name}" contains ${inner.length === 1 ? 'a script' : `${inner.length} scripts`} (${listed})`, details);
 			}
 
 			// (archives only: Office documents are encrypted otherwise)
@@ -378,8 +423,8 @@ export function inspectAttachments(attachments = []) {
 				add('macro', `Attachment "${name}" is an Office document with a VBA macro project`, {extension});
 			}
 		} else if (detected?.type === 'pdf' || extension === 'pdf') {
-			if (PDF_ACTIVE.test(content.toString('latin1'))) {
-				add('pdf_active', `PDF "${name}" contains JavaScript, a launch action or an embedded file`, {extension: 'pdf'});
+			if (PDF_ACTIVE.test(decodePdfNames(content.toString('latin1')))) {
+				add('pdf_active', `PDF "${name}" contains JavaScript or a launch action`, {extension: 'pdf'});
 			}
 		} else if (detected?.type === 'rtf' && /\\object\b|\\objdata\b|\\objupdate\b/.test(content.toString('latin1'))) {
 			add('rtf_object', `RTF document "${name}" embeds an OLE object`, {extension: 'rtf'});

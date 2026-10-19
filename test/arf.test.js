@@ -123,6 +123,14 @@ describe('ARF reports', () => {
 		assert.ok(VALID_FEEDBACK_TYPES.has('not-spam'));
 	});
 
+	it('finishes a message that ends in the header of an attached message', async () => {
+		const within = promise => Promise.race([promise, new Promise((resolve, reject) => {
+			setTimeout(() => reject(new Error('did not finish')), 5000).unref();
+		})]);
+		await assert.rejects(within(parse('From: a@example.org\r\nContent-Type: message/rfc822\r\nContent-Disposition: inline\r\n')), /Not an ARF report/);
+		await assert.rejects(within(parse('From: a@example.org\r\nContent-Disposition: inline; filename="fw.eml"\r\n')), /Not an ARF report/);
+	});
+
 	it('rejects messages that are not reports', async () => {
 		await assert.rejects(parse(original), /Not an ARF report/);
 		await assert.rejects(parse(report({contentType: 'multipart/report; report-type=delivery-status; boundary="b1"'})), /Not an ARF report/);
@@ -161,6 +169,43 @@ describe('ARF reports', () => {
 			feedbackType: 'not-spam', userAgent: 'x', from: 'a@example.com', to: 'b@example.net', originalMessage: Buffer.from(original),
 		}));
 		assert.equal(plain.feedbackType, 'not-spam');
+	});
+
+	it('keeps the bytes of an original Buffer, encodes the subject and takes dates and one recipient as given', async () => {
+		const latin1 = Buffer.from('From: x@example.biz\r\nSubject: caf\u00E9\r\n\r\ncaf\u00E9\r\n', 'latin1');
+		const raw = create({
+			feedbackType: 'abuse', userAgent: 'x', from: 'a@example.com', to: 'b@example.net', originalMessage: latin1, subject: 'Plainte d\u2019abus : courrier ind\u00E9sirable re\u00E7u', originalRcptTo: 'one@example.org', arrivalDate: '2026-10-05T09:30:00Z',
+		});
+		assert.ok(Buffer.isBuffer(raw));
+		assert.ok(raw.includes(latin1.subarray(0, -2)));
+		const text = raw.toString('latin1');
+		assert.match(text, /^Subject: =\?UTF-8\?B\?/m);
+		assert.ok(text.split('\r\n').every(line => line.length <= 998));
+		// (whatever line ending the original ends with, or none)
+		for (const ending of ['', '\n']) {
+			const message = create({
+				feedbackType: 'abuse', userAgent: 'x', from: 'a@example.com', to: 'b@example.net', originalMessage: Buffer.from(`From: x@example.biz\r\n\r\nbody${ending}`),
+			});
+			assert.match(message.toString(), /\r\n\r\nbody\r\n--arf-[\da-f]+--\r\n$/);
+		}
+
+		assert.equal((await simpleParser(raw)).subject, 'Plainte d\u2019abus : courrier ind\u00E9sirable re\u00E7u');
+		const result = await parse(raw);
+		assert.deepEqual(result.originalRcptTo, ['one@example.org']);
+		assert.equal(result.arrivalDate.toISOString(), '2026-10-05T09:30:00.000Z');
+		assert.throws(() => create({
+			feedbackType: 'abuse', userAgent: 'x', from: 'a@example.com', to: 'b@example.net', originalMessage: original, arrivalDate: 'garbage',
+		}), /arrivalDate/);
+	});
+
+	it('reads a huge address field and a large quoted-printable original quickly', async () => {
+		const started = Date.now();
+		const result = await parse(report({fields: `Feedback-Type: abuse\r\nUser-Agent: x\r\nVersion: 1\r\nOriginal-Mail-From: ${'a'.repeat(2_000_000)}\r\n`}));
+		assert.equal(result.originalMailFrom.length, 1024);
+		const qp = report({originalBody: `Content-Transfer-Encoding: quoted-printable\r\n\r\nFrom: x@example.biz\r\nSubject: big\r\n\r\n${'caf=C3=A9 '.repeat(500_000)}`}).replace('Content-Type: message/rfc822\r\n\r\nContent-Transfer-Encoding', 'Content-Type: message/rfc822\r\nContent-Transfer-Encoding');
+		assert.equal((await parse(qp)).originalHeaders.subject, 'big');
+		// (quadratic reading would take minutes; this leaves room for a busy machine)
+		assert.ok(Date.now() - started < 15_000, `took ${Date.now() - started} ms`);
 	});
 
 	it('refuses to write incomplete reports or values with line breaks', () => {

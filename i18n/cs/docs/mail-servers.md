@@ -1,4 +1,4 @@
-<!-- source: 1151282f29d3 -->
+<!-- source: 84dca86d95ea -->
 
 # Další poštovní servery
 
@@ -20,8 +20,10 @@ Spam Scanner mluví čtyřmi protokoly, takže ho většina poštovního softwar
 
 ```sh
 sudo systemctl disable --now spamd    # or spamassassin, depending on the distribution
-spamscanner spamd --port 783 --auth
+spamscanner spamd --port 783
 ```
+
+Klienti spamd neposílají IP adresu klienta, který zprávu odeslal, takže SPF, DKIM, DMARC a ARC (`--auth`) ani IP blocklisty (`--dnsbl`) zde nemohou běžet. Pro ně použijte [milter](postfix.md#milter), pokud ho poštovní server podporuje.
 
 Se spamc:
 
@@ -87,7 +89,7 @@ if header :is "X-Spam-Flag" "YES" {
 S IMAPSieve může přesun zprávy do Junk nebo z ní model učit. Spusťte HTTP API s tokenem a souborem modelu:
 
 ```sh
-spamscanner http --port 7832 --token "$SPAMSCANNER_TOKEN" --out /var/lib/spamscanner/model.json
+spamscanner http --port 7832 --out /var/lib/spamscanner/model.json    # token in SPAMSCANNER_TOKEN
 ```
 
 a nasměrujte milter nebo server spamd na stejný model pomocí `--model /var/lib/spamscanner/model.json` (nebo `SPAMSCANNER_MODEL`). Čas od času ho restartujte, aby načetl, co se naučil. Skript spouštěný přes `sieve_pipe` zprávu odešle:
@@ -132,7 +134,7 @@ if (/^X-Spam-Flag: YES/)
 Poštu může kontrolovat jakýkoli program, který umí poslat požadavek HTTP:
 
 ```sh
-spamscanner http --port 7832 --token "$SPAMSCANNER_TOKEN"
+spamscanner http --port 7832    # token in SPAMSCANNER_TOKEN
 
 curl -s -X POST -H "Authorization: Bearer $SPAMSCANNER_TOKEN" \
   --data-binary @message.eml "http://127.0.0.1:7832/scan?ip=203.0.113.5&from=alice@example.com&to=bob@example.org"

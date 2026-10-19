@@ -1,4 +1,4 @@
-<!-- source: faf44f093f8b -->
+<!-- source: 9caf3ffb803a -->
 
 # HTTP API, TCP 서버, spamd
 
@@ -6,14 +6,16 @@
 ## HTTP API
 
 ```sh
-spamscanner http --port 7832 --token "$SPAMSCANNER_TOKEN"
+spamscanner http --port 7832    # token in SPAMSCANNER_TOKEN
 ```
+
+HTTP API는 토큰을 환경 변수 `SPAMSCANNER_TOKEN`에서 읽습니다. `--token`도 쓸 수 있지만, 같은 컴퓨터의 다른 사용자가 `ps`에서 명령줄 옵션을 볼 수 있습니다.
 
 `--host`로 달리 지정하지 않는 한 127.0.0.1에서 수신합니다. 토큰을 설정하면 `/health`를 제외한 모든 요청에 `Authorization: Bearer <token>`이 필요합니다. 이 컴퓨터 밖으로 공개하기 전에는 TLS를 쓰는 리버스 프록시 뒤에 두십시오.
 
 | 메서드와 경로            | 본문     | 응답                                           |
 | ------------------ | ------ | -------------------------------------------- |
-| `GET /health`      |        | `{"ok": true, "version": "7.0.0"}`           |
+| `GET /health`      |        | `{"ok": true, "version": "..."}`             |
 | `POST /scan`       | 원본 메시지 | JSON 형식의 [검사 결과](api.md#the-result)          |
 | `POST /check`      | 원본 메시지 | `X-Spam-*` 헤더를 추가한 메시지(`message/rfc822` 형식)  |
 | `POST /learn/spam` | 원본 메시지 | `{"ok": true, "learned": "spam"}`. 토큰이 필요합니다 |
@@ -30,6 +32,8 @@ spamscanner http --port 7832 --token "$SPAMSCANNER_TOKEN"
 | `to`         | 수신자. 여러 번 지정하거나 쉼표로 구분해 여러 명을 지정합니다         |
 | `verbose=1`  | `/scan`: 단어 목록과 제목도 반환합니다                   |
 | `subjectTag` | `/check`: 스팸의 제목 앞에 붙일 문자열. 예: `%5BSPAM%5D` |
+
+`ip`가 없으면 SPF, DKIM, DMARC, ARC와 IP 차단 목록 검사(`--auth`, `--dnsbl`)는 건너뜁니다.
 
 `/check`는 `X-Spam-Flag`, `X-Spam-Score`, `X-Spam-Action`도 응답 헤더로 반환하므로, 클라이언트는 메시지를 파싱하지 않고도 판단할 수 있습니다.
 
@@ -82,6 +86,8 @@ nc -N 127.0.0.1 7830 < message.eml
 
 `--verbose`를 사용하면 응답은 텍스트 한 줄이 됩니다. 예: `SPAM 16.3/5.0 BAYES_999,PHISHING_LOOKALIKE_DOMAIN,DECEPTIVE_LINK,FROM_NAME_BRAND` 또는 `HAM -2.5/5.0 BAYES_00`.
 
+TCP 서버는 클라이언트의 IP 주소를 모르므로 `--auth`와 `--dnsbl`은 효과가 없습니다. 60초 동안 아무것도 보내지 않는 연결은 닫고, 25 MB보다 큰 메시지에는 오류로 답합니다.
+
 
 ## spamd
 
@@ -104,3 +110,5 @@ spamc, Exim, Haraka 등 SpamAssassin 클라이언트를 위한 SpamAssassin 호�
 | `TELL`          | `--allow-tell` 사용 시 스팸 또는 ham으로 학습하고 `--out`에 저장합니다 |
 
 압축된 요청(`Compress: zlib`)은 거부합니다.
+
+spamd 클라이언트도 클라이언트의 IP 주소를 보내지 않으므로 `--auth`와 `--dnsbl`은 효과가 없습니다. 25 MB보다 큰 메시지는 `65`(`EX_DATAERR`), `Content-length`보다 짧은 메시지는 `76`(`EX_PROTOCOL`)을 받고, 60초 동안 아무것도 보내지 않는 연결은 닫힙니다.

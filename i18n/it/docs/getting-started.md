@@ -1,4 +1,4 @@
-<!-- source: 8263c06f1dab -->
+<!-- source: 1a2009efd1f9 -->
 
 # Primi passi
 
@@ -25,6 +25,8 @@ Come binario autonomo per Linux o macOS, con Node.js e il modello inclusi:
 ```sh
 curl -fsSL https://github.com/spamscanner/spamscanner/releases/latest/download/install.sh | bash
 ```
+
+Lo script verifica il binario con il file `SHA256SUMS` della release prima di installarlo. I binari per Linux richiedono glibc, quindi su Alpine e su altri sistemi basati su musl installa con npm.
 
 I binari per Linux (x64 e arm64), macOS (Intel e Apple silicon) e Windows sono allegati a ogni [release](https://github.com/spamscanner/spamscanner/releases).
 
@@ -75,6 +77,8 @@ Funziona anche CommonJS:
 const SpamScanner = require('spamscanner');
 ```
 
+Le dichiarazioni di tipo sono incluse, per TypeScript 4.7 o successivo (5.3 o successivo con `require`).
+
 `scan()` accetta il messaggio grezzo come Buffer, stringa, Uint8Array o stream leggibile. Una stringa è sempre il testo del messaggio: Spam Scanner non legge mai un file solo perché una stringa somiglia a un percorso. Per i file usa `scanner.scanFile(path)`.
 
 
@@ -113,7 +117,7 @@ Nessuno di questi è attivo per impostazione predefinita, perché ciascuno richi
 | SPF, DKIM, DMARC, ARC          | `authentication: true`                           | `--auth`                    |
 | Blocklist di IP                | `dnsbl: {ip: ['zen.spamhaus.org']}`              | `--dnsbl zen.spamhaus.org`  |
 | Blocklist di domini per i link | `dnsbl: {domain: ['dbl.spamhaus.org']}`          | `--uribl dbl.spamhaus.org`  |
-| ClamAV                         | `clamav: true` o `clamav: {socket}`              | `--clamav [socket]`         |
+| ClamAV                         | `clamav: true` o `clamav: {socket}`              | `--clamav[=socket]`         |
 | Un modello linguistico         | `llm: {provider: 'ollama', model: 'qwen3.5:4b'}` | `--llm ollama`              |
 | Liste di consenso e di blocco  | `allowlist: [...]`, `denylist: [...]`            | `--allowlist`, `--denylist` |
 

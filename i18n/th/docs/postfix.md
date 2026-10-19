@@ -1,4 +1,4 @@
-<!-- source: f1043eb5fc58 -->
+<!-- source: 6675649d593a -->
 
 # Postfix และ Sendmail
 
@@ -13,11 +13,13 @@ Spam Scanner เชื่อมต่อกับ Postfix ได้สองว�
 X-Spam-Flag: YES
 X-Spam-Score: 8.0
 X-Spam-Level: ********
-X-Spam-Status: Yes, score=8.0 required=5.0 tests=BAYES_99,DECEPTIVE_LINK version=7.0.0
+X-Spam-Status: Yes, score=8.0 required=5.0 tests=BAYES_99,DECEPTIVE_LINK version=7.0.3
 X-Spam-Action: tag
 ```
 
 ส่วนหัว `X-Spam-*` ที่มีอยู่แล้วในข้อความจะถูกลบออกก่อน ผู้ส่งจึงทำเครื่องหมายว่าอีเมลของตัวเองสะอาดไม่ได้
+
+ข้อความที่มีไฟล์แนบซึ่ง ClamAV สแกนไม่ได้อาจมีไวรัส ทั้งสองวิธีจึงเลื่อนข้อความนั้นออกไป (Postfix หรือผู้ส่งจะลองใหม่ภายหลัง) เช่นเดียวกับเมื่อการสแกนล้มเหลว เมื่อใช้ `--on-error accept` ข้อความจะถูกส่งต่อโดยเพิ่ม `X-Spam-Virus-Scan: failed`
 
 
 ## Milter
@@ -29,7 +31,7 @@ npm install --global spamscanner
 spamscanner milter --port 7831 --auth --subject-tag "[SPAM]" --verbose
 ```
 
-เมื่อใช้ `--reject` ข้อความที่ถึงเกณฑ์ปฏิเสธ (15 คะแนน) จะถูกปฏิเสธด้วย `451 4.7.1 Message rejected as spam` รหัส 451 เป็นการปฏิเสธชั่วคราว: ผู้ส่งจะลองใหม่ภายหลัง และยังแก้ไขข้อผิดพลาดได้ด้วยการเปลี่ยนการตั้งค่า ใช้ `--reject-code 550` เพื่อปฏิเสธถาวรเมื่อผลลัพธ์ดูถูกต้องแล้ว เมื่อใช้ `--quarantine` สแปมจะไปอยู่ใน hold queue ของ Postfix แทน
+เมื่อใช้ `--reject` ข้อความที่ถึงเกณฑ์ปฏิเสธ (15 คะแนน) จะถูกปฏิเสธด้วย `451 4.7.1 Message rejected as spam` รหัส 451 เป็นการปฏิเสธชั่วคราว: ผู้ส่งจะลองใหม่ภายหลัง และยังแก้ไขข้อผิดพลาดได้ด้วยการเปลี่ยนการตั้งค่า ใช้ `--reject-code 550` เพื่อปฏิเสธถาวรเมื่อผลลัพธ์ดูถูกต้องแล้ว เมื่อใช้ `--quarantine` สแปมจะไปอยู่ใน hold queue ของ Postfix แทน ข้อความที่ milter สแกนได้ไม่ครบจะได้รับคำตอบ 4xx ส่วน `--on-error accept` จะปล่อยให้ผ่านไปแทน
 
 ในรูปบริการ systemd ใน `/etc/systemd/system/spamscanner-milter.service`:
 
@@ -101,7 +103,7 @@ smtp      inet  n       -       n       -       -       smtpd
   -o content_filter=spamscanner:dummy
 spamscanner unix -      n       n       -       10      pipe
   flags=Rq user=spamscanner null_sender=
-  argv=/usr/bin/node /usr/local/lib/node_modules/spamscanner/dist/esm/cli.js filter --subject-tag [SPAM] -f ${sender} -- ${recipient}
+  argv=/usr/bin/node /usr/local/lib/node_modules/spamscanner/dist/esm/cli.js filter --subject-tag [SPAM] --from=${sender} -- ${recipient}
 ```
 
 Postfix รันตัวกรองด้วยสภาพแวดล้อมที่แทบว่างเปล่า `argv` จึงระบุ Node.js และสคริปต์ด้วยพาธเต็ม (`command -v node` และ `npm root --global` แสดงพาธเหล่านี้) จากนั้น:
@@ -112,7 +114,7 @@ sudo postfix reload
 
 ตัวกรองส่งข้อความกลับด้วย `sendmail -G -i` อีเมลที่ส่งด้วยวิธีนี้ไม่ผ่าน listener `smtp` อีกครั้ง จึงไม่ถูกกรองซ้ำสองรอบ
 
-รหัสออกบอก Postfix ว่าเกิดอะไรขึ้น: 0 ส่งแล้ว, 69 ถูกปฏิเสธ (เมื่อใช้ `--reject`: Postfix ตีกลับไปยังผู้ส่ง), 75 ล้มเหลวชั่วคราว (Postfix เก็บข้อความไว้และลองใหม่) ความล้มเหลวในการสแกนหรือการส่งใด ๆ จะเป็น 75 การตั้งค่าที่ผิดพลาดจึงไม่ทำให้อีเมลหายหรือถูกตีกลับ
+รหัสออกบอก Postfix ว่าเกิดอะไรขึ้น: 0 ส่งแล้ว, 69 ถูกปฏิเสธ (เมื่อใช้ `--reject`: Postfix ตีกลับไปยังผู้ส่ง), 75 ล้มเหลวชั่วคราว (Postfix เก็บข้อความไว้และลองใหม่) ความล้มเหลวในการสแกนหรือการส่งใด ๆ จะเป็น 75 รวมถึงข้อความที่มีไฟล์แนบซึ่ง ClamAV สแกนไม่ได้ การตั้งค่าที่ผิดพลาดจึงไม่ทำให้อีเมลหายหรือถูกตีกลับ เมื่อใช้ `--on-error accept` ข้อความที่สแกนล้มเหลว หรือที่ ClamAV สแกนได้ไม่ครบ จะถูกส่งต่อแทนโดยทำเครื่องหมาย `X-Spam-Virus-Scan: failed` (ดู[บรรทัดคำสั่ง](cli.md#filter))
 
 
 ## Sendmail
@@ -124,6 +126,12 @@ INPUT_MAIL_FILTER(`spamscanner', `S=inet:7831@127.0.0.1, F=T, T=S:30s;R:30s;E:5m
 ```
 
 `F=T` ทำให้ Sendmail ตอบด้วยความล้มเหลวชั่วคราวขณะที่ milter ใช้งานไม่ได้ หากต้องการรับอีเมลโดยไม่กรองแทน ให้ลบออก สร้าง `sendmail.cf` ใหม่แล้วรีสตาร์ต Sendmail
+
+ชื่อโฮสต์ของไคลเอนต์จะทำให้ข้อความอยู่ในรายการอนุญาตได้ก็ต่อเมื่อผ่านการตรวจสอบแล้วเท่านั้น Postfix ส่งชื่อนี้เฉพาะเมื่อชื่อ reverse DNS ของไคลเอนต์ resolve กลับไปเป็นที่อยู่ของไคลเอนต์ได้ มิฉะนั้นจะส่ง `unknown` ส่วน Sendmail ส่งชื่อ reverse DNS แม้จะ resolve กลับไม่ได้ (เป็นชื่อที่ใครก็ตามที่มี reverse DNS สำหรับที่อยู่ของตัวเองเลือกได้) และบอกเรื่องนี้ในแมโคร `{client_resolve}` ซึ่งโดยค่าเริ่มต้นจะไม่ส่ง ให้เพิ่มแมโครนี้ในแมโครที่ส่งตอนเชื่อมต่อ ก่อน `INPUT_MAIL_FILTER` เพื่อให้นับเฉพาะชื่อโฮสต์ที่ Sendmail ระบุว่า `OK`:
+
+```text
+define(`confMILTER_MACROS_CONNECT', `j, _, {daemon_name}, {if_name}, {if_addr}, {client_resolve}')
+```
 
 
 ## คัดแยกสแปมไปยังโฟลเดอร์ Junk

@@ -1,4 +1,4 @@
-<!-- source: 8a788c19971e -->
+<!-- source: a7dfb7c0fde2 -->
 
 # Como funciona
 
@@ -19,9 +19,9 @@ O Spam Scanner mantém o que funciona na contagem de palavras, a estatística, e
 
 ### O que ele conta
 
-O texto lido é o que um cliente de e-mail mostra: o da parte HTML quando existe uma (uma parte de texto simples ao lado dela só é mostrada onde o HTML não pode ser, por isso uma parte inofensiva não pode falar pelo HTML), sem tags, comentários, scripts e estilos, com tags inline unindo uma palavra como um navegador a une (`Free Sp<span>ins</span>`), e com o texto que o HTML esconde deixado de fora e contado: escondido por um elemento que esconde o que contém (display, opacity, o atributo hidden, uma caixa recortada sem tamanho, texto deslocado para fora da página), ou invisível, transparente ou em uma fonte de um pixel ou menos onde está (o que um elemento interno pode redefinir, como fazem os modelos responsivos). Os estilos são lidos como os navegadores os leem (a última declaração vence, comentários, referências de caracteres); cores sobre um fundo e classes de folhas de estilo não, por isso esse texto é lido como é mostrado. HTML que mostra menos de 20 palavras, como uma imagem da mensagem, é lido junto com a sua parte de texto simples. Links e nomes de host são lidos das duas partes e do texto oculto.
+O texto lido é o que um cliente de e-mail mostra: o da parte HTML quando existe uma (uma parte de texto simples ao lado dela só é mostrada onde o HTML não pode ser, por isso uma parte inofensiva não pode falar pelo HTML), sem tags, comentários, scripts e estilos, com tags inline unindo uma palavra como um navegador a une (`Free Sp<span>ins</span>`), com blocos, células e quebras de linha separando-a (também um elemento que um estilo mostra como bloco, um bloco que um navegador fecha sozinho e um bloco escondido no seu lugar, mas não um que não ocupa lugar), e com o texto que o HTML esconde deixado de fora e contado: escondido por um elemento que esconde o que contém (display, opacity, o atributo hidden, uma caixa recortada sem tamanho, texto deslocado para fora da página), ou invisível, transparente ou em uma fonte de um pixel ou menos onde está (o que um elemento interno pode redefinir, como fazem os modelos responsivos). Os estilos são lidos como os navegadores os leem (a última declaração vence, comentários, referências de caracteres); cores sobre um fundo e classes de folhas de estilo não, por isso esse texto é lido como é mostrado. HTML que mostra menos de 20 palavras, como uma imagem da mensagem, é lido junto com a sua parte de texto simples. Os links são lidos das duas partes, do texto oculto e do texto que o HTML mostra, onde um endereço dividido por tags inline (`https://www.pay<b></b>pa1.com/`) é lido como um só. Nomes de host escritos sem link são lidos do assunto, do texto lido e de uma parte de texto simples ao lado do HTML.
 
-Primeiro o texto é normalizado: o Unicode NFKC converte letras estilizadas e de largura total em letras simples, caracteres invisíveis são removidos e contados, letras parecidas dentro de palavras que de resto são latinas ou cirílicas são mapeadas de volta, e dígitos usados como letras (`v1agra`) são convertidos. Depois as palavras são segmentadas com o `Intl.Segmenter`, as regras de limite de palavras do Unicode com dicionários para chinês, japonês, tailandês, laosiano, khmer e birmanês.
+Primeiro o texto é normalizado: o Unicode NFKC converte letras estilizadas e de largura total em letras simples, caracteres invisíveis são removidos e contados (não um espaço de largura zero entre letras de tailandês, laosiano, khmer, birmanês ou tibetano, que separa as palavras nessas escritas, e os joiners só entre letras latinas), letras parecidas em uma palavra que mistura letras latinas, cirílicas ou gregas são mapeadas para a escrita da maioria das suas letras (`рaypal` com um р cirílico vira `paypal`, `пpивет` com um p latino vira `привет`), partes de uma palavra entre apóstrofos são lidas separadamente (`iPhone'ы`, com uma terminação de caso russa, não mistura nada), e dígitos usados como letras (`v1agra`) são convertidos. Depois as palavras são segmentadas com o `Intl.Segmenter`, as regras de limite de palavras do Unicode com dicionários para chinês, japonês, tailandês, laosiano, khmer e birmanês.
 
 A partir disso, ele extrai:
 
@@ -63,22 +63,23 @@ O pacote inclui um modelo treinado com conjuntos de dados públicos e de licenç
 Todo link é verificado:
 
 * **Domínios parecidos.** Cada domínio é reduzido a um esqueleto com a tabela de caracteres confundíveis do Unicode, então `pаypal.com` (а cirílico), `paypa1.com`, `rnicrosoft.com` e `xn--pple-43d.com` correspondem todos à marca que imitam. Escritas misturadas em um mesmo rótulo, nomes de marcas em subdomínios (`paypal.com.example.net`) e erros de digitação de uma letra recebem uma pontuação menor. Quase 100 marcas imitadas com frequência vêm incluídas, e é possível adicionar mais.
-* **Links enganosos.** Links HTML cujo texto visível é um endereço diferente do destino.
+* **Links enganosos.** Links HTML cujo texto visível é um endereço diferente do destino: o texto inteiro, ou um endereço com `http://` ou `https://` dentro dele (`Sign in at https://www.paypal.com`). Um nome de arquivo ou o nome de um site em uma frase (`Download report.zip`, `Read why Booking.com switched`) não é um endereço. Um link que passa pelo rastreamento de cliques de um serviço de envio de e-mails (SendGrid, Mailchimp, Amazon SES, Kit, Brevo, beehiiv, Substack e outros) ou por um gateway de segurança que reescreve links (Microsoft Safe Links, Proofpoint, Mimecast, Barracuda, Cisco) vai para outro lugar por design, então só conta quando o texto é o endereço completo de uma marca, sem caminho ou com um caminho de login (não um link para uma rede social, um produto de uma loja ou um mapa), e o remetente não é essa marca nem um dos seus domínios de envio. Quando o link de um gateway contém o endereço para onde ele segue (Safe Links, Proofpoint), é esse endereço que se compara.
 * **Os resolvedores com filtragem da Cloudflare.** Os hosts dos links são consultados no 1.1.1.2, que responde `0.0.0.0` para sites conhecidos de malware e phishing, e no 1.1.1.3, que também bloqueia conteúdo adulto.
 * **Nomes de exibição.** Um nome como “PayPal Security” vindo de um endereço de outro domínio, ou um nome que contém um endereço de e-mail diferente.
 
 
 ## Anexos
 
-Os anexos são identificados pelos seus bytes, e não pelos nomes ou tipos declarados:
+Os anexos são identificados por seus bytes e seus nomes, não por seus tipos declarados:
 
 * executáveis, atalhos e scripts de Windows, Linux e macOS, mesmo quando renomeados para `.pdf` ou `.jpg`
 * extensões duplas (`invoice.pdf.exe`) e caracteres de substituição da direita para a esquerda que escondem a extensão real
 * executáveis dentro de arquivos ZIP e arquivos compactados criptografados que os analisadores não conseguem abrir
 * arquivos do Office com macros, PDFs com JavaScript ou ações de execução, arquivos RTF com objetos incorporados
 * anexos HTML, que o phishing usa para mostrar uma página de login falsa offline
+* os anexos de mensagens anexadas (`message/rfc822`, `.eml`), até três níveis de profundidade e 100 anexos (os anexos da própria mensagem são sempre todos inspecionados)
 
-Com o ClamAV, os anexos também são analisados pelo `clamd` através do seu socket.
+Com o ClamAV, os anexos também são analisados pelo `clamd` através do seu socket. Quatro são verificados por vez, todos dentro de `clamav.timeout` (60 segundos), e os que não puderam ser verificados ficam listados em `results.virusScanErrors`. Os maiores do que o clamd aceita (o seu `StreamMaxLength`) ficam listados em `results.virusScanSkipped`: o clamd os recusa a cada tentativa.
 
 
 ## Autenticação

@@ -1,4 +1,4 @@
-<!-- source: 7cc30ff4ad91 -->
+<!-- source: 4d7afeb36844 -->
 
 # Entrenamiento
 
@@ -15,12 +15,12 @@ spamscanner train --spam ~/Maildir/.Junk --ham ~/Maildir/cur --ham ~/Maildir/.Ar
 
 Las fuentes pueden ser:
 
-* archivos **mbox**, también comprimidos con gzip (`.mbox.gz`),
+* archivos **mbox**, también comprimidos con gzip (`.mbox.gz`; los demás archivos `.gz` se omiten),
 * un **Maildir** (se leen sus carpetas `cur` y `new`, y se omite `tmp`),
 * una **carpeta** de archivos `.eml`, leída de forma recursiva,
-* un **conjunto de datos**: un archivo CSV o JSON Lines con una columna de texto y una columna de etiqueta (`--dataset`). Las columnas llamadas `text`, `message`, `body`, `email` o `content`, y `label`, `category`, `class`, `spam` o `is_spam`, se detectan solas; si no, usa `--text-column` y `--label-column`. Se entienden etiquetas como `spam`, `1`, `phishing` y `ham`, `0`, `not_spam`, `legitimate`.
+* un **conjunto de datos**: un archivo CSV o JSON Lines con una columna de texto y una columna de etiqueta (`--dataset`). Las columnas, o campos JSON, llamadas `text`, `message`, `body`, `email text`, `email`, `content`, `sms` o `v2`, y `label`, `category`, `is_spam`, `spam`, `email type`, `class`, `type`, `label_text`, `v1` o `labels`, en mayúsculas o minúsculas, se detectan solas (en JSON Lines, `label_text` antes que `label`); si no, usa `--text-column` y `--label-column`. Una línea JSON que no es un objeto se omite. Se entienden etiquetas como `spam`, `1`, `phishing` y `ham`, `0`, `not_spam`, `legitimate`.
 
-Los mensajes duplicados se cuentan una sola vez. Para partir del modelo incluido en lugar de empezar de cero, añade `--merge`.
+Los mensajes duplicados se cuentan una sola vez. Un mensaje que está tanto en las fuentes de spam como en las de ham se conserva como spam, ya que las fuentes de spam se leen primero. Para partir del modelo incluido en lugar de empezar de cero, añade `--merge`.
 
 Usa el modelo:
 

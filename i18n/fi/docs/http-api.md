@@ -1,4 +1,4 @@
-<!-- source: faf44f093f8b -->
+<!-- source: 9caf3ffb803a -->
 
 # HTTP API, TCP-palvelin ja spamd
 
@@ -6,14 +6,16 @@
 ## HTTP API
 
 ```sh
-spamscanner http --port 7832 --token "$SPAMSCANNER_TOKEN"
+spamscanner http --port 7832    # token in SPAMSCANNER_TOKEN
 ```
+
+HTTP-rajapinta lukee tunnisteensa ympäristömuuttujasta `SPAMSCANNER_TOKEN`. Myös `--token` toimii, mutta koneen muut käyttäjät näkevät komentorivin valitsimet komennolla `ps`.
 
 Se kuuntelee osoitetta 127.0.0.1, ellei `--host` määrää muuta. Kun tunniste on asetettu, jokainen pyyntö polkua `/health` lukuun ottamatta tarvitsee otsakkeen `Authorization: Bearer <token>`. Aseta se TLS:ää käyttävän käänteisen välityspalvelimen taakse ennen kuin avaat sen koneen ulkopuolelle.
 
 | Metodi ja polku    | Runko       | Vastaus                                                                  |
 | ------------------ | ----------- | ------------------------------------------------------------------------ |
-| `GET /health`      |             | `{"ok": true, "version": "7.0.0"}`                                       |
+| `GET /health`      |             | `{"ok": true, "version": "..."}`                                         |
 | `POST /scan`       | Raakaviesti | [Tarkistuksen tulos](api.md#the-result) JSON-muodossa                    |
 | `POST /check`      | Raakaviesti | Viesti, johon on lisätty `X-Spam-*`-otsakkeet, muodossa `message/rfc822` |
 | `POST /learn/spam` | Raakaviesti | `{"ok": true, "learned": "spam"}`; vaatii tunnisteen                     |
@@ -30,6 +32,8 @@ Kyselyparametrit kuvaavat SMTP-istunnon:
 | `to`         | Vastaanottaja; toista se tai erota useita pilkuilla                           |
 | `verbose=1`  | `/scan`: palauttaa myös sanaluettelon ja aiherivin                            |
 | `subjectTag` | `/check`: lisää etuliitteen roskapostin aiheriville, esimerkiksi `%5BSPAM%5D` |
+
+Ilman parametria `ip` SPF-, DKIM-, DMARC-, ARC- ja IP-estolistatarkistukset (`--auth`, `--dnsbl`) ohitetaan.
 
 `/check` palauttaa myös `X-Spam-Flag`-, `X-Spam-Score`- ja `X-Spam-Action`-otsakkeet vastauksen otsakkeina, joten asiakas voi päättää jäsentämättä viestiä.
 
@@ -82,6 +86,8 @@ nc -N 127.0.0.1 7830 < message.eml
 
 Valitsimella `--verbose` vastaus on sen sijaan tekstirivi: `SPAM 16.3/5.0 BAYES_999,PHISHING_LOOKALIKE_DOMAIN,DECEPTIVE_LINK,FROM_NAME_BRAND` tai `HAM -2.5/5.0 BAYES_00`.
 
+TCP-palvelin ei tiedä asiakkaan IP-osoitetta, joten `--auth` ja `--dnsbl` eivät vaikuta. Se sulkee yhteydet, jotka eivät lähetä mitään 60 sekuntiin, ja vastaa yli 25 Mt:n viesteihin virheellä.
+
 
 ## spamd
 
@@ -104,3 +110,5 @@ SpamAssassin-yhteensopiva palvelin spamc:lle, Eximille, Harakalle ja muille Spam
 | `TELL`          | Oppii roskapostin tai hamin valitsimella `--allow-tell`; tallentaa kohteeseen `--out` |
 
 Pakatut pyynnöt (`Compress: zlib`) hylätään.
+
+Myöskään spamd-asiakkaat eivät lähetä asiakkaan IP-osoitetta, joten `--auth` ja `--dnsbl` eivät vaikuta. Yli 25 Mt:n viesti saa vastauksen `65` (`EX_DATAERR`), otsakkeen `Content-length` ilmoittamaa lyhyempi viesti saa vastauksen `76` (`EX_PROTOCOL`), ja yhteydet, jotka eivät lähetä mitään 60 sekuntiin, suljetaan.

@@ -1,4 +1,4 @@
-<!-- source: 79e50e309869 -->
+<!-- source: 7564838c2408 -->
 
 # Dil modelleri
 
@@ -114,11 +114,11 @@ Bunlar barındırılan hizmetlerdir; bu yüzden bir ileti gönderilmeden önce k
 | `always`            | Her ileti                                                                                                            |
 | `off`               | Hiçbir zaman                                                                                                         |
 
-`minScore` ve `maxScore`, `auto` için aralığı değiştirir. Açıkça spam ve açıkça ham olan iletiler modele hiç ulaşmaz.
+`minScore` ve `maxScore`, `auto` için aralığı değiştirir. Açıkça spam ve açıkça ham olan iletiler modele hiç ulaşmaz. Başka herhangi bir `mode` hatadır ve tek bir `scan()` için `llm: false` hiçbir modele danışmaz.
 
 Karar `spam`, `phishing`, `scam`, `malware` veya `ham` olur. `decision` ile spam, kimlik avı, dolandırıcılık ve kötü amaçlı yazılım ham karşısında birlikte sayılır: modelin %30 spam, %30 kimlik avı ve %40 ham olarak gördüğü bir ileti %60 oranında istenmeyendir ve karar en olası türdür. Spam kararı en fazla 6 puan ekler (`LLM_SPAM`, `LLM_PHISHING`, `LLM_SCAM`, `LLM_MALWARE`); ham kararı en fazla 3 puan düşer (`LLM_HAM`); her ikisi de güven değeriyle çarpılır. Bir model emin olmadıkça bir iletiyi tek başına spam olarak işaretleyemez: %85 güvenle 6 puan 5,1 eder, eşiğin hemen üstü. Model başarısız olur veya zaman aşımına uğrarsa tarama onsuz devam eder ve `results.llm.error` nedenini belirtir.
 
-Yanıtlar iletiye göre önbelleğe alınır; böylece birçok alıcıya gönderilen aynı ileti için yalnızca bir kez danışılır.
+Yanıtlar iletiye göre önbelleğe alınır; böylece birçok alıcıya gönderilen aynı ileti için, kopyaları aynı anda tarandığında bile yalnızca bir kez danışılır. `timeout`, bir iletinin istekleriyle birlikte boş bir istek yuvası (`concurrency`) için beklemeyi de kapsar: bu kadar uzun süre meşgul kalan bir model o ileti için atlanır.
 
 
 ## Sağlayıcılar
@@ -188,7 +188,7 @@ const scanner = new SpamScanner({
     username: 'spam', password: '…', // with auth: 'basic'
     headers: {'x-team': 'mail'},
     ca: fs.readFileSync('internal-ca.pem'), // a private certificate authority
-    timeout: 30_000,
+    timeout: 30_000,                 // waiting and requests, per message
     concurrency: 4,                  // requests at once
     cacheSize: 1000,                 // answers kept in memory
     keepAlive: '24h',                // Ollama: keep the model loaded between messages
@@ -259,7 +259,7 @@ spamscanner milter --llm ollama --llm-policy "We never send invoices by email. A
 
 Model üst bilgilerin bir özetini (From, Reply-To, To ve Subject), bağlantıları (bir adres gösterip başka bir adrese gidenler önce gelir), ek adlarını ve türlerini, kimlik doğrulama sonuçlarını, HTML önizleme metninden fazlasını gizlediğinde ne kadar metin gizlediğini ve bir e-posta istemcisinin gösterdiği biçimde (varsa HTML'den; gizli metin, görünmez karakterler ve süslü harfler olmadan) 6.000 karaktere (`maxInputChars`) kısaltılmış gövdeyi görür.
 
-Ağınızın dışındaki sağlayıcılar için kişisel veriler önce çıkarılır: e-posta adreslerinin yerel kısmı (alan adı kalır, çünkü kimlik avı için önemlidir), kart ve hesap numaraları, telefon numaraları ve bağlantılardaki, çoğu zaman oturum açma belirteçleri taşıyan sorgu parametrelerinin değerleri. Bu, karar modelleri dahil uzak sağlayıcılar için varsayılan olarak açık, yerel olanlar (Ollama, LM Studio, llama.cpp, vLLM, LocalAI, Jan, TEI ve localhost üzerindeki her sunucu) için kapalıdır. `redact: true` veya `false` (`--llm-redact`, `--no-llm-redact`) bunu geçersiz kılar.
+Ağınızın dışındaki sağlayıcılar için kişisel veriler önce çıkarılır: e-posta adreslerinin yerel kısmı (alan adı kalır, çünkü kimlik avı için önemlidir), kart ve hesap numaraları, uluslararası telefon numaraları (+ veya 00 ile yazılan) ve bağlantılardaki, çoğu zaman oturum açma belirteçleri taşıyan sorgu parametrelerinin değerleri. Bu, karar modelleri dahil uzak sağlayıcılar için varsayılan olarak açık, bu makinedeki veya özel bir ağdaki (özel bir adres, nokta içermeyen bir ad ya da .local, .internal, .lan veya .home.arpa altındaki bir ad) yerel olanlar (Ollama, LM Studio, llama.cpp, vLLM, LocalAI, Jan, TEI) ve localhost üzerindeki her sunucu için kapalıdır. Başka bir yerdeki bir ana makineye yönlendirilmiş yerel bir sağlayıcı, kişisel verileri çıkarılmış e-posta alır. `redact: true` veya `false` (`--llm-redact`, `--no-llm-redact`) bunu geçersiz kılar.
 
 Sağlayıcınıza posta göndermeden önce veri saklama koşullarını denetleyin. Yerel bir model bu soruyu ortadan kaldırır.
 

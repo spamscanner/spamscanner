@@ -105,6 +105,12 @@ describe('scoreResults', () => {
 		const result = scoreResults({arbitrary: {rules: [{name: 'X', score: 1}, {name: 'X', score: 1}, {name: 'Y', score: Number.NaN}]}});
 		assert.deepEqual(names(result), ['X']);
 	});
+
+	it('scores no results or options as nothing', () => {
+		assert.deepEqual(scoreResults(null, null), {
+			score: 0, threshold: 5, rejectThreshold: 15, isSpam: false, action: 'accept', tests: [],
+		});
+	});
 });
 
 describe('headers', () => {
@@ -126,6 +132,9 @@ describe('headers', () => {
 		}));
 		assert.equal(ham['X-Spam-Level'], '');
 		assert.equal(ham['X-Spam-Status'], 'No, score=-2.0 required=5.0 tests=none');
+		assert.equal(ham['X-Spam-Virus-Scan'], undefined);
+		const unscanned = Object.fromEntries(spamHeaders({...result, results: {virusScanErrors: [{filename: 'a.zip', error: 'timed out'}]}}));
+		assert.equal(unscanned['X-Spam-Virus-Scan'], 'failed');
 	});
 
 	it('folds long header values', () => {
@@ -147,6 +156,12 @@ describe('headers', () => {
 		assert.equal(out.subarray(out.length - body.length).compare(body), 0);
 		assert.ok(out.toString('utf8').includes('X-Note: café'));
 		const twice = rewriteMessage(out, [], {subjectTag: '[SPAM]'}).toString();
+		// (a tag that is not ASCII as an encoded word, and on one line)
+		const encoded = `=?UTF-8?B?${Buffer.from('[垃圾]').toString('base64')}?=`;
+		assert.match(rewriteMessage(raw, [], {subjectTag: '[垃圾]'}).toString('latin1'), new RegExp(`^Subject: ${encoded.replaceAll(/[?=+]/g, String.raw`\$&`)} `, 'm'));
+		const injected = rewriteMessage('From: a@example.org\r\n\r\nbody', [], {subjectTag: '[S]\r\nBcc: x@example.org'}).toString();
+		assert.doesNotMatch(injected, /^Bcc:/m);
+		assert.match(injected, /^Subject: \[S] Bcc: x@example\.org\r$/m);
 		assert.equal((twice.match(/\[SPAM]/g) || []).length, 1);
 	});
 
@@ -158,5 +173,14 @@ describe('headers', () => {
 		assert.equal(rewriteMessage('', [['X-A', '1']]).toString(), 'X-A: 1\r\n\r\n');
 		assert.equal(rewriteMessage('From: a@example.org\n', [['X-A', '1']]).toString(), 'X-A: 1\nFrom: a@example.org\n\n');
 		assert.deepEqual(splitMessage(Buffer.from('A: b\r\n')), {header: 'A: b', body: Buffer.alloc(0), newline: '\r\n'});
+	});
+});
+
+describe('thresholds', () => {
+	it('rejects only spam when the reject threshold is below the spam threshold', () => {
+		const below = scoreResults({viruses: [{message: 'x'}]}, {threshold: 200, scores: {virus: 16}});
+		assert.deepEqual([below.isSpam, below.action], [false, 'accept']);
+		const above = scoreResults({viruses: [{message: 'x'}]}, {threshold: 10, rejectThreshold: 5, scores: {virus: 16}});
+		assert.deepEqual([above.isSpam, above.action], [true, 'reject']);
 	});
 });

@@ -11,6 +11,11 @@
 //
 // --with adds an optional dataset that the default model leaves out because of
 // its license or quality; see OPTIONAL below.
+//
+// Each download is pinned to a dataset revision and checked against its
+// SHA-256, files already in data/ are checked against it too, and every file
+// is written under a .part name and renamed when complete, so an interrupted
+// run leaves no truncated file behind to be reused (scripts/download.js).
 
 import {
 	createReadStream, createWriteStream, existsSync, mkdirSync, writeFileSync,
@@ -18,18 +23,18 @@ import {
 import {createInterface} from 'node:readline';
 import path from 'node:path';
 import process from 'node:process';
-import {pipeline} from 'node:stream/promises';
-import {Readable} from 'node:stream';
 import {parseArgs} from 'node:util';
 import {Classifier} from '../src/classifier.js';
 import {parseCsvLine} from '../src/sources.js';
 import {evaluate, readExamples} from '../src/train.js';
+import {download as downloadPinned, writeAtomically} from './download.js';
 
 const DATASETS = [
 	{
 		name: 'all-scam-spam',
 		description: 'Messages and emails in 43 languages, labelled spam or ham',
-		url: 'https://huggingface.co/datasets/FredZhang7/all-scam-spam/resolve/main/junkmail_dataset.csv',
+		url: 'https://huggingface.co/datasets/FredZhang7/all-scam-spam/resolve/802cef358a0a0a9f7582fb96ff262b57a398ee17/junkmail_dataset.csv',
+		sha256: 'cf1bcb8c8e5a0299c3aeb950505aedd3f842c46c45790e42b6b638828a2f2510',
 		page: 'https://huggingface.co/datasets/FredZhang7/all-scam-spam',
 		license: 'Apache-2.0',
 		file: 'all-scam-spam.csv',
@@ -39,7 +44,8 @@ const DATASETS = [
 	{
 		name: 'enron-spam',
 		description: 'The Enron-Spam corpus (Metsis, Androutsopoulos and Paliouras, 2006)',
-		url: 'https://huggingface.co/datasets/SetFit/enron_spam/resolve/main/train.jsonl',
+		url: 'https://huggingface.co/datasets/SetFit/enron_spam/resolve/1916f66c89d52221ae33eb57d44498b4f3a5df22/train.jsonl',
+		sha256: 'b846cf15bcad7676c37ea3535622e39e6bff5c9c004f634513e4f9c2951e5f02',
 		page: 'https://huggingface.co/datasets/SetFit/enron_spam',
 		license: 'Public research corpus',
 		file: 'enron-train.jsonl',
@@ -49,17 +55,23 @@ const DATASETS = [
 	{
 		name: 'telegram-spam-ru',
 		description: 'Russian messages from Telegram chats, labelled spam or not',
-		url: 'https://huggingface.co/datasets/alt-gnome/telegram-spam/resolve/main/data/train-00000-of-00001.parquet',
+		url: 'https://huggingface.co/datasets/alt-gnome/telegram-spam/resolve/af298cd351ce1d257ae789571f649d4d94d2cdd6/data/train-00000-of-00001.parquet',
+		sha256: 'b496e7fdc413bed25a510e7d019f35056fa30629cf76f3df45266ff8c5a22238',
 		page: 'https://huggingface.co/datasets/alt-gnome/telegram-spam',
 		license: 'CC0-1.0',
 		file: 'telegram-spam-ru.parquet',
 		textColumn: 'text',
 		labelColumn: 'label',
 	},
-	...['german', 'italian', 'spanish'].map(language => ({
+	...[
+		['german', 'bd4f0adfd2ec1d72b76cfc94d048b31248de3e50', '6da8ba8db100f100fd213ec5a2bb1ae5699451601ff27b1ef7bd5008db0d343c'],
+		['italian', '492e11c6882cd0b6a89835b28521041f27c5ac3a', '7ed74f6843eb098968f281a0018d34c387e8b8f152f829ead72280bd6fbd6928'],
+		['spanish', '1bf0a602a61be1dd8d20d7b79c69bddf8f184f03', '1d455d3a28bbd58e310591be4bee236cf6d2244b5406af76ce1052f7301158ac'],
+	].map(([language, revision, sha256]) => ({
 		name: `synthetic-spam-${language}`,
 		description: `Synthetic ${language[0].toUpperCase()}${language.slice(1)} messages, labelled spam or not`,
-		url: `https://huggingface.co/datasets/tanaos/synthetic-spam-detection-dataset-${language}/resolve/main/data/data.csv`,
+		url: `https://huggingface.co/datasets/tanaos/synthetic-spam-detection-dataset-${language}/resolve/${revision}/data/data.csv`,
+		sha256,
 		page: `https://huggingface.co/datasets/tanaos/synthetic-spam-detection-dataset-${language}`,
 		license: 'MIT',
 		file: `synthetic-spam-${language}.csv`,
@@ -69,7 +81,8 @@ const DATASETS = [
 	{
 		name: 'enron-spam-test',
 		description: 'The Enron-Spam corpus, test split',
-		url: 'https://huggingface.co/datasets/SetFit/enron_spam/resolve/main/test.jsonl',
+		url: 'https://huggingface.co/datasets/SetFit/enron_spam/resolve/1916f66c89d52221ae33eb57d44498b4f3a5df22/test.jsonl',
+		sha256: 'f07a4cca7bfc1d845d4ff59650e69a0ad31d9b5c0409ddad088219f7fc32bb52',
 		page: 'https://huggingface.co/datasets/SetFit/enron_spam',
 		license: 'Public research corpus',
 		file: 'enron-test.jsonl',
@@ -83,7 +96,8 @@ const OPTIONAL = [
 	{
 		name: 'multilingual-sms',
 		description: 'The SMS Spam Collection machine-translated into 21 languages (wide CSV, one column per language)',
-		url: 'https://huggingface.co/datasets/dbarbedillo/SMS_Spam_Multilingual_Collection_Dataset/resolve/main/data-augmented.csv',
+		url: 'https://huggingface.co/datasets/dbarbedillo/SMS_Spam_Multilingual_Collection_Dataset/resolve/4b5332a8771b3f6388f8ecc51c2b8ade4be31c73/data-augmented.csv',
+		sha256: 'f90ca26ca52ca65acdb71c1d73bf1d1c3806bb12f9489ae3f0b6e4e64a76920f',
 		page: 'https://huggingface.co/datasets/dbarbedillo/SMS_Spam_Multilingual_Collection_Dataset',
 		license: 'GPL (per the dataset card); check it suits how the model is shared',
 		file: 'multilingual-sms.csv',
@@ -112,24 +126,14 @@ for (const name of values.with) {
 
 const selected = [...DATASETS, ...OPTIONAL.filter(dataset => values.with.includes(dataset.name))];
 
+// (a file already there is reused only if it is the pinned one; if not, it
+//  and the files made from it are downloaded and made again)
 async function download(dataset, directory) {
 	const target = path.join(directory, dataset.file);
-	if (existsSync(target)) {
-		return target;
-	}
-
-	if (values['no-download']) {
-		throw new Error(`${target} is missing`);
-	}
-
-	console.error(`Downloading ${dataset.url}`);
-	const response = await fetch(dataset.url);
-	if (!response.ok) {
-		throw new Error(`${dataset.url}: HTTP ${response.status}`);
-	}
-
-	await pipeline(Readable.fromWeb(response.body), createWriteStream(target));
-	return target;
+	return downloadPinned(dataset, directory, {
+		offline: values['no-download'],
+		derived: [target.replace(/\.parquet$/, '.jsonl'), target.replace(/\.csv$/, '.wide.jsonl')],
+	});
 }
 
 // Parquet files are converted to JSON Lines once, next to the download.
@@ -142,7 +146,7 @@ async function toJsonl(file) {
 	if (!existsSync(target)) {
 		const {asyncBufferFromFile, parquetReadObjects} = await import('hyparquet');
 		const rows = await parquetReadObjects({file: await asyncBufferFromFile(file)});
-		writeFileSync(target, rows.map(row => JSON.stringify(row, (key, value) => (typeof value === 'bigint' ? Number(value) : value))).join('\n') + '\n');
+		await writeAtomically(target, async part => writeFileSync(part, rows.map(row => JSON.stringify(row, (key, value) => (typeof value === 'bigint' ? Number(value) : value))).join('\n') + '\n'));
 	}
 
 	return target;
@@ -156,6 +160,11 @@ async function unwiden(file) {
 		return target;
 	}
 
+	await writeAtomically(target, async part => writeWide(file, part));
+	return target;
+}
+
+async function writeWide(file, target) {
 	const out = createWriteStream(target);
 	let header;
 	let pending = '';
@@ -180,10 +189,10 @@ async function unwiden(file) {
 		}
 	}
 
-	await new Promise(resolve => {
+	await new Promise((resolve, reject) => {
+		out.on('error', reject);
 		out.end(resolve);
 	});
-	return target;
 }
 
 function isHeldOut(example) {

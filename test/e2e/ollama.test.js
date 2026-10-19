@@ -7,7 +7,7 @@ import process from 'node:process';
 import {describe, it} from 'node:test';
 import {promisify} from 'node:util';
 import SpamScanner from '../../src/index.js';
-import {LLMClassifier, describeHardware} from '../../src/llm.js';
+import {LLMClassifier, LOCALHOST, describeHardware} from '../../src/llm.js';
 import {HAM, SPAM, message} from '../helpers/index.js';
 
 const run = promisify(execFile);
@@ -24,7 +24,9 @@ describe('Ollama', {skip: !enabled && 'set SPAMSCANNER_E2E_OLLAMA=1', timeout}, 
 	it('passes the llm-test command, deciding from token probabilities', async () => {
 		const {stdout} = await run(process.execPath, ['src/bin.js', 'llm-test', '--llm', 'ollama', '--llm-url', url, '--llm-model', model, '--llm-timeout', '300000'], {timeout});
 		assert.match(stdout, /3 of 3 correct .*\(method: decision\)$/m);
-		assert.match(stdout, /^Hardware \(model on this machine\): /m);
+		if (LOCALHOST.test(new URL(url).hostname)) {
+			assert.match(stdout, /^Hardware \(model on this machine\): /m);
+		}
 	});
 
 	it('decides in one forward pass, faster than writing a verdict', async t => {

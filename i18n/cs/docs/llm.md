@@ -1,4 +1,4 @@
-<!-- source: 79e50e309869 -->
+<!-- source: 7564838c2408 -->
 
 # Jazykové modely
 
@@ -114,11 +114,11 @@ Jde o hostované služby, takže se před odesláním zprávy odstraní osobní 
 | `always`         | U každé zprávy                                                                                                       |
 | `off`            | Nikdy                                                                                                                |
 
-`minScore` a `maxScore` mění rozsah pro `auto`. Jasný spam a jasný ham se k modelu nikdy nedostanou.
+`minScore` a `maxScore` mění rozsah pro `auto`. Jasný spam a jasný ham se k modelu nikdy nedostanou. Jakýkoli jiný `mode` je chyba a `llm: false` pro jedno volání `scan()` se žádného modelu neptá.
 
 Verdikt je `spam`, `phishing`, `scam`, `malware` nebo `ham`. S `decision` se spam, phishing, podvod a malware sčítají proti hamu: zpráva, které model dá 30 % spamu, 30 % phishingu a 40 % hamu, je nežádoucí na 60 % a verdiktem je nejpravděpodobnější druh. Verdikt spamu přidá až 6 bodů (`LLM_SPAM`, `LLM_PHISHING`, `LLM_SCAM`, `LLM_MALWARE`); verdikt hamu ubere až 3 (`LLM_HAM`), vždy vynásobené jistotou. Jeden model nemůže sám označit zprávu jako spam, pokud si není jistý: 6 bodů při jistotě 85 % je 5,1, těsně nad prahem. Pokud model selže nebo vyprší časový limit, kontrola pokračuje bez něj a `results.llm.error` uvádí proč.
 
-Odpovědi se ukládají do mezipaměti podle zprávy, takže na stejnou zprávu poslanou mnoha příjemcům se model ptá jen jednou.
+Odpovědi se ukládají do mezipaměti podle zprávy, takže na stejnou zprávu poslanou mnoha příjemcům se model ptá jen jednou, i když se její kopie kontrolují současně. `timeout` zahrnuje čekání na volné místo pro požadavek (`concurrency`) i samotné požadavky pro zprávu: model, který je celou tu dobu zaneprázdněný, se pro ni přeskočí.
 
 
 ## Poskytovatelé
@@ -188,7 +188,7 @@ const scanner = new SpamScanner({
     username: 'spam', password: '…', // with auth: 'basic'
     headers: {'x-team': 'mail'},
     ca: fs.readFileSync('internal-ca.pem'), // a private certificate authority
-    timeout: 30_000,
+    timeout: 30_000,                 // waiting and requests, per message
     concurrency: 4,                  // requests at once
     cacheSize: 1000,                 // answers kept in memory
     keepAlive: '24h',                // Ollama: keep the model loaded between messages
@@ -259,7 +259,7 @@ spamscanner milter --llm ollama --llm-policy "We never send invoices by email. A
 
 Model vidí souhrn hlaviček (From, Reply-To, To a Subject), odkazy (nejdřív ty, které ukazují jednu adresu a vedou na jinou), názvy a typy příloh, výsledky ověření, kolik textu HTML skrývá, když skrývá víc než text náhledu, a tělo tak, jak ho zobrazí poštovní klient (z HTML, pokud existuje, bez skrytého textu, neviditelných znaků a stylizovaných písmen), zkrácené na 6 000 znaků (`maxInputChars`).
 
-U poskytovatelů mimo vaši síť se nejprve odstraní osobní údaje: lokální část e-mailových adres (doména zůstává, protože pro phishing je důležitá), čísla karet a účtů, telefonní čísla a hodnoty parametrů dotazu v odkazech, které často nesou přihlašovací tokeny. U vzdálených poskytovatelů, včetně rozhodovacích modelů, je to ve výchozím stavu zapnuté a u lokálních vypnuté (Ollama, LM Studio, llama.cpp, vLLM, LocalAI, Jan, TEI a jakýkoli server na localhost). `redact: true` nebo `false` (`--llm-redact`, `--no-llm-redact`) to přepíše.
+U poskytovatelů mimo vaši síť se nejprve odstraní osobní údaje: lokální část e-mailových adres (doména zůstává, protože pro phishing je důležitá), čísla karet a účtů, mezinárodní telefonní čísla (zapsaná s + nebo 00) a hodnoty parametrů dotazu v odkazech, které často nesou přihlašovací tokeny. U vzdálených poskytovatelů, včetně rozhodovacích modelů, je to ve výchozím stavu zapnuté a u lokálních vypnuté (Ollama, LM Studio, llama.cpp, vLLM, LocalAI, Jan, TEI) na tomto počítači nebo v privátní síti (privátní adresa, název bez tečky nebo název pod .local, .internal, .lan či .home.arpa) a u jakéhokoli serveru na localhost. Lokální poskytovatel nasměrovaný na hostitele jinde dostává poštu s odstraněnými osobními údaji. `redact: true` nebo `false` (`--llm-redact`, `--no-llm-redact`) to přepíše.
 
 Než poskytovateli začnete posílat poštu, ověřte si jeho podmínky uchovávání dat. Lokální model tuto otázku řeší.
 

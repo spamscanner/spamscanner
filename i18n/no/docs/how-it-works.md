@@ -1,4 +1,4 @@
-<!-- source: 8a788c19971e -->
+<!-- source: a7dfb7c0fde2 -->
 
 # Slik virker det
 
@@ -19,9 +19,9 @@ Spam Scanner beholder det som virker i ordtelling, statistikken, og endrer hva s
 
 ### Hva det teller
 
-Teksten som leses, er det en e-postklient viser: fra HTML-delen når det finnes en (en tekstdel ved siden av vises bare der HTML ikke kan vises, så en harmløs tekstdel kan ikke tale for HTML-en), uten tagger, kommentarer, skript og stiler, med inline-tagger som setter sammen et ord slik en nettleser gjør (`Free Sp<span>ins</span>`), og med tekst som HTML-en skjuler, utelatt og talt: av et element som skjuler det det inneholder (display, opacity, hidden-attributtet, en beskåret boks uten størrelse, tekst flyttet ut av siden), eller usynlig, gjennomsiktig eller i en skrift på én piksel eller mindre der den står (noe et element inni kan sette tilbake, slik responsive maler gjør). Stiler leses slik nettlesere leser dem (den siste deklarasjonen vinner, kommentarer, tegnreferanser); farger på en bakgrunn og klasser i stilark gjør ikke det, så slik tekst leses slik den vises. HTML som viser færre enn 20 ord, for eksempel et bilde av meldingen, leses sammen med tekstdelen. Lenker og vertsnavn leses fra begge delene og fra skjult tekst.
+Teksten som leses, er det en e-postklient viser: fra HTML-delen når det finnes en (en tekstdel ved siden av vises bare der HTML ikke kan vises, så en harmløs tekstdel kan ikke tale for HTML-en), uten tagger, kommentarer, skript og stiler, med inline-tagger som setter sammen et ord slik en nettleser gjør (`Free Sp<span>ins</span>`), med blokker, celler og linjeskift som bryter det (også et element en stil viser som en blokk, en blokk en nettleser avslutter selv, og en blokk skjult på sin plass, men ikke en som ikke tar plass), og med tekst som HTML-en skjuler, utelatt og talt: av et element som skjuler det det inneholder (display, opacity, hidden-attributtet, en beskåret boks uten størrelse, tekst flyttet ut av siden), eller usynlig, gjennomsiktig eller i en skrift på én piksel eller mindre der den står (noe et element inni kan sette tilbake, slik responsive maler gjør). Stiler leses slik nettlesere leser dem (den siste deklarasjonen vinner, kommentarer, tegnreferanser); farger på en bakgrunn og klasser i stilark gjør ikke det, så slik tekst leses slik den vises. HTML som viser færre enn 20 ord, for eksempel et bilde av meldingen, leses sammen med tekstdelen. Lenker leses fra begge delene, fra skjult tekst og fra teksten HTML-en viser, der en adresse delt av inline-tagger (`https://www.pay<b></b>pa1.com/`) leses som én. Vertsnavn skrevet uten lenke leses fra emnet, teksten som leses, og en tekstdel ved siden av HTML-en.
 
-Teksten normaliseres først: Unicode NFKC gjør stiliserte bokstaver og bokstaver i full bredde om til vanlige bokstaver, usynlige tegn fjernes og telles, forvekslbare bokstaver i ellers latinske eller kyrilliske ord føres tilbake, og sifre brukt som bokstaver (`v1agra`) gjøres om. Deretter segmenteres ordene med `Intl.Segmenter`, Unicode-reglene for ordgrenser med ordbøker for kinesisk, japansk, thai, lao, khmer og burmesisk.
+Teksten normaliseres først: Unicode NFKC gjør stiliserte bokstaver og bokstaver i full bredde om til vanlige bokstaver, usynlige tegn fjernes og telles (ikke et mellomrom med null bredde mellom bokstaver i thai, lao, khmer, burmesisk eller tibetansk, som skiller ord der, og sammenføyere bare mellom latinske bokstaver), forvekslbare bokstaver i et ord som blander latinske, kyrilliske eller greske bokstaver, gjøres om til skriftsystemet de fleste bokstavene er i (`рaypal` med en kyrillisk р blir `paypal`, `пpивет` med en latinsk p blir `привет`), deler av et ord mellom apostrofer leses hver for seg (`iPhone'ы`, en russisk kasusendelse, blander ingenting), og sifre brukt som bokstaver (`v1agra`) gjøres om. Deretter segmenteres ordene med `Intl.Segmenter`, Unicode-reglene for ordgrenser med ordbøker for kinesisk, japansk, thai, lao, khmer og burmesisk.
 
 Ut fra dette hentes:
 
@@ -63,22 +63,23 @@ Pakken inneholder en modell trent på offentlige datasett med åpne lisenser: en
 Hver lenke sjekkes:
 
 * **Forvekslingsdomener.** Hvert domene reduseres til et skjelett med Unicode-tabellen over forvekslbare tegn, så `pаypal.com` (kyrillisk а), `paypa1.com`, `rnicrosoft.com` og `xn--pple-43d.com` alle samsvarer med merkenavnet de etterligner. Blandede skriftsystemer i én etikett, merkenavn i underdomener (`paypal.com.example.net`) og skrivefeil på én bokstav gir lavere poeng. Nesten 100 merkenavn som ofte etterlignes, er innebygd, og flere kan legges til.
-* **Villedende lenker.** HTML-lenker der den synlige teksten er en annen adresse enn målet.
+* **Villedende lenker.** HTML-lenker der den synlige teksten er en annen adresse enn målet: hele teksten, eller en adresse med `http://` eller `https://` i seg (`Sign in at https://www.paypal.com`). Et filnavn eller navnet på et nettsted i en setning (`Download report.zip`, `Read why Booking.com switched`) er ingen adresse. En lenke gjennom klikksporingen til en utsendelsestjeneste (SendGrid, Mailchimp, Amazon SES, Kit, Brevo, beehiiv, Substack og andre) eller en sikkerhetsgateway som skriver om lenker (Microsoft Safe Links, Proofpoint, Mimecast, Barracuda, Cisco), går et annet sted med vilje, så den teller bare når teksten er den fulle adressen til et merkenavn, uten sti eller med en innloggingssti (ikke en lenke til et sosialt nettverk, et produkt i en nettbutikk eller et kart), og avsenderen ikke er det merket eller et av merkets avsenderdomener. Der lenken til en gateway inneholder adressen den går videre til (Safe Links, Proofpoint), sammenlignes den adressen i stedet.
 * **Cloudflares filtrerende resolvere.** Vertene i lenker slås opp på 1.1.1.2, som svarer `0.0.0.0` for kjent skadevare og phishing, og 1.1.1.3, som i tillegg blokkerer voksent innhold.
 * **Visningsnavn.** Et navn som «PayPal Security» fra en adresse på et annet domene, eller et navn som inneholder en annen e-postadresse.
 
 
 ## Vedlegg
 
-Vedlegg identifiseres ut fra bytene, ikke ut fra navnene eller de oppgitte typene:
+Vedlegg gjenkjennes ut fra bytene og navnene sine, ikke de oppgitte typene:
 
 * kjørbare filer, snarveier og skript for Windows, Linux og macOS, også når de er omdøpt til `.pdf` eller `.jpg`
 * doble filendelser (`invoice.pdf.exe`) og høyre-til-venstre-overstyringstegn som skjuler den virkelige filendelsen
 * kjørbare filer i ZIP-arkiver, og krypterte arkiver som skannere ikke kan åpne
 * Office-filer med makroer, PDF-er med JavaScript eller starthandlinger, RTF-filer med innebygde objekter
 * HTML-vedlegg, som phishing bruker til å vise en falsk innloggingsside uten nett
+* vedlegg i vedlagte meldinger (`message/rfc822`, `.eml`), opptil tre nivåer dypt og 100 vedlegg (meldingens egne vedlegg undersøkes alltid alle)
 
-Med ClamAV skannes vedlegg også med `clamd` over socketen.
+Med ClamAV skannes vedlegg også med `clamd` over socketen. Fire skannes om gangen, alle innenfor `clamav.timeout` (60 sekunder), og de som ikke kunne skannes, står i `results.virusScanErrors`. De som er større enn clamd godtar (dens `StreamMaxLength`), står i stedet i `results.virusScanSkipped`: clamd avviser dem ved hvert forsøk.
 
 
 ## Autentisering

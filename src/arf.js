@@ -2,6 +2,7 @@ import {Buffer} from 'node:buffer';
 import {randomBytes} from 'node:crypto';
 import {isIP} from 'node:net';
 import {simpleParser} from 'mailparser';
+import {finishable} from './parse.js';
 
 /**
  * Feedback types from RFC 5965, RFC 6591 (auth-failure) and RFC 7489 (dmarc).
@@ -50,13 +51,15 @@ function extractEmail(value) {
 		return null;
 	}
 
-	const angle = /<([^<>]*)>/.exec(value);
+	// (an address is short: what follows the first 1024 characters is not read)
+	const head = value.slice(0, 1024);
+	const angle = /<([^<>]*)>/.exec(head);
 	if (angle) {
 		return angle[1].trim() || null;
 	}
 
-	const plain = /[^\s@<>]{1,256}@[^\s@<>]+/.exec(value);
-	return plain ? plain[0] : value.trim();
+	const plain = /[^\s@<>]{1,256}@[^\s@<>]+/.exec(head);
+	return plain ? plain[0] : head.trim();
 }
 
 function parseIp(value) {
@@ -87,19 +90,22 @@ function parseReportingMta(value) {
 	return match && match[0].length === trimmed.length ? {type: match[1].toLowerCase(), name: match[2].trim()} : {type: 'unknown', name: value.trim()};
 }
 
+// (written into a Buffer: an array of numbers would take many times the
+// memory of a large original message)
 function decodeQuotedPrintable(text) {
-	const bytes = [];
 	const soft = text.replaceAll(/=\r?\n/g, '');
+	const bytes = Buffer.allocUnsafe(soft.length);
+	let length = 0;
 	for (let i = 0; i < soft.length; i++) {
 		if (soft[i] === '=' && /^[\da-f]{2}$/i.test(soft.slice(i + 1, i + 3))) {
-			bytes.push(Number.parseInt(soft.slice(i + 1, i + 3), 16));
+			bytes[length++] = Number.parseInt(soft.slice(i + 1, i + 3), 16);
 			i += 2;
 		} else {
-			bytes.push(soft.codePointAt(i) % 256);
+			bytes[length++] = soft.codePointAt(i) % 256;
 		}
 	}
 
-	return Buffer.from(bytes);
+	return bytes.subarray(0, length);
 }
 
 /**
@@ -166,12 +172,13 @@ export function isArfMessage(parsed) {
  * @returns {Promise<object>} feedbackType, userAgent, version, arrivalDate,
  *   sourceIp, originalMailFrom, originalRcptTo, reportingMta,
  *   originalEnvelopeId, authenticationResults, reportedDomain, reportedUri,
- *   incidents, humanReadable, originalMessage, originalHeaders (always an
- *   object of lowercase header name to value) and rawFeedbackReport
+ *   incidents, humanReadable, originalMessage, originalHeaders (an object of
+ *   lowercase header name to value, or null when the report has no original
+ *   message) and rawFeedbackReport
  * @throws {Error} when the message is not a valid ARF report
  */
 export async function parse(source) {
-	const parsed = await simpleParser(source, PARSER_OPTIONS);
+	const parsed = await simpleParser(finishable(source), PARSER_OPTIONS);
 	if (!isArfMessage(parsed)) {
 		throw new Error('Not an ARF report: expected multipart/report with report-type=feedback-report');
 	}
@@ -229,7 +236,7 @@ export async function parse(source) {
 	if (original) {
 		const content = original.content.toString('utf8');
 		result.originalMessage = content;
-		const inner = await simpleParser(original.type === 'message/rfc822' ? content : `${content.trimEnd()}\r\n\r\n`, PARSER_OPTIONS);
+		const inner = await simpleParser(finishable(original.type === 'message/rfc822' ? content : `${content.trimEnd()}\r\n\r\n`), PARSER_OPTIONS);
 		result.originalHeaders = Object.fromEntries([...inner.headers].map(([key, value]) => [key, value]));
 	}
 
@@ -259,21 +266,23 @@ function clean(value, name) {
 }
 
 /**
- * Write an ARF report.
+ * Write an ARF report.  (A string message gives a string report, and a
+ * Buffer a Buffer, its bytes kept as they are, whatever their character set.)
+ * @template {string|Buffer} M
  * @param {object} options
  * @param {string} options.feedbackType - abuse, fraud, virus, other, not-spam, ...
  * @param {string} options.userAgent
  * @param {string} options.from
  * @param {string} options.to
- * @param {string|Buffer} options.originalMessage
+ * @param {M} options.originalMessage
  * @param {string} [options.humanReadable]
  * @param {string} [options.subject]
  * @param {string} [options.sourceIp]
  * @param {string} [options.originalMailFrom]
- * @param {string[]} [options.originalRcptTo]
- * @param {Date} [options.arrivalDate]
+ * @param {string|string[]} [options.originalRcptTo]
+ * @param {Date|string|number} [options.arrivalDate]
  * @param {string} [options.reportingMta]
- * @returns {string}
+ * @returns {M extends Buffer ? Buffer : string} the report
  */
 export function create(options = {}) {
 	const {
@@ -297,23 +306,28 @@ export function create(options = {}) {
 		report.push(`Original-Mail-From: <${clean(originalMailFrom, 'originalMailFrom')}>`);
 	}
 
-	for (const rcpt of originalRcptTo) {
+	for (const rcpt of [originalRcptTo].flat()) {
 		report.push(`Original-Rcpt-To: <${clean(rcpt, 'originalRcptTo')}>`);
 	}
 
 	if (arrivalDate) {
-		report.push(`Arrival-Date: ${arrivalDate.toUTCString()}`);
+		const date = new Date(arrivalDate);
+		if (Number.isNaN(date.getTime())) {
+			throw new TypeError('arrivalDate must be a date');
+		}
+
+		report.push(`Arrival-Date: ${date.toUTCString()}`);
 	}
 
 	if (reportingMta) {
 		report.push(`Reporting-MTA: dns; ${clean(reportingMta, 'reportingMta')}`);
 	}
 
-	return [
+	const head = [
 		`From: ${clean(from, 'from')}`,
 		`To: ${clean(to, 'to')}`,
 		`Date: ${new Date().toUTCString()}`,
-		`Subject: ${clean(subject, 'subject')}`,
+		`Subject: ${encodeWords(clean(subject, 'subject'))}`,
 		'MIME-Version: 1.0',
 		`Content-Type: multipart/report; report-type=feedback-report; boundary="${boundary}"`,
 		'',
@@ -332,10 +346,37 @@ export function create(options = {}) {
 		'Content-Type: message/rfc822',
 		'Content-Disposition: inline',
 		'',
-		String(originalMessage).replace(/\r?\n$/, ''),
-		`--${boundary}--`,
 		'',
 	].join('\r\n');
+	const tail = `\r\n--${boundary}--\r\n`;
+	if (Buffer.isBuffer(originalMessage)) {
+		const end = originalMessage.at(-1) === 0x0A ? (originalMessage.at(-2) === 0x0D ? 2 : 1) : 0;
+		return Buffer.concat([Buffer.from(head), originalMessage.subarray(0, originalMessage.length - end), Buffer.from(tail)]);
+	}
+
+	return head + String(originalMessage).replace(/\r?\n$/, '') + tail;
+}
+
+// A header value in RFC 2047 encoded words when it is not plain ASCII, in
+// words of at most 45 bytes (whole characters each), so lines stay short
+function encodeWords(text) {
+	if (/^[\u0020-\u007E]*$/.test(text)) {
+		return text;
+	}
+
+	const words = [];
+	let word = '';
+	for (const character of text) {
+		if (Buffer.byteLength(word + character) > 45) {
+			words.push(word);
+			word = '';
+		}
+
+		word += character;
+	}
+
+	words.push(word);
+	return words.map(part => `=?UTF-8?B?${Buffer.from(part).toString('base64')}?=`).join('\r\n ');
 }
 
 /**

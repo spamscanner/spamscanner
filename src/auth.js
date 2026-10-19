@@ -1,6 +1,8 @@
 import {Buffer, File} from 'node:buffer';
 import dns from 'node:dns';
 import {debuglog} from 'node:util';
+import {asciiHostname} from './reputation.js';
+import {registrableDomain} from './tokenizer.js';
 
 const debug = debuglog('spamscanner:auth');
 
@@ -63,7 +65,7 @@ function emptyResult() {
 		dmarc: {
 			status: {result: 'none', comment: 'not checked'}, policy: null, domain: null, p: null,
 		},
-		arc: {status: {result: 'none', comment: 'not checked'}},
+		arc: {status: {result: 'none', comment: 'not checked'}, sealer: null, trusted: false},
 		bimi: {status: {result: 'none', comment: 'not checked'}, location: null},
 		receivedChain: [],
 		headers: '',
@@ -74,8 +76,11 @@ function emptyResult() {
 /**
  * Overall DKIM result from mailauth's per-signature results: "pass" when any
  * signature passes, "fail" when signatures exist and none passes, "none"
- * without signatures. `aligned` is the From domain a passing signature is
- * aligned with, if any.
+ * without signatures. `aligned` is the signing domain of a passing signature
+ * aligned with the From domain (relaxed: they share their registrable domain),
+ * in ASCII, if any. A signature whose body length (l=) is shorter than the
+ * body (mailauth's `status.underSized`) is aligned with nothing: it signs only
+ * the start of the body, and anyone can append to it.
  * @param {object} dkim
  * @returns {{status: {result: string, comment: string}, results: object[], aligned: string|null}}
  */
@@ -84,7 +89,9 @@ export function summarizeDkim(dkim) {
 	const results = (Array.isArray(dkim?.results) ? dkim.results : []).filter(entry => entry?.status?.result !== 'none');
 	const passing = results.filter(entry => entry?.status?.result === 'pass');
 	if (passing.length > 0) {
-		const aligned = passing.find(entry => entry.status.aligned)?.status.aligned || null;
+		// (a signing domain that is not a hostname, such as
+		//  "bank.com/x.attacker.example", is aligned with nothing)
+		const aligned = passing.filter(entry => !(entry.status.underSized > 0)).map(entry => asciiHostname(entry.status.aligned)).find(Boolean) || null;
 		return {status: {result: 'pass', comment: passing.map(entry => entry.signingDomain).join(', ')}, results, aligned};
 	}
 
@@ -104,21 +111,148 @@ export function summarizeDkim(dkim) {
 	return {status: {result, comment: results.map(entry => `${entry.signingDomain || '?'}: ${entry?.status?.comment || entry?.status?.result || 'invalid'}`).join('; ')}, results, aligned: null};
 }
 
+// Whether a domain is one of the domains listed or under one of them.
+function listedDomain(domain, list) {
+	return domain !== null && (Array.isArray(list) ? list : []).map(entry => asciiHostname(entry)).some(entry => entry !== null && (domain === entry || domain.endsWith(`.${entry}`)));
+}
+
+// (a value of a parsed header tag, as mailauth gives it: a string or
+//  {value})
+const tagValue = value => (value && typeof value === 'object' ? value.value : value);
+
+// A policy or tag value as RFC 7489 reads it: without spaces around it, in
+// any case ("p= None" is none), or null.
+const tagText = value => (typeof value === 'string' && value.trim() !== '' ? value.trim().toLowerCase() : null);
+
+// The tags of a DMARC record ("v=DMARC1; p=reject; adkim=s"), names and
+// values trimmed and lowercase, the first of each name.
+function dmarcTags(record) {
+	const tags = {};
+	for (const part of String(record ?? '').split(';')) {
+		const at = part.indexOf('=');
+		const name = part.slice(0, at).trim().toLowerCase();
+		if (at > 0 && !Object.hasOwn(tags, name)) {
+			tags[name] = part.slice(at + 1).trim().toLowerCase();
+		}
+	}
+
+	return tags;
+}
+
+// The registrable domain of an address or a domain, or null.
+function organization(value) {
+	const domain = asciiHostname(typeof value === 'string' ? value.slice(value.lastIndexOf('@') + 1) : null);
+	return domain === null ? null : registrableDomain(domain);
+}
+
+// Whether the Authentication-Results a forwarder sealed (ARC-Authentication-
+// Results) show the message passed when it got it, for the From domain: a
+// DMARC pass for it, or a DKIM or SPF pass of a domain aligned with it
+// (relaxed: the same registrable domain).
+function arcVouches(results, fromDomain) {
+	const from = organization(fromDomain);
+	if (from === null || !results || typeof results !== 'object') {
+		return false;
+	}
+
+	const passes = (entry, domain) => tagValue(entry?.result) === 'pass' && organization(tagValue(domain)) === from;
+	return passes(results.dmarc, results.dmarc?.header?.from)
+		|| (Array.isArray(results.dkim) ? results.dkim : []).some(entry => passes(entry, entry?.header?.d))
+		|| passes(results.spf, results.spf?.smtp?.mailfrom);
+}
+
+// DMARC's alignment details, with the alignment modes of the record read as
+// RFC 7489 reads them and strict alignment enforced (mailauth reports
+// adkim=s, compared case and space sensitively, but aligns relaxed): under
+// it only a signature, or an SPF pass, of the From domain itself aligns.
+function enforcedAlignment(output, fromDomain) {
+	const given = output.dmarc?.alignment;
+	if (!given) {
+		return null;
+	}
+
+	const tags = dmarcTags(output.dmarc.rr);
+	const strict = {
+		dkim: tags.adkim === undefined ? given.dkim?.strict === true : tags.adkim === 's',
+		spf: tags.aspf === undefined ? given.spf?.strict === true : tags.aspf === 's',
+	};
+	const alignment = {dkim: {...given.dkim, strict: strict.dkim}, spf: {...given.spf, strict: strict.spf}};
+	if (strict.dkim) {
+		// (the signature of the whole body before one of part of it)
+		const exact = (Array.isArray(output.dkim?.results) ? output.dkim.results : [])
+			.filter(entry => entry?.status?.result === 'pass' && fromDomain !== null && asciiHostname(entry.signingDomain) === fromDomain)
+			.sort((a, b) => (a.status.underSized || 0) - (b.status.underSized || 0))[0];
+		alignment.dkim = {result: exact ? exact.signingDomain : false, strict: true, underSized: exact?.status?.underSized};
+	}
+
+	if (strict.spf && !(fromDomain !== null && asciiHostname(alignment.spf.result) === fromDomain)) {
+		alignment.spf = {result: false, strict: true};
+	}
+
+	return alignment;
+}
+
+// The domain that sealed the newest ARC set (its ARC-Seal d=), when its
+// ARC-Message-Signature is of the same domain, or null: a seal signed again
+// by another domain over a forwarder's message signature is no forwarder's.
+function arcSealer(arc) {
+	const newest = Array.isArray(arc?.chain) ? arc.chain.at(-1) : null;
+	const sealDomain = asciiHostname(tagValue(newest?.['arc-seal']?.parsed?.d));
+	return sealDomain !== null && sealDomain === asciiHostname(arc.signature?.signingDomain) ? sealDomain : null;
+}
+
 /**
  * Turn mailauth's output into this module's result shape, filling in "none"
- * for anything mailauth left out.
+ * for anything mailauth left out, and checking what mailauth does not:
+ *
+ * - the policy (`p`, `sp`) and alignment modes (`adkim`, `aspf`) of the
+ *   DMARC record are read without spaces and in any case, as RFC 7489 reads
+ *   them ("p= None" is none, "adkim=S" strict), and strict alignment is
+ *   enforced: under it only a signature or SPF pass of the From domain itself
+ *   aligns, and DMARC fails without one;
+ * - a message without exactly one From address, whose DMARC mailauth does
+ *   not check, fails DMARC, as RFC 7489 (6.6.1) allows;
+ * - `arc.sealer` is the domain of the newest ARC seal of a passing chain,
+ *   when its ARC-Message-Signature is of the same domain, and `arc.trusted`
+ *   whether it is one of `trustedArcSealers` (or under one) and the results
+ *   it sealed show the message passed DMARC, or DKIM or SPF aligned with the
+ *   From domain, when it got it.
  * @param {object} output
+ * @param {object} [options]
+ * @param {string[]} [options.trustedArcSealers] - forwarders whose ARC seal
+ *   is believed
  * @returns {object}
  */
-export function normalizeAuthOutput(output = {}) {
+export function normalizeAuthOutput(output = {}, options = {}) {
 	const empty = emptyResult();
+	let dmarcStatus = output.dmarc?.status || empty.dmarc.status;
+	const fromAddresses = Array.isArray(output.dkim?.headerFrom) ? output.dkim.headerFrom.filter(address => typeof address === 'string') : null;
+	const fromDomain = asciiHostname(output.dmarc?.status?.header?.d) ?? (fromAddresses?.length === 1 ? asciiHostname(fromAddresses[0].slice(fromAddresses[0].lastIndexOf('@') + 1)) : null);
+	if (!output.dmarc?.status && fromAddresses !== null && fromAddresses.length !== 1) {
+		dmarcStatus = {result: 'fail', comment: `${fromAddresses.length} From addresses`};
+	}
+
+	const alignment = enforcedAlignment(output, fromDomain);
+	if (dmarcStatus.result === 'pass' && alignment && !alignment.dkim.result && !alignment.spf.result) {
+		dmarcStatus = {...dmarcStatus, result: 'fail', comment: 'strict alignment (adkim=s, aspf=s) not met'};
+	}
+
+	// (a pass by an aligned domain that is not a hostname, as mailauth gives
+	//  for a signature of "bank.com/x.attacker.example", is a failure)
+	const aligned = [alignment?.dkim?.result, alignment?.spf?.result].filter(domain => typeof domain === 'string');
+	if (dmarcStatus.result === 'pass' && aligned.length > 0 && !aligned.some(domain => asciiHostname(domain))) {
+		dmarcStatus = {...dmarcStatus, result: 'fail', comment: `aligned domain is not a hostname (${aligned.join(', ')})`};
+	}
+
+	const arcStatus = output.arc?.status || empty.arc.status;
+	const sealer = arcStatus.result === 'pass' ? arcSealer(output.arc) : null;
 	return {
 		dkim: summarizeDkim(output.dkim),
 		spf: {status: output.spf?.status || empty.spf.status, domain: output.spf?.domain || null},
 		dmarc: {
-			status: output.dmarc?.status || empty.dmarc.status, policy: output.dmarc?.policy || null, domain: output.dmarc?.domain || null, p: output.dmarc?.p || null,
+			status: dmarcStatus, policy: tagText(output.dmarc?.policy), domain: output.dmarc?.domain || null, p: tagText(output.dmarc?.p), alignment,
 		},
-		arc: {status: output.arc?.status || empty.arc.status},
+		arc: {status: arcStatus, sealer, trusted: listedDomain(sealer, options.trustedArcSealers) && arcVouches(output.arc?.authenticationResults, fromDomain)},
 		bimi: {status: output.bimi?.status || empty.bimi.status, location: output.bimi?.location || null},
 		receivedChain: output.receivedChain || [],
 		headers: typeof output.headers === 'string' ? output.headers : '',
@@ -140,6 +274,10 @@ export function normalizeAuthOutput(output = {}) {
  * @param {Function} [options.resolver] - custom DNS resolver (name, type)
  * @param {number} [options.timeout] - DNS timeout in milliseconds
  * @param {string[]} [options.dnsServers] - name servers to use
+ * @param {string[]} [options.trustedArcSealers] - forwarders (such as a
+ *   mailing list's domain) whose ARC seal is believed: a message they passed
+ *   on, which passed when they got it, gets no points for failing SPF, DKIM
+ *   and DMARC (see normalizeAuthOutput)
  * @returns {Promise<object>} dkim, spf, dmarc, arc, bimi, receivedChain and
  *   headers (Received-SPF and Authentication-Results, ready to prepend)
  */
@@ -164,7 +302,7 @@ export async function authenticate(message, options = {}) {
 			mta,
 			resolver,
 		});
-		Object.assign(result, normalizeAuthOutput(output));
+		Object.assign(result, normalizeAuthOutput(output, {trustedArcSealers: options.trustedArcSealers}));
 	} catch (error) {
 		debug('authentication failed: %s', error.message);
 		result.error = error.message;
@@ -180,13 +318,28 @@ export const DEFAULT_AUTH_WEIGHTS = {
 	spfFail: 2,
 	spfSoftfail: 1,
 	dmarcPass: -1.5,
+	// (for a domain whose policy is quarantine or reject)
 	dmarcFail: 3.5,
+	// (for a domain whose policy is none: it does not ask for its failures to
+	//  be held back, and many such domains send through forwarders that break
+	//  DMARC)
+	dmarcFailNone: 1,
 	arcPass: -0.5,
 	arcFail: 1,
 };
 
 /**
  * Score authentication results: failures add points, passes take some away.
+ *
+ * A DMARC failure scores `dmarcFail` when the domain's policy is quarantine
+ * or reject (or not known), and SPF failing as well adds nothing more: DMARC
+ * already counts it. When the policy is none it scores `dmarcFailNone`, on
+ * top of SPF's points, so a domain with policy none is never easier to
+ * spoof than one without DMARC. A DKIM signature of only part of the body
+ * (l=) earns no DKIM_PASS, nor a DMARC pass that rests on one alone
+ * DMARC_PASS. An ARC seal counts only from a trusted forwarder (`arc.trusted`,
+ * see authenticate's trustedArcSealers): its pass gets ARC_PASS, and no
+ * points for failing SPF, DKIM or DMARC, as forwarding is what broke them.
  * @param {object} auth - from authenticate
  * @param {object} [weights] - overrides for DEFAULT_AUTH_WEIGHTS
  * @returns {{score: number, tests: Array<{name: string, score: number}>}}
@@ -200,11 +353,18 @@ export function calculateAuthScore(auth, weights = {}) {
 		}
 	};
 
+	const forwarded = auth?.arc?.trusted === true && auth?.arc?.status?.result === 'pass';
+	const policyNone = tagText(auth?.dmarc?.policy) === 'none';
+	const spfCounted = !(auth?.dmarc?.status?.result === 'fail' && !policyNone);
+	const failure = score => (forwarded ? 0 : score);
+	const passing = (Array.isArray(auth?.dkim?.results) ? auth.dkim.results : []).filter(entry => entry?.status?.result === 'pass');
+	const partOfBody = passing.length > 0 && passing.every(entry => entry.status.underSized > 0);
+	const dmarcOnPart = auth?.dmarc?.alignment?.dkim?.underSized > 0 && !auth?.dmarc?.alignment?.spf?.result;
 	const rules = [
-		['DKIM', auth?.dkim?.status?.result, {pass: w.dkimPass, fail: w.dkimFail}],
-		['SPF', auth?.spf?.status?.result, {pass: w.spfPass, fail: w.spfFail, softfail: w.spfSoftfail}],
-		['DMARC', auth?.dmarc?.status?.result, {pass: w.dmarcPass, fail: w.dmarcFail}],
-		['ARC', auth?.arc?.status?.result, {pass: w.arcPass, fail: w.arcFail}],
+		['DKIM', auth?.dkim?.status?.result, {pass: partOfBody ? 0 : w.dkimPass, fail: failure(w.dkimFail)}],
+		['SPF', auth?.spf?.status?.result, {pass: w.spfPass, fail: spfCounted ? failure(w.spfFail) : 0, softfail: spfCounted ? failure(w.spfSoftfail) : 0}],
+		['DMARC', auth?.dmarc?.status?.result, {pass: dmarcOnPart ? 0 : w.dmarcPass, fail: failure(policyNone ? w.dmarcFailNone : w.dmarcFail)}],
+		['ARC', auth?.arc?.status?.result, {pass: forwarded ? w.arcPass : 0, fail: w.arcFail}],
 	];
 	for (const [name, value, scores] of rules) {
 		if (value && Object.hasOwn(scores, value)) {

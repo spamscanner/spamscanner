@@ -1,4 +1,4 @@
-<!-- source: dc9016edd59e -->
+<!-- source: c70584655c0e -->
 
 # Forward Email
 
@@ -45,7 +45,7 @@ async function onData(stream, session, callback) {
 }
 ```
 
-`scanner.scan()` nhận trực tiếp luồng SMTP. Nếu đã có sẵn kết quả từ [mailauth](https://github.com/postalsys/mailauth), hãy bỏ qua `authentication` và chỉ truyền địa chỉ IP.
+`scanner.scan()` nhận trực tiếp luồng SMTP. Nếu đã có sẵn kết quả từ [mailauth](https://github.com/postalsys/mailauth), hãy truyền chúng qua `authenticationResults`: chúng sẽ được tính điểm thay vì kiểm tra lại.
 
 Phản hồi 421 hoặc 451 khiến máy chủ gửi đưa thư vào hàng đợi và thử lại sau. Các quy tắc từ chối mới có thể bắt đầu với mã tạm thời và chuyển sang 550 khi kết quả của chúng đã được kiểm tra, mà không mất thư trong thời gian đó.
 

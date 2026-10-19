@@ -1,4 +1,4 @@
-<!-- source: dc9016edd59e -->
+<!-- source: c70584655c0e -->
 
 # Forward Email
 
@@ -45,7 +45,7 @@ async function onData(stream, session, callback) {
 }
 ```
 
-`scanner.scan()` รับสตรีม SMTP ได้โดยตรง หากมีผลจาก [mailauth](https://github.com/postalsys/mailauth) อยู่แล้ว ให้ข้าม `authentication` และส่งเพียงที่อยู่ IP
+`scanner.scan()` รับสตรีม SMTP ได้โดยตรง หากมีผลจาก [mailauth](https://github.com/postalsys/mailauth) อยู่แล้ว ให้ส่งผลนั้นเป็น `authenticationResults` แล้วระบบจะให้คะแนนจากผลนั้นแทนการตรวจซ้ำ
 
 รหัสตอบกลับ 421 หรือ 451 ทำให้เซิร์ฟเวอร์ผู้ส่งเข้าคิวข้อความไว้และลองใหม่ภายหลัง กฎการปฏิเสธใหม่จึงเริ่มด้วยรหัสชั่วคราวได้ แล้วค่อยเปลี่ยนเป็น 550 เมื่อตรวจผลแล้ว โดยไม่สูญเสียอีเมลในระหว่างนั้น
 

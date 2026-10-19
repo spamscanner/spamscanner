@@ -1,4 +1,4 @@
-<!-- source: f1043eb5fc58 -->
+<!-- source: 6675649d593a -->
 
 # Postfix와 Sendmail
 
@@ -13,11 +13,13 @@ Spam Scanner는 두 가지 방식으로 Postfix와 연동합니다.
 X-Spam-Flag: YES
 X-Spam-Score: 8.0
 X-Spam-Level: ********
-X-Spam-Status: Yes, score=8.0 required=5.0 tests=BAYES_99,DECEPTIVE_LINK version=7.0.0
+X-Spam-Status: Yes, score=8.0 required=5.0 tests=BAYES_99,DECEPTIVE_LINK version=7.0.3
 X-Spam-Action: tag
 ```
 
 메시지에 이미 있는 `X-Spam-*` 헤더는 먼저 제거하므로, 발신자가 자기 메일을 정상으로 표시할 수 없습니다.
+
+ClamAV가 검사하지 못한 첨부 파일이 있는 메시지에는 바이러스가 있을 수 있으므로, 두 방식 모두 검사에 실패했을 때와 마찬가지로 이런 메시지를 일시적으로 거부합니다(Postfix나 발신자가 나중에 다시 시도합니다). `--on-error accept`를 사용하면 `X-Spam-Virus-Scan: failed`를 붙여 넘겨줍니다.
 
 
 ## milter
@@ -29,7 +31,7 @@ npm install --global spamscanner
 spamscanner milter --port 7831 --auth --subject-tag "[SPAM]" --verbose
 ```
 
-`--reject`를 사용하면 거부 임계값(15점)에 이른 메시지를 `451 4.7.1 Message rejected as spam`으로 거부합니다. 451은 일시적 오류이므로 발신 서버가 나중에 다시 시도하며, 잘못된 판정은 설정을 바꿔 바로잡을 수 있습니다. 결과가 적절해 보이면 `--reject-code 550`으로 영구 거부를 사용하십시오. `--quarantine`을 사용하면 스팸은 거부하는 대신 Postfix의 보류(hold) 큐로 보냅니다.
+`--reject`를 사용하면 거부 임계값(15점)에 이른 메시지를 `451 4.7.1 Message rejected as spam`으로 거부합니다. 451은 일시적 오류이므로 발신 서버가 나중에 다시 시도하며, 잘못된 판정은 설정을 바꿔 바로잡을 수 있습니다. 결과가 적절해 보이면 `--reject-code 550`으로 영구 거부를 사용하십시오. `--quarantine`을 사용하면 스팸은 거부하는 대신 Postfix의 보류(hold) 큐로 보냅니다. milter가 완전히 검사하지 못한 메시지에는 4xx 응답을 보냅니다. `--on-error accept`를 사용하면 대신 통과시킵니다.
 
 systemd 서비스로 실행하려면 `/etc/systemd/system/spamscanner-milter.service`에 다음을 작성합니다.
 
@@ -101,7 +103,7 @@ smtp      inet  n       -       n       -       -       smtpd
   -o content_filter=spamscanner:dummy
 spamscanner unix -      n       n       -       10      pipe
   flags=Rq user=spamscanner null_sender=
-  argv=/usr/bin/node /usr/local/lib/node_modules/spamscanner/dist/esm/cli.js filter --subject-tag [SPAM] -f ${sender} -- ${recipient}
+  argv=/usr/bin/node /usr/local/lib/node_modules/spamscanner/dist/esm/cli.js filter --subject-tag [SPAM] --from=${sender} -- ${recipient}
 ```
 
 Postfix는 거의 비어 있는 환경으로 필터를 실행하므로, `argv`에는 Node.js와 스크립트를 전체 경로로 지정합니다(`command -v node`와 `npm root --global`로 경로를 확인할 수 있습니다). 그다음 다음을 실행합니다.
@@ -112,7 +114,7 @@ sudo postfix reload
 
 필터는 `sendmail -G -i`로 메시지를 다시 넘겨줍니다. 이렇게 제출한 메일은 `smtp` 리스너를 다시 거치지 않으므로 두 번 필터링되지 않습니다.
 
-종료 코드로 Postfix에 결과를 알립니다. 0은 전달, 69는 거부(`--reject` 사용 시 Postfix가 발신자에게 반송), 75는 일시적 실패(Postfix가 메시지를 보관하고 다시 시도)입니다. 검사나 전달에 실패하면 항상 75이므로, 설정이 잘못되어도 메일이 사라지거나 반송되지 않습니다.
+종료 코드로 Postfix에 결과를 알립니다. 0은 전달, 69는 거부(`--reject` 사용 시 Postfix가 발신자에게 반송), 75는 일시적 실패(Postfix가 메시지를 보관하고 다시 시도)입니다. 검사나 전달에 실패하면 항상 75이고, ClamAV가 검사하지 못한 첨부 파일이 있는 메시지도 75이므로, 설정이 잘못되어도 메일이 사라지거나 반송되지 않습니다. `--on-error accept`를 사용하면 검사에 실패했거나 ClamAV가 완전히 검사하지 못한 메시지에 `X-Spam-Virus-Scan: failed`를 붙여 대신 넘겨줍니다([CLI](cli.md#filter) 참조).
 
 
 ## Sendmail
@@ -124,6 +126,12 @@ INPUT_MAIL_FILTER(`spamscanner', `S=inet:7831@127.0.0.1, F=T, T=S:30s;R:30s;E:5m
 ```
 
 `F=T`를 지정하면 milter를 사용할 수 없는 동안 Sendmail이 일시적 실패로 응답합니다. 대신 필터링 없이 메일을 수락하려면 이 값을 빼십시오. `sendmail.cf`를 다시 빌드하고 Sendmail을 재시작합니다.
+
+클라이언트의 호스트 이름은 확인된 경우에만 메시지를 허용 목록에 올릴 수 있습니다. Postfix는 클라이언트의 역방향 DNS 이름이 다시 그 주소로 해석될 때만 그 이름을 보내고, 그렇지 않으면 `unknown`을 보냅니다. Sendmail은 역방향 DNS 이름이 다시 해석되지 않아도 그 이름을 보내며(자기 주소의 역방향 DNS를 가진 사람이면 누구나 고를 수 있는 이름입니다), 그 사실을 `{client_resolve}` 매크로로 알리지만 이 매크로는 기본적으로 보내지 않습니다. `INPUT_MAIL_FILTER` 앞에서 연결 시 보내는 매크로에 이 매크로를 추가해, Sendmail이 `OK`로 알린 호스트 이름만 반영되게 하세요:
+
+```text
+define(`confMILTER_MACROS_CONNECT', `j, _, {daemon_name}, {if_name}, {if_addr}, {client_resolve}')
+```
 
 
 ## 스팸을 Junk 폴더로 분류

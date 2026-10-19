@@ -1,4 +1,4 @@
-<!-- source: 7cc30ff4ad91 -->
+<!-- source: 4d7afeb36844 -->
 
 # Entraînement
 
@@ -15,12 +15,12 @@ spamscanner train --spam ~/Maildir/.Junk --ham ~/Maildir/cur --ham ~/Maildir/.Ar
 
 Les sources peuvent être :
 
-* des fichiers **mbox**, y compris compressés avec gzip (`.mbox.gz`),
+* des fichiers **mbox**, y compris compressés avec gzip (`.mbox.gz` ; les autres fichiers `.gz` sont ignorés),
 * un **Maildir** (ses dossiers `cur` et `new` sont lus, `tmp` est ignoré),
 * un **dossier** de fichiers `.eml`, lu récursivement,
-* un **jeu de données** : un fichier CSV ou JSON Lines avec une colonne de texte et une colonne d’étiquette (`--dataset`). Les colonnes nommées `text`, `message`, `body`, `email` ou `content`, et `label`, `category`, `class`, `spam` ou `is_spam`, sont détectées automatiquement ; sinon, utilisez `--text-column` et `--label-column`. Les étiquettes comme `spam`, `1`, `phishing` et `ham`, `0`, `not_spam`, `legitimate` sont comprises.
+* un **jeu de données** : un fichier CSV ou JSON Lines avec une colonne de texte et une colonne d’étiquette (`--dataset`). Les colonnes, ou champs JSON, nommées `text`, `message`, `body`, `email text`, `email`, `content`, `sms` ou `v2`, et `label`, `category`, `is_spam`, `spam`, `email type`, `class`, `type`, `label_text`, `v1` ou `labels`, quelle que soit la casse, sont détectées automatiquement (en JSON Lines, `label_text` avant `label`) ; sinon, utilisez `--text-column` et `--label-column`. Une ligne JSON qui n’est pas un objet est ignorée. Les étiquettes comme `spam`, `1`, `phishing` et `ham`, `0`, `not_spam`, `legitimate` sont comprises.
 
-Les messages en double ne sont comptés qu’une fois. Pour partir du modèle fourni plutôt que d’un modèle vide, ajoutez `--merge`.
+Les messages en double ne sont comptés qu’une fois. Un message présent à la fois dans les sources de spam et de ham est conservé comme spam, car les sources de spam sont lues en premier. Pour partir du modèle fourni plutôt que d’un modèle vide, ajoutez `--merge`.
 
 Utilisez le modèle :
 
