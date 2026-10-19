@@ -49,6 +49,28 @@ async function tcp(port, data, {end = true} = {}) {
 	return Buffer.concat(chunks).toString('utf8');
 }
 
+// Reads what a server answers a connection it closes at once: a client that
+// wrote first may see the close as a reset (macOS does), which is no answer.
+async function refused(port, data) {
+	const socket = net.createConnection(port, '127.0.0.1');
+	const chunks = [];
+	let error = null;
+	socket.on('data', chunk => chunks.push(chunk));
+	socket.on('error', error_ => {
+		error = error_;
+	});
+	const closed = new Promise(resolve => {
+		socket.on('close', resolve);
+	});
+	socket.write(data);
+	await closed;
+	if (error && !['ECONNRESET', 'EPIPE'].includes(error.code)) {
+		throw error;
+	}
+
+	return Buffer.concat(chunks).toString('utf8');
+}
+
 describe('result and query helpers', () => {
 	it('drops the parsed message and tokens unless verbose, and the received chain', () => {
 		const result = {
@@ -313,6 +335,8 @@ describe('TCP server', () => {
 			await once(socket, 'connect');
 			const chunks = [];
 			socket.on('data', chunk => chunks.push(chunk));
+			// (closing with the rest unread may reset the connection)
+			socket.on('error', () => {});
 			socket.write('x'.repeat(5000));
 			await once(socket, 'end');
 			assert.deepEqual(JSON.parse(Buffer.concat(chunks).toString()), {error: 'Message larger than 100 bytes'});
@@ -332,18 +356,19 @@ describe('TCP server', () => {
 
 	it('closes connections beyond the limit at once', async () => {
 		const server = await listen(createTcpServer(scanner(), {maxConnections: 1}));
+		const first = net.createConnection({port: server.port, host: '127.0.0.1', allowHalfOpen: true});
 		try {
-			const first = net.createConnection({port: server.port, host: '127.0.0.1', allowHalfOpen: true});
 			await once(first, 'connect');
 			const answer = [];
 			first.on('data', chunk => answer.push(chunk));
 			first.write(ham.slice(0, 10));
 			await delay(50);
-			assert.equal(await tcp(server.port, ham), '');
+			assert.equal(await refused(server.port, ham), '');
 			first.end(ham.slice(10));
 			await once(first, 'close');
 			assert.equal(JSON.parse(Buffer.concat(answer).toString()).isSpam, false);
 		} finally {
+			first.destroy();
 			await server.close();
 		}
 	});
