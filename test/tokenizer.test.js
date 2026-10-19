@@ -70,6 +70,33 @@ describe('extractHosts', () => {
 		assert.deepEqual(extractLinks('stra\u00DFe.de/x \uD55C\uAD6Dpaypal.com/x', ''), []);
 	});
 
+	it('reads, for the links looked up, a link without "http://" after punctuation in another link', () => {
+		const hosts = (text, html = '') => extractLinks(text, html, {bareHosts: true}).map(link => link.host);
+		// (only with bareHosts: the links the classifier learned from are as before)
+		assert.deepEqual(extractLinks('Mirror: a.example.org/x,evil.example.com/y', '').map(link => link.host), ['a.example.org']);
+		assert.deepEqual(hosts('Mirror: a.example.org/x,evil.example.com/y'), ['a.example.org', 'evil.example.com']);
+		assert.deepEqual(hosts('', '<p>a.example.org/x|evil.example.com/y</p>'), ['a.example.org', 'evil.example.com']);
+		// (not a name in a path, in a word, or in a link with "://" before it;
+		//  nor a name under no real public suffix)
+		assert.deepEqual(hosts('github.com/x/example.net/ stra\u00DFe.de/x https://x!y.evil.example/z a.b1/ -.example/ .com/ file.js/ readme.md/'), ['github.com', 'x!y.evil.example', 'readme.md']);
+		// (after a link that a quote, "<" or any space ends, as links end)
+		assert.deepEqual(hosts('', '<img src="https://cdn.example.org/p.png"><p>a.example.org/x,evil.example.com/y</p>'), ['cdn.example.org', 'a.example.org', 'evil.example.com']);
+		assert.deepEqual(hosts('https://t.example.org/x\u00A0a.example.org/x,evil.example.com/y'), ['t.example.org', 'a.example.org', 'evil.example.com']);
+		// (with a port or dots after it; under a top-level domain as links
+		//  without "http://" are, also one of files or in punycode)
+		assert.deepEqual(hosts('a.example.org/x,evil.example.com./y,evil.example.net:8080/y,evil.example.info:/y,login.app/y,update.zip/y,evil.xn--p1ai/y'), ['a.example.org', 'evil.example.com', 'evil.example.net', 'evil.example.info', 'login.app', 'update.zip', 'evil.xn--p1ai']);
+		// (as links "http://host/", marked as found without one)
+		assert.deepEqual(extractLinks('a.example.org/x,evil.example.com/y', '', {bareHosts: true}).map(link => [link.url, link.bare]), [['http://a.example.org/x,evil.example.com/y', undefined], ['http://evil.example.com/', true]]);
+		// (a link of another part with that host is a link)
+		assert.deepEqual(extractLinks('a.example.org/x,evil.example.com/y', '<p>Visit http://evil.example.com/</p>', {bareHosts: true}).map(link => [link.url, link.bare]), [['http://a.example.org/x,evil.example.com/y', undefined], ['http://evil.example.com/', undefined]]);
+		// (each once, however often)
+		assert.deepEqual(hosts('a.example.org/x,evil.example.com/y;evil.example.com/z ;evil.example.com/w'), ['a.example.org', 'evil.example.com']);
+		// (in linear time, however the text is made)
+		const started = cpuTime();
+		hosts(`${'a.'.repeat(300_000)}b/ ${',a.bc/'.repeat(100_000)}${'/'.repeat(300_000)}`);
+		assert.ok(cpuTime() - started < 3000);
+	});
+
 	it('reads "\u017F" and "\u212A" in names as "s" and "k", as browsers do, on either engine', () => {
 		assert.deepEqual(extractHosts('see paypa1.\u017Fite or ban\u212Aofamerica-login.com'), ['paypa1.site', 'bankofamerica-login.com']);
 		assert.deepEqual(extractLinks('https://paypa1.\u017Fite/x', '<a href="https://a.example/">https://www.payp\u212Aal.com/</a>').map(link => [link.host, link.text]), [['a.example', 'https://www.paypkal.com/'], ['paypa1.site', null], ['www.paypkal.com', null]]);

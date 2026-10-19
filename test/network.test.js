@@ -13,7 +13,7 @@ import {
 } from '../src/auth.js';
 import {clamdAddress, ping, scanBuffer} from '../src/clamav.js';
 import {
-	CLOUDFLARE_FAMILY, DnsChecker, KNOWN_LISTS, isListedAnswer, isLookupName, normalizeIp, reverseName,
+	CLOUDFLARE_FAMILY, DnsChecker, KNOWN_LISTS, isListedAnswer, isLookupName, lookupName, normalizeIp, reverseName,
 } from '../src/dnsbl.js';
 import {requestJson} from '../src/http.js';
 import {boundedForAuth} from '../src/parse.js';
@@ -180,6 +180,52 @@ describe('DNS blocklists and filtering resolvers', () => {
 		assert.equal(isLookupName(null), false);
 		assert.deepEqual(await checker.checkCloudflare(['[2001:db8::1]', `${'a'.repeat(64)}.example`, 'fine.example']), []);
 		assert.deepEqual(asked, ['fine.example', 'fine.example']);
+	});
+
+	it('looks a link host up as the longest name that can be, once, and names it so', async () => {
+		// (characters no name has, empty or long labels, dots at the end)
+		assert.equal(lookupName('x!y.evil.example.com'), 'evil.example.com');
+		assert.equal(lookupName('a,b.Evil.Example.com...'), 'evil.example.com');
+		assert.equal(lookupName(`${'a'.repeat(64)}.sub.evil.example`), 'sub.evil.example');
+		assert.equal(lookupName('mail.example.org.'), 'mail.example.org');
+		assert.equal(lookupName('_dmarc.example.org'), '_dmarc.example.org');
+		// (a name in Unicode, in ASCII)
+		assert.equal(lookupName('B\u00FCcher.example.'), 'xn--bcher-kva.example');
+		assert.equal(lookupName('x\u2028y.evil.example.com'), 'evil.example.com');
+		// (no domain of its own left: a single label, or a public suffix)
+		for (const name of ['x!y.com', 'a..example', 'x!y.co.uk', 'x!y.github.io', 'x!y', '...', '', 'example']) {
+			assert.equal(lookupName(name), name === 'example' ? 'example' : null, name);
+		}
+
+		// (no address, nor anything but a name)
+		for (const value of ['192.0.2.1', '192.0.2.1..', '\uFF11.\uFF12.\uFF13.\uFF14', '2001:db8::1', '[2001:db8::1]', null, 5]) {
+			assert.equal(lookupName(value), null, String(value));
+		}
+
+		// (at most 253 characters: the labels that fit, from the end)
+		const long = `${'a'.repeat(63)}.`.repeat(5) + 'example.com';
+		assert.equal(lookupName(long).length <= 253, true);
+		assert.ok(long.endsWith(lookupName(long)));
+
+		// (asked once for names that are looked up as one, and named so)
+		const asked = [];
+		const checker = new DnsChecker({
+			async resolve4(name) {
+				asked.push(name);
+				return name === 'evil.example.com' ? ['0.0.0.0'] : ['192.0.2.1'];
+			},
+		});
+		assert.deepEqual(await checker.checkCloudflare(['x!y.evil.example.com', 'evil.example.com...', 'EVIL.example.com', 'x!y.com']), [{host: 'evil.example.com', category: 'malware'}]);
+		assert.deepEqual(asked, ['evil.example.com']);
+	});
+
+	it('looks up a name of any length in linear time', () => {
+		const started = cpuTime();
+		lookupName(`${'a.'.repeat(500_000)}x!y`);
+		lookupName(`${'.'.repeat(1_000_000)}`);
+		lookupName(`a${'.a'.repeat(400_000)}.com`);
+		const time = cpuTime() - started;
+		assert.ok(time < 2000, `${time}ms`);
 	});
 
 	it('keeps its cache bounded and accepts a custom lookup', async () => {

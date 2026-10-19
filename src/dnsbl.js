@@ -1,5 +1,7 @@
 import dns from 'node:dns';
 import {isIP} from 'node:net';
+import {domainToASCII} from 'node:url';
+import {getPublicSuffix} from 'tldts';
 
 // Whether a name can be looked up: not an address (also "[2001:db8::1]"),
 // at most 253 characters, in labels of 1 to 63
@@ -10,6 +12,70 @@ export function isLookupName(name) {
 
 	const host = name.replaceAll(/^\[|]$/g, '').replace(/\.$/, '');
 	return host !== '' && isIP(host) === 0 && host.length <= 253 && host.split('.').every(label => label.length > 0 && label.length <= 63);
+}
+
+// A label of a name that can be looked up (lowercase; an internationalized
+// name in its ASCII form)
+const LOOKUP_LABEL = /^[a-z\d_-]{1,63}$/;
+
+/**
+ * The name a link host is looked up as. The URL parser keeps characters no
+ * host name has ("!", ",", "{", "~" and more, also from "%2C") and empty or
+ * long labels; such a name cannot be looked up, but Cloudflare's resolvers
+ * block a name by its parent domains too (and so would a mail client's
+ * resolver), so it is looked up as its longest suffix of labels that can be,
+ * at most 253 characters: "x!y.evil.example" as "evil.example". Dots it ends
+ * with, however many, are left out ("evil.example..." is evil.example), and
+ * a name in Unicode is looked up in ASCII. Null when that leaves no label, or
+ * only a public suffix ("com", "co.uk", "github.io"), and for an address.
+ * In linear time.
+ * @param {string} host
+ * @returns {string|null}
+ */
+export function lookupName(host) {
+	if (typeof host !== 'string') {
+		return null;
+	}
+
+	let end = host.length;
+	while (end > 0 && host[end - 1] === '.') {
+		end--;
+	}
+
+	// ("bücher.example" as "xn--bcher-kva.example"; a name that has no
+	//  ASCII form is read as it is)
+	let name = host.slice(0, end).toLowerCase();
+	if (/[\u0080-\u{10FFFF}]/u.test(name)) {
+		name = domainToASCII(name) || name;
+	}
+
+	if (isIP(name.replaceAll(/^\[|]$/g, '')) !== 0) {
+		return null;
+	}
+
+	const labels = name.split('.');
+	let start = labels.length;
+	let length = -1;
+	while (start > 0 && LOOKUP_LABEL.test(labels[start - 1]) && length + 1 + labels[start - 1].length <= 253) {
+		start--;
+		length += 1 + labels[start].length;
+	}
+
+	if (start === labels.length) {
+		return null;
+	}
+
+	if (start === 0) {
+		return name;
+	}
+
+	const suffix = labels.slice(start).join('.');
+	// (a single label, or a public suffix: no domain of its own)
+	if (start === labels.length - 1 || getPublicSuffix(suffix, {allowPrivateDomains: true}) === suffix) {
+		return null;
+	}
+
+	return suffix;
 }
 
 /**
@@ -314,9 +380,10 @@ export class DnsChecker {
 	}
 
 	/**
-	 * Ask Cloudflare's filtering resolvers about host names. A name blocked by
-	 * the malware resolver is "malware"; one blocked only by the family
-	 * resolver is "adult". The hosts that got no answer (from the malware
+	 * Ask Cloudflare's filtering resolvers about host names, each by the name
+	 * it is looked up as (see lookupName), once; the findings name it. A name
+	 * blocked by the malware resolver is "malware"; one blocked only by the
+	 * family resolver is "adult". The hosts that got no answer (from the malware
 	 * resolver, or from the family resolver when asked) are listed in the
 	 * result's (non-enumerable) `unanswered` property.
 	 * @param {string[]} hosts
@@ -329,12 +396,9 @@ export class DnsChecker {
 	async checkCloudflare(hosts = [], options = {}) {
 		const {adult = true, malwareServers = CLOUDFLARE_MALWARE, familyServers = CLOUDFLARE_FAMILY} = options;
 		const unanswered = [];
-		const results = await Promise.all(hosts.map(async host => {
-			// (an address, or a name no lookup could answer: not asked)
-			if (!isLookupName(host)) {
-				return null;
-			}
-
+		// (each by the name it is looked up as, see lookupName, once)
+		const names = [...new Set(hosts.map(host => lookupName(host)).filter(Boolean))];
+		const results = await Promise.all(names.map(async host => {
 			const malware = await this.answer(host, malwareServers);
 			if (malware?.includes('0.0.0.0')) {
 				return {host, category: 'malware'};

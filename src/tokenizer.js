@@ -672,20 +672,28 @@ function endsInsideTag(html, end, link) {
  * @param {object} [options]
  * @param {number} [options.maxLength] - characters of each read for links
  *   written in the text (500,000 by default)
- * @returns {Array<{url: string, host: string, text: string|null, userinfo: boolean}>}
+ * @param {boolean} [options.bareHosts] - also the hosts of links without
+ *   "http://" written after punctuation inside another link
+ *   ("a.example/x,evil.example/y"), as the links looked up read them, each
+ *   as a link "http://host/" with bare: true, unless a link has its host
+ * @returns {Array<{url: string, host: string, text: string|null, userinfo: boolean, bare?: true}>}
  */
 const MAX_SHOWN_HTML = 200_000;
 
-export function extractLinks(text, html, {maxLength = 500_000} = {}) {
+export function extractLinks(text, html, {maxLength = 500_000, bareHosts = false} = {}) {
 	// ("\u017F" and "\u212A" as browsers read them in host names, on
 	// either engine)
 	text = typeof text === 'string' ? foldToAscii(text) : text;
 	html = typeof html === 'string' ? foldToAscii(html) : html;
 	const links = [];
 	const seen = new Set();
+	// (the hosts of the links found)
+	const linkHosts = new Set();
+	// (with bareHosts, those of links without "http://" in another link)
+	const bareFound = [];
 	// (whether each name of a link without "http://" is a host, read once)
 	const names = new Map();
-	const add = (raw, shown = null) => {
+	const add = (raw, shown = null, bare = false) => {
 		// (as the URL parser reads it: without tabs and line breaks anywhere,
 		//  "ht\ttps://evil.example/" is a link to evil.example)
 		let href = trimEndOf(trimControls(raw.replaceAll(/[\t\n\r]/g, '')).trim(), ').,;:!?\'"]');
@@ -718,8 +726,9 @@ export function extractLinks(text, html, {maxLength = 500_000} = {}) {
 		const host = url.hostname.toLowerCase().replace(/\.$/, '').replace(/^\[(.*)]$/, '$1');
 		// (the address cut, so whether it has a user name or password is read
 		//  before)
+		linkHosts.add(host);
 		links.push({
-			url: url.href.slice(0, MAX_URL), host, text: shown, userinfo: Boolean(url.username || url.password),
+			url: url.href.slice(0, MAX_URL), host, text: shown, userinfo: Boolean(url.username || url.password), ...(bare && {bare: true}),
 		});
 	};
 
@@ -765,10 +774,139 @@ export function extractLinks(text, html, {maxLength = 500_000} = {}) {
 
 				add(link);
 			}
+
+			// (and with bareHosts, the hosts of links without "http://" after
+			//  punctuation in another link, see bareLinkHosts: for the links
+			//  looked up, not those the classifier learned from)
+			if (bareHosts && index < 2) {
+				bareLinkHosts(read, host => {
+					bareFound.push(host);
+				});
+			}
+		}
+	}
+
+	// (after the links of every part: a host one of them has is no host
+	//  found without a link)
+	for (const host of bareFound) {
+		if (!linkHosts.has(host)) {
+			add(`http://${host}/`, null, true);
 		}
 	}
 
 	return links;
+}
+
+// A character that is part of a word (a letter, digit or mark of any
+// script, "_" or "%"): a name does not start after it
+const IN_WORD = /[\p{L}\p{N}\p{M}_%]/u;
+// (no more is read back of a name than a host name can be)
+const MAX_BARE_NAME = 760;
+
+// Whether a character is one of a host name written in ASCII
+function isHostCode(code) {
+	return (code >= 97 && code <= 122) || (code >= 65 && code <= 90) || (code >= 48 && code <= 57) || code === 45 || code === 46;
+}
+
+// Whether a character ends a link, as URL_PATTERN ends one: a space of any
+// kind, "<", ">", a quote or a backtick
+function endsLink(char) {
+	return /[\s<>"'\u0060]/u.test(char);
+}
+
+/**
+ * The hosts of links written without "http://" ("example.com/page") in
+ * text, also where URL_PATTERN reads them as part of another link's path
+ * after punctuation ("a.example/x,evil.example/y"): the name before each "/",
+ * read back to a character that is no part of a host name (so the text is
+ * read once), without a port or dots after it, from its top-level domain
+ * back over at most eleven labels; not a name after "/" or in the middle of
+ * a word ("github.com/x/example.net/", "straße.de/"), nor in a link with
+ * "://" (up to a character that ends a link, see endsLink), whose host is
+ * read from all of it ("https://x!y.evil.example/"), nor a name under no
+ * real public suffix ("file.js/"), as for links without "http://" (see
+ * isBareHost). Each found once. In linear time.
+ * @param {string} text
+ * @param {(host: string) => void} add
+ */
+function bareLinkHosts(text, add) {
+	const found = new Set();
+	let previous = -1;
+	// (where the last space and "://" before a position are, read once)
+	let read = 0;
+	let space = -1;
+	let scheme = -1;
+	for (let slash = text.indexOf('/'); slash !== -1; slash = text.indexOf('/', slash + 1)) {
+		const floor = Math.max(previous + 1, slash - MAX_BARE_NAME);
+		previous = slash;
+		// (before a port: "evil.example:8080/")
+		let end = slash;
+		while (end > floor && text.codePointAt(end - 1) >= 48 && text.codePointAt(end - 1) <= 57) {
+			end--;
+		}
+
+		end = end > floor && text[end - 1] === ':' ? end - 1 : slash;
+		let start = end;
+		while (start > floor && isHostCode(text.codePointAt(start - 1))) {
+			start--;
+		}
+
+		if (start === end || (start > 0 && (text[start - 1] === '/' || IN_WORD.test(text[start - 1])))) {
+			continue;
+		}
+
+		for (; read < start; read++) {
+			if (endsLink(text[read])) {
+				space = read;
+			} else if (text[read] === '/' && text[read - 1] === '/' && text[read - 2] === ':') {
+				scheme = read;
+			}
+		}
+
+		if (scheme > space) {
+			continue;
+		}
+
+		// (without the dots a name ends with: "evil.example./")
+		while (end > start && text[end - 1] === '.') {
+			end--;
+		}
+
+		const labels = text.slice(start, end).split('.');
+		const tld = labels.pop();
+		if (!/^(?:[a-z]{2,24}|xn--[a-z\d-]{1,59})$/i.test(tld)) {
+			continue;
+		}
+
+		const parts = [];
+		while (labels.length > 0 && parts.length < 11) {
+			const label = labels.pop();
+			if (!/^[a-z\d-]{1,63}$/i.test(label)) {
+				break;
+			}
+
+			parts.unshift(label);
+		}
+
+		if (parts.length === 0) {
+			continue;
+		}
+
+		parts[0] = parts[0].replace(/^-+/, '');
+		if (!parts[0]) {
+			continue;
+		}
+
+		const host = `${parts.join('.')}.${tld}`.toLowerCase();
+		if (found.has(host)) {
+			continue;
+		}
+
+		found.add(host);
+		if (isHost(host)) {
+			add(host);
+		}
+	}
 }
 
 // The host name of a link as URL_PATTERN finds it, without a user name, port

@@ -7,7 +7,7 @@ import {
 } from './auth.js';
 import {scanBuffer} from './clamav.js';
 import {Classifier} from './classifier.js';
-import {DnsChecker} from './dnsbl.js';
+import {DnsChecker, lookupName} from './dnsbl.js';
 import {visibleText} from './html.js';
 import HomographDetector from './homograph.js';
 import {isArbitrary} from './is-arbitrary.js';
@@ -644,15 +644,27 @@ export class SpamScanner {
 				}));
 			}
 
-			// (by the host looked up: a gateway's own host is not)
-			seenHosts.add(destination(link));
+			// (by the name looked up: a gateway's own host is not, and an
+			//  address is none, see lookupName)
+			const name = lookupName(destination(link));
+			if (name) {
+				seenHosts.add(name);
+			}
 		}
 
 		// (links before hosts in the text, and links that show an address
 		// first: a message cannot put a link out of reach with text, or the
 		// hosts it shows with other links)
-		for (const link of [...links.filter(link => link.text), ...links.filter(link => !link.text)]) {
+		// (a host found without a link, see extractLinks's bareHosts, counts as
+		//  a host in the text does)
+		const found = links.filter(link => !link.bare);
+		const bare = links.filter(link => link.bare);
+		for (const link of [...found.filter(link => link.text), ...found.filter(link => !link.text)]) {
 			lookalike(destination(link), {url: link.url});
+		}
+
+		for (const link of bare) {
+			lookalike(link.host, {source: 'text'});
 		}
 
 		// Host names in the text that are not links (written without
@@ -666,7 +678,10 @@ export class SpamScanner {
 		// The hosts looked up, in the order of the lookalike pass, the first
 		// host of each registrable domain before the others: a message cannot
 		// put a link out of reach with links to other hosts of one domain.
-		const ordered = [...new Set([...links.filter(link => link.text), ...links.filter(link => !link.text)].map(link => destination(link)))];
+		// (by the names they are looked up as, see lookupName: "evil.example"
+		//  for "x!y.evil.example" and "evil.example...")
+		// (hosts found without a link last: they cannot put a link out of reach)
+		const ordered = [...new Set([...found.filter(link => link.text), ...found.filter(link => !link.text), ...bare].map(link => lookupName(destination(link))).filter(Boolean))];
 		const firsts = new Map();
 		for (const host of ordered) {
 			const domain = registrableDomain(host);
@@ -902,7 +917,7 @@ export class SpamScanner {
 		const linkLength = Number.isFinite(config.phishing.maxLength) && config.phishing.maxLength > 0 ? config.phishing.maxLength : 1_000_000;
 		const text = typeof mail.text === 'string' ? mail.text : '';
 		const html = typeof mail.html === 'string' ? mail.html : '';
-		const checkedLinks = extractLinks(text.slice(0, linkLength), html.slice(0, linkLength * 2), {maxLength: linkLength * 2});
+		const checkedLinks = extractLinks(text.slice(0, linkLength), html.slice(0, linkLength * 2), {maxLength: linkLength * 2, bareHosts: true});
 		const linksTruncated = text.length > linkLength || html.length > linkLength * 2;
 
 		// Obfuscation seen by the tokenizer.
@@ -1059,7 +1074,8 @@ export class SpamScanner {
 					riskScore: Math.max(0, ...links.homographs.map(item => item.riskScore)),
 				},
 			},
-			links: checkedLinks.map(link => link.url),
+			// (the links of the message, not hosts found without one)
+			links: checkedLinks.filter(link => !link.bare).map(link => link.url),
 			language: extracted.language,
 			tokens: extracted.words,
 			mail,

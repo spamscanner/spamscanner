@@ -1466,6 +1466,47 @@ describe('time limits and failures', () => {
 		assert.equal(result.results.uncheckedHosts, 1);
 	});
 
+	it('looks up link hosts with trailing dots, invalid labels or without "http://" after a comma', async () => {
+		const asked = [];
+		const scanner = new SpamScanner({
+			classifier: false,
+			dns: {
+				async resolve4(name) {
+					asked.push(name);
+					return name.startsWith('evil') ? ['0.0.0.0'] : ['192.0.2.1'];
+				},
+			},
+		});
+		const domains = async text => {
+			asked.length = 0;
+			const result = await scanner.scan(message({text}));
+			return result.results.phishing.filter(item => item.type === 'malicious_domain').map(item => item.domain ?? item.host);
+		};
+
+		assert.ok((await domains('See http://evil.example.com.../x now.')).length > 0);
+		assert.ok(asked.includes('evil.example.com'));
+		assert.ok((await domains('See https://x!y.evil.example.org/login now.')).length > 0);
+		assert.ok(asked.includes('evil.example.org'));
+		assert.ok((await domains('Mirrors: a.example.org/x,evil.example.net/y now.')).length > 0);
+		assert.ok(asked.includes('evil.example.net'));
+		// (each host once, by its own name; answers are kept, so new names)
+		assert.deepEqual(await domains('See c.example.org/x,d.example.org/y, c.example.org/z.'), []);
+		assert.deepEqual([...new Set(asked)].sort(), ['c.example.org', 'd.example.org']);
+
+		// (not a link of the message, nor checked as one for lookalikes: as a
+		//  host in the text, which a company named like a brand may be)
+		const result = await scanner.scan(message({text: 'Forms: www.example.org/forms,lrs.com/help'}));
+		assert.deepEqual(result.links, ['http://www.example.org/forms,lrs.com/help']);
+		assert.deepEqual(result.results.phishing, []);
+		assert.ok(asked.includes('lrs.com'));
+
+		// (nor can such hosts put a link out of reach of phishing.maxHosts)
+		const padding = Array.from({length: 30}, (_, i) => `h${i}.example${i}.net/`).join(',');
+		const late = await scanner.scan(message({text: `Mirrors: a.example.org/x,${padding} and https://evil.example.info/login`}));
+		assert.ok(late.results.phishing.some(item => item.domain === 'evil.example.info'));
+		assert.ok(late.results.uncheckedHosts > 0);
+	});
+
 	it('counts link hosts whose lookups got no answer', async () => {
 		const scanner = new SpamScanner({classifier: false, timeout: 1000, dns: {timeout: 100, resolve4: () => new Promise(() => {})}});
 		const result = await scanner.scan(message({text: 'https://a.example.org/ https://b.example.org/'}));
