@@ -518,10 +518,18 @@ export function deliver(sendmail, args, message, rest) {
 		// message (and a sendmail that stops reading has failed anyway).
 		written = (async () => {
 			try {
+				// (each chunk once sendmail took the one before, which also
+				//  fails once its input is closed)
 				for await (const chunk of prepend(message, rest)) {
-					if (!child.stdin.write(chunk)) {
-						await drained(child.stdin);
-					}
+					await new Promise((resolve, reject) => {
+						child.stdin.write(chunk, error => {
+							if (error) {
+								reject(error);
+							} else {
+								resolve();
+							}
+						});
+					});
 				}
 
 				child.stdin.end();
@@ -538,25 +546,6 @@ export function deliver(sendmail, args, message, rest) {
 async function * prepend(first, rest) {
 	yield first;
 	yield * rest;
-}
-
-// Waits until a stream can take more, and fails if it closes first (as it
-// does when it fails).
-function drained(stream) {
-	return new Promise((resolve, reject) => {
-		const drain = () => {
-			stream.off('close', close);
-			resolve();
-		};
-
-		const close = () => {
-			stream.off('drain', drain);
-			reject(new Error('closed'));
-		};
-
-		stream.once('drain', drain);
-		stream.once('close', close);
-	});
 }
 
 // Deliver, or defer (EX_TEMPFAIL) if sendmail fails.
