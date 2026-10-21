@@ -1,4 +1,4 @@
-<!-- source: 581d018dd514 -->
+<!-- source: e15795fd8287 -->
 
 # API 레퍼런스
 
@@ -94,9 +94,9 @@ await scanner.scan(raw, {authenticationResults: auth});
 | `getFeatures(mail)`                  | 메시지의 `{features, words, language, script, links, hosts, text, hidden}` |
 | `getTokens(text, locale)`            | 텍스트의 단어                                                                |
 | `getTokensAndMailFromSource(source)` | `{tokens, features, mail}`                                             |
-| `parse(source)`                      | `{raw, mail}`. `mail`은 mailparser의 결과(아래 참조)                           |
+| `parse(source)`                      | `{raw, mail, error}`. `mail`은 mailparser의 결과(아래 참조)                    |
 
-`scan`, `parse`, `learn`, `unlearn`, `getTokensAndMailFromSource`는 모두 같은 방식으로 메시지를 읽습니다. MIME 파서의 한도(파트 1000개 초과, 한 파트의 헤더 1 MB 초과)를 넘는 메시지는 파서가 허용하는 만큼 읽습니다. 메시지, 그 파트, 첨부된 메시지의 주소 필드(From, To, Cc, Bcc, Sender, Reply-To, Delivered-To, Return-Path, Disposition-Notification-To, List-\*)는 각각 최대 16 KB, 쉼표와 세미콜론 2000개, 중첩 그룹 16개까지, 메시지마다 모두 합쳐 64 KB까지 읽으며, 항상 온전한 주소의 끝까지 읽으므로 필드에 없는 주소를 읽는 일은 없습니다. 잘린 필드에는 `truncated`가 표시되며(`mail.to.truncated`), From 필드가 잘리면 발신자의 인증에 따른 감점이 주어지지 않습니다. 첫 줄이 헤더 필드(`Name: value`, 또는 mbox 파일에서 각 메시지를 시작하는 `From` 줄)가 아닌 텍스트는 헤더 없는 메시지의 본문으로 읽으므로, `mail.text`가 그 텍스트가 됩니다. 그 밖의 오류는 예외로 던집니다.
+`scan`, `parse`, `learn`, `unlearn`, `getTokensAndMailFromSource`는 모두 같은 방식으로 메시지를 읽습니다. MIME 파서의 한도(파트 1000개 초과, 한 파트의 헤더 1 MB 초과)를 넘는 메시지는 파서가 허용하는 만큼 읽습니다. 메시지, 그 파트, 첨부된 메시지의 주소 필드(From, To, Cc, Bcc, Sender, Reply-To, Delivered-To, Return-Path, Disposition-Notification-To, List-\*)는 각각 최대 16 KB, 쉼표와 세미콜론 2000개, 중첩 그룹 16개까지, 메시지마다 모두 합쳐 64 KB까지 읽으며, 항상 온전한 주소의 끝까지 읽으므로 필드에 없는 주소를 읽는 일은 없습니다. 잘린 필드에는 `truncated`가 표시되며(`mail.to.truncated`), From 필드가 잘리면 발신자의 인증에 따른 감점이 주어지지 않습니다. 첫 줄이 헤더 필드(`Name: value`, 또는 mbox 파일에서 각 메시지를 시작하는 `From` 줄)가 아닌 텍스트는 헤더 없는 메시지의 본문으로 읽으므로, `mail.text`가 그 텍스트가 됩니다. 그 밖의 오류는 예외로 던집니다. `parse`는 메시지가 넘은 파서의 한도를 `error`로 돌려주며, 이는 `scan`이 `parseError`로 돌려주는 것과 같고, 전부 읽은 메시지에서는 null입니다.
 
 `getFeatures`에서 `text`는 메일 클라이언트가 보여 주는 텍스트로, 단어는 여기에서 읽습니다. `hidden`은 HTML이 숨기는 텍스트의 글자 수입니다. 여기서 mailparser는 HTML을 텍스트로 만들지 않습니다. `mail.text`에는 일반 텍스트 파트만 들어 있으며, HTML만으로 된 메시지에서는 비어 있습니다. HTML이 보여 주는 텍스트는 `getFeatures(mail).text`입니다.
 
@@ -131,6 +131,7 @@ await scanner.scan(raw, {authenticationResults: auth});
     viruses: [],         // ClamAV findings: {filename, virus: [names], message}
     virusScanErrors: [], // attachments ClamAV could not scan: {filename, error}
     virusScanSkipped: [], // attachments larger than clamd accepts, not scanned: {filename, reason}
+    unopenedAttachments: [], // attached messages not opened, past the limits they are read within: {filename, reason}
     arbitrary: [],       // rules strong enough to mark spam alone
     obfuscation: {invisible, mixed, styled},
     authentication: null, // mailauth's results with a score, when checked
@@ -151,7 +152,7 @@ await scanner.scan(raw, {authenticationResults: auth});
 }
 ```
 
-`phishing`, `attachments`, `executables`, `macros`, `viruses`, `arbitrary`의 검출 항목은 `type`과 `message`를 가진 객체입니다. `String(finding)`은 그 메시지입니다. 첨부된 메시지(`message/rfc822`, `.eml`)의 첨부 파일은 그 메시지 이름을 붙여 부릅니다: `fw.eml/invoice.exe`. ClamAV가 이런 첨부 파일에서 찾은 바이러스는 그 첨부 파일에 대해서만 보고하며, 그것을 담은 첨부된 메시지에 대해 다시 보고하지 않습니다. `virusScanErrors`는 ClamAV가 검사하지 못한 첨부 파일을 `{filename, error}` 형태로 나열합니다. 이런 메시지에는 바이러스가 있을 수 있으니 전달하지 말고 보류하세요. milter와 콘텐츠 필터는 `onError`(`--on-error`)가 `accept`가 아니면 이런 메시지를 일시적으로 거부하며, 모든 서버는 이런 메시지를 넘겨줄 때 `X-Spam-Virus-Scan: failed`를 붙입니다. `virusScanSkipped`는 clamd가 받아들이는 크기(clamd의 `StreamMaxLength`)보다 큰 첨부 파일을 `{filename, reason}` 형태로 나열합니다. clamd는 이런 파일을 몇 번을 시도해도 거부하므로, clamav-milter가 `MaxFileSize`를 넘는 파일을 건너뛰는 것과 마찬가지로 실패로 보지 않습니다. 압축 폭탄이 도달하는 clamd의 다른 한도(`MaxScanSize`, `MaxFiles`, `MaxRecursion`, `MaxScanTime`)는 실패입니다.
+`phishing`, `attachments`, `executables`, `macros`, `viruses`, `arbitrary`의 검출 항목은 `type`과 `message`를 가진 객체입니다. `String(finding)`은 그 메시지입니다. 첨부된 메시지(`message/rfc822`, `.eml`)의 첨부 파일은 그 메시지 이름을 붙여 부릅니다: `fw.eml/invoice.exe`. ClamAV가 이런 첨부 파일에서 찾은 바이러스는 그 첨부 파일에 대해서만 보고하며, 그것을 담은 첨부된 메시지에 대해 다시 보고하지 않습니다. `virusScanErrors`는 ClamAV가 검사하지 못한 첨부 파일을 `{filename, error}` 형태로 나열합니다. 이런 메시지에는 바이러스가 있을 수 있으니 전달하지 말고 보류하세요. milter와 콘텐츠 필터는 `onError`(`--on-error`)가 `accept`가 아니면 이런 메시지를 일시적으로 거부하며, 모든 서버는 이런 메시지를 넘겨줄 때 `X-Spam-Virus-Scan: failed`를 붙입니다. `virusScanSkipped`는 clamd가 받아들이는 크기(clamd의 `StreamMaxLength`)보다 큰 첨부 파일을 `{filename, reason}` 형태로 나열합니다. clamd는 이런 파일을 몇 번을 시도해도 거부하므로, clamav-milter가 `MaxFileSize`를 넘는 파일을 건너뛰는 것과 마찬가지로 실패로 보지 않습니다. 압축 폭탄이 도달하는 clamd의 다른 한도(`MaxScanSize`, `MaxFiles`, `MaxRecursion`, `MaxScanTime`)는 실패입니다. 첨부된 메시지는 세 단계 깊이까지, 그 안의 첨부 파일 100개까지, 합계 25MB까지 엽니다. `unopenedAttachments`는 이 한도를 넘어 열지 않은 메시지를 `{filename, reason}` 형태로 나열하며, 그 첨부 파일은 검사하지 않았습니다. 전달된 메시지는 이렇게 중첩될 수 있으므로 점수에는 반영하지 않지만, 메시지를 전부 읽어야 하는 호출자는 예를 들어 그 안의 프로그램을 차단하기 위해 이런 항목이 하나라도 있는 메시지를 거부할 수 있습니다.
 
 각 `dnsbl` 항목에는 목록의 `answers`(127.0.0.0/8 범위의 주소로, 그 의미는 각 목록이 문서로 밝힙니다)가 들어 있습니다. 목록이 거부하거나 답할 수 없는 조회에 주는 응답은 클라이언트 주소에 대해서든 링크 도메인(`phishing`의 `uribl` 검출 항목)에 대해서든 등재가 아닙니다. Spamhaus의 127.255.255.x(공개 리졸버를 거친 조회에 대한 127.255.255.254, 조회가 너무 많을 때의 127.255.255.255 등), Spamhaus DBL의 127.0.1.255, 모든 목록의 127.0.0.255, 그리고 SURBL과 URIBL이 차단한 리졸버에 답하는 127.0.0.1이 그렇습니다.
 
@@ -160,7 +161,7 @@ await scanner.scan(raw, {authenticationResults: auth});
 
 ```js
 import SpamScanner, {
-  Classifier, getFeatures, segmentWords, detectLanguage,
+  Classifier, getFeatures, segmentWords, unwrapLink, detectLanguage,
   LLMClassifier, PROVIDERS, RECOMMENDED_MODELS, CLASSIFIER_MODELS, DECISION_MODELS,
   DEFAULT_SCORES, scoreResults, spamHeaders, rewriteMessage,
   loadModel, saveModel, defaultModelPath, loadDefaultModel,
@@ -169,6 +170,8 @@ import SpamScanner, {
   DEFAULTS, VERSION,
 } from 'spamscanner';
 import {SpamScanner} from 'spamscanner'; // the same class, as a named export
+// unwrapLink(address): the URL a link goes to, through Safe Links and
+// Proofpoint URL Defense, as the scanner reads it (null for no URL)
 
 import ArfParser from 'spamscanner/arf';
 ```

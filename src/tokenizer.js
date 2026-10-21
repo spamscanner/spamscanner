@@ -226,6 +226,12 @@ export function unwrapLink(address) {
 
 	for (let depth = 0; depth < 3; depth++) {
 		const target = gatewayTarget(url);
+		// (most links go through no gateway: no URL to read, rather than one
+		//  that throws, which takes far longer)
+		if (!target) {
+			break;
+		}
+
 		let next;
 		try {
 			next = new URL(target);

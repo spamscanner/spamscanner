@@ -1,4 +1,4 @@
-<!-- source: 581d018dd514 -->
+<!-- source: e15795fd8287 -->
 
 # API-referentie
 
@@ -94,9 +94,9 @@ Elke vermelding is één IP-adres, domein of e-mailadres, exact vergeleken: een 
 | `getFeatures(mail)`                  | `{features, words, language, script, links, hosts, text, hidden}` van een bericht          |
 | `getTokens(text, locale)`            | De woorden van een tekst                                                                   |
 | `getTokensAndMailFromSource(source)` | `{tokens, features, mail}`                                                                 |
-| `parse(source)`                      | `{raw, mail}`, met `mail` uit mailparser (zie hieronder)                                   |
+| `parse(source)`                      | `{raw, mail, error}`, met `mail` uit mailparser (zie hieronder)                            |
 
-`scan`, `parse`, `learn`, `unlearn` en `getTokensAndMailFromSource` lezen een bericht allemaal op dezelfde manier: een bericht buiten de limieten van de MIME-parser (meer dan 1000 delen, een header van een deel boven 1 MB) wordt gelezen voor zover de parser toelaat. Adresvelden (From, To, Cc, Bcc, Sender, Reply-To, Delivered-To, Return-Path, Disposition-Notification-To en List-\*) van het bericht, zijn delen en bijgevoegde berichten worden gelezen tot 16 KB per veld, 2000 komma's en puntkomma's en 16 geneste groepen, en 64 KB in totaal per bericht, altijd tot het einde van een volledig adres, zodat er geen adres wordt gelezen dat het veld niet geeft; een ingekort veld wordt gemarkeerd als `truncated` (`mail.to.truncated`), en een ingekort From-veld levert geen aftrek op voor de authenticatie van de afzender. Tekst waarvan de eerste regel geen headerveld is (`Name: value`, of de `From`-regel waarmee elk bericht in mbox-bestanden begint), wordt gelezen als de body van een bericht zonder header, dus `mail.text` is die tekst. Andere fouten worden gegooid.
+`scan`, `parse`, `learn`, `unlearn` en `getTokensAndMailFromSource` lezen een bericht allemaal op dezelfde manier: een bericht buiten de limieten van de MIME-parser (meer dan 1000 delen, een header van een deel boven 1 MB) wordt gelezen voor zover de parser toelaat. Adresvelden (From, To, Cc, Bcc, Sender, Reply-To, Delivered-To, Return-Path, Disposition-Notification-To en List-\*) van het bericht, zijn delen en bijgevoegde berichten worden gelezen tot 16 KB per veld, 2000 komma's en puntkomma's en 16 geneste groepen, en 64 KB in totaal per bericht, altijd tot het einde van een volledig adres, zodat er geen adres wordt gelezen dat het veld niet geeft; een ingekort veld wordt gemarkeerd als `truncated` (`mail.to.truncated`), en een ingekort From-veld levert geen aftrek op voor de authenticatie van de afzender. Tekst waarvan de eerste regel geen headerveld is (`Name: value`, of de `From`-regel waarmee elk bericht in mbox-bestanden begint), wordt gelezen als de body van een bericht zonder header, dus `mail.text` is die tekst. Andere fouten worden gegooid. `parse` geeft de grens van de parser die een bericht overschrijdt als `error`, zoals `scan` die als `parseError` geeft, en null voor een volledig gelezen bericht.
 
 In `getFeatures` is `text` de tekst die een mailclient toont, waaruit de woorden worden gelezen, en `hidden` hoeveel tekens tekst de HTML verbergt. mailparser maakt hier geen tekst van HTML: `mail.text` bevat alleen de platte-tekstdelen en is leeg bij een bericht dat alleen uit HTML bestaat; de tekst die de HTML toont, is `getFeatures(mail).text`.
 
@@ -131,6 +131,7 @@ In `getFeatures` is `text` de tekst die een mailclient toont, waaruit de woorden
     viruses: [],         // ClamAV findings: {filename, virus: [names], message}
     virusScanErrors: [], // attachments ClamAV could not scan: {filename, error}
     virusScanSkipped: [], // attachments larger than clamd accepts, not scanned: {filename, reason}
+    unopenedAttachments: [], // attached messages not opened, past the limits they are read within: {filename, reason}
     arbitrary: [],       // rules strong enough to mark spam alone
     obfuscation: {invisible, mixed, styled},
     authentication: null, // mailauth's results with a score, when checked
@@ -151,7 +152,7 @@ In `getFeatures` is `text` de tekst die een mailclient toont, waaruit de woorden
 }
 ```
 
-Bevindingen in `phishing`, `attachments`, `executables`, `macros`, `viruses` en `arbitrary` zijn objecten met een `type` en een `message`. `String(finding)` is het bericht. Bijlagen van een bijgevoegd bericht (`message/rfc822`, `.eml`) krijgen de naam daarvan: `fw.eml/invoice.exe`. Een virus dat ClamAV in zo'n bijlage vindt, wordt alleen voor die bijlage gemeld, niet nog eens voor het bijgevoegde bericht dat haar bevat. `virusScanErrors` somt de bijlagen op die ClamAV niet kon scannen, als `{filename, error}`: zo'n bericht kan een virus bevatten, houd het dus vast in plaats van het af te leveren. De milter en het contentfilter stellen zo'n bericht uit, tenzij `onError` (`--on-error`) `accept` is, en elke server markeert zo'n bericht dat hij doorgeeft met `X-Spam-Virus-Scan: failed`. `virusScanSkipped` somt de bijlagen op die groter zijn dan clamd accepteert (zijn `StreamMaxLength`), als `{filename, reason}`: clamd weigert ze bij elke poging, dus gelden ze, zoals clamav-milter een bestand boven zijn `MaxFileSize` overslaat, niet als fout. De andere limieten van clamd (`MaxScanSize`, `MaxFiles`, `MaxRecursion`, `MaxScanTime`), die een archiefbom bereikt, gelden wel als fout.
+Bevindingen in `phishing`, `attachments`, `executables`, `macros`, `viruses` en `arbitrary` zijn objecten met een `type` en een `message`. `String(finding)` is het bericht. Bijlagen van een bijgevoegd bericht (`message/rfc822`, `.eml`) krijgen de naam daarvan: `fw.eml/invoice.exe`. Een virus dat ClamAV in zo'n bijlage vindt, wordt alleen voor die bijlage gemeld, niet nog eens voor het bijgevoegde bericht dat haar bevat. `virusScanErrors` somt de bijlagen op die ClamAV niet kon scannen, als `{filename, error}`: zo'n bericht kan een virus bevatten, houd het dus vast in plaats van het af te leveren. De milter en het contentfilter stellen zo'n bericht uit, tenzij `onError` (`--on-error`) `accept` is, en elke server markeert zo'n bericht dat hij doorgeeft met `X-Spam-Virus-Scan: failed`. `virusScanSkipped` somt de bijlagen op die groter zijn dan clamd accepteert (zijn `StreamMaxLength`), als `{filename, reason}`: clamd weigert ze bij elke poging, dus gelden ze, zoals clamav-milter een bestand boven zijn `MaxFileSize` overslaat, niet als fout. De andere limieten van clamd (`MaxScanSize`, `MaxFiles`, `MaxRecursion`, `MaxScanTime`), die een archiefbom bereikt, gelden wel als fout. Bijgevoegde berichten worden tot drie niveaus diep geopend, met hooguit 100 bijlagen erin en in totaal 25 MB; `unopenedAttachments` somt de berichten op die voorbij deze grenzen niet zijn geopend, als `{filename, reason}`, waarvan de bijlagen niet zijn gecontroleerd. Het telt niet mee in de score, omdat doorgestuurde berichten zo genest kunnen zijn, maar wie een bericht volledig gelezen nodig heeft, bijvoorbeeld om een programma erin te blokkeren, kan een bericht met zulke vermeldingen weigeren.
 
 Elk `dnsbl`-item bevat de `answers` van de lijst (adressen in 127.0.0.0/8, waarvan elke lijst de betekenis documenteert). De antwoorden die lijsten geven op vragen die ze weigeren of niet kunnen beantwoorden, zijn geen vermeldingen, voor het adres van de client of voor linkdomeinen (`uribl`-bevindingen in `phishing`): 127.255.255.x bij Spamhaus (zoals 127.255.255.254 voor een vraag via een publieke resolver, en 127.255.255.255 voor te veel vragen), 127.0.1.255 bij de Spamhaus DBL, 127.0.0.255 bij elke lijst, en 127.0.0.1 bij SURBL en URIBL, die dat antwoord geven aan resolvers die ze blokkeren.
 
@@ -160,7 +161,7 @@ Elk `dnsbl`-item bevat de `answers` van de lijst (adressen in 127.0.0.0/8, waarv
 
 ```js
 import SpamScanner, {
-  Classifier, getFeatures, segmentWords, detectLanguage,
+  Classifier, getFeatures, segmentWords, unwrapLink, detectLanguage,
   LLMClassifier, PROVIDERS, RECOMMENDED_MODELS, CLASSIFIER_MODELS, DECISION_MODELS,
   DEFAULT_SCORES, scoreResults, spamHeaders, rewriteMessage,
   loadModel, saveModel, defaultModelPath, loadDefaultModel,
@@ -169,6 +170,8 @@ import SpamScanner, {
   DEFAULTS, VERSION,
 } from 'spamscanner';
 import {SpamScanner} from 'spamscanner'; // the same class, as a named export
+// unwrapLink(address): the URL a link goes to, through Safe Links and
+// Proofpoint URL Defense, as the scanner reads it (null for no URL)
 
 import ArfParser from 'spamscanner/arf';
 ```

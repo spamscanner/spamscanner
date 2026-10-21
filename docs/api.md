@@ -92,9 +92,9 @@ Each entry is one IP address, domain or email address, matched exactly: a domain
 | `getFeatures(mail)`                  | `{features, words, language, script, links, hosts, text, hidden}` of a message     |
 | `getTokens(text, locale)`            | The words of a text                                                                |
 | `getTokensAndMailFromSource(source)` | `{tokens, features, mail}`                                                         |
-| `parse(source)`                      | `{raw, mail}`, with `mail` from mailparser (see below)                             |
+| `parse(source)`                      | `{raw, mail, error}`, with `mail` from mailparser (see below)                      |
 
-`scan`, `parse`, `learn`, `unlearn` and `getTokensAndMailFromSource` all read a message the same way: one beyond the MIME parser's limits (more than 1000 parts, a part's header over 1 MB) is read as far as the parser allows. Address fields (From, To, Cc, Bcc, Sender, Reply-To, Delivered-To, Return-Path, Disposition-Notification-To and List-\*), of the message, its parts and attached messages, are read up to 16 KB each, 2000 commas and semicolons and 16 nested groups, and 64 KB in all for each message, always to the end of a whole address, so no address is read that the field does not give; a field cut is marked `truncated` (`mail.to.truncated`), and a From field cut gives no credit for the sender's authentication. Text whose first line is not a header field (`Name: value`, or the `From` line that starts each message in mbox files) is read as the body of a message with no header, so `mail.text` is that text. Other errors are thrown.
+`scan`, `parse`, `learn`, `unlearn` and `getTokensAndMailFromSource` all read a message the same way: one beyond the MIME parser's limits (more than 1000 parts, a part's header over 1 MB) is read as far as the parser allows. Address fields (From, To, Cc, Bcc, Sender, Reply-To, Delivered-To, Return-Path, Disposition-Notification-To and List-\*), of the message, its parts and attached messages, are read up to 16 KB each, 2000 commas and semicolons and 16 nested groups, and 64 KB in all for each message, always to the end of a whole address, so no address is read that the field does not give; a field cut is marked `truncated` (`mail.to.truncated`), and a From field cut gives no credit for the sender's authentication. Text whose first line is not a header field (`Name: value`, or the `From` line that starts each message in mbox files) is read as the body of a message with no header, so `mail.text` is that text. Other errors are thrown. `parse` gives the parser's limit a message is past as `error`, as `scan` gives it as `parseError`, and null for a message read whole.
 
 In `getFeatures`, `text` is the text a mail client shows, which the words are read from, and `hidden` how many characters of text the HTML hides. mailparser does not make text of HTML here: `mail.text` holds the plain text parts only, and is empty for a message of HTML alone; the text its HTML shows is `getFeatures(mail).text`.
 
@@ -129,6 +129,7 @@ In `getFeatures`, `text` is the text a mail client shows, which the words are re
     viruses: [],         // ClamAV findings: {filename, virus: [names], message}
     virusScanErrors: [], // attachments ClamAV could not scan: {filename, error}
     virusScanSkipped: [], // attachments larger than clamd accepts, not scanned: {filename, reason}
+    unopenedAttachments: [], // attached messages not opened, past the limits they are read within: {filename, reason}
     arbitrary: [],       // rules strong enough to mark spam alone
     obfuscation: {invisible, mixed, styled},
     authentication: null, // mailauth's results with a score, when checked
@@ -149,7 +150,7 @@ In `getFeatures`, `text` is the text a mail client shows, which the words are re
 }
 ```
 
-Findings in `phishing`, `attachments`, `executables`, `macros`, `viruses` and `arbitrary` are objects with a `type` and a `message`. `String(finding)` is the message. Attachments of an attached message (`message/rfc822`, `.eml`) are named after it: `fw.eml/invoice.exe`. A virus ClamAV finds in such an attachment is reported for it alone, not again for the attached message that carries it. `virusScanErrors` lists the attachments ClamAV could not scan, as `{filename, error}`: such a message may hold a virus, so hold it rather than deliver it. The milter and the content filter defer it unless `onError` (`--on-error`) is `accept`, and every server marks such a message it passes on with `X-Spam-Virus-Scan: failed`. `virusScanSkipped` lists those larger than clamd accepts (its `StreamMaxLength`), as `{filename, reason}`: clamd refuses them on every try, so, as clamav-milter skips a file over its `MaxFileSize`, they are not failures. Its other limits (`MaxScanSize`, `MaxFiles`, `MaxRecursion`, `MaxScanTime`), which an archive bomb reaches, are failures.
+Findings in `phishing`, `attachments`, `executables`, `macros`, `viruses` and `arbitrary` are objects with a `type` and a `message`. `String(finding)` is the message. Attachments of an attached message (`message/rfc822`, `.eml`) are named after it: `fw.eml/invoice.exe`. A virus ClamAV finds in such an attachment is reported for it alone, not again for the attached message that carries it. `virusScanErrors` lists the attachments ClamAV could not scan, as `{filename, error}`: such a message may hold a virus, so hold it rather than deliver it. The milter and the content filter defer it unless `onError` (`--on-error`) is `accept`, and every server marks such a message it passes on with `X-Spam-Virus-Scan: failed`. `virusScanSkipped` lists those larger than clamd accepts (its `StreamMaxLength`), as `{filename, reason}`: clamd refuses them on every try, so, as clamav-milter skips a file over its `MaxFileSize`, they are not failures. Its other limits (`MaxScanSize`, `MaxFiles`, `MaxRecursion`, `MaxScanTime`), which an archive bomb reaches, are failures. Attached messages are opened three deep, for at most 100 attachments in them and 25 MB of them in all; `unopenedAttachments` lists those not opened past these limits, as `{filename, reason}`, whose attachments were not inspected. It is not scored, as forwarded messages can be nested so, but a caller that needs a message read whole, for example to block a program it carries, can refuse one with any.
 
 Each `dnsbl` item carries the list's `answers` (addresses in 127.0.0.0/8, whose meaning each list documents). The answers lists give queries they refuse or cannot answer are not listings, for the client's address or for link domains (`uribl` findings in `phishing`): 127.255.255.x at Spamhaus (such as 127.255.255.254 for a query through a public resolver, and 127.255.255.255 for too many queries), 127.0.1.255 at the Spamhaus DBL, 127.0.0.255 at any list, and 127.0.0.1 at SURBL and URIBL, which answer it to resolvers they block.
 
@@ -158,7 +159,7 @@ Each `dnsbl` item carries the list's `answers` (addresses in 127.0.0.0/8, whose 
 
 ```js
 import SpamScanner, {
-  Classifier, getFeatures, segmentWords, detectLanguage,
+  Classifier, getFeatures, segmentWords, unwrapLink, detectLanguage,
   LLMClassifier, PROVIDERS, RECOMMENDED_MODELS, CLASSIFIER_MODELS, DECISION_MODELS,
   DEFAULT_SCORES, scoreResults, spamHeaders, rewriteMessage,
   loadModel, saveModel, defaultModelPath, loadDefaultModel,
@@ -167,6 +168,8 @@ import SpamScanner, {
   DEFAULTS, VERSION,
 } from 'spamscanner';
 import {SpamScanner} from 'spamscanner'; // the same class, as a named export
+// unwrapLink(address): the URL a link goes to, through Safe Links and
+// Proofpoint URL Defense, as the scanner reads it (null for no URL)
 
 import ArfParser from 'spamscanner/arf';
 ```

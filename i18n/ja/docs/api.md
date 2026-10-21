@@ -1,4 +1,4 @@
-<!-- source: 581d018dd514 -->
+<!-- source: e15795fd8287 -->
 
 # APIリファレンス
 
@@ -94,9 +94,9 @@ await scanner.scan(raw, {authenticationResults: auth});
 | `getFeatures(mail)`                  | メッセージの`{features, words, language, script, links, hosts, text, hidden}` |
 | `getTokens(text, locale)`            | テキストの単語                                                                 |
 | `getTokensAndMailFromSource(source)` | `{tokens, features, mail}`                                              |
-| `parse(source)`                      | `{raw, mail}`。`mail`はmailparserによるもの（下記参照）                              |
+| `parse(source)`                      | `{raw, mail, error}`。`mail`はmailparserによるもの（下記参照）                       |
 
-`scan`、`parse`、`learn`、`unlearn`、`getTokensAndMailFromSource` はすべて同じようにメッセージを読みます。MIME パーサーの上限（1000 を超えるパート、1 MB を超えるパートのヘッダー）を超えるメッセージは、パーサーが許す範囲まで読みます。アドレスフィールド（From、To、Cc、Bcc、Sender、Reply-To、Delivered-To、Return-Path、Disposition-Notification-To、List-\*）は、メッセージ、そのパート、添付されたメッセージのいずれでも、それぞれ 16 KB、カンマとセミコロン 2000 個、入れ子のグループ 16 段まで、メッセージごとに合計 64 KB まで読みます。常に完全なアドレスの終わりまで読むため、フィールドにないアドレスを読むことはありません。切り詰めたフィールドには `truncated` の印を付け（`mail.to.truncated`）、切り詰めた From フィールドでは送信者の認証による加点はありません。最初の行がヘッダーフィールド（`Name: value`、または mbox ファイルで各メッセージの先頭にある `From` 行）でないテキストは、ヘッダーのないメッセージの本文として読むため、`mail.text` はそのテキストになります。その他のエラーは例外として投げられます。
+`scan`、`parse`、`learn`、`unlearn`、`getTokensAndMailFromSource` はすべて同じようにメッセージを読みます。MIME パーサーの上限（1000 を超えるパート、1 MB を超えるパートのヘッダー）を超えるメッセージは、パーサーが許す範囲まで読みます。アドレスフィールド（From、To、Cc、Bcc、Sender、Reply-To、Delivered-To、Return-Path、Disposition-Notification-To、List-\*）は、メッセージ、そのパート、添付されたメッセージのいずれでも、それぞれ 16 KB、カンマとセミコロン 2000 個、入れ子のグループ 16 段まで、メッセージごとに合計 64 KB まで読みます。常に完全なアドレスの終わりまで読むため、フィールドにないアドレスを読むことはありません。切り詰めたフィールドには `truncated` の印を付け（`mail.to.truncated`）、切り詰めた From フィールドでは送信者の認証による加点はありません。最初の行がヘッダーフィールド（`Name: value`、または mbox ファイルで各メッセージの先頭にある `From` 行）でないテキストは、ヘッダーのないメッセージの本文として読むため、`mail.text` はそのテキストになります。その他のエラーは例外として投げられます。`parse` は、メッセージが超えたパーサーの上限を `error` で返します。これは `scan` が `parseError` で返すのと同じで、全体を読めたメッセージでは null です。
 
 `getFeatures`では、`text`はメールクライアントが表示するテキストで、単語はここから読み取られます。`hidden`はHTMLが隠しているテキストの文字数です。ここでは mailparser は HTML からテキストを作りません。`mail.text` にはプレーンテキストのパートだけが入り、HTML だけのメッセージでは空になります。HTML が表示するテキストは `getFeatures(mail).text` です。
 
@@ -131,6 +131,7 @@ await scanner.scan(raw, {authenticationResults: auth});
     viruses: [],         // ClamAV findings: {filename, virus: [names], message}
     virusScanErrors: [], // attachments ClamAV could not scan: {filename, error}
     virusScanSkipped: [], // attachments larger than clamd accepts, not scanned: {filename, reason}
+    unopenedAttachments: [], // attached messages not opened, past the limits they are read within: {filename, reason}
     arbitrary: [],       // rules strong enough to mark spam alone
     obfuscation: {invisible, mixed, styled},
     authentication: null, // mailauth's results with a score, when checked
@@ -151,7 +152,7 @@ await scanner.scan(raw, {authenticationResults: auth});
 }
 ```
 
-`phishing`、`attachments`、`executables`、`macros`、`viruses`、`arbitrary`の検出結果は、`type`と`message`を持つオブジェクトです。`String(finding)`はそのメッセージになります。添付されたメッセージ（`message/rfc822`、`.eml`）の添付ファイルは、そのメッセージ名を付けて呼ばれます（`fw.eml/invoice.exe`）。そのような添付ファイルで ClamAV が見つけたウイルスは、その添付ファイルについてだけ報告し、それを含む添付されたメッセージについて重ねて報告することはありません。`virusScanErrors` は ClamAV がスキャンできなかった添付ファイルを `{filename, error}` の形で列挙します。そのようなメッセージはウイルスを含むかもしれないので、配送せずに保留してください。milter とコンテンツフィルターは、`onError`（`--on-error`）が `accept` でない限りそのメッセージを延期します。また、どのサーバーも、そのようなメッセージを通過させる場合は `X-Spam-Virus-Scan: failed` を付けます。`virusScanSkipped` は、clamd が受け付けるサイズ（clamd の `StreamMaxLength`）より大きい添付ファイルを `{filename, reason}` の形で列挙します。clamd はこれらを何度試しても拒否するため、clamav-milter が `MaxFileSize` を超えるファイルをスキップするのと同じく、失敗とはみなしません。clamd のその他の上限（`MaxScanSize`、`MaxFiles`、`MaxRecursion`、`MaxScanTime`）は、アーカイブ爆弾が達するものであり、失敗とみなします。
+`phishing`、`attachments`、`executables`、`macros`、`viruses`、`arbitrary`の検出結果は、`type`と`message`を持つオブジェクトです。`String(finding)`はそのメッセージになります。添付されたメッセージ（`message/rfc822`、`.eml`）の添付ファイルは、そのメッセージ名を付けて呼ばれます（`fw.eml/invoice.exe`）。そのような添付ファイルで ClamAV が見つけたウイルスは、その添付ファイルについてだけ報告し、それを含む添付されたメッセージについて重ねて報告することはありません。`virusScanErrors` は ClamAV がスキャンできなかった添付ファイルを `{filename, error}` の形で列挙します。そのようなメッセージはウイルスを含むかもしれないので、配送せずに保留してください。milter とコンテンツフィルターは、`onError`（`--on-error`）が `accept` でない限りそのメッセージを延期します。また、どのサーバーも、そのようなメッセージを通過させる場合は `X-Spam-Virus-Scan: failed` を付けます。`virusScanSkipped` は、clamd が受け付けるサイズ（clamd の `StreamMaxLength`）より大きい添付ファイルを `{filename, reason}` の形で列挙します。clamd はこれらを何度試しても拒否するため、clamav-milter が `MaxFileSize` を超えるファイルをスキップするのと同じく、失敗とはみなしません。clamd のその他の上限（`MaxScanSize`、`MaxFiles`、`MaxRecursion`、`MaxScanTime`）は、アーカイブ爆弾が達するものであり、失敗とみなします。添付されたメッセージは、3 階層の深さまで、その中の添付ファイル 100 個まで、合計 25 MB まで開きます。`unopenedAttachments` は、これらの上限を超えて開かなかったものを `{filename, reason}` として列挙し、その添付ファイルは検査していません。転送されたメッセージはこのように入れ子になることがあるため、スコアには加えませんが、メッセージを全体まで読む必要がある呼び出し側は、たとえば含まれるプログラムをブロックするために、これがひとつでもあるメッセージを拒否できます。
 
 `dnsbl` の各項目には、そのリストの `answers`（127.0.0.0/8 内のアドレスで、意味は各リストが文書化しています）が含まれます。リストが拒否した、または答えられないクエリに返す回答は、クライアントのアドレスについてもリンクのドメイン（`phishing` 内の `uribl` の検出結果）についても、掲載ではありません。Spamhaus の 127.255.255.x（公開リゾルバー経由のクエリに対する 127.255.255.254、クエリ過多に対する 127.255.255.255 など）、Spamhaus DBL の 127.0.1.255、すべてのリストの 127.0.0.255、そして SURBL と URIBL がブロックしているリゾルバーに返す 127.0.0.1 です。
 
@@ -160,7 +161,7 @@ await scanner.scan(raw, {authenticationResults: auth});
 
 ```js
 import SpamScanner, {
-  Classifier, getFeatures, segmentWords, detectLanguage,
+  Classifier, getFeatures, segmentWords, unwrapLink, detectLanguage,
   LLMClassifier, PROVIDERS, RECOMMENDED_MODELS, CLASSIFIER_MODELS, DECISION_MODELS,
   DEFAULT_SCORES, scoreResults, spamHeaders, rewriteMessage,
   loadModel, saveModel, defaultModelPath, loadDefaultModel,
@@ -169,6 +170,8 @@ import SpamScanner, {
   DEFAULTS, VERSION,
 } from 'spamscanner';
 import {SpamScanner} from 'spamscanner'; // the same class, as a named export
+// unwrapLink(address): the URL a link goes to, through Safe Links and
+// Proofpoint URL Defense, as the scanner reads it (null for no URL)
 
 import ArfParser from 'spamscanner/arf';
 ```

@@ -1,4 +1,4 @@
-<!-- source: 581d018dd514 -->
+<!-- source: e15795fd8287 -->
 
 # Referensi API
 
@@ -94,9 +94,9 @@ Setiap entri adalah satu alamat IP, domain, atau alamat email, yang dicocokkan s
 | `getFeatures(mail)`                  | `{features, words, language, script, links, hosts, text, hidden}` dari pesan       |
 | `getTokens(text, locale)`            | Kata-kata dari sebuah teks                                                         |
 | `getTokensAndMailFromSource(source)` | `{tokens, features, mail}`                                                         |
-| `parse(source)`                      | `{raw, mail}`, dengan `mail` dari mailparser (lihat di bawah)                      |
+| `parse(source)`                      | `{raw, mail, error}`, dengan `mail` dari mailparser (lihat di bawah)               |
 
-`scan`, `parse`, `learn`, `unlearn`, dan `getTokensAndMailFromSource` semuanya membaca pesan dengan cara yang sama: pesan yang melampaui batas parser MIME (lebih dari 1000 bagian, header bagian lebih dari 1 MB) dibaca sejauh yang diizinkan parser. Field alamat (From, To, Cc, Bcc, Sender, Reply-To, Delivered-To, Return-Path, Disposition-Notification-To, dan List-\*), dari pesan, bagian-bagiannya, dan pesan yang dilampirkan, dibaca hingga 16 KB masing-masing, 2000 koma dan titik koma, dan 16 grup bersarang, serta 64 KB secara keseluruhan untuk setiap pesan, selalu sampai akhir sebuah alamat yang utuh, sehingga tidak ada alamat yang dibaca yang tidak diberikan oleh field itu; field yang dipotong ditandai `truncated` (`mail.to.truncated`), dan field From yang dipotong tidak memberi kredit apa pun untuk autentikasi pengirim. Teks yang baris pertamanya bukan bidang header (`Name: value`, atau baris `From` yang mengawali setiap pesan dalam file mbox) dibaca sebagai isi pesan tanpa header, sehingga `mail.text` adalah teks itu. Kesalahan lain dilempar.
+`scan`, `parse`, `learn`, `unlearn`, dan `getTokensAndMailFromSource` semuanya membaca pesan dengan cara yang sama: pesan yang melampaui batas parser MIME (lebih dari 1000 bagian, header bagian lebih dari 1 MB) dibaca sejauh yang diizinkan parser. Field alamat (From, To, Cc, Bcc, Sender, Reply-To, Delivered-To, Return-Path, Disposition-Notification-To, dan List-\*), dari pesan, bagian-bagiannya, dan pesan yang dilampirkan, dibaca hingga 16 KB masing-masing, 2000 koma dan titik koma, dan 16 grup bersarang, serta 64 KB secara keseluruhan untuk setiap pesan, selalu sampai akhir sebuah alamat yang utuh, sehingga tidak ada alamat yang dibaca yang tidak diberikan oleh field itu; field yang dipotong ditandai `truncated` (`mail.to.truncated`), dan field From yang dipotong tidak memberi kredit apa pun untuk autentikasi pengirim. Teks yang baris pertamanya bukan bidang header (`Name: value`, atau baris `From` yang mengawali setiap pesan dalam file mbox) dibaca sebagai isi pesan tanpa header, sehingga `mail.text` adalah teks itu. Kesalahan lain dilempar. `parse` memberikan batas parser yang dilampaui pesan sebagai `error`, seperti `scan` memberikannya sebagai `parseError`, dan null untuk pesan yang terbaca utuh.
 
 Pada `getFeatures`, `text` adalah teks yang ditampilkan klien email, tempat kata-kata dibaca, dan `hidden` adalah jumlah karakter teks yang disembunyikan HTML. Di sini mailparser tidak membuat teks dari HTML: `mail.text` hanya berisi bagian teks biasa, dan kosong untuk pesan yang hanya berisi HTML; teks yang ditampilkan HTML-nya adalah `getFeatures(mail).text`.
 
@@ -131,6 +131,7 @@ Pada `getFeatures`, `text` adalah teks yang ditampilkan klien email, tempat kata
     viruses: [],         // ClamAV findings: {filename, virus: [names], message}
     virusScanErrors: [], // attachments ClamAV could not scan: {filename, error}
     virusScanSkipped: [], // attachments larger than clamd accepts, not scanned: {filename, reason}
+    unopenedAttachments: [], // attached messages not opened, past the limits they are read within: {filename, reason}
     arbitrary: [],       // rules strong enough to mark spam alone
     obfuscation: {invisible, mixed, styled},
     authentication: null, // mailauth's results with a score, when checked
@@ -151,7 +152,7 @@ Pada `getFeatures`, `text` adalah teks yang ditampilkan klien email, tempat kata
 }
 ```
 
-Temuan di `phishing`, `attachments`, `executables`, `macros`, `viruses`, dan `arbitrary` berupa objek dengan `type` dan `message`. `String(finding)` adalah pesannya. Lampiran dari pesan yang dilampirkan (`message/rfc822`, `.eml`) diberi nama menurut pesan itu: `fw.eml/invoice.exe`. Virus yang ditemukan ClamAV dalam lampiran seperti itu dilaporkan hanya untuk lampiran itu, tidak lagi untuk pesan terlampir yang membawanya. `virusScanErrors` mencantumkan lampiran yang tidak dapat dipindai ClamAV, sebagai `{filename, error}`: pesan seperti itu mungkin berisi virus, jadi tahan pesan itu alih-alih mengirimkannya. Milter dan content filter menundanya kecuali `onError` (`--on-error`) bernilai `accept`, dan setiap server menandai pesan seperti itu yang diteruskannya dengan `X-Spam-Virus-Scan: failed`. `virusScanSkipped` mencantumkan lampiran yang lebih besar daripada yang diterima clamd (`StreamMaxLength`-nya), sebagai `{filename, reason}`: clamd menolaknya pada setiap percobaan, jadi, sebagaimana clamav-milter melewati berkas yang melebihi `MaxFileSize`-nya, lampiran itu bukan kegagalan. Batas lainnya (`MaxScanSize`, `MaxFiles`, `MaxRecursion`, `MaxScanTime`), yang dicapai oleh bom arsip, adalah kegagalan.
+Temuan di `phishing`, `attachments`, `executables`, `macros`, `viruses`, dan `arbitrary` berupa objek dengan `type` dan `message`. `String(finding)` adalah pesannya. Lampiran dari pesan yang dilampirkan (`message/rfc822`, `.eml`) diberi nama menurut pesan itu: `fw.eml/invoice.exe`. Virus yang ditemukan ClamAV dalam lampiran seperti itu dilaporkan hanya untuk lampiran itu, tidak lagi untuk pesan terlampir yang membawanya. `virusScanErrors` mencantumkan lampiran yang tidak dapat dipindai ClamAV, sebagai `{filename, error}`: pesan seperti itu mungkin berisi virus, jadi tahan pesan itu alih-alih mengirimkannya. Milter dan content filter menundanya kecuali `onError` (`--on-error`) bernilai `accept`, dan setiap server menandai pesan seperti itu yang diteruskannya dengan `X-Spam-Virus-Scan: failed`. `virusScanSkipped` mencantumkan lampiran yang lebih besar daripada yang diterima clamd (`StreamMaxLength`-nya), sebagai `{filename, reason}`: clamd menolaknya pada setiap percobaan, jadi, sebagaimana clamav-milter melewati berkas yang melebihi `MaxFileSize`-nya, lampiran itu bukan kegagalan. Batas lainnya (`MaxScanSize`, `MaxFiles`, `MaxRecursion`, `MaxScanTime`), yang dicapai oleh bom arsip, adalah kegagalan. Pesan terlampir dibuka hingga tiga tingkat, dengan paling banyak 100 lampiran di dalamnya dan total 25 MB; `unopenedAttachments` mencantumkan pesan yang tidak dibuka karena melewati batas ini, sebagai `{filename, reason}`, yang lampirannya tidak diperiksa. Ini tidak dihitung dalam skor, karena pesan yang diteruskan bisa bersarang seperti itu, tetapi pemanggil yang memerlukan pesan terbaca utuh, misalnya untuk memblokir program yang dibawanya, dapat menolak pesan yang memilikinya.
 
 Setiap item `dnsbl` membawa `answers` dari daftar itu (alamat dalam 127.0.0.0/8, yang maknanya didokumentasikan oleh setiap daftar). Jawaban yang diberikan daftar untuk kueri yang mereka tolak atau tidak dapat dijawab bukanlah listing, baik untuk alamat klien maupun untuk domain tautan (temuan `uribl` di `phishing`): 127.255.255.x di Spamhaus (seperti 127.255.255.254 untuk kueri melalui resolver publik, dan 127.255.255.255 untuk terlalu banyak kueri), 127.0.1.255 di Spamhaus DBL, 127.0.0.255 di daftar mana pun, dan 127.0.0.1 di SURBL dan URIBL, yang memberikannya kepada resolver yang mereka blokir.
 
@@ -160,7 +161,7 @@ Setiap item `dnsbl` membawa `answers` dari daftar itu (alamat dalam 127.0.0.0/8,
 
 ```js
 import SpamScanner, {
-  Classifier, getFeatures, segmentWords, detectLanguage,
+  Classifier, getFeatures, segmentWords, unwrapLink, detectLanguage,
   LLMClassifier, PROVIDERS, RECOMMENDED_MODELS, CLASSIFIER_MODELS, DECISION_MODELS,
   DEFAULT_SCORES, scoreResults, spamHeaders, rewriteMessage,
   loadModel, saveModel, defaultModelPath, loadDefaultModel,
@@ -169,6 +170,8 @@ import SpamScanner, {
   DEFAULTS, VERSION,
 } from 'spamscanner';
 import {SpamScanner} from 'spamscanner'; // the same class, as a named export
+// unwrapLink(address): the URL a link goes to, through Safe Links and
+// Proofpoint URL Defense, as the scanner reads it (null for no URL)
 
 import ArfParser from 'spamscanner/arf';
 ```

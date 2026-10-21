@@ -1000,6 +1000,23 @@ describe('links through security gateways and mailing services', () => {
 		assert.equal(unwrapLink(proofpoint3('https://www.example.org/report')).href, 'https://www.example.org/report');
 		// (wrapped twice)
 		assert.equal(unwrapLink(safeLinks(proofpoint3('https://www.example.org/'))).hostname, 'www.example.org');
+		// (a link through no gateway makes one URL, rather than also one that
+		//  throws for each)
+		const {URL: Original} = globalThis;
+		let made = 0;
+		globalThis.URL = class extends Original {
+			constructor(...args) {
+				made++;
+				super(...args);
+			}
+		};
+		try {
+			assert.equal(unwrapLink('https://www.example.org/plain').href, 'https://www.example.org/plain');
+		} finally {
+			globalThis.URL = Original;
+		}
+
+		assert.equal(made, 1);
 		// (no address in it, or none that is a web address: the gateway's own)
 		for (const address of ['https://eur01.safelinks.protection.outlook.com/?data=1', safeLinks('mailto:a@example.org'), 'https://urldefense.proofpoint.com/v2/url?u=https-3A__', 'https://urldefense.proofpoint.com/v2/url?u=-E0', 'https://urldefense.proofpoint.com/v2/url?d=DwMFaQ', 'https://urldefense.com/v3/__https://www.example.org/', 'https://protect-eu.mimecast.com/s/AbCd?domain=example.org']) {
 			assert.equal(registrableDomain(unwrapLink(address).hostname), registrableDomain(new URL(address).hostname), address);

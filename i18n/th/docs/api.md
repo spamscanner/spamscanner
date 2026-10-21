@@ -1,4 +1,4 @@
-<!-- source: 581d018dd514 -->
+<!-- source: e15795fd8287 -->
 
 # เอกสารอ้างอิง API
 
@@ -94,9 +94,9 @@ await scanner.scan(raw, {authenticationResults: auth});
 | `getFeatures(mail)`                  | `{features, words, language, script, links, hosts, text, hidden}` ของข้อความ |
 | `getTokens(text, locale)`            | คำในข้อความ                                                                  |
 | `getTokensAndMailFromSource(source)` | `{tokens, features, mail}`                                                   |
-| `parse(source)`                      | `{raw, mail}` โดย `mail` มาจาก mailparser (ดูด้านล่าง)                       |
+| `parse(source)`                      | `{raw, mail, error}` โดย `mail` มาจาก mailparser (ดูด้านล่าง)                |
 
-`scan`, `parse`, `learn`, `unlearn` และ `getTokensAndMailFromSource` ล้วนอ่านข้อความด้วยวิธีเดียวกัน: ข้อความที่เกินขีดจำกัดของตัวแยกวิเคราะห์ MIME (มากกว่า 1000 ส่วน หรือเฮดเดอร์ของส่วนหนึ่งเกิน 1 MB) จะถูกอ่านเท่าที่ตัวแยกวิเคราะห์อนุญาต ฟิลด์ที่อยู่ (From, To, Cc, Bcc, Sender, Reply-To, Delivered-To, Return-Path, Disposition-Notification-To และ List-\*) ของข้อความ ส่วนต่าง ๆ ของข้อความ และข้อความที่แนบมา จะถูกอ่านได้ฟิลด์ละไม่เกิน 16 KB เครื่องหมายจุลภาคและอัฒภาครวมไม่เกิน 2000 ตัว และกลุ่มซ้อนกันไม่เกิน 16 ชั้น และรวมกันไม่เกิน 64 KB ต่อข้อความ โดยอ่านจนจบที่อยู่ที่สมบูรณ์เสมอ จึงไม่มีการอ่านที่อยู่ใดที่ฟิลด์ไม่ได้ให้ไว้ ฟิลด์ที่ถูกตัดจะถูกทำเครื่องหมาย `truncated` (`mail.to.truncated`) และฟิลด์ From ที่ถูกตัดจะไม่ได้รับเครดิตจากการยืนยันตัวตนของผู้ส่ง ข้อความที่บรรทัดแรกไม่ใช่ฟิลด์เฮดเดอร์ (`Name: value` หรือบรรทัด `From` ที่ขึ้นต้นแต่ละข้อความในไฟล์ mbox) จะถูกอ่านเป็นเนื้อความของข้อความที่ไม่มีเฮดเดอร์ `mail.text` จึงเป็นข้อความนั้น ข้อผิดพลาดอื่นจะถูกโยนออกมา
+`scan`, `parse`, `learn`, `unlearn` และ `getTokensAndMailFromSource` ล้วนอ่านข้อความด้วยวิธีเดียวกัน: ข้อความที่เกินขีดจำกัดของตัวแยกวิเคราะห์ MIME (มากกว่า 1000 ส่วน หรือเฮดเดอร์ของส่วนหนึ่งเกิน 1 MB) จะถูกอ่านเท่าที่ตัวแยกวิเคราะห์อนุญาต ฟิลด์ที่อยู่ (From, To, Cc, Bcc, Sender, Reply-To, Delivered-To, Return-Path, Disposition-Notification-To และ List-\*) ของข้อความ ส่วนต่าง ๆ ของข้อความ และข้อความที่แนบมา จะถูกอ่านได้ฟิลด์ละไม่เกิน 16 KB เครื่องหมายจุลภาคและอัฒภาครวมไม่เกิน 2000 ตัว และกลุ่มซ้อนกันไม่เกิน 16 ชั้น และรวมกันไม่เกิน 64 KB ต่อข้อความ โดยอ่านจนจบที่อยู่ที่สมบูรณ์เสมอ จึงไม่มีการอ่านที่อยู่ใดที่ฟิลด์ไม่ได้ให้ไว้ ฟิลด์ที่ถูกตัดจะถูกทำเครื่องหมาย `truncated` (`mail.to.truncated`) และฟิลด์ From ที่ถูกตัดจะไม่ได้รับเครดิตจากการยืนยันตัวตนของผู้ส่ง ข้อความที่บรรทัดแรกไม่ใช่ฟิลด์เฮดเดอร์ (`Name: value` หรือบรรทัด `From` ที่ขึ้นต้นแต่ละข้อความในไฟล์ mbox) จะถูกอ่านเป็นเนื้อความของข้อความที่ไม่มีเฮดเดอร์ `mail.text` จึงเป็นข้อความนั้น ข้อผิดพลาดอื่นจะถูกโยนออกมา `parse` ให้ขีดจำกัดของตัวแยกวิเคราะห์ที่ข้อความเกินเป็น `error` เช่นเดียวกับที่ `scan` ให้เป็น `parseError` และให้ null สำหรับข้อความที่อ่านครบถ้วน
 
 ใน `getFeatures` นั้น `text` คือข้อความที่โปรแกรมอีเมลแสดง ซึ่งเป็นที่มาของคำที่อ่าน และ `hidden` คือจำนวนอักขระของข้อความที่ HTML ซ่อนไว้ ในที่นี้ mailparser ไม่ได้แปลง HTML เป็นข้อความ: `mail.text` มีเฉพาะส่วนที่เป็นข้อความธรรมดา และว่างเปล่าสำหรับข้อความที่มีแต่ HTML ส่วนข้อความที่ HTML แสดงคือ `getFeatures(mail).text`
 
@@ -131,6 +131,7 @@ await scanner.scan(raw, {authenticationResults: auth});
     viruses: [],         // ClamAV findings: {filename, virus: [names], message}
     virusScanErrors: [], // attachments ClamAV could not scan: {filename, error}
     virusScanSkipped: [], // attachments larger than clamd accepts, not scanned: {filename, reason}
+    unopenedAttachments: [], // attached messages not opened, past the limits they are read within: {filename, reason}
     arbitrary: [],       // rules strong enough to mark spam alone
     obfuscation: {invisible, mixed, styled},
     authentication: null, // mailauth's results with a score, when checked
@@ -151,7 +152,7 @@ await scanner.scan(raw, {authenticationResults: auth});
 }
 ```
 
-สิ่งที่พบใน `phishing`, `attachments`, `executables`, `macros`, `viruses` และ `arbitrary` เป็นออบเจ็กต์ที่มี `type` และ `message` และ `String(finding)` ให้ค่าเป็นข้อความใน message ไฟล์แนบของข้อความที่แนบมา (`message/rfc822`, `.eml`) จะตั้งชื่อตามข้อความนั้น เช่น `fw.eml/invoice.exe` ไวรัสที่ ClamAV พบในไฟล์แนบเช่นนี้จะถูกรายงานสำหรับไฟล์แนบนั้นเท่านั้น ไม่รายงานซ้ำสำหรับข้อความที่แนบมาซึ่งบรรจุไฟล์นั้น ส่วน `virusScanErrors` แสดงไฟล์แนบที่ ClamAV สแกนไม่ได้ในรูป `{filename, error}` ข้อความเช่นนี้อาจมีไวรัส จึงควรกักไว้แทนการส่งต่อ milter และตัวกรองเนื้อหาจะเลื่อนข้อความนั้นออกไป เว้นแต่ `onError` (`--on-error`) เป็น `accept` และเซิร์ฟเวอร์ทุกแบบจะทำเครื่องหมายข้อความเช่นนี้ที่ส่งต่อไปด้วย `X-Spam-Virus-Scan: failed` ส่วน `virusScanSkipped` แสดงไฟล์แนบที่ใหญ่กว่าที่ clamd รับได้ (`StreamMaxLength` ของ clamd) ในรูป `{filename, reason}` clamd ปฏิเสธไฟล์เหล่านี้ทุกครั้งที่ลอง จึงไม่นับเป็นความล้มเหลว เช่นเดียวกับที่ clamav-milter ข้ามไฟล์ที่เกิน `MaxFileSize` ของมัน ส่วนขีดจำกัดอื่นของ clamd (`MaxScanSize`, `MaxFiles`, `MaxRecursion`, `MaxScanTime`) ซึ่ง archive bomb จะไปถึง นับเป็นความล้มเหลว
+สิ่งที่พบใน `phishing`, `attachments`, `executables`, `macros`, `viruses` และ `arbitrary` เป็นออบเจ็กต์ที่มี `type` และ `message` และ `String(finding)` ให้ค่าเป็นข้อความใน message ไฟล์แนบของข้อความที่แนบมา (`message/rfc822`, `.eml`) จะตั้งชื่อตามข้อความนั้น เช่น `fw.eml/invoice.exe` ไวรัสที่ ClamAV พบในไฟล์แนบเช่นนี้จะถูกรายงานสำหรับไฟล์แนบนั้นเท่านั้น ไม่รายงานซ้ำสำหรับข้อความที่แนบมาซึ่งบรรจุไฟล์นั้น ส่วน `virusScanErrors` แสดงไฟล์แนบที่ ClamAV สแกนไม่ได้ในรูป `{filename, error}` ข้อความเช่นนี้อาจมีไวรัส จึงควรกักไว้แทนการส่งต่อ milter และตัวกรองเนื้อหาจะเลื่อนข้อความนั้นออกไป เว้นแต่ `onError` (`--on-error`) เป็น `accept` และเซิร์ฟเวอร์ทุกแบบจะทำเครื่องหมายข้อความเช่นนี้ที่ส่งต่อไปด้วย `X-Spam-Virus-Scan: failed` ส่วน `virusScanSkipped` แสดงไฟล์แนบที่ใหญ่กว่าที่ clamd รับได้ (`StreamMaxLength` ของ clamd) ในรูป `{filename, reason}` clamd ปฏิเสธไฟล์เหล่านี้ทุกครั้งที่ลอง จึงไม่นับเป็นความล้มเหลว เช่นเดียวกับที่ clamav-milter ข้ามไฟล์ที่เกิน `MaxFileSize` ของมัน ส่วนขีดจำกัดอื่นของ clamd (`MaxScanSize`, `MaxFiles`, `MaxRecursion`, `MaxScanTime`) ซึ่ง archive bomb จะไปถึง นับเป็นความล้มเหลว ข้อความที่แนบมาจะถูกเปิดลึกได้สามระดับ โดยมีไฟล์แนบภายในได้ไม่เกิน 100 ไฟล์และรวมไม่เกิน 25 MB `unopenedAttachments` แสดงรายการข้อความที่ไม่ได้เปิดเพราะเกินขีดจำกัดเหล่านี้ในรูปแบบ `{filename, reason}` ซึ่งไฟล์แนบของข้อความเหล่านั้นไม่ได้รับการตรวจ รายการนี้ไม่นำมาคิดคะแนน เพราะข้อความที่ส่งต่ออาจซ้อนกันแบบนี้ได้ แต่ผู้เรียกที่ต้องการให้อ่านข้อความครบถ้วน เช่น เพื่อบล็อกโปรแกรมที่ข้อความนั้นพามา สามารถปฏิเสธข้อความที่มีรายการใดก็ได้
 
 แต่ละรายการใน `dnsbl` มี `answers` ของรายการนั้น (ที่อยู่ในช่วง 127.0.0.0/8 ซึ่งแต่ละรายการระบุความหมายไว้ในเอกสารของตน) คำตอบที่รายการต่าง ๆ ให้กับคำค้นที่ปฏิเสธหรือตอบไม่ได้ไม่ถือเป็นการขึ้นรายการ ทั้งสำหรับที่อยู่ของไคลเอนต์และสำหรับโดเมนของลิงก์ (สิ่งที่พบแบบ `uribl` ใน `phishing`): 127.255.255.x ที่ Spamhaus (เช่น 127.255.255.254 สำหรับคำค้นที่ผ่าน resolver สาธารณะ และ 127.255.255.255 สำหรับคำค้นที่มากเกินไป) 127.0.1.255 ที่ Spamhaus DBL, 127.0.0.255 ที่รายการใดก็ได้ และ 127.0.0.1 ที่ SURBL และ URIBL ซึ่งให้คำตอบนี้กับ resolver ที่ถูกบล็อก
 
@@ -160,7 +161,7 @@ await scanner.scan(raw, {authenticationResults: auth});
 
 ```js
 import SpamScanner, {
-  Classifier, getFeatures, segmentWords, detectLanguage,
+  Classifier, getFeatures, segmentWords, unwrapLink, detectLanguage,
   LLMClassifier, PROVIDERS, RECOMMENDED_MODELS, CLASSIFIER_MODELS, DECISION_MODELS,
   DEFAULT_SCORES, scoreResults, spamHeaders, rewriteMessage,
   loadModel, saveModel, defaultModelPath, loadDefaultModel,
@@ -169,6 +170,8 @@ import SpamScanner, {
   DEFAULTS, VERSION,
 } from 'spamscanner';
 import {SpamScanner} from 'spamscanner'; // the same class, as a named export
+// unwrapLink(address): the URL a link goes to, through Safe Links and
+// Proofpoint URL Defense, as the scanner reads it (null for no URL)
 
 import ArfParser from 'spamscanner/arf';
 ```

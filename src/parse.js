@@ -656,16 +656,25 @@ export async function parseWithin(raw, parse = parseMessage, deadline = Date.now
  * @param {(raw: Buffer) => Promise<object>} [parse] - for tests
  * @returns {Promise<Array<object>>}
  */
-export async function expandAttachments(attachments = [], errors = [], parse = parseMessage) {
+// (`unopened`: the attached messages not opened, past the limits above, as
+//  {filename, reason}, whose attachments were not inspected)
+export async function expandAttachments(attachments = [], errors = [], parse = parseMessage, unopened = []) {
 	const all = [];
 	// (one time limit for all of them)
 	const deadline = Date.now() + PARSE_TIMEOUT;
 	let budget = MAX_NESTED_BYTES;
 	let nested = 0;
+	let tooMany = false;
 	const visit = async (list, prefix, depth) => {
 		for (const attachment of list) {
 			if (prefix) {
 				if (nested >= MAX_ATTACHMENTS) {
+					// (once: the rest of them are not listed either)
+					if (!tooMany) {
+						tooMany = true;
+						unopened.push({filename: prefix, reason: `more than ${MAX_ATTACHMENTS} attachments in attached messages`});
+					}
+
 					return;
 				}
 
@@ -673,10 +682,21 @@ export async function expandAttachments(attachments = [], errors = [], parse = p
 			}
 
 			const name = attachment.filename || (prefix ? 'unnamed attachment' : '');
+			const filename = prefix ? `${prefix}/${name}` : (name || 'attached message');
 			all.push(prefix ? {...attachment, filename: `${prefix}/${name}`} : attachment);
 			const {content} = attachment;
 			const attached = attachment.contentType === 'message/rfc822' || /\.eml$/i.test(attachment.filename || '');
-			if (attached && depth < MAX_NESTED_DEPTH && Buffer.isBuffer(content) && content.length <= budget) {
+			if (attached && Buffer.isBuffer(content) && depth >= MAX_NESTED_DEPTH) {
+				unopened.push({filename, reason: `nested more than ${MAX_NESTED_DEPTH} deep`});
+				continue;
+			}
+
+			if (attached && Buffer.isBuffer(content) && content.length > budget) {
+				unopened.push({filename, reason: `past ${MAX_NESTED_BYTES / 1024 / 1024} MB of attached messages`});
+				continue;
+			}
+
+			if (attached && Buffer.isBuffer(content)) {
 				budget -= content.length;
 				let inner;
 				try {

@@ -1,4 +1,4 @@
-<!-- source: 581d018dd514 -->
+<!-- source: e15795fd8287 -->
 
 # API-viite
 
@@ -94,9 +94,9 @@ Jokainen merkintä on yksi IP-osoite, verkkotunnus tai sähköpostiosoite, ja si
 | `getFeatures(mail)`                  | `{features, words, language, script, links, hosts, text, hidden}` viestistä          |
 | `getTokens(text, locale)`            | Tekstin sanat                                                                        |
 | `getTokensAndMailFromSource(source)` | `{tokens, features, mail}`                                                           |
-| `parse(source)`                      | `{raw, mail}`, jossa `mail` tulee mailparserilta (katso alta)                        |
+| `parse(source)`                      | `{raw, mail, error}`, jossa `mail` tulee mailparserilta (katso alta)                 |
 
-`scan`, `parse`, `learn`, `unlearn` ja `getTokensAndMailFromSource` lukevat kaikki viestin samalla tavalla: MIME-jäsentimen rajat (yli 1000 osaa, osan otsake yli 1 Mt) ylittävästä viestistä luetaan niin paljon kuin jäsennin sallii. Osoitekentät (From, To, Cc, Bcc, Sender, Reply-To, Delivered-To, Return-Path, Disposition-Notification-To ja List-\*) viestissä, sen osissa ja liitetyissä viesteissä luetaan enintään 16 kt:n, 2000 pilkun ja puolipisteen ja 16 sisäkkäisen ryhmän verran kukin ja yhteensä enintään 64 kt viestiä kohden, aina kokonaisen osoitteen loppuun asti, joten mitään osoitetta, jota kenttä ei anna, ei lueta; katkaistu kenttä merkitään `truncated` (`mail.to.truncated`), eikä katkaistu From-kenttä anna hyvitystä lähettäjän todennuksesta. Teksti, jonka ensimmäinen rivi ei ole otsakekenttä (`Name: value` tai `From`-rivi, jolla jokainen viesti alkaa mbox-tiedostoissa), luetaan otsakkeettoman viestin rungoksi, joten `mail.text` on kyseinen teksti. Muut virheet heitetään.
+`scan`, `parse`, `learn`, `unlearn` ja `getTokensAndMailFromSource` lukevat kaikki viestin samalla tavalla: MIME-jäsentimen rajat (yli 1000 osaa, osan otsake yli 1 Mt) ylittävästä viestistä luetaan niin paljon kuin jäsennin sallii. Osoitekentät (From, To, Cc, Bcc, Sender, Reply-To, Delivered-To, Return-Path, Disposition-Notification-To ja List-\*) viestissä, sen osissa ja liitetyissä viesteissä luetaan enintään 16 kt:n, 2000 pilkun ja puolipisteen ja 16 sisäkkäisen ryhmän verran kukin ja yhteensä enintään 64 kt viestiä kohden, aina kokonaisen osoitteen loppuun asti, joten mitään osoitetta, jota kenttä ei anna, ei lueta; katkaistu kenttä merkitään `truncated` (`mail.to.truncated`), eikä katkaistu From-kenttä anna hyvitystä lähettäjän todennuksesta. Teksti, jonka ensimmäinen rivi ei ole otsakekenttä (`Name: value` tai `From`-rivi, jolla jokainen viesti alkaa mbox-tiedostoissa), luetaan otsakkeettoman viestin rungoksi, joten `mail.text` on kyseinen teksti. Muut virheet heitetään. `parse` ilmoittaa jäsentimen rajan, jonka viesti ylittää, kentässä `error`, kuten `scan` ilmoittaa sen kentässä `parseError`, ja null kokonaan luetulle viestille.
 
 Metodin `getFeatures` tuloksessa `text` on teksti, jonka sähköpostiohjelma näyttää ja josta sanat luetaan, ja `hidden` kertoo, kuinka monta merkkiä tekstiä HTML piilottaa. mailparser ei tässä tee HTML:stä tekstiä: `mail.text` sisältää vain pelkkää tekstiä olevat osat, ja se on tyhjä pelkästä HTML:stä koostuvassa viestissä; teksti, jonka sen HTML näyttää, on `getFeatures(mail).text`.
 
@@ -131,6 +131,7 @@ Metodin `getFeatures` tuloksessa `text` on teksti, jonka sähköpostiohjelma nä
     viruses: [],         // ClamAV findings: {filename, virus: [names], message}
     virusScanErrors: [], // attachments ClamAV could not scan: {filename, error}
     virusScanSkipped: [], // attachments larger than clamd accepts, not scanned: {filename, reason}
+    unopenedAttachments: [], // attached messages not opened, past the limits they are read within: {filename, reason}
     arbitrary: [],       // rules strong enough to mark spam alone
     obfuscation: {invisible, mixed, styled},
     authentication: null, // mailauth's results with a score, when checked
@@ -151,7 +152,7 @@ Metodin `getFeatures` tuloksessa `text` on teksti, jonka sähköpostiohjelma nä
 }
 ```
 
-Kohteissa `phishing`, `attachments`, `executables`, `macros`, `viruses` ja `arbitrary` olevat löydökset ovat olioita, joilla on `type` ja `message`. `String(finding)` on viesti. Liitetyn viestin (`message/rfc822`, `.eml`) liitteet nimetään sen mukaan: `fw.eml/invoice.exe`. Virus, jonka ClamAV löytää tällaisesta liitteestä, raportoidaan vain sille, ei uudelleen sen sisältävälle liitetylle viestille. `virusScanErrors` luettelee liitteet, joita ClamAV ei voinut tarkistaa, muodossa `{filename, error}`: tällainen viesti voi sisältää viruksen, joten pidätä se toimittamisen sijaan. Milter ja sisältösuodatin lykkäävät sitä, ellei `onError` (`--on-error`) ole `accept`, ja jokainen palvelin merkitsee tällaisen eteenpäin välittämänsä viestin otsakkeella `X-Spam-Virus-Scan: failed`. `virusScanSkipped` luettelee liitteet, jotka ovat suurempia kuin clamd hyväksyy (sen `StreamMaxLength`), muodossa `{filename, reason}`: clamd hylkää ne joka yrityksellä, joten ne eivät ole virheitä, samoin kuin clamav-milter ohittaa tiedoston, joka ylittää sen `MaxFileSize`-rajan. Sen muiden rajojen (`MaxScanSize`, `MaxFiles`, `MaxRecursion`, `MaxScanTime`) ylitykset, joihin arkistopommi yltää, ovat virheitä.
+Kohteissa `phishing`, `attachments`, `executables`, `macros`, `viruses` ja `arbitrary` olevat löydökset ovat olioita, joilla on `type` ja `message`. `String(finding)` on viesti. Liitetyn viestin (`message/rfc822`, `.eml`) liitteet nimetään sen mukaan: `fw.eml/invoice.exe`. Virus, jonka ClamAV löytää tällaisesta liitteestä, raportoidaan vain sille, ei uudelleen sen sisältävälle liitetylle viestille. `virusScanErrors` luettelee liitteet, joita ClamAV ei voinut tarkistaa, muodossa `{filename, error}`: tällainen viesti voi sisältää viruksen, joten pidätä se toimittamisen sijaan. Milter ja sisältösuodatin lykkäävät sitä, ellei `onError` (`--on-error`) ole `accept`, ja jokainen palvelin merkitsee tällaisen eteenpäin välittämänsä viestin otsakkeella `X-Spam-Virus-Scan: failed`. `virusScanSkipped` luettelee liitteet, jotka ovat suurempia kuin clamd hyväksyy (sen `StreamMaxLength`), muodossa `{filename, reason}`: clamd hylkää ne joka yrityksellä, joten ne eivät ole virheitä, samoin kuin clamav-milter ohittaa tiedoston, joka ylittää sen `MaxFileSize`-rajan. Sen muiden rajojen (`MaxScanSize`, `MaxFiles`, `MaxRecursion`, `MaxScanTime`) ylitykset, joihin arkistopommi yltää, ovat virheitä. Liitetyt viestit avataan kolmen tason syvyyteen, enintään 100 liitettä niissä ja yhteensä 25 Mt; `unopenedAttachments` luettelee näiden rajojen vuoksi avaamatta jääneet muodossa `{filename, reason}`, eikä niiden liitteitä ole tarkastettu. Se ei vaikuta pisteisiin, koska edelleen lähetetyt viestit voivat olla näin sisäkkäin, mutta kutsuja, joka tarvitsee viestin kokonaan luettuna, esimerkiksi estääkseen sen sisältämän ohjelman, voi hylätä viestin, jossa on yksikin.
 
 Jokainen `dnsbl`-kohde sisältää listan `answers`-vastaukset (osoitteita alueelta 127.0.0.0/8; kukin lista dokumentoi niiden merkityksen). Vastaukset, joita listat antavat kyselyihin, jotka ne hylkäävät tai joihin ne eivät voi vastata, eivät ole listauksia, ei asiakkaan osoitteelle eikä linkkien verkkotunnuksille (`uribl`-löydökset kohteessa `phishing`): 127.255.255.x Spamhausilla (kuten 127.255.255.254 julkisen nimipalvelimen kautta tehdylle kyselylle ja 127.255.255.255 liian monille kyselyille), 127.0.1.255 Spamhaus DBL:llä, 127.0.0.255 millä tahansa listalla sekä 127.0.0.1 SURBLilla ja URIBLilla, jotka antavat sen estämilleen nimipalvelimille.
 
@@ -160,7 +161,7 @@ Jokainen `dnsbl`-kohde sisältää listan `answers`-vastaukset (osoitteita aluee
 
 ```js
 import SpamScanner, {
-  Classifier, getFeatures, segmentWords, detectLanguage,
+  Classifier, getFeatures, segmentWords, unwrapLink, detectLanguage,
   LLMClassifier, PROVIDERS, RECOMMENDED_MODELS, CLASSIFIER_MODELS, DECISION_MODELS,
   DEFAULT_SCORES, scoreResults, spamHeaders, rewriteMessage,
   loadModel, saveModel, defaultModelPath, loadDefaultModel,
@@ -169,6 +170,8 @@ import SpamScanner, {
   DEFAULTS, VERSION,
 } from 'spamscanner';
 import {SpamScanner} from 'spamscanner'; // the same class, as a named export
+// unwrapLink(address): the URL a link goes to, through Safe Links and
+// Proofpoint URL Defense, as the scanner reads it (null for no URL)
 
 import ArfParser from 'spamscanner/arf';
 ```

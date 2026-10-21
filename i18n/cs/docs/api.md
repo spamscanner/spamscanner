@@ -1,4 +1,4 @@
-<!-- source: 581d018dd514 -->
+<!-- source: e15795fd8287 -->
 
 # Reference API
 
@@ -94,9 +94,9 @@ Každý záznam je jedna IP adresa, doména nebo e-mailová adresa a porovnává
 | `getFeatures(mail)`                  | `{features, words, language, script, links, hosts, text, hidden}` zprávy          |
 | `getTokens(text, locale)`            | Slova textu                                                                       |
 | `getTokensAndMailFromSource(source)` | `{tokens, features, mail}`                                                        |
-| `parse(source)`                      | `{raw, mail}`, kde `mail` pochází z mailparseru (viz níže)                        |
+| `parse(source)`                      | `{raw, mail, error}`, kde `mail` pochází z mailparseru (viz níže)                 |
 
-`scan`, `parse`, `learn`, `unlearn` a `getTokensAndMailFromSource` čtou zprávu všechny stejně: zpráva, která překračuje limity parseru MIME (více než 1000 částí, hlavička části nad 1 MB), se čte, kam až parser dovolí. Adresní pole (From, To, Cc, Bcc, Sender, Reply-To, Delivered-To, Return-Path, Disposition-Notification-To a List-\*) zprávy, jejích částí a přiložených zpráv se čtou do 16 KB každé, 2000 čárek a středníků a 16 vnořených skupin a celkem 64 KB na zprávu, vždy až do konce celé adresy, takže se nepřečte žádná adresa, kterou pole neuvádí; zkrácené pole je označeno `truncated` (`mail.to.truncated`) a zkrácené pole From nedává žádný kredit za ověření odesílatele. Text, jehož první řádek není polem hlavičky (`Name: value`, nebo řádek `From`, kterým v souborech mbox začíná každá zpráva), se čte jako tělo zprávy bez hlavičky, takže `mail.text` je tento text. Ostatní chyby se vyhodí.
+`scan`, `parse`, `learn`, `unlearn` a `getTokensAndMailFromSource` čtou zprávu všechny stejně: zpráva, která překračuje limity parseru MIME (více než 1000 částí, hlavička části nad 1 MB), se čte, kam až parser dovolí. Adresní pole (From, To, Cc, Bcc, Sender, Reply-To, Delivered-To, Return-Path, Disposition-Notification-To a List-\*) zprávy, jejích částí a přiložených zpráv se čtou do 16 KB každé, 2000 čárek a středníků a 16 vnořených skupin a celkem 64 KB na zprávu, vždy až do konce celé adresy, takže se nepřečte žádná adresa, kterou pole neuvádí; zkrácené pole je označeno `truncated` (`mail.to.truncated`) a zkrácené pole From nedává žádný kredit za ověření odesílatele. Text, jehož první řádek není polem hlavičky (`Name: value`, nebo řádek `From`, kterým v souborech mbox začíná každá zpráva), se čte jako tělo zprávy bez hlavičky, takže `mail.text` je tento text. Ostatní chyby se vyhodí. `parse` uvádí v `error` limit parseru, který zpráva překračuje, stejně jako ho `scan` uvádí v `parseError`, a null pro zprávu přečtenou celou.
 
 V `getFeatures` je `text` text, který zobrazí poštovní klient a ze kterého se čtou slova, a `hidden` počet znaků textu, které HTML skrývá. mailparser zde z HTML text nevytváří: `mail.text` obsahuje jen části s prostým textem a u zprávy pouze z HTML je prázdný; text, který zobrazuje její HTML, je `getFeatures(mail).text`.
 
@@ -131,6 +131,7 @@ V `getFeatures` je `text` text, který zobrazí poštovní klient a ze kterého 
     viruses: [],         // ClamAV findings: {filename, virus: [names], message}
     virusScanErrors: [], // attachments ClamAV could not scan: {filename, error}
     virusScanSkipped: [], // attachments larger than clamd accepts, not scanned: {filename, reason}
+    unopenedAttachments: [], // attached messages not opened, past the limits they are read within: {filename, reason}
     arbitrary: [],       // rules strong enough to mark spam alone
     obfuscation: {invisible, mixed, styled},
     authentication: null, // mailauth's results with a score, when checked
@@ -151,7 +152,7 @@ V `getFeatures` je `text` text, který zobrazí poštovní klient a ze kterého 
 }
 ```
 
-Nálezy v `phishing`, `attachments`, `executables`, `macros`, `viruses` a `arbitrary` jsou objekty s `type` a `message`. `String(finding)` je zpráva. Přílohy přiložené zprávy (`message/rfc822`, `.eml`) se pojmenují podle ní: `fw.eml/invoice.exe`. Virus, který ClamAV v takové příloze najde, se hlásí jen u ní, ne znovu u přiložené zprávy, která ji nese. `virusScanErrors` uvádí přílohy, které ClamAV nedokázal zkontrolovat, jako `{filename, error}`: taková zpráva může obsahovat virus, proto ji raději zadržte, než abyste ji doručili. Milter i obsahový filtr ji odloží, pokud `onError` (`--on-error`) není `accept`, a každý server takovou zprávu, kterou předá dál, označí hlavičkou `X-Spam-Virus-Scan: failed`. `virusScanSkipped` uvádí přílohy větší, než clamd přijme (jeho `StreamMaxLength`), jako `{filename, reason}`: clamd je odmítne při každém pokusu, proto se nepovažují za selhání, stejně jako clamav-milter přeskočí soubor nad svým `MaxFileSize`. Jeho ostatní limity (`MaxScanSize`, `MaxFiles`, `MaxRecursion`, `MaxScanTime`), kterých dosáhne archivní bomba, jsou selhání.
+Nálezy v `phishing`, `attachments`, `executables`, `macros`, `viruses` a `arbitrary` jsou objekty s `type` a `message`. `String(finding)` je zpráva. Přílohy přiložené zprávy (`message/rfc822`, `.eml`) se pojmenují podle ní: `fw.eml/invoice.exe`. Virus, který ClamAV v takové příloze najde, se hlásí jen u ní, ne znovu u přiložené zprávy, která ji nese. `virusScanErrors` uvádí přílohy, které ClamAV nedokázal zkontrolovat, jako `{filename, error}`: taková zpráva může obsahovat virus, proto ji raději zadržte, než abyste ji doručili. Milter i obsahový filtr ji odloží, pokud `onError` (`--on-error`) není `accept`, a každý server takovou zprávu, kterou předá dál, označí hlavičkou `X-Spam-Virus-Scan: failed`. `virusScanSkipped` uvádí přílohy větší, než clamd přijme (jeho `StreamMaxLength`), jako `{filename, reason}`: clamd je odmítne při každém pokusu, proto se nepovažují za selhání, stejně jako clamav-milter přeskočí soubor nad svým `MaxFileSize`. Jeho ostatní limity (`MaxScanSize`, `MaxFiles`, `MaxRecursion`, `MaxScanTime`), kterých dosáhne archivní bomba, jsou selhání. Přiložené zprávy se otevírají do tří úrovní, nejvýše se 100 přílohami v nich a celkem 25 MB; `unopenedAttachments` vypisuje ty, které kvůli těmto limitům otevřeny nebyly, jako `{filename, reason}`, a jejichž přílohy nebyly zkontrolovány. Do skóre se nezapočítává, protože přeposlané zprávy mohou být takto vnořené, ale volající, který potřebuje zprávu přečtenou celou, například aby zablokoval program, který nese, může zprávu s jakoukoli takovou položkou odmítnout.
 
 Každá položka `dnsbl` nese `answers` seznamu (adresy v 127.0.0.0/8, jejichž význam každý seznam dokumentuje). Odpovědi, které seznamy dávají na dotazy, jež odmítají nebo nemohou zodpovědět, nejsou záznamy, ani pro adresu klienta, ani pro domény odkazů (nálezy `uribl` v `phishing`): 127.255.255.x u Spamhausu (například 127.255.255.254 pro dotaz přes veřejný resolver a 127.255.255.255 pro příliš mnoho dotazů), 127.0.1.255 u Spamhaus DBL, 127.0.0.255 u jakéhokoli seznamu a 127.0.0.1 u SURBL a URIBL, které ji odpovídají resolverům, jež blokují.
 
@@ -160,7 +161,7 @@ Každá položka `dnsbl` nese `answers` seznamu (adresy v 127.0.0.0/8, jejichž 
 
 ```js
 import SpamScanner, {
-  Classifier, getFeatures, segmentWords, detectLanguage,
+  Classifier, getFeatures, segmentWords, unwrapLink, detectLanguage,
   LLMClassifier, PROVIDERS, RECOMMENDED_MODELS, CLASSIFIER_MODELS, DECISION_MODELS,
   DEFAULT_SCORES, scoreResults, spamHeaders, rewriteMessage,
   loadModel, saveModel, defaultModelPath, loadDefaultModel,
@@ -169,6 +170,8 @@ import SpamScanner, {
   DEFAULTS, VERSION,
 } from 'spamscanner';
 import {SpamScanner} from 'spamscanner'; // the same class, as a named export
+// unwrapLink(address): the URL a link goes to, through Safe Links and
+// Proofpoint URL Defense, as the scanner reads it (null for no URL)
 
 import ArfParser from 'spamscanner/arf';
 ```

@@ -1,4 +1,4 @@
-<!-- source: 581d018dd514 -->
+<!-- source: e15795fd8287 -->
 
 # API başvurusu
 
@@ -94,9 +94,9 @@ Her girdi tek bir IP adresi, alan adı veya e-posta adresidir ve birebir eşleş
 | `getFeatures(mail)`                  | Bir ileti için `{features, words, language, script, links, hosts, text, hidden}`      |
 | `getTokens(text, locale)`            | Bir metnin sözcükleri                                                                 |
 | `getTokensAndMailFromSource(source)` | `{tokens, features, mail}`                                                            |
-| `parse(source)`                      | mailparser'dan gelen `mail` ile birlikte `{raw, mail}` (aşağıya bakın)                |
+| `parse(source)`                      | mailparser'dan gelen `mail` ile birlikte `{raw, mail, error}` (aşağıya bakın)         |
 
-`scan`, `parse`, `learn`, `unlearn` ve `getTokensAndMailFromSource` bir iletiyi hep aynı biçimde okur: MIME ayrıştırıcının sınırlarını (1000'den fazla parça, 1 MB'ı aşan bir parça başlığı) aşan bir ileti, ayrıştırıcının izin verdiği kadar okunur. İletinin, parçalarının ve ekli iletilerin adres alanları (From, To, Cc, Bcc, Sender, Reply-To, Delivered-To, Return-Path, Disposition-Notification-To ve List-\*), her biri en fazla 16 KB, 2000 virgül ve noktalı virgül ve 16 iç içe grup, her ileti için toplamda en fazla 64 KB olmak üzere ve her zaman tam bir adresin sonuna kadar okunur; böylece alanın vermediği hiçbir adres okunmaz. Kesilen bir alan `truncated` olarak işaretlenir (`mail.to.truncated`) ve kesilen bir From alanı, göndericinin kimlik doğrulaması için hiçbir indirim sağlamaz. İlk satırı bir başlık alanı olmayan metin (`Name: value` ya da mbox dosyalarında her iletiyi başlatan `From` satırı), başlığı olmayan bir iletinin gövdesi olarak okunur, yani `mail.text` o metindir. Diğer hatalar fırlatılır.
+`scan`, `parse`, `learn`, `unlearn` ve `getTokensAndMailFromSource` bir iletiyi hep aynı biçimde okur: MIME ayrıştırıcının sınırlarını (1000'den fazla parça, 1 MB'ı aşan bir parça başlığı) aşan bir ileti, ayrıştırıcının izin verdiği kadar okunur. İletinin, parçalarının ve ekli iletilerin adres alanları (From, To, Cc, Bcc, Sender, Reply-To, Delivered-To, Return-Path, Disposition-Notification-To ve List-\*), her biri en fazla 16 KB, 2000 virgül ve noktalı virgül ve 16 iç içe grup, her ileti için toplamda en fazla 64 KB olmak üzere ve her zaman tam bir adresin sonuna kadar okunur; böylece alanın vermediği hiçbir adres okunmaz. Kesilen bir alan `truncated` olarak işaretlenir (`mail.to.truncated`) ve kesilen bir From alanı, göndericinin kimlik doğrulaması için hiçbir indirim sağlamaz. İlk satırı bir başlık alanı olmayan metin (`Name: value` ya da mbox dosyalarında her iletiyi başlatan `From` satırı), başlığı olmayan bir iletinin gövdesi olarak okunur, yani `mail.text` o metindir. Diğer hatalar fırlatılır. `parse`, bir iletinin aştığı ayrıştırıcı sınırını `error` içinde verir, tıpkı `scan` uygulamasının bunu `parseError` içinde verdiği gibi; tamamen okunan bir ileti için null verir.
 
 `getFeatures` içinde `text`, bir e-posta istemcisinin gösterdiği ve sözcüklerin okunduğu metindir; `hidden` ise HTML'nin gizlediği metnin kaç karakter olduğudur. mailparser burada HTML'den metin üretmez: `mail.text` yalnızca düz metin parçalarını içerir ve yalnızca HTML'den oluşan bir iletide boştur; HTML'nin gösterdiği metin `getFeatures(mail).text` içindedir.
 
@@ -131,6 +131,7 @@ Her girdi tek bir IP adresi, alan adı veya e-posta adresidir ve birebir eşleş
     viruses: [],         // ClamAV findings: {filename, virus: [names], message}
     virusScanErrors: [], // attachments ClamAV could not scan: {filename, error}
     virusScanSkipped: [], // attachments larger than clamd accepts, not scanned: {filename, reason}
+    unopenedAttachments: [], // attached messages not opened, past the limits they are read within: {filename, reason}
     arbitrary: [],       // rules strong enough to mark spam alone
     obfuscation: {invisible, mixed, styled},
     authentication: null, // mailauth's results with a score, when checked
@@ -151,7 +152,7 @@ Her girdi tek bir IP adresi, alan adı veya e-posta adresidir ve birebir eşleş
 }
 ```
 
-`phishing`, `attachments`, `executables`, `macros`, `viruses` ve `arbitrary` içindeki bulgular bir `type` ve bir `message` içeren nesnelerdir. `String(finding)` iletiyi verir. Ekli bir iletinin (`message/rfc822`, `.eml`) ekleri onun adını alır: `fw.eml/invoice.exe`. ClamAV'ın böyle bir ekte bulduğu bir virüs yalnızca o ek için bildirilir, onu taşıyan ekli ileti için yeniden bildirilmez. `virusScanErrors`, ClamAV'ın tarayamadığı ekleri `{filename, error}` biçiminde listeler: böyle bir ileti virüs içerebilir, bu yüzden teslim etmek yerine bekletin. Milter ve içerik filtresi, `onError` (`--on-error`) `accept` olmadıkça böyle bir iletiyi erteler ve her sunucu, aktardığı böyle bir iletiyi `X-Spam-Virus-Scan: failed` ile işaretler. `virusScanSkipped`, clamd'nin kabul ettiğinden (`StreamMaxLength` değerinden) büyük ekleri `{filename, reason}` biçiminde listeler: clamd bunları her denemede reddeder, bu yüzden, clamav-milter'ın `MaxFileSize` değerini aşan bir dosyayı atlaması gibi, hata sayılmazlar. clamd'nin bir arşiv bombasının ulaştığı diğer sınırları (`MaxScanSize`, `MaxFiles`, `MaxRecursion`, `MaxScanTime`) ise hata sayılır.
+`phishing`, `attachments`, `executables`, `macros`, `viruses` ve `arbitrary` içindeki bulgular bir `type` ve bir `message` içeren nesnelerdir. `String(finding)` iletiyi verir. Ekli bir iletinin (`message/rfc822`, `.eml`) ekleri onun adını alır: `fw.eml/invoice.exe`. ClamAV'ın böyle bir ekte bulduğu bir virüs yalnızca o ek için bildirilir, onu taşıyan ekli ileti için yeniden bildirilmez. `virusScanErrors`, ClamAV'ın tarayamadığı ekleri `{filename, error}` biçiminde listeler: böyle bir ileti virüs içerebilir, bu yüzden teslim etmek yerine bekletin. Milter ve içerik filtresi, `onError` (`--on-error`) `accept` olmadıkça böyle bir iletiyi erteler ve her sunucu, aktardığı böyle bir iletiyi `X-Spam-Virus-Scan: failed` ile işaretler. `virusScanSkipped`, clamd'nin kabul ettiğinden (`StreamMaxLength` değerinden) büyük ekleri `{filename, reason}` biçiminde listeler: clamd bunları her denemede reddeder, bu yüzden, clamav-milter'ın `MaxFileSize` değerini aşan bir dosyayı atlaması gibi, hata sayılmazlar. clamd'nin bir arşiv bombasının ulaştığı diğer sınırları (`MaxScanSize`, `MaxFiles`, `MaxRecursion`, `MaxScanTime`) ise hata sayılır. Ekli iletiler üç düzey derinliğe kadar, içlerinde en çok 100 ek ve toplamda 25 MB olacak şekilde açılır; `unopenedAttachments`, bu sınırların ötesinde açılmayan ve ekleri incelenmeyen iletileri `{filename, reason}` olarak listeler. Puana katılmaz, çünkü iletilen iletiler bu şekilde iç içe olabilir; ancak bir iletiyi tamamen okunmuş olarak gerektiren bir çağıran, örneğin taşıdığı bir programı engellemek için, böyle bir kaydı olan iletiyi reddedebilir.
 
 Her `dnsbl` öğesi listenin `answers` değerini taşır (anlamını her listenin belgelediği, 127.0.0.0/8 içindeki adresler). Listelerin reddettikleri ya da yanıtlayamadıkları sorgulara verdikleri yanıtlar, ister istemcinin adresi ister bağlantı alan adları için olsun (`phishing` içindeki `uribl` bulguları), listeleme değildir: Spamhaus'ta 127.255.255.x (örneğin herkese açık bir çözümleyici üzerinden gelen sorgu için 127.255.255.254 ve çok fazla sorgu için 127.255.255.255), Spamhaus DBL'de 127.0.1.255, herhangi bir listede 127.0.0.255 ve engelledikleri çözümleyicilere bu yanıtı veren SURBL ile URIBL'de 127.0.0.1.
 
@@ -160,7 +161,7 @@ Her `dnsbl` öğesi listenin `answers` değerini taşır (anlamını her listeni
 
 ```js
 import SpamScanner, {
-  Classifier, getFeatures, segmentWords, detectLanguage,
+  Classifier, getFeatures, segmentWords, unwrapLink, detectLanguage,
   LLMClassifier, PROVIDERS, RECOMMENDED_MODELS, CLASSIFIER_MODELS, DECISION_MODELS,
   DEFAULT_SCORES, scoreResults, spamHeaders, rewriteMessage,
   loadModel, saveModel, defaultModelPath, loadDefaultModel,
@@ -169,6 +170,8 @@ import SpamScanner, {
   DEFAULTS, VERSION,
 } from 'spamscanner';
 import {SpamScanner} from 'spamscanner'; // the same class, as a named export
+// unwrapLink(address): the URL a link goes to, through Safe Links and
+// Proofpoint URL Defense, as the scanner reads it (null for no URL)
 
 import ArfParser from 'spamscanner/arf';
 ```

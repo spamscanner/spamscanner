@@ -265,6 +265,7 @@ const NESTED = ['phishing', 'dnsbl', 'dns', 'session'];
  * @property {number} timedOutHosts - link hosts looked up but not answered
  * @property {Array<{filename: string, error: string}>} virusScanErrors - attachments clamd could not scan
  * @property {Array<{filename: string, reason: string}>} virusScanSkipped - attachments larger than clamd accepts (StreamMaxLength), not scanned
+ * @property {Array<{filename: string, reason: string}>} unopenedAttachments - attached messages not opened, past the limits attached messages are read within (nested more than 3 deep, more than 100 attachments in them, or more than 25 MB of them), whose attachments were not inspected: not scored, as forwarded messages can be nested so
  * @property {boolean} linksTruncated - whether text beyond phishing.maxLength was not read for links
  * @property {{detected: boolean, domains: ScanFinding[], riskScore: number}} idnHomographAttack
  */
@@ -483,14 +484,16 @@ export class SpamScanner {
 	 * a header field ("Name: value", or an mbox "From " line) is read as the
 	 * body of a message with no header, so its text is the input; other
 	 * input mailparser cannot read gives a message with no text. Other errors
-	 * are thrown.
+	 * are thrown. `error` is the parser's limit the message exceeds, so that
+	 * only its first parts were read (as scan() reports it, see parseError),
+	 * or null.
 	 * @param {Buffer|string|Uint8Array|AsyncIterable} source
-	 * @returns {Promise<{raw: Buffer, mail: object}>}
+	 * @returns {Promise<{raw: Buffer, mail: object, error: string|null}>}
 	 */
 	async parse(source) {
 		const raw = await toBuffer(source);
-		const {mail} = await parseWithin(withHeader(raw));
-		return {raw, mail};
+		const {mail, error} = await parseWithin(withHeader(raw));
+		return {raw, mail, error: error ?? null};
 	}
 
 	/**
@@ -932,8 +935,9 @@ export class SpamScanner {
 			styled: plainObfuscation.styled || shownObfuscation.styled,
 		};
 
-		// (with the attachments of attached messages)
-		const attached = await expandAttachments(mail.attachments, parseErrors);
+		// (with the attachments of attached messages, and those not opened)
+		const unopened = [];
+		const attached = await expandAttachments(mail.attachments, parseErrors, undefined, unopened);
 		const attachments = config.attachments === false ? [] : inspectAttachments(attached).filter(item => config.macros !== false || !['macro', 'pdf_active', 'rtf_object'].includes(item.type)).map(item => finding(item));
 
 		const [links, authentication, checkedReputation, dnsbl, virusScan, toxicity, nsfw] = await Promise.all([
@@ -1065,6 +1069,13 @@ export class SpamScanner {
 				// scanned, as {filename, reason}: the same on every try, so not a
 				// failure.
 				virusScanSkipped: virusScan.skipped,
+				// Attached messages not opened, past the limits attached messages
+				// are read within (nested more than three deep, more than 100
+				// attachments in them, or more than 25 MB of them), as
+				// {filename, reason}: their attachments were not inspected. Not
+				// scored (forwarded messages can be nested so), for a caller that
+				// needs a message read whole, e.g. to block what it carries.
+				unopenedAttachments: unopened,
 				// Whether the message has more text than phishing.maxLength, whose
 				// links were not read.
 				linksTruncated,
@@ -1087,7 +1098,7 @@ export class SpamScanner {
 
 export default SpamScanner;
 export {Classifier} from './classifier.js';
-export {getFeatures, segmentWords} from './tokenizer.js';
+export {getFeatures, segmentWords, unwrapLink} from './tokenizer.js';
 export {detectLanguage} from './language.js';
 export {LLMClassifier, PROVIDERS} from './llm.js';
 export {DEFAULT_SCORES, scoreResults} from './score.js';

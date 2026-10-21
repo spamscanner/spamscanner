@@ -1,4 +1,4 @@
-<!-- source: 581d018dd514 -->
+<!-- source: e15795fd8287 -->
 
 # תיעוד API
 
@@ -94,9 +94,9 @@ await scanner.scan(raw, {authenticationResults: auth});
 | `getFeatures(mail)`                  | `{features, words, language, script, links, hosts, text, hidden}` של הודעה |
 | `getTokens(text, locale)`            | את המילים של טקסט                                                          |
 | `getTokensAndMailFromSource(source)` | `{tokens, features, mail}`                                                 |
-| `parse(source)`                      | `{raw, mail}`, כש-`mail` מגיע מ-mailparser (ראו בהמשך)                     |
+| `parse(source)`                      | `{raw, mail, error}`, כש-`mail` מגיע מ-mailparser (ראו בהמשך)              |
 
-`scan`,‏ `parse`,‏ `learn`,‏ `unlearn` ו-`getTokensAndMailFromSource` קוראות כולן הודעה באותו אופן: הודעה שחורגת מהמגבלות של מפענח ה-MIME ‏(יותר מ-1000 חלקים, כותרות של חלק מעל 1 MB) נקראת עד כמה שהמפענח מאפשר. שדות כתובת (From, To, Cc, Bcc, Sender, Reply-To, Delivered-To, Return-Path, Disposition-Notification-To ו-List-\*), של ההודעה, של חלקיה ושל הודעות מצורפות, נקראים עד 16 KB כל אחד, 2000 פסיקים ונקודה-פסיקים ו-16 קבוצות מקוננות, ועד 64 KB בסך הכול לכל הודעה, תמיד עד סוף כתובת שלמה, כך שלא נקראת שום כתובת שהשדה אינו מספק; שדה שנחתך מסומן `truncated` ‏(`mail.to.truncated`), ושדה From שנחתך אינו מקנה שום זיכוי על האימות של השולח. טקסט שהשורה הראשונה שלו אינה שדה כותרת (`Name: value`, או שורת ה-`From` שפותחת כל הודעה בקובצי mbox) נקרא כגוף של הודעה בלי כותרות, כך ש-`mail.text` הוא הטקסט הזה. שגיאות אחרות נזרקות.
+`scan`,‏ `parse`,‏ `learn`,‏ `unlearn` ו-`getTokensAndMailFromSource` קוראות כולן הודעה באותו אופן: הודעה שחורגת מהמגבלות של מפענח ה-MIME ‏(יותר מ-1000 חלקים, כותרות של חלק מעל 1 MB) נקראת עד כמה שהמפענח מאפשר. שדות כתובת (From, To, Cc, Bcc, Sender, Reply-To, Delivered-To, Return-Path, Disposition-Notification-To ו-List-\*), של ההודעה, של חלקיה ושל הודעות מצורפות, נקראים עד 16 KB כל אחד, 2000 פסיקים ונקודה-פסיקים ו-16 קבוצות מקוננות, ועד 64 KB בסך הכול לכל הודעה, תמיד עד סוף כתובת שלמה, כך שלא נקראת שום כתובת שהשדה אינו מספק; שדה שנחתך מסומן `truncated` ‏(`mail.to.truncated`), ושדה From שנחתך אינו מקנה שום זיכוי על האימות של השולח. טקסט שהשורה הראשונה שלו אינה שדה כותרת (`Name: value`, או שורת ה-`From` שפותחת כל הודעה בקובצי mbox) נקרא כגוף של הודעה בלי כותרות, כך ש-`mail.text` הוא הטקסט הזה. שגיאות אחרות נזרקות. `parse` מחזיר ב-`error` את מגבלת המפענח שהודעה חורגת ממנה, כפי ש-`scan` מחזיר אותה ב-`parseError`, ו-null עבור הודעה שנקראה במלואה.
 
 ב-`getFeatures`, ‏`text` הוא הטקסט שתוכנת דואר מציגה, שממנו נקראות המילים, ו-`hidden` הוא מספר התווים של טקסט שה-HTML מסתיר. כאן mailparser אינו מפיק טקסט מ-HTML: ‏`mail.text` מכיל רק את חלקי הטקסט הפשוט, והוא ריק בהודעה שכולה HTML; הטקסט שה-HTML שלה מציג הוא `getFeatures(mail).text`.
 
@@ -131,6 +131,7 @@ await scanner.scan(raw, {authenticationResults: auth});
     viruses: [],         // ClamAV findings: {filename, virus: [names], message}
     virusScanErrors: [], // attachments ClamAV could not scan: {filename, error}
     virusScanSkipped: [], // attachments larger than clamd accepts, not scanned: {filename, reason}
+    unopenedAttachments: [], // attached messages not opened, past the limits they are read within: {filename, reason}
     arbitrary: [],       // rules strong enough to mark spam alone
     obfuscation: {invisible, mixed, styled},
     authentication: null, // mailauth's results with a score, when checked
@@ -151,7 +152,7 @@ await scanner.scan(raw, {authenticationResults: auth});
 }
 ```
 
-ממצאים ב-`phishing`, ‏`attachments`, ‏`executables`, ‏`macros`, ‏`viruses` ו-`arbitrary` הם אובייקטים עם `type` ו-`message`. ‏`String(finding)` הוא ההודעה. קבצים מצורפים של הודעה מצורפת (`message/rfc822`, `.eml`) נקראים על שמה: `fw.eml/invoice.exe`. וירוס ש-ClamAV מוצא בקובץ מצורף כזה מדווח עבורו בלבד, ולא שוב עבור ההודעה המצורפת שמכילה אותו. `virusScanErrors` מפרט את הקבצים המצורפים ש-ClamAV לא הצליח לסרוק, בתור `{filename, error}`: הודעה כזו עלולה להכיל וירוס, לכן עדיף לעכב אותה ולא למסור אותה. ה-milter ומסנן התוכן דוחים אותה למועד מאוחר יותר, אלא אם `onError` ‏(`--on-error`) הוא `accept`, וכל שרת מסמן הודעה כזו שהוא מעביר הלאה ב-`X-Spam-Virus-Scan: failed`. `virusScanSkipped` מפרט את אלה שגדולים ממה ש-clamd מקבל (ה-`StreamMaxLength` שלו), בתור `{filename, reason}`: ‏clamd דוחה אותם בכל ניסיון, ולכן, כפי ש-clamav-milter מדלג על קובץ שחורג מה-`MaxFileSize` שלו, הם אינם כישלונות. המגבלות האחרות שלו (`MaxScanSize`, ‏`MaxFiles`, ‏`MaxRecursion`, ‏`MaxScanTime`), שפצצת ארכיון מגיעה אליהן, הן כישלונות.
+ממצאים ב-`phishing`, ‏`attachments`, ‏`executables`, ‏`macros`, ‏`viruses` ו-`arbitrary` הם אובייקטים עם `type` ו-`message`. ‏`String(finding)` הוא ההודעה. קבצים מצורפים של הודעה מצורפת (`message/rfc822`, `.eml`) נקראים על שמה: `fw.eml/invoice.exe`. וירוס ש-ClamAV מוצא בקובץ מצורף כזה מדווח עבורו בלבד, ולא שוב עבור ההודעה המצורפת שמכילה אותו. `virusScanErrors` מפרט את הקבצים המצורפים ש-ClamAV לא הצליח לסרוק, בתור `{filename, error}`: הודעה כזו עלולה להכיל וירוס, לכן עדיף לעכב אותה ולא למסור אותה. ה-milter ומסנן התוכן דוחים אותה למועד מאוחר יותר, אלא אם `onError` ‏(`--on-error`) הוא `accept`, וכל שרת מסמן הודעה כזו שהוא מעביר הלאה ב-`X-Spam-Virus-Scan: failed`. `virusScanSkipped` מפרט את אלה שגדולים ממה ש-clamd מקבל (ה-`StreamMaxLength` שלו), בתור `{filename, reason}`: ‏clamd דוחה אותם בכל ניסיון, ולכן, כפי ש-clamav-milter מדלג על קובץ שחורג מה-`MaxFileSize` שלו, הם אינם כישלונות. המגבלות האחרות שלו (`MaxScanSize`, ‏`MaxFiles`, ‏`MaxRecursion`, ‏`MaxScanTime`), שפצצת ארכיון מגיעה אליהן, הן כישלונות. הודעות מצורפות נפתחות עד שלוש רמות עומק, עם לכל היותר 100 קבצים מצורפים בתוכן ו-25 MB בסך הכול; `unopenedAttachments` מפרט את אלה שלא נפתחו מעבר למגבלות אלה, בצורה `{filename, reason}`, והקבצים המצורפים שלהן לא נבדקו. הוא אינו נספר בציון, כי הודעות שהועברו עשויות להיות מקוננות כך, אבל קורא שזקוק להודעה שנקראה במלואה, למשל כדי לחסום תוכנה שהיא נושאת, יכול לדחות הודעה שיש בה כזו.
 
 כל פריט ב-`dnsbl` נושא את ה-`answers` של הרשימה (כתובות בטווח 127.0.0.0/8, שכל רשימה מתעדת את משמעותן). התשובות שרשימות נותנות לשאילתות שהן מסרבות להן או אינן יכולות לענות עליהן אינן רישומים, לא עבור כתובת הלקוח ולא עבור דומיינים של קישורים (ממצאי `uribl` ב-`phishing`): ‏127.255.255.x ב-Spamhaus (כמו 127.255.255.254 לשאילתה דרך שרת DNS ציבורי, ו-127.255.255.255 ליותר מדי שאילתות), 127.0.1.255 ב-Spamhaus DBL, ‏127.0.0.255 בכל רשימה, ו-127.0.0.1 ב-SURBL וב-URIBL, שעונות כך לשרתי DNS שהן חוסמות.
 
@@ -160,7 +161,7 @@ await scanner.scan(raw, {authenticationResults: auth});
 
 ```js
 import SpamScanner, {
-  Classifier, getFeatures, segmentWords, detectLanguage,
+  Classifier, getFeatures, segmentWords, unwrapLink, detectLanguage,
   LLMClassifier, PROVIDERS, RECOMMENDED_MODELS, CLASSIFIER_MODELS, DECISION_MODELS,
   DEFAULT_SCORES, scoreResults, spamHeaders, rewriteMessage,
   loadModel, saveModel, defaultModelPath, loadDefaultModel,
@@ -169,6 +170,8 @@ import SpamScanner, {
   DEFAULTS, VERSION,
 } from 'spamscanner';
 import {SpamScanner} from 'spamscanner'; // the same class, as a named export
+// unwrapLink(address): the URL a link goes to, through Safe Links and
+// Proofpoint URL Defense, as the scanner reads it (null for no URL)
 
 import ArfParser from 'spamscanner/arf';
 ```

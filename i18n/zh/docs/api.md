@@ -1,4 +1,4 @@
-<!-- source: 581d018dd514 -->
+<!-- source: e15795fd8287 -->
 
 # API 参考
 
@@ -94,9 +94,9 @@ await scanner.scan(raw, {authenticationResults: auth});
 | `getFeatures(mail)`                  | 邮件的 `{features, words, language, script, links, hosts, text, hidden}` |
 | `getTokens(text, locale)`            | 文本中的词语                                                                |
 | `getTokensAndMailFromSource(source)` | `{tokens, features, mail}`                                            |
-| `parse(source)`                      | `{raw, mail}`，其中 `mail` 来自 mailparser（见下文）                            |
+| `parse(source)`                      | `{raw, mail, error}`，其中 `mail` 来自 mailparser（见下文）                     |
 
-`scan`、`parse`、`learn`、`unlearn` 和 `getTokensAndMailFromSource` 都以相同方式读取邮件：超出 MIME 解析器限制（超过 1000 个部分，某个部分的头超过 1 MB）的邮件会在解析器允许的范围内读取。邮件本身、其各个部分以及附带邮件中的地址字段（From、To、Cc、Bcc、Sender、Reply-To、Delivered-To、Return-Path、Disposition-Notification-To 和 List-\*），每个最多读取 16 KB、2000 个逗号和分号以及 16 层嵌套的组，每封邮件合计最多 64 KB，且总是读到一个完整地址的末尾，因此不会读出字段中没有给出的地址；被截断的字段会标记为 `truncated`（`mail.to.truncated`），被截断的 From 字段不会因发件人的身份验证而获得任何减分。第一行不是头字段（`Name: value`，或 mbox 文件中每封邮件开头的 `From` 行）的文本，会被当作没有头的邮件的正文读取，因此 `mail.text` 就是这段文本。其他错误会被抛出。
+`scan`、`parse`、`learn`、`unlearn` 和 `getTokensAndMailFromSource` 都以相同方式读取邮件：超出 MIME 解析器限制（超过 1000 个部分，某个部分的头超过 1 MB）的邮件会在解析器允许的范围内读取。邮件本身、其各个部分以及附带邮件中的地址字段（From、To、Cc、Bcc、Sender、Reply-To、Delivered-To、Return-Path、Disposition-Notification-To 和 List-\*），每个最多读取 16 KB、2000 个逗号和分号以及 16 层嵌套的组，每封邮件合计最多 64 KB，且总是读到一个完整地址的末尾，因此不会读出字段中没有给出的地址；被截断的字段会标记为 `truncated`（`mail.to.truncated`），被截断的 From 字段不会因发件人的身份验证而获得任何减分。第一行不是头字段（`Name: value`，或 mbox 文件中每封邮件开头的 `From` 行）的文本，会被当作没有头的邮件的正文读取，因此 `mail.text` 就是这段文本。其他错误会被抛出。`parse` 在 `error` 中给出消息超出的解析器限制，与 `scan` 在 `parseError` 中给出的相同；完整读取的消息为 null。
 
 在 `getFeatures` 中，`text` 是邮件客户端显示的文本，词语即从中读取；`hidden` 是 HTML 隐藏的文本字符数。mailparser 在这里不会把 HTML 转成文本：`mail.text` 只包含纯文本部分，对于只有 HTML 的邮件则为空；其 HTML 显示的文本是 `getFeatures(mail).text`。
 
@@ -131,6 +131,7 @@ await scanner.scan(raw, {authenticationResults: auth});
     viruses: [],         // ClamAV findings: {filename, virus: [names], message}
     virusScanErrors: [], // attachments ClamAV could not scan: {filename, error}
     virusScanSkipped: [], // attachments larger than clamd accepts, not scanned: {filename, reason}
+    unopenedAttachments: [], // attached messages not opened, past the limits they are read within: {filename, reason}
     arbitrary: [],       // rules strong enough to mark spam alone
     obfuscation: {invisible, mixed, styled},
     authentication: null, // mailauth's results with a score, when checked
@@ -151,7 +152,7 @@ await scanner.scan(raw, {authenticationResults: auth});
 }
 ```
 
-`phishing`、`attachments`、`executables`、`macros`、`viruses` 和 `arbitrary` 中的发现都是带有 `type` 和 `message` 的对象。`String(finding)` 即为该消息。附带邮件（`message/rfc822`、`.eml`）中的附件以该邮件命名：`fw.eml/invoice.exe`。ClamAV 在这类附件中发现的病毒只针对该附件报告，不会再针对包含它的附带邮件重复报告。`virusScanErrors` 以 `{filename, error}` 的形式列出 ClamAV 未能扫描的附件：这样的邮件可能含有病毒，应暂扣而不是投递。除非 `onError`（`--on-error`）为 `accept`，否则 milter 和内容过滤器会推迟处理这样的邮件；每种服务器放行这样的邮件时都会加上 `X-Spam-Virus-Scan: failed` 标记。`virusScanSkipped` 以 `{filename, reason}` 的形式列出大于 clamd 所接受大小（其 `StreamMaxLength`）的附件：clamd 每次尝试都会拒绝它们，因此，正如 clamav-milter 会跳过超过其 `MaxFileSize` 的文件，它们不算失败。clamd 的其他限制（`MaxScanSize`、`MaxFiles`、`MaxRecursion`、`MaxScanTime`）是压缩炸弹会触及的，算作失败。
+`phishing`、`attachments`、`executables`、`macros`、`viruses` 和 `arbitrary` 中的发现都是带有 `type` 和 `message` 的对象。`String(finding)` 即为该消息。附带邮件（`message/rfc822`、`.eml`）中的附件以该邮件命名：`fw.eml/invoice.exe`。ClamAV 在这类附件中发现的病毒只针对该附件报告，不会再针对包含它的附带邮件重复报告。`virusScanErrors` 以 `{filename, error}` 的形式列出 ClamAV 未能扫描的附件：这样的邮件可能含有病毒，应暂扣而不是投递。除非 `onError`（`--on-error`）为 `accept`，否则 milter 和内容过滤器会推迟处理这样的邮件；每种服务器放行这样的邮件时都会加上 `X-Spam-Virus-Scan: failed` 标记。`virusScanSkipped` 以 `{filename, reason}` 的形式列出大于 clamd 所接受大小（其 `StreamMaxLength`）的附件：clamd 每次尝试都会拒绝它们，因此，正如 clamav-milter 会跳过超过其 `MaxFileSize` 的文件，它们不算失败。clamd 的其他限制（`MaxScanSize`、`MaxFiles`、`MaxRecursion`、`MaxScanTime`）是压缩炸弹会触及的，算作失败。附加的消息最多打开三层，其中的附件最多 100 个，总计最多 25 MB；`unopenedAttachments` 以 `{filename, reason}` 的形式列出因超出这些限制而未打开的消息，其附件未经检查。它不计入评分，因为转发的消息可能这样嵌套，但需要完整读取消息的调用方（例如为了拦截其中携带的程序）可以拒绝含有任何此类条目的消息。
 
 每个 `dnsbl` 项都带有该列表的 `answers`（127.0.0.0/8 中的地址，其含义由各列表在文档中说明）。列表对其拒绝或无法回答的查询给出的回答不算列入，无论是针对客户端地址还是链接域名（`phishing` 中的 `uribl` 发现）：Spamhaus 的 127.255.255.x（例如通过公共解析器查询时的 127.255.255.254，以及查询过多时的 127.255.255.255）、Spamhaus DBL 的 127.0.1.255、任何列表的 127.0.0.255，以及 SURBL 和 URIBL 的 127.0.0.1，它们会向被其屏蔽的解析器给出这一回答。
 
@@ -160,7 +161,7 @@ await scanner.scan(raw, {authenticationResults: auth});
 
 ```js
 import SpamScanner, {
-  Classifier, getFeatures, segmentWords, detectLanguage,
+  Classifier, getFeatures, segmentWords, unwrapLink, detectLanguage,
   LLMClassifier, PROVIDERS, RECOMMENDED_MODELS, CLASSIFIER_MODELS, DECISION_MODELS,
   DEFAULT_SCORES, scoreResults, spamHeaders, rewriteMessage,
   loadModel, saveModel, defaultModelPath, loadDefaultModel,
@@ -169,6 +170,8 @@ import SpamScanner, {
   DEFAULTS, VERSION,
 } from 'spamscanner';
 import {SpamScanner} from 'spamscanner'; // the same class, as a named export
+// unwrapLink(address): the URL a link goes to, through Safe Links and
+// Proofpoint URL Defense, as the scanner reads it (null for no URL)
 
 import ArfParser from 'spamscanner/arf';
 ```

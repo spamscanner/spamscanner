@@ -1,4 +1,4 @@
-<!-- source: 581d018dd514 -->
+<!-- source: e15795fd8287 -->
 
 # API-reference
 
@@ -94,9 +94,9 @@ Hver post er én IP-adresse, ét domæne eller én e-mailadresse og matches præ
 | `getFeatures(mail)`                  | `{features, words, language, script, links, hosts, text, hidden}` for en besked       |
 | `getTokens(text, locale)`            | Ordene i en tekst                                                                     |
 | `getTokensAndMailFromSource(source)` | `{tokens, features, mail}`                                                            |
-| `parse(source)`                      | `{raw, mail}`, med `mail` fra mailparser (se nedenfor)                                |
+| `parse(source)`                      | `{raw, mail, error}`, med `mail` fra mailparser (se nedenfor)                         |
 
-`scan`, `parse`, `learn`, `unlearn` og `getTokensAndMailFromSource` læser alle en besked på samme måde: en besked ud over MIME-parserens grænser (mere end 1000 dele, en dels header over 1 MB) læses så langt, parseren tillader. Adressefelter (From, To, Cc, Bcc, Sender, Reply-To, Delivered-To, Return-Path, Disposition-Notification-To og List-\*) i beskeden, dens dele og vedhæftede beskeder læses op til 16 KB hver, 2000 kommaer og semikoloner og 16 indlejrede grupper og 64 KB i alt for hver besked, altid til slutningen af en hel adresse, så der ikke læses nogen adresse, som feltet ikke angiver; et afkortet felt markeres `truncated` (`mail.to.truncated`), og et afkortet From-felt giver ingen kredit for afsenderens godkendelse. Tekst, hvis første linje ikke er et headerfelt (`Name: value`, eller den `From`-linje, der indleder hver besked i mbox-filer), læses som brødteksten i en besked uden header, så `mail.text` er den tekst. Andre fejl kastes.
+`scan`, `parse`, `learn`, `unlearn` og `getTokensAndMailFromSource` læser alle en besked på samme måde: en besked ud over MIME-parserens grænser (mere end 1000 dele, en dels header over 1 MB) læses så langt, parseren tillader. Adressefelter (From, To, Cc, Bcc, Sender, Reply-To, Delivered-To, Return-Path, Disposition-Notification-To og List-\*) i beskeden, dens dele og vedhæftede beskeder læses op til 16 KB hver, 2000 kommaer og semikoloner og 16 indlejrede grupper og 64 KB i alt for hver besked, altid til slutningen af en hel adresse, så der ikke læses nogen adresse, som feltet ikke angiver; et afkortet felt markeres `truncated` (`mail.to.truncated`), og et afkortet From-felt giver ingen kredit for afsenderens godkendelse. Tekst, hvis første linje ikke er et headerfelt (`Name: value`, eller den `From`-linje, der indleder hver besked i mbox-filer), læses som brødteksten i en besked uden header, så `mail.text` er den tekst. Andre fejl kastes. `parse` angiver parserens grænse, som en meddelelse overskrider, i `error`, ligesom `scan` angiver den i `parseError`, og null for en meddelelse, der er læst helt.
 
 I `getFeatures` er `text` den tekst, en mailklient viser, og som ordene læses fra, og `hidden` hvor mange tegn tekst HTML'en skjuler. mailparser laver ikke tekst af HTML her: `mail.text` indeholder kun de rene tekstdele og er tom for en besked med kun HTML; den tekst, dens HTML viser, er `getFeatures(mail).text`.
 
@@ -131,6 +131,7 @@ I `getFeatures` er `text` den tekst, en mailklient viser, og som ordene læses f
     viruses: [],         // ClamAV findings: {filename, virus: [names], message}
     virusScanErrors: [], // attachments ClamAV could not scan: {filename, error}
     virusScanSkipped: [], // attachments larger than clamd accepts, not scanned: {filename, reason}
+    unopenedAttachments: [], // attached messages not opened, past the limits they are read within: {filename, reason}
     arbitrary: [],       // rules strong enough to mark spam alone
     obfuscation: {invisible, mixed, styled},
     authentication: null, // mailauth's results with a score, when checked
@@ -151,7 +152,7 @@ I `getFeatures` er `text` den tekst, en mailklient viser, og som ordene læses f
 }
 ```
 
-Fund i `phishing`, `attachments`, `executables`, `macros`, `viruses` og `arbitrary` er objekter med en `type` og en `message`. `String(finding)` er beskeden. Vedhæftninger i en vedhæftet besked (`message/rfc822`, `.eml`) navngives efter den: `fw.eml/invoice.exe`. En virus, som ClamAV finder i en sådan vedhæftning, rapporteres kun for den, ikke igen for den vedhæftede besked, der bærer den. `virusScanErrors` viser de vedhæftninger, ClamAV ikke kunne scanne, som `{filename, error}`: en sådan besked kan indeholde virus, så hold den tilbage i stedet for at levere den. Milteren og indholdsfilteret udsætter den, medmindre `onError` (`--on-error`) er `accept`, og hver server markerer en sådan besked, den sender videre, med `X-Spam-Virus-Scan: failed`. `virusScanSkipped` viser dem, der er større, end clamd accepterer (dens `StreamMaxLength`), som `{filename, reason}`: clamd afviser dem ved hvert forsøg, så de er ikke fejl, ligesom clamav-milter springer en fil over sin `MaxFileSize` over. Dens andre grænser (`MaxScanSize`, `MaxFiles`, `MaxRecursion`, `MaxScanTime`), som en arkivbombe når, er fejl.
+Fund i `phishing`, `attachments`, `executables`, `macros`, `viruses` og `arbitrary` er objekter med en `type` og en `message`. `String(finding)` er beskeden. Vedhæftninger i en vedhæftet besked (`message/rfc822`, `.eml`) navngives efter den: `fw.eml/invoice.exe`. En virus, som ClamAV finder i en sådan vedhæftning, rapporteres kun for den, ikke igen for den vedhæftede besked, der bærer den. `virusScanErrors` viser de vedhæftninger, ClamAV ikke kunne scanne, som `{filename, error}`: en sådan besked kan indeholde virus, så hold den tilbage i stedet for at levere den. Milteren og indholdsfilteret udsætter den, medmindre `onError` (`--on-error`) er `accept`, og hver server markerer en sådan besked, den sender videre, med `X-Spam-Virus-Scan: failed`. `virusScanSkipped` viser dem, der er større, end clamd accepterer (dens `StreamMaxLength`), som `{filename, reason}`: clamd afviser dem ved hvert forsøg, så de er ikke fejl, ligesom clamav-milter springer en fil over sin `MaxFileSize` over. Dens andre grænser (`MaxScanSize`, `MaxFiles`, `MaxRecursion`, `MaxScanTime`), som en arkivbombe når, er fejl. Vedhæftede meddelelser åbnes tre niveauer dybt, for højst 100 vedhæftninger i dem og 25 MB i alt; `unopenedAttachments` viser dem, der ikke er åbnet ud over disse grænser, som `{filename, reason}`, og hvis vedhæftninger ikke er undersøgt. Det tæller ikke med i scoren, da videresendte meddelelser kan være indlejret sådan, men en kalder, der har brug for en meddelelse læst helt, for eksempel for at blokere et program i den, kan afvise en med nogen.
 
 Hvert `dnsbl`-element indeholder listens `answers` (adresser i 127.0.0.0/8, hvis betydning hver liste dokumenterer). De svar, lister giver på forespørgsler, de afviser eller ikke kan besvare, er ikke listninger, hverken for klientens adresse eller for linkdomæner (`uribl`-fund i `phishing`): 127.255.255.x hos Spamhaus (såsom 127.255.255.254 for en forespørgsel gennem en offentlig resolver og 127.255.255.255 for for mange forespørgsler), 127.0.1.255 hos Spamhaus DBL, 127.0.0.255 hos enhver liste og 127.0.0.1 hos SURBL og URIBL, som svarer det til resolvere, de blokerer.
 
@@ -160,7 +161,7 @@ Hvert `dnsbl`-element indeholder listens `answers` (adresser i 127.0.0.0/8, hvis
 
 ```js
 import SpamScanner, {
-  Classifier, getFeatures, segmentWords, detectLanguage,
+  Classifier, getFeatures, segmentWords, unwrapLink, detectLanguage,
   LLMClassifier, PROVIDERS, RECOMMENDED_MODELS, CLASSIFIER_MODELS, DECISION_MODELS,
   DEFAULT_SCORES, scoreResults, spamHeaders, rewriteMessage,
   loadModel, saveModel, defaultModelPath, loadDefaultModel,
@@ -169,6 +170,8 @@ import SpamScanner, {
   DEFAULTS, VERSION,
 } from 'spamscanner';
 import {SpamScanner} from 'spamscanner'; // the same class, as a named export
+// unwrapLink(address): the URL a link goes to, through Safe Links and
+// Proofpoint URL Defense, as the scanner reads it (null for no URL)
 
 import ArfParser from 'spamscanner/arf';
 ```

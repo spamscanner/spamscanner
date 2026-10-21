@@ -1,4 +1,4 @@
-<!-- source: 581d018dd514 -->
+<!-- source: e15795fd8287 -->
 
 # مرجع API
 
@@ -94,9 +94,9 @@ await scanner.scan(raw, {authenticationResults: auth});
 | `getFeatures(mail)`                  | `{features, words, language, script, links, hosts, text, hidden}` لرسالة     |
 | `getTokens(text, locale)`            | كلمات نص                                                                     |
 | `getTokensAndMailFromSource(source)` | `{tokens, features, mail}`                                                   |
-| `parse(source)`                      | `{raw, mail}`، مع `mail` من mailparser (انظر أدناه)                          |
+| `parse(source)`                      | `{raw, mail, error}`، مع `mail` من mailparser (انظر أدناه)                   |
 
-تقرأ `scan` و`parse` و`learn` و`unlearn` و`getTokensAndMailFromSource` جميعها الرسالة بالطريقة نفسها: الرسالة التي تتجاوز حدود محلّل MIME (أكثر من 1000 جزء، أو ترويسة جزء تتجاوز 1 MB) تُقرأ بالقدر الذي يسمح به المحلّل. وتُقرأ حقول العناوين (From وTo وCc وBcc وSender وReply-To وDelivered-To وReturn-Path وDisposition-Notification-To وList-\*)، في الرسالة وأجزائها والرسائل المرفقة، حتى 16 KB لكل منها، و2000 فاصلة وفاصلة منقوطة و16 مجموعة متداخلة، و64 KB إجمالًا لكل رسالة، وتُقرأ دائمًا حتى نهاية عنوان كامل، فلا يُقرأ عنوان لا يذكره الحقل؛ ويُعلَّم الحقل المقطوع بـ `truncated` (`mail.to.truncated`)، ولا يمنح حقل From المقطوع أي رصيد لمصادقة المرسل. والنص الذي ليس سطره الأول حقل ترويسة (`Name: value`، أو سطر `From` الذي تبدأ به كل رسالة في ملفات mbox) يُقرأ على أنه نص رسالة بلا ترويسة، فيكون `mail.text` هو ذلك النص. أما الأخطاء الأخرى فتُرمى.
+تقرأ `scan` و`parse` و`learn` و`unlearn` و`getTokensAndMailFromSource` جميعها الرسالة بالطريقة نفسها: الرسالة التي تتجاوز حدود محلّل MIME (أكثر من 1000 جزء، أو ترويسة جزء تتجاوز 1 MB) تُقرأ بالقدر الذي يسمح به المحلّل. وتُقرأ حقول العناوين (From وTo وCc وBcc وSender وReply-To وDelivered-To وReturn-Path وDisposition-Notification-To وList-\*)، في الرسالة وأجزائها والرسائل المرفقة، حتى 16 KB لكل منها، و2000 فاصلة وفاصلة منقوطة و16 مجموعة متداخلة، و64 KB إجمالًا لكل رسالة، وتُقرأ دائمًا حتى نهاية عنوان كامل، فلا يُقرأ عنوان لا يذكره الحقل؛ ويُعلَّم الحقل المقطوع بـ `truncated` (`mail.to.truncated`)، ولا يمنح حقل From المقطوع أي رصيد لمصادقة المرسل. والنص الذي ليس سطره الأول حقل ترويسة (`Name: value`، أو سطر `From` الذي تبدأ به كل رسالة في ملفات mbox) يُقرأ على أنه نص رسالة بلا ترويسة، فيكون `mail.text` هو ذلك النص. أما الأخطاء الأخرى فتُرمى. يعيد `parse` حد المحلل الذي تتجاوزه الرسالة في `error`، كما يعيده `scan` في `parseError`، ويعيد null لرسالة قُرئت كاملة.
 
 في `getFeatures`، يكون `text` هو النص الذي يعرضه عميل البريد، ومنه تُقرأ الكلمات، و`hidden` عدد محارف النص التي يخفيها HTML. لا يستخرج mailparser هنا نصًا من HTML: يحمل `mail.text` أجزاء النص العادي فقط، ويكون فارغًا في رسالة من HTML وحده؛ أما النص الذي يعرضه HTML الخاص بها فهو `getFeatures(mail).text`.
 
@@ -131,6 +131,7 @@ await scanner.scan(raw, {authenticationResults: auth});
     viruses: [],         // ClamAV findings: {filename, virus: [names], message}
     virusScanErrors: [], // attachments ClamAV could not scan: {filename, error}
     virusScanSkipped: [], // attachments larger than clamd accepts, not scanned: {filename, reason}
+    unopenedAttachments: [], // attached messages not opened, past the limits they are read within: {filename, reason}
     arbitrary: [],       // rules strong enough to mark spam alone
     obfuscation: {invisible, mixed, styled},
     authentication: null, // mailauth's results with a score, when checked
@@ -151,7 +152,7 @@ await scanner.scan(raw, {authenticationResults: auth});
 }
 ```
 
-النتائج في `phishing` و`attachments` و`executables` و`macros` و`viruses` و`arbitrary` كائنات لها `type` و`message`. و`String(finding)` هو الرسالة. تُسمّى مرفقات الرسالة المرفقة (`message/rfc822` و`.eml`) باسمها: `fw.eml/invoice.exe`. والفيروس الذي يجده ClamAV في مثل هذا المرفق يُبلَّغ عنه له وحده، لا مرة أخرى للرسالة المرفقة التي تحمله. يسرد `virusScanErrors` المرفقات التي لم يستطع ClamAV فحصها، بالشكل `{filename, error}`: قد تحمل هذه الرسالة فيروسًا، فاحتجزها بدل تسليمها. يؤجّلها الـ milter ومرشِّح المحتوى ما لم يكن `onError` (`--on-error`) هو `accept`، ويَسِم كل خادم مثل هذه الرسالة التي يمرّرها بـ `X-Spam-Virus-Scan: failed`. ويسرد `virusScanSkipped` المرفقات الأكبر مما يقبله clamd (حدّه `StreamMaxLength`)، بالشكل `{filename, reason}`: يرفضها clamd في كل محاولة، لذا فهي ليست حالات فشل، كما يتخطى clamav-milter ملفًا يتجاوز حدّه `MaxFileSize`. أما حدوده الأخرى (`MaxScanSize` و`MaxFiles` و`MaxRecursion` و`MaxScanTime`)، التي تبلغها قنبلة الأرشيف، فهي حالات فشل.
+النتائج في `phishing` و`attachments` و`executables` و`macros` و`viruses` و`arbitrary` كائنات لها `type` و`message`. و`String(finding)` هو الرسالة. تُسمّى مرفقات الرسالة المرفقة (`message/rfc822` و`.eml`) باسمها: `fw.eml/invoice.exe`. والفيروس الذي يجده ClamAV في مثل هذا المرفق يُبلَّغ عنه له وحده، لا مرة أخرى للرسالة المرفقة التي تحمله. يسرد `virusScanErrors` المرفقات التي لم يستطع ClamAV فحصها، بالشكل `{filename, error}`: قد تحمل هذه الرسالة فيروسًا، فاحتجزها بدل تسليمها. يؤجّلها الـ milter ومرشِّح المحتوى ما لم يكن `onError` (`--on-error`) هو `accept`، ويَسِم كل خادم مثل هذه الرسالة التي يمرّرها بـ `X-Spam-Virus-Scan: failed`. ويسرد `virusScanSkipped` المرفقات الأكبر مما يقبله clamd (حدّه `StreamMaxLength`)، بالشكل `{filename, reason}`: يرفضها clamd في كل محاولة، لذا فهي ليست حالات فشل، كما يتخطى clamav-milter ملفًا يتجاوز حدّه `MaxFileSize`. أما حدوده الأخرى (`MaxScanSize` و`MaxFiles` و`MaxRecursion` و`MaxScanTime`)، التي تبلغها قنبلة الأرشيف، فهي حالات فشل. تُفتح الرسائل المرفقة حتى ثلاثة مستويات، بحد أقصى 100 مرفق داخلها و25 ميغابايت إجمالًا؛ ويسرد `unopenedAttachments` الرسائل التي لم تُفتح لتجاوزها هذه الحدود، على شكل `{filename, reason}`، ولم تُفحص مرفقاتها. لا يُحتسب في الدرجة، لأن الرسائل المعاد توجيهها قد تتداخل هكذا، لكن من يحتاج إلى رسالة مقروءة كاملة، مثلًا لحظر برنامج تحمله، يمكنه رفض رسالة فيها أي منها.
 
 يحمل كل عنصر في `dnsbl` قيمة `answers` للقائمة (عناوين في 127.0.0.0/8، توثّق كل قائمة معناها). والإجابات التي تعطيها القوائم للاستعلامات التي ترفضها أو لا تستطيع الإجابة عنها ليست إدراجات، لا لعنوان العميل ولا لنطاقات الروابط (نتائج `uribl` في `phishing`): 127.255.255.x لدى Spamhaus (مثل 127.255.255.254 لاستعلام عبر محلّل عام، و127.255.255.255 لكثرة الاستعلامات)، و127.0.1.255 لدى Spamhaus DBL، و127.0.0.255 لدى أي قائمة، و127.0.0.1 لدى SURBL وURIBL، اللتين تجيبان بها المحلّلات التي تحظرانها.
 
@@ -160,7 +161,7 @@ await scanner.scan(raw, {authenticationResults: auth});
 
 ```js
 import SpamScanner, {
-  Classifier, getFeatures, segmentWords, detectLanguage,
+  Classifier, getFeatures, segmentWords, unwrapLink, detectLanguage,
   LLMClassifier, PROVIDERS, RECOMMENDED_MODELS, CLASSIFIER_MODELS, DECISION_MODELS,
   DEFAULT_SCORES, scoreResults, spamHeaders, rewriteMessage,
   loadModel, saveModel, defaultModelPath, loadDefaultModel,
@@ -169,6 +170,8 @@ import SpamScanner, {
   DEFAULTS, VERSION,
 } from 'spamscanner';
 import {SpamScanner} from 'spamscanner'; // the same class, as a named export
+// unwrapLink(address): the URL a link goes to, through Safe Links and
+// Proofpoint URL Defense, as the scanner reads it (null for no URL)
 
 import ArfParser from 'spamscanner/arf';
 ```

@@ -1,4 +1,4 @@
-<!-- source: 581d018dd514 -->
+<!-- source: e15795fd8287 -->
 
 # Довідник API
 
@@ -94,9 +94,9 @@ await scanner.scan(raw, {authenticationResults: auth});
 | `getFeatures(mail)`                  | `{features, words, language, script, links, hosts, text, hidden}` листа        |
 | `getTokens(text, locale)`            | Слова тексту                                                                   |
 | `getTokensAndMailFromSource(source)` | `{tokens, features, mail}`                                                     |
-| `parse(source)`                      | `{raw, mail}`, де `mail` отримано з mailparser (див. нижче)                    |
+| `parse(source)`                      | `{raw, mail, error}`, де `mail` отримано з mailparser (див. нижче)             |
 
-`scan`, `parse`, `learn`, `unlearn` і `getTokensAndMailFromSource` читають лист однаково: лист, що перевищує ліміти MIME-парсера (понад 1000 частин, заголовок частини понад 1 МБ), читається настільки, наскільки дозволяє парсер. Поля адрес (From, To, Cc, Bcc, Sender, Reply-To, Delivered-To, Return-Path, Disposition-Notification-To і List-\*) листа, його частин і вкладених повідомлень читаються до 16 КБ кожне, 2000 ком і крапок із комою та 16 вкладених груп, і до 64 КБ загалом для кожного листа, завжди до кінця цілої адреси, тож не читається жодна адреса, якої поле не містить; обрізане поле позначається як `truncated` (`mail.to.truncated`), а обрізане поле From не дає жодного зарахування за автентифікацію відправника. Текст, перший рядок якого не є полем заголовка (`Name: value` або рядок `From`, з якого починається кожен лист у файлах mbox), читається як тіло листа без заголовка, тож `mail.text` — це цей текст. Інші помилки викидаються.
+`scan`, `parse`, `learn`, `unlearn` і `getTokensAndMailFromSource` читають лист однаково: лист, що перевищує ліміти MIME-парсера (понад 1000 частин, заголовок частини понад 1 МБ), читається настільки, наскільки дозволяє парсер. Поля адрес (From, To, Cc, Bcc, Sender, Reply-To, Delivered-To, Return-Path, Disposition-Notification-To і List-\*) листа, його частин і вкладених повідомлень читаються до 16 КБ кожне, 2000 ком і крапок із комою та 16 вкладених груп, і до 64 КБ загалом для кожного листа, завжди до кінця цілої адреси, тож не читається жодна адреса, якої поле не містить; обрізане поле позначається як `truncated` (`mail.to.truncated`), а обрізане поле From не дає жодного зарахування за автентифікацію відправника. Текст, перший рядок якого не є полем заголовка (`Name: value` або рядок `From`, з якого починається кожен лист у файлах mbox), читається як тіло листа без заголовка, тож `mail.text` — це цей текст. Інші помилки викидаються. `parse` повертає в `error` межу парсера, яку перевищує повідомлення, так само як `scan` повертає її в `parseError`, і null для повідомлення, прочитаного повністю.
 
 У `getFeatures` `text` — це текст, який показує поштовий клієнт і з якого беруться слова, а `hidden` — скільки символів тексту приховує HTML. mailparser тут не робить текст із HTML: `mail.text` містить лише частини зі звичайним текстом і порожній для листа, що складається лише з HTML; текст, який показує його HTML, — це `getFeatures(mail).text`.
 
@@ -131,6 +131,7 @@ await scanner.scan(raw, {authenticationResults: auth});
     viruses: [],         // ClamAV findings: {filename, virus: [names], message}
     virusScanErrors: [], // attachments ClamAV could not scan: {filename, error}
     virusScanSkipped: [], // attachments larger than clamd accepts, not scanned: {filename, reason}
+    unopenedAttachments: [], // attached messages not opened, past the limits they are read within: {filename, reason}
     arbitrary: [],       // rules strong enough to mark spam alone
     obfuscation: {invisible, mixed, styled},
     authentication: null, // mailauth's results with a score, when checked
@@ -151,7 +152,7 @@ await scanner.scan(raw, {authenticationResults: auth});
 }
 ```
 
-Знахідки в `phishing`, `attachments`, `executables`, `macros`, `viruses` і `arbitrary` — це об’єкти з `type` і `message`. `String(finding)` повертає повідомлення. Вкладення вкладеного повідомлення (`message/rfc822`, `.eml`) отримують його ім'я: `fw.eml/invoice.exe`. Вірус, який ClamAV знаходить у такому вкладенні, повідомляється лише для нього, а не ще раз для вкладеного повідомлення, що його містить. `virusScanErrors` перелічує вкладення, які ClamAV не зміг перевірити, у вигляді `{filename, error}`: таке повідомлення може містити вірус, тож краще затримати його, ніж доставити. Milter і контент-фільтр відкладають такий лист, якщо `onError` (`--on-error`) не має значення `accept`, а кожен сервер позначає такий лист, який передає далі, заголовком `X-Spam-Virus-Scan: failed`. `virusScanSkipped` перелічує вкладення, більші, ніж приймає clamd (його `StreamMaxLength`), у вигляді `{filename, reason}`: clamd відхиляє їх за кожної спроби, тож, так само як clamav-milter пропускає файл, більший за його `MaxFileSize`, вони не вважаються збоями. Інші його ліміти (`MaxScanSize`, `MaxFiles`, `MaxRecursion`, `MaxScanTime`), яких досягає архівна бомба, вважаються збоями.
+Знахідки в `phishing`, `attachments`, `executables`, `macros`, `viruses` і `arbitrary` — це об’єкти з `type` і `message`. `String(finding)` повертає повідомлення. Вкладення вкладеного повідомлення (`message/rfc822`, `.eml`) отримують його ім'я: `fw.eml/invoice.exe`. Вірус, який ClamAV знаходить у такому вкладенні, повідомляється лише для нього, а не ще раз для вкладеного повідомлення, що його містить. `virusScanErrors` перелічує вкладення, які ClamAV не зміг перевірити, у вигляді `{filename, error}`: таке повідомлення може містити вірус, тож краще затримати його, ніж доставити. Milter і контент-фільтр відкладають такий лист, якщо `onError` (`--on-error`) не має значення `accept`, а кожен сервер позначає такий лист, який передає далі, заголовком `X-Spam-Virus-Scan: failed`. `virusScanSkipped` перелічує вкладення, більші, ніж приймає clamd (його `StreamMaxLength`), у вигляді `{filename, reason}`: clamd відхиляє їх за кожної спроби, тож, так само як clamav-milter пропускає файл, більший за його `MaxFileSize`, вони не вважаються збоями. Інші його ліміти (`MaxScanSize`, `MaxFiles`, `MaxRecursion`, `MaxScanTime`), яких досягає архівна бомба, вважаються збоями. Вкладені повідомлення відкриваються на глибину до трьох рівнів, з не більш ніж 100 вкладеннями в них і 25 МБ загалом; `unopenedAttachments` перелічує не відкриті через ці межі, у вигляді `{filename, reason}`, вкладення яких не перевірялися. Це не враховується в оцінці, бо переслані повідомлення можуть бути так вкладені, але сторона, якій потрібне повідомлення, прочитане повністю, наприклад щоб заблокувати програму в ньому, може відхилити повідомлення з будь-яким таким записом.
 
 Кожен елемент `dnsbl` містить `answers` списку (адреси в 127.0.0.0/8, значення яких документує кожен список). Відповіді, які списки дають на запити, що їх вони відхиляють або на які не можуть відповісти, не є внесенням до списку — ні для адреси клієнта, ні для доменів посилань (знахідки `uribl` у `phishing`): 127.255.255.x у Spamhaus (як-от 127.255.255.254 на запит через публічний резолвер і 127.255.255.255 за надто великої кількості запитів), 127.0.1.255 у Spamhaus DBL, 127.0.0.255 у будь-якому списку та 127.0.0.1 у SURBL і URIBL, які дають таку відповідь резолверам, що їх вони блокують.
 
@@ -160,7 +161,7 @@ await scanner.scan(raw, {authenticationResults: auth});
 
 ```js
 import SpamScanner, {
-  Classifier, getFeatures, segmentWords, detectLanguage,
+  Classifier, getFeatures, segmentWords, unwrapLink, detectLanguage,
   LLMClassifier, PROVIDERS, RECOMMENDED_MODELS, CLASSIFIER_MODELS, DECISION_MODELS,
   DEFAULT_SCORES, scoreResults, spamHeaders, rewriteMessage,
   loadModel, saveModel, defaultModelPath, loadDefaultModel,
@@ -169,6 +170,8 @@ import SpamScanner, {
   DEFAULTS, VERSION,
 } from 'spamscanner';
 import {SpamScanner} from 'spamscanner'; // the same class, as a named export
+// unwrapLink(address): the URL a link goes to, through Safe Links and
+// Proofpoint URL Defense, as the scanner reads it (null for no URL)
 
 import ArfParser from 'spamscanner/arf';
 ```

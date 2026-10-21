@@ -1,4 +1,4 @@
-<!-- source: 581d018dd514 -->
+<!-- source: e15795fd8287 -->
 
 # API-referencia
 
@@ -94,9 +94,9 @@ Minden bejegyzés egyetlen IP-cím, tartomány vagy e-mail-cím, és pontos egye
 | `getFeatures(mail)`                  | `{features, words, language, script, links, hosts, text, hidden}` egy levélből |
 | `getTokens(text, locale)`            | Egy szöveg szavai                                                              |
 | `getTokensAndMailFromSource(source)` | `{tokens, features, mail}`                                                     |
-| `parse(source)`                      | `{raw, mail}`, ahol a `mail` a mailparsertől származik (lásd lent)             |
+| `parse(source)`                      | `{raw, mail, error}`, ahol a `mail` a mailparsertől származik (lásd lent)      |
 
-A `scan`, a `parse`, a `learn`, az `unlearn` és a `getTokensAndMailFromSource` mind ugyanúgy olvassa a levelet: a MIME-elemző korlátain (több mint 1000 rész, 1 MB-nál nagyobb részfejléc) túli levelet addig olvassa, ameddig az elemző engedi. A címmezőket (From, To, Cc, Bcc, Sender, Reply-To, Delivered-To, Return-Path, Disposition-Notification-To és List-\*) a levélben, annak részeiben és a csatolt levelekben mezőnként legfeljebb 16 KB-ig, 2000 vesszőig és pontosvesszőig és 16 beágyazott csoportig, levelenként pedig összesen 64 KB-ig olvassa, mindig egy teljes cím végéig, így nem olvas be olyan címet, amelyet a mező nem ad meg; a levágott mező `truncated` jelölést kap (`mail.to.truncated`), a levágott From mező pedig nem ad jóváírást a feladó hitelesítéséért. Az a szöveg, amelynek első sora nem fejlécmező (`Name: value`, vagy a `From` sor, amellyel az mbox-fájlokban minden levél kezdődik), egy fejléc nélküli levél törzseként olvasódik, így a `mail.text` ez a szöveg lesz. Más hibákat kivételként dob.
+A `scan`, a `parse`, a `learn`, az `unlearn` és a `getTokensAndMailFromSource` mind ugyanúgy olvassa a levelet: a MIME-elemző korlátain (több mint 1000 rész, 1 MB-nál nagyobb részfejléc) túli levelet addig olvassa, ameddig az elemző engedi. A címmezőket (From, To, Cc, Bcc, Sender, Reply-To, Delivered-To, Return-Path, Disposition-Notification-To és List-\*) a levélben, annak részeiben és a csatolt levelekben mezőnként legfeljebb 16 KB-ig, 2000 vesszőig és pontosvesszőig és 16 beágyazott csoportig, levelenként pedig összesen 64 KB-ig olvassa, mindig egy teljes cím végéig, így nem olvas be olyan címet, amelyet a mező nem ad meg; a levágott mező `truncated` jelölést kap (`mail.to.truncated`), a levágott From mező pedig nem ad jóváírást a feladó hitelesítéséért. Az a szöveg, amelynek első sora nem fejlécmező (`Name: value`, vagy a `From` sor, amellyel az mbox-fájlokban minden levél kezdődik), egy fejléc nélküli levél törzseként olvasódik, így a `mail.text` ez a szöveg lesz. Más hibákat kivételként dob. A `parse` az `error` mezőben adja meg az elemző korlátját, amelyet egy üzenet túllép, ahogy a `scan` a `parseError` mezőben, és null értéket egy teljesen beolvasott üzenetnél.
 
 A `getFeatures` eredményében a `text` a levelezőprogram által megjelenített szöveg, amelyből a szavakat olvassa, a `hidden` pedig az, hogy a HTML hány karakternyi szöveget rejt el. A mailparser itt nem készít szöveget a HTML-ből: a `mail.text` csak az egyszerű szöveges részeket tartalmazza, és egy csak HTML-ből álló levélnél üres; a HTML által megjelenített szöveg a `getFeatures(mail).text`.
 
@@ -131,6 +131,7 @@ A `scanner.metrics` a `totalScans`, az `averageTime` és a `lastScanTime` érté
     viruses: [],         // ClamAV findings: {filename, virus: [names], message}
     virusScanErrors: [], // attachments ClamAV could not scan: {filename, error}
     virusScanSkipped: [], // attachments larger than clamd accepts, not scanned: {filename, reason}
+    unopenedAttachments: [], // attached messages not opened, past the limits they are read within: {filename, reason}
     arbitrary: [],       // rules strong enough to mark spam alone
     obfuscation: {invisible, mixed, styled},
     authentication: null, // mailauth's results with a score, when checked
@@ -151,7 +152,7 @@ A `scanner.metrics` a `totalScans`, az `averageTime` és a `lastScanTime` érté
 }
 ```
 
-A `phishing`, `attachments`, `executables`, `macros`, `viruses` és `arbitrary` mezőkben lévő találatok `type` és `message` mezővel rendelkező objektumok. A `String(finding)` az üzenetet adja. Egy csatolt üzenet (`message/rfc822`, `.eml`) mellékletei annak nevét kapják: `fw.eml/invoice.exe`. Az ilyen mellékletben a ClamAV által talált vírust csak annál jelenti, nem újra az azt hordozó csatolt üzenetnél is. A `virusScanErrors` felsorolja azokat a mellékleteket, amelyeket a ClamAV nem tudott átvizsgálni, `{filename, error}` alakban: egy ilyen üzenet vírust tartalmazhat, ezért inkább tartsa vissza, mint hogy kézbesítse. A milter és a tartalomszűrő elhalasztja, hacsak az `onError` (`--on-error`) értéke nem `accept`, és minden szerver `X-Spam-Virus-Scan: failed` fejléccel jelöli az ilyen levelet, ha továbbengedi. A `virusScanSkipped` azokat a mellékleteket sorolja fel, amelyek nagyobbak, mint amit a clamd elfogad (a `StreamMaxLength` értéke), `{filename, reason}` alakban: ezeket a clamd minden próbálkozáskor elutasítja, így nem számítanak hibának, ahogy a clamav-milter is kihagyja a `MaxFileSize` értékénél nagyobb fájlt. A clamd többi korlátja (`MaxScanSize`, `MaxFiles`, `MaxRecursion`, `MaxScanTime`), amelyet egy archívumbomba elér, hibának számít.
+A `phishing`, `attachments`, `executables`, `macros`, `viruses` és `arbitrary` mezőkben lévő találatok `type` és `message` mezővel rendelkező objektumok. A `String(finding)` az üzenetet adja. Egy csatolt üzenet (`message/rfc822`, `.eml`) mellékletei annak nevét kapják: `fw.eml/invoice.exe`. Az ilyen mellékletben a ClamAV által talált vírust csak annál jelenti, nem újra az azt hordozó csatolt üzenetnél is. A `virusScanErrors` felsorolja azokat a mellékleteket, amelyeket a ClamAV nem tudott átvizsgálni, `{filename, error}` alakban: egy ilyen üzenet vírust tartalmazhat, ezért inkább tartsa vissza, mint hogy kézbesítse. A milter és a tartalomszűrő elhalasztja, hacsak az `onError` (`--on-error`) értéke nem `accept`, és minden szerver `X-Spam-Virus-Scan: failed` fejléccel jelöli az ilyen levelet, ha továbbengedi. A `virusScanSkipped` azokat a mellékleteket sorolja fel, amelyek nagyobbak, mint amit a clamd elfogad (a `StreamMaxLength` értéke), `{filename, reason}` alakban: ezeket a clamd minden próbálkozáskor elutasítja, így nem számítanak hibának, ahogy a clamav-milter is kihagyja a `MaxFileSize` értékénél nagyobb fájlt. A clamd többi korlátja (`MaxScanSize`, `MaxFiles`, `MaxRecursion`, `MaxScanTime`), amelyet egy archívumbomba elér, hibának számít. A csatolt üzeneteket három szint mélységig nyitja meg, legfeljebb 100 bennük lévő melléklettel és összesen 25 MB-ig; az `unopenedAttachments` felsorolja az e korlátok miatt meg nem nyitottakat `{filename, reason}` alakban, amelyek mellékleteit nem vizsgálta. Nem számít bele a pontszámba, mert a továbbított üzenetek így is egymásba ágyazódhatnak, de egy hívó, amelynek teljesen beolvasott üzenetre van szüksége, például hogy blokkoljon egy benne lévő programot, elutasíthat egy ilyet tartalmazó üzenetet.
 
 Minden `dnsbl` elem tartalmazza a lista `answers` értékét (127.0.0.0/8 tartománybeli címek, amelyek jelentését minden lista dokumentálja). A listák által az elutasított vagy megválaszolhatatlan lekérdezésekre adott válaszok nem listázások, sem az ügyfél címére, sem a hivatkozások domainjeire (`uribl` találatok a `phishing` mezőben): a Spamhausnál 127.255.255.x (például 127.255.255.254 egy nyilvános feloldón keresztüli lekérdezésre, és 127.255.255.255 túl sok lekérdezésre), a Spamhaus DBL-nél 127.0.1.255, bármely listánál 127.0.0.255, a SURBL-nél és az URIBL-nél pedig 127.0.0.1, amelyet az általuk letiltott feloldóknak válaszolnak.
 
@@ -160,7 +161,7 @@ Minden `dnsbl` elem tartalmazza a lista `answers` értékét (127.0.0.0/8 tartom
 
 ```js
 import SpamScanner, {
-  Classifier, getFeatures, segmentWords, detectLanguage,
+  Classifier, getFeatures, segmentWords, unwrapLink, detectLanguage,
   LLMClassifier, PROVIDERS, RECOMMENDED_MODELS, CLASSIFIER_MODELS, DECISION_MODELS,
   DEFAULT_SCORES, scoreResults, spamHeaders, rewriteMessage,
   loadModel, saveModel, defaultModelPath, loadDefaultModel,
@@ -169,6 +170,8 @@ import SpamScanner, {
   DEFAULTS, VERSION,
 } from 'spamscanner';
 import {SpamScanner} from 'spamscanner'; // the same class, as a named export
+// unwrapLink(address): the URL a link goes to, through Safe Links and
+// Proofpoint URL Defense, as the scanner reads it (null for no URL)
 
 import ArfParser from 'spamscanner/arf';
 ```

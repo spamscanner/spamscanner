@@ -1,4 +1,4 @@
-<!-- source: 581d018dd514 -->
+<!-- source: e15795fd8287 -->
 
 # Tham chiếu API
 
@@ -94,9 +94,9 @@ Mỗi mục là một địa chỉ IP, tên miền hoặc địa chỉ email, đ
 | `getFeatures(mail)`                  | `{features, words, language, script, links, hosts, text, hidden}` của một thư |
 | `getTokens(text, locale)`            | Các từ của một văn bản                                                        |
 | `getTokensAndMailFromSource(source)` | `{tokens, features, mail}`                                                    |
-| `parse(source)`                      | `{raw, mail}`, với `mail` từ mailparser (xem bên dưới)                        |
+| `parse(source)`                      | `{raw, mail, error}`, với `mail` từ mailparser (xem bên dưới)                 |
 
-`scan`, `parse`, `learn`, `unlearn` và `getTokensAndMailFromSource` đều đọc thư theo cùng một cách: thư vượt quá giới hạn của trình phân tích MIME (hơn 1000 phần, header của một phần quá 1 MB) được đọc đến mức trình phân tích cho phép. Các trường địa chỉ (From, To, Cc, Bcc, Sender, Reply-To, Delivered-To, Return-Path, Disposition-Notification-To và List-\*) của thư, các phần của nó và các thư được đính kèm được đọc tối đa 16 KB mỗi trường, 2000 dấu phẩy và dấu chấm phẩy và 16 nhóm lồng nhau, và tổng cộng 64 KB cho mỗi thư, luôn đến hết một địa chỉ trọn vẹn, nên không đọc ra địa chỉ nào mà trường không đưa ra; trường bị cắt được đánh dấu `truncated` (`mail.to.truncated`), và trường From bị cắt không được cộng điểm gì cho xác thực của người gửi. Văn bản có dòng đầu tiên không phải là một trường header (`Name: value`, hoặc dòng `From` mở đầu mỗi thư trong tệp mbox) được đọc như thân của một thư không có header, nên `mail.text` là văn bản đó. Các lỗi khác được ném ra.
+`scan`, `parse`, `learn`, `unlearn` và `getTokensAndMailFromSource` đều đọc thư theo cùng một cách: thư vượt quá giới hạn của trình phân tích MIME (hơn 1000 phần, header của một phần quá 1 MB) được đọc đến mức trình phân tích cho phép. Các trường địa chỉ (From, To, Cc, Bcc, Sender, Reply-To, Delivered-To, Return-Path, Disposition-Notification-To và List-\*) của thư, các phần của nó và các thư được đính kèm được đọc tối đa 16 KB mỗi trường, 2000 dấu phẩy và dấu chấm phẩy và 16 nhóm lồng nhau, và tổng cộng 64 KB cho mỗi thư, luôn đến hết một địa chỉ trọn vẹn, nên không đọc ra địa chỉ nào mà trường không đưa ra; trường bị cắt được đánh dấu `truncated` (`mail.to.truncated`), và trường From bị cắt không được cộng điểm gì cho xác thực của người gửi. Văn bản có dòng đầu tiên không phải là một trường header (`Name: value`, hoặc dòng `From` mở đầu mỗi thư trong tệp mbox) được đọc như thân của một thư không có header, nên `mail.text` là văn bản đó. Các lỗi khác được ném ra. `parse` trả về giới hạn của trình phân tích mà một thư vượt quá trong `error`, giống như `scan` trả về nó trong `parseError`, và null cho thư được đọc trọn vẹn.
 
 Trong `getFeatures`, `text` là văn bản mà ứng dụng thư hiển thị, cũng là nơi các từ được đọc ra, còn `hidden` là số ký tự văn bản mà HTML ẩn đi. mailparser ở đây không tạo văn bản từ HTML: `mail.text` chỉ chứa các phần văn bản thuần, và trống với thư chỉ có HTML; văn bản mà HTML của thư hiển thị là `getFeatures(mail).text`.
 
@@ -131,6 +131,7 @@ Trong `getFeatures`, `text` là văn bản mà ứng dụng thư hiển thị, c
     viruses: [],         // ClamAV findings: {filename, virus: [names], message}
     virusScanErrors: [], // attachments ClamAV could not scan: {filename, error}
     virusScanSkipped: [], // attachments larger than clamd accepts, not scanned: {filename, reason}
+    unopenedAttachments: [], // attached messages not opened, past the limits they are read within: {filename, reason}
     arbitrary: [],       // rules strong enough to mark spam alone
     obfuscation: {invisible, mixed, styled},
     authentication: null, // mailauth's results with a score, when checked
@@ -151,7 +152,7 @@ Trong `getFeatures`, `text` là văn bản mà ứng dụng thư hiển thị, c
 }
 ```
 
-Các phát hiện trong `phishing`, `attachments`, `executables`, `macros`, `viruses` và `arbitrary` là các đối tượng có `type` và `message`. `String(finding)` là thông báo đó. Tệp đính kèm của một thư được đính kèm (`message/rfc822`, `.eml`) được đặt tên theo thư đó: `fw.eml/invoice.exe`. Virus mà ClamAV tìm thấy trong tệp đính kèm như vậy chỉ được báo cho riêng tệp đó, không báo lại cho thư được đính kèm chứa nó. `virusScanErrors` liệt kê các tệp đính kèm mà ClamAV không quét được, dưới dạng `{filename, error}`: thư như vậy có thể chứa virus, nên hãy giữ lại thay vì chuyển đi. Milter và content filter hoãn thư đó, trừ khi `onError` (`--on-error`) là `accept`, và mọi máy chủ đều đánh dấu thư như vậy mà nó chuyển tiếp bằng `X-Spam-Virus-Scan: failed`. `virusScanSkipped` liệt kê các tệp lớn hơn mức clamd chấp nhận (`StreamMaxLength` của nó), dưới dạng `{filename, reason}`: clamd từ chối chúng ở mọi lần thử, nên, giống như clamav-milter bỏ qua tệp vượt quá `MaxFileSize` của nó, chúng không bị coi là lỗi. Các giới hạn khác của clamd (`MaxScanSize`, `MaxFiles`, `MaxRecursion`, `MaxScanTime`), mà một bom nén sẽ chạm tới, thì bị coi là lỗi.
+Các phát hiện trong `phishing`, `attachments`, `executables`, `macros`, `viruses` và `arbitrary` là các đối tượng có `type` và `message`. `String(finding)` là thông báo đó. Tệp đính kèm của một thư được đính kèm (`message/rfc822`, `.eml`) được đặt tên theo thư đó: `fw.eml/invoice.exe`. Virus mà ClamAV tìm thấy trong tệp đính kèm như vậy chỉ được báo cho riêng tệp đó, không báo lại cho thư được đính kèm chứa nó. `virusScanErrors` liệt kê các tệp đính kèm mà ClamAV không quét được, dưới dạng `{filename, error}`: thư như vậy có thể chứa virus, nên hãy giữ lại thay vì chuyển đi. Milter và content filter hoãn thư đó, trừ khi `onError` (`--on-error`) là `accept`, và mọi máy chủ đều đánh dấu thư như vậy mà nó chuyển tiếp bằng `X-Spam-Virus-Scan: failed`. `virusScanSkipped` liệt kê các tệp lớn hơn mức clamd chấp nhận (`StreamMaxLength` của nó), dưới dạng `{filename, reason}`: clamd từ chối chúng ở mọi lần thử, nên, giống như clamav-milter bỏ qua tệp vượt quá `MaxFileSize` của nó, chúng không bị coi là lỗi. Các giới hạn khác của clamd (`MaxScanSize`, `MaxFiles`, `MaxRecursion`, `MaxScanTime`), mà một bom nén sẽ chạm tới, thì bị coi là lỗi. Thư đính kèm được mở sâu tối đa ba cấp, với tối đa 100 tệp đính kèm bên trong và tổng cộng 25 MB; `unopenedAttachments` liệt kê những thư không được mở do vượt các giới hạn này, dưới dạng `{filename, reason}`, mà tệp đính kèm của chúng chưa được kiểm tra. Nó không được tính điểm, vì thư chuyển tiếp có thể lồng nhau như vậy, nhưng bên gọi cần thư được đọc trọn vẹn, chẳng hạn để chặn một chương trình mà thư mang theo, có thể từ chối thư có bất kỳ mục nào như vậy.
 
 Mỗi mục `dnsbl` mang `answers` của danh sách (các địa chỉ trong 127.0.0.0/8, mà ý nghĩa do từng danh sách ghi trong tài liệu của mình). Những câu trả lời mà các danh sách đưa ra cho truy vấn chúng từ chối hoặc không thể trả lời không phải là việc bị liệt kê, dù cho địa chỉ của máy khách hay cho tên miền của liên kết (các phát hiện `uribl` trong `phishing`): 127.255.255.x ở Spamhaus (như 127.255.255.254 cho truy vấn qua một resolver công cộng, và 127.255.255.255 khi có quá nhiều truy vấn), 127.0.1.255 ở Spamhaus DBL, 127.0.0.255 ở bất kỳ danh sách nào, và 127.0.0.1 ở SURBL và URIBL, vốn trả lời như vậy cho các resolver mà chúng chặn.
 
@@ -160,7 +161,7 @@ Mỗi mục `dnsbl` mang `answers` của danh sách (các địa chỉ trong 127
 
 ```js
 import SpamScanner, {
-  Classifier, getFeatures, segmentWords, detectLanguage,
+  Classifier, getFeatures, segmentWords, unwrapLink, detectLanguage,
   LLMClassifier, PROVIDERS, RECOMMENDED_MODELS, CLASSIFIER_MODELS, DECISION_MODELS,
   DEFAULT_SCORES, scoreResults, spamHeaders, rewriteMessage,
   loadModel, saveModel, defaultModelPath, loadDefaultModel,
@@ -169,6 +170,8 @@ import SpamScanner, {
   DEFAULTS, VERSION,
 } from 'spamscanner';
 import {SpamScanner} from 'spamscanner'; // the same class, as a named export
+// unwrapLink(address): the URL a link goes to, through Safe Links and
+// Proofpoint URL Defense, as the scanner reads it (null for no URL)
 
 import ArfParser from 'spamscanner/arf';
 ```

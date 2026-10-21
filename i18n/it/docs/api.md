@@ -1,4 +1,4 @@
-<!-- source: 581d018dd514 -->
+<!-- source: e15795fd8287 -->
 
 # Riferimento API
 
@@ -94,9 +94,9 @@ Ogni voce è un singolo indirizzo IP, dominio o indirizzo email, confrontato in 
 | `getFeatures(mail)`                  | `{features, words, language, script, links, hosts, text, hidden}` di un messaggio      |
 | `getTokens(text, locale)`            | Le parole di un testo                                                                  |
 | `getTokensAndMailFromSource(source)` | `{tokens, features, mail}`                                                             |
-| `parse(source)`                      | `{raw, mail}`, con `mail` prodotto da mailparser (vedi sotto)                          |
+| `parse(source)`                      | `{raw, mail, error}`, con `mail` prodotto da mailparser (vedi sotto)                   |
 
-`scan`, `parse`, `learn`, `unlearn` e `getTokensAndMailFromSource` leggono tutti un messaggio allo stesso modo: uno che supera i limiti del parser MIME (più di 1000 parti, l'intestazione di una parte oltre 1 MB) viene letto fin dove il parser lo consente. I campi di indirizzo (From, To, Cc, Bcc, Sender, Reply-To, Delivered-To, Return-Path, Disposition-Notification-To e List-\*), del messaggio, delle sue parti e dei messaggi allegati, vengono letti fino a 16 KB ciascuno, 2000 virgole e punti e virgola e 16 gruppi annidati, e 64 KB in tutto per ogni messaggio, sempre fino alla fine di un indirizzo intero, così non viene letto alcun indirizzo che il campo non contenga; un campo tagliato è segnato `truncated` (`mail.to.truncated`), e un campo From tagliato non dà alcun credito per l'autenticazione del mittente. Un testo la cui prima riga non è un campo di intestazione (`Name: value`, o la riga `From` con cui inizia ogni messaggio nei file mbox) viene letto come il corpo di un messaggio senza intestazione, quindi `mail.text` è quel testo. Gli altri errori vengono sollevati.
+`scan`, `parse`, `learn`, `unlearn` e `getTokensAndMailFromSource` leggono tutti un messaggio allo stesso modo: uno che supera i limiti del parser MIME (più di 1000 parti, l'intestazione di una parte oltre 1 MB) viene letto fin dove il parser lo consente. I campi di indirizzo (From, To, Cc, Bcc, Sender, Reply-To, Delivered-To, Return-Path, Disposition-Notification-To e List-\*), del messaggio, delle sue parti e dei messaggi allegati, vengono letti fino a 16 KB ciascuno, 2000 virgole e punti e virgola e 16 gruppi annidati, e 64 KB in tutto per ogni messaggio, sempre fino alla fine di un indirizzo intero, così non viene letto alcun indirizzo che il campo non contenga; un campo tagliato è segnato `truncated` (`mail.to.truncated`), e un campo From tagliato non dà alcun credito per l'autenticazione del mittente. Un testo la cui prima riga non è un campo di intestazione (`Name: value`, o la riga `From` con cui inizia ogni messaggio nei file mbox) viene letto come il corpo di un messaggio senza intestazione, quindi `mail.text` è quel testo. Gli altri errori vengono sollevati. `parse` indica in `error` il limite del parser che un messaggio supera, come `scan` lo indica in `parseError`, e null per un messaggio letto per intero.
 
 In `getFeatures`, `text` è il testo che mostra un client di posta, da cui vengono lette le parole, e `hidden` il numero di caratteri di testo che l'HTML nasconde. Qui mailparser non ricava testo dall'HTML: `mail.text` contiene solo le parti in testo semplice, ed è vuoto per un messaggio di solo HTML; il testo che mostra il suo HTML è `getFeatures(mail).text`.
 
@@ -131,6 +131,7 @@ In `getFeatures`, `text` è il testo che mostra un client di posta, da cui vengo
     viruses: [],         // ClamAV findings: {filename, virus: [names], message}
     virusScanErrors: [], // attachments ClamAV could not scan: {filename, error}
     virusScanSkipped: [], // attachments larger than clamd accepts, not scanned: {filename, reason}
+    unopenedAttachments: [], // attached messages not opened, past the limits they are read within: {filename, reason}
     arbitrary: [],       // rules strong enough to mark spam alone
     obfuscation: {invisible, mixed, styled},
     authentication: null, // mailauth's results with a score, when checked
@@ -151,7 +152,7 @@ In `getFeatures`, `text` è il testo che mostra un client di posta, da cui vengo
 }
 ```
 
-I rilevamenti in `phishing`, `attachments`, `executables`, `macros`, `viruses` e `arbitrary` sono oggetti con un `type` e un `message`. `String(finding)` è il messaggio. Gli allegati di un messaggio allegato (`message/rfc822`, `.eml`) prendono il suo nome: `fw.eml/invoice.exe`. Un virus che ClamAV trova in un allegato simile viene segnalato solo per esso, non di nuovo per il messaggio allegato che lo contiene. `virusScanErrors` elenca gli allegati che ClamAV non ha potuto analizzare, come `{filename, error}`: un messaggio simile può contenere un virus, quindi trattenetelo invece di consegnarlo. Il milter e il filtro dei contenuti lo rinviano, a meno che `onError` (`--on-error`) sia `accept`, e ogni server contrassegna un messaggio simile che lascia passare con `X-Spam-Virus-Scan: failed`. `virusScanSkipped` elenca quelli più grandi di quanto clamd accetti (il suo `StreamMaxLength`), come `{filename, reason}`: clamd li rifiuta a ogni tentativo, quindi, così come clamav-milter salta un file oltre il suo `MaxFileSize`, non sono errori. Gli altri suoi limiti (`MaxScanSize`, `MaxFiles`, `MaxRecursion`, `MaxScanTime`), che una bomba di archivio raggiunge, sono errori.
+I rilevamenti in `phishing`, `attachments`, `executables`, `macros`, `viruses` e `arbitrary` sono oggetti con un `type` e un `message`. `String(finding)` è il messaggio. Gli allegati di un messaggio allegato (`message/rfc822`, `.eml`) prendono il suo nome: `fw.eml/invoice.exe`. Un virus che ClamAV trova in un allegato simile viene segnalato solo per esso, non di nuovo per il messaggio allegato che lo contiene. `virusScanErrors` elenca gli allegati che ClamAV non ha potuto analizzare, come `{filename, error}`: un messaggio simile può contenere un virus, quindi trattenetelo invece di consegnarlo. Il milter e il filtro dei contenuti lo rinviano, a meno che `onError` (`--on-error`) sia `accept`, e ogni server contrassegna un messaggio simile che lascia passare con `X-Spam-Virus-Scan: failed`. `virusScanSkipped` elenca quelli più grandi di quanto clamd accetti (il suo `StreamMaxLength`), come `{filename, reason}`: clamd li rifiuta a ogni tentativo, quindi, così come clamav-milter salta un file oltre il suo `MaxFileSize`, non sono errori. Gli altri suoi limiti (`MaxScanSize`, `MaxFiles`, `MaxRecursion`, `MaxScanTime`), che una bomba di archivio raggiunge, sono errori. I messaggi allegati vengono aperti fino a tre livelli, con al massimo 100 allegati al loro interno e 25 MB in tutto; `unopenedAttachments` elenca quelli non aperti oltre questi limiti, come `{filename, reason}`, i cui allegati non sono stati ispezionati. Non conta nel punteggio, perché i messaggi inoltrati possono essere annidati così, ma chi ha bisogno di un messaggio letto per intero, ad esempio per bloccare un programma che contiene, può rifiutarne uno che ne abbia.
 
 Ogni elemento di `dnsbl` riporta le `answers` della lista (indirizzi in 127.0.0.0/8, il cui significato è documentato da ciascuna lista). Le risposte che le liste danno alle query che rifiutano o a cui non possono rispondere non sono inserimenti in lista, né per l'indirizzo del client né per i domini dei link (rilevamenti `uribl` in `phishing`): 127.255.255.x presso Spamhaus (come 127.255.255.254 per una query tramite un resolver pubblico, e 127.255.255.255 per troppe query), 127.0.1.255 presso la DBL di Spamhaus, 127.0.0.255 presso qualsiasi lista, e 127.0.0.1 presso SURBL e URIBL, che la restituiscono ai resolver che bloccano.
 
@@ -160,7 +161,7 @@ Ogni elemento di `dnsbl` riporta le `answers` della lista (indirizzi in 127.0.0.
 
 ```js
 import SpamScanner, {
-  Classifier, getFeatures, segmentWords, detectLanguage,
+  Classifier, getFeatures, segmentWords, unwrapLink, detectLanguage,
   LLMClassifier, PROVIDERS, RECOMMENDED_MODELS, CLASSIFIER_MODELS, DECISION_MODELS,
   DEFAULT_SCORES, scoreResults, spamHeaders, rewriteMessage,
   loadModel, saveModel, defaultModelPath, loadDefaultModel,
@@ -169,6 +170,8 @@ import SpamScanner, {
   DEFAULTS, VERSION,
 } from 'spamscanner';
 import {SpamScanner} from 'spamscanner'; // the same class, as a named export
+// unwrapLink(address): the URL a link goes to, through Safe Links and
+// Proofpoint URL Defense, as the scanner reads it (null for no URL)
 
 import ArfParser from 'spamscanner/arf';
 ```
