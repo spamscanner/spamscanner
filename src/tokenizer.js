@@ -202,17 +202,23 @@ function gatewayTarget(url) {
 
 	if (host === 'urldefense.com' && url.pathname.startsWith('/v3/__')) {
 		const rest = url.href.slice(url.href.indexOf('/v3/__') + 6);
-		const end = rest.indexOf('__;');
+		// (the last: a link wrapped again has the inner one's before it)
+		const end = rest.lastIndexOf('__;');
 		return end === -1 ? null : rest.slice(0, end);
 	}
 
 	return null;
 }
 
+// (gateways unwrapped at most: forwarding through several organizations
+//  each with its own wraps a link again; each is read once)
+const MAX_GATEWAYS = 16;
+
 /**
  * The address a link goes to, as a URL: through a security gateway, the
- * address it goes on to (see gatewayTarget), as many as three wrapped in
- * one another; or null for an address that is no URL.
+ * address it goes on to (see gatewayTarget), as many as MAX_GATEWAYS
+ * wrapped in one another (past them, the gateway link it got to); or null for
+ * an address that is no URL.
  * @param {string} address
  * @returns {URL|null}
  */
@@ -224,7 +230,7 @@ export function unwrapLink(address) {
 		return null;
 	}
 
-	for (let depth = 0; depth < 3; depth++) {
+	for (let depth = 0; depth < MAX_GATEWAYS; depth++) {
 		const target = gatewayTarget(url);
 		// (most links go through no gateway: no URL to read, rather than one
 		//  that throws, which takes far longer)

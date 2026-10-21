@@ -1,4 +1,4 @@
-<!-- source: e15795fd8287 -->
+<!-- source: 9134d1cd102c -->
 
 # API 레퍼런스
 
@@ -152,7 +152,7 @@ await scanner.scan(raw, {authenticationResults: auth});
 }
 ```
 
-`phishing`, `attachments`, `executables`, `macros`, `viruses`, `arbitrary`의 검출 항목은 `type`과 `message`를 가진 객체입니다. `String(finding)`은 그 메시지입니다. 첨부된 메시지(`message/rfc822`, `.eml`)의 첨부 파일은 그 메시지 이름을 붙여 부릅니다: `fw.eml/invoice.exe`. ClamAV가 이런 첨부 파일에서 찾은 바이러스는 그 첨부 파일에 대해서만 보고하며, 그것을 담은 첨부된 메시지에 대해 다시 보고하지 않습니다. `virusScanErrors`는 ClamAV가 검사하지 못한 첨부 파일을 `{filename, error}` 형태로 나열합니다. 이런 메시지에는 바이러스가 있을 수 있으니 전달하지 말고 보류하세요. milter와 콘텐츠 필터는 `onError`(`--on-error`)가 `accept`가 아니면 이런 메시지를 일시적으로 거부하며, 모든 서버는 이런 메시지를 넘겨줄 때 `X-Spam-Virus-Scan: failed`를 붙입니다. `virusScanSkipped`는 clamd가 받아들이는 크기(clamd의 `StreamMaxLength`)보다 큰 첨부 파일을 `{filename, reason}` 형태로 나열합니다. clamd는 이런 파일을 몇 번을 시도해도 거부하므로, clamav-milter가 `MaxFileSize`를 넘는 파일을 건너뛰는 것과 마찬가지로 실패로 보지 않습니다. 압축 폭탄이 도달하는 clamd의 다른 한도(`MaxScanSize`, `MaxFiles`, `MaxRecursion`, `MaxScanTime`)는 실패입니다. 첨부된 메시지는 세 단계 깊이까지, 그 안의 첨부 파일 100개까지, 합계 25MB까지 엽니다. `unopenedAttachments`는 이 한도를 넘어 열지 않은 메시지를 `{filename, reason}` 형태로 나열하며, 그 첨부 파일은 검사하지 않았습니다. 전달된 메시지는 이렇게 중첩될 수 있으므로 점수에는 반영하지 않지만, 메시지를 전부 읽어야 하는 호출자는 예를 들어 그 안의 프로그램을 차단하기 위해 이런 항목이 하나라도 있는 메시지를 거부할 수 있습니다.
+`phishing`, `attachments`, `executables`, `macros`, `viruses`, `arbitrary`의 검출 항목은 `type`과 `message`를 가진 객체입니다. `String(finding)`은 그 메시지입니다. 첨부된 메시지(`message/rfc822`, `message/global`, `.eml`, `.u8msg`)의 첨부 파일은 그 메시지 이름을 붙여 부릅니다: `fw.eml/invoice.exe`. ClamAV가 이런 첨부 파일에서 찾은 바이러스는 그 첨부 파일에 대해서만 보고하며, 그것을 담은 첨부된 메시지에 대해 다시 보고하지 않습니다. `virusScanErrors`는 ClamAV가 검사하지 못한 첨부 파일을 `{filename, error}` 형태로 나열합니다. 이런 메시지에는 바이러스가 있을 수 있으니 전달하지 말고 보류하세요. milter와 콘텐츠 필터는 `onError`(`--on-error`)가 `accept`가 아니면 이런 메시지를 일시적으로 거부하며, 모든 서버는 이런 메시지를 넘겨줄 때 `X-Spam-Virus-Scan: failed`를 붙입니다. `virusScanSkipped`는 clamd가 받아들이는 크기(clamd의 `StreamMaxLength`)보다 큰 첨부 파일을 `{filename, reason}` 형태로 나열합니다. clamd는 이런 파일을 몇 번을 시도해도 거부하므로, clamav-milter가 `MaxFileSize`를 넘는 파일을 건너뛰는 것과 마찬가지로 실패로 보지 않습니다. 압축 폭탄이 도달하는 clamd의 다른 한도(`MaxScanSize`, `MaxFiles`, `MaxRecursion`, `MaxScanTime`)는 실패입니다. 첨부된 메시지는 세 단계 깊이까지, 그 안의 첨부 파일 100개까지, 합계 25MB까지 엽니다. `unopenedAttachments`는 이 한도를 넘어 열지 않은 메시지를 `{filename, reason}` 형태로 나열하며, 그 첨부 파일은 검사하지 않았습니다. 전달된 메시지는 이렇게 중첩될 수 있으므로 점수에는 반영하지 않지만, 메시지를 전부 읽어야 하는 호출자는 예를 들어 그 안의 프로그램을 차단하기 위해 이런 항목이 하나라도 있는 메시지를 거부할 수 있습니다. 첨부된 메시지는 모두 합쳐 최대 100개까지 엽니다.
 
 각 `dnsbl` 항목에는 목록의 `answers`(127.0.0.0/8 범위의 주소로, 그 의미는 각 목록이 문서로 밝힙니다)가 들어 있습니다. 목록이 거부하거나 답할 수 없는 조회에 주는 응답은 클라이언트 주소에 대해서든 링크 도메인(`phishing`의 `uribl` 검출 항목)에 대해서든 등재가 아닙니다. Spamhaus의 127.255.255.x(공개 리졸버를 거친 조회에 대한 127.255.255.254, 조회가 너무 많을 때의 127.255.255.255 등), Spamhaus DBL의 127.0.1.255, 모든 목록의 127.0.0.255, 그리고 SURBL과 URIBL이 차단한 리졸버에 답하는 127.0.0.1이 그렇습니다.
 

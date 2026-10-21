@@ -266,12 +266,28 @@ const MAX_SIGNATURES = 10;
  */
 export const MAX_DKIM_SIGNATURES = 8;
 
-// Attached messages (message/rfc822, .eml) are opened this many levels deep,
+/**
+ * Whether an attachment is an attached message: message/rfc822, or
+ * message/global (RFC 6532, the same with UTF-8 in its header), by type or
+ * by file name (.eml, .u8msg).
+ * @param {{contentType?: string, filename?: string}} attachment - as mailparser gives it
+ * @returns {boolean}
+ */
+export function isAttachedMessage(attachment) {
+	const type = String(attachment.contentType).toLowerCase();
+	return type === 'message/rfc822' || type === 'message/global' || /\.(?:eml|u8msg)$/i.test(String(attachment.filename));
+}
+
+// Attached messages (see isAttachedMessage) are opened this many levels deep,
 // for at most this many attachments of theirs and this many bytes of attached
 // messages (the message's own attachments are always all read).
 const MAX_NESTED_DEPTH = 3;
 const MAX_ATTACHMENTS = 100;
 const MAX_NESTED_BYTES = 25 * 1024 * 1024;
+// (and at most this many attached messages opened in all, at every level:
+//  each is parsed on its own, with its own MIME part limit, so many small
+//  ones of many parts each would take seconds each)
+const MAX_ATTACHED_MESSAGES = 100;
 
 // Milliseconds a message (with the tries of parseWithin), or all the messages
 // attached to one, may take to parse. mailparser is driven by its own stream
@@ -470,7 +486,7 @@ export function unfoldHeaders(raw) {
 		}
 
 		// (an attached message inline: its header follows)
-		head = blank && type.value === 'message/rfc822' && ['', '7bit', '8bit', 'binary'].includes(encoding) && first.get('content-disposition')?.value === 'inline';
+		head = blank && ['message/rfc822', 'message/global'].includes(type.value) && ['', '7bit', '8bit', 'binary'].includes(encoding) && first.get('content-disposition')?.value === 'inline';
 	};
 
 	for (let start = 0; start < raw.length;) {
@@ -665,6 +681,7 @@ export async function expandAttachments(attachments = [], errors = [], parse = p
 	let budget = MAX_NESTED_BYTES;
 	let nested = 0;
 	let tooMany = false;
+	let opened = 0;
 	const visit = async (list, prefix, depth) => {
 		for (const attachment of list) {
 			if (prefix) {
@@ -685,9 +702,14 @@ export async function expandAttachments(attachments = [], errors = [], parse = p
 			const filename = prefix ? `${prefix}/${name}` : (name || 'attached message');
 			all.push(prefix ? {...attachment, filename: `${prefix}/${name}`} : attachment);
 			const {content} = attachment;
-			const attached = attachment.contentType === 'message/rfc822' || /\.eml$/i.test(attachment.filename || '');
+			const attached = isAttachedMessage(attachment);
 			if (attached && Buffer.isBuffer(content) && depth >= MAX_NESTED_DEPTH) {
 				unopened.push({filename, reason: `nested more than ${MAX_NESTED_DEPTH} deep`});
+				continue;
+			}
+
+			if (attached && Buffer.isBuffer(content) && opened >= MAX_ATTACHED_MESSAGES) {
+				unopened.push({filename, reason: `more than ${MAX_ATTACHED_MESSAGES} attached messages`});
 				continue;
 			}
 
@@ -698,6 +720,7 @@ export async function expandAttachments(attachments = [], errors = [], parse = p
 
 			if (attached && Buffer.isBuffer(content)) {
 				budget -= content.length;
+				opened++;
 				let inner;
 				try {
 					// eslint-disable-next-line no-await-in-loop

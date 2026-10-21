@@ -4,7 +4,9 @@ import {
 	attributeText, decodeEntities, formHelp, visibleText,
 } from './html.js';
 import {linear} from './linear.js';
-import {ADDRESS_SOURCE, NAMED_ADDRESS, registrableDomain} from './tokenizer.js';
+import {
+	ADDRESS_SOURCE, NAMED_ADDRESS, readableText, registrableDomain,
+} from './tokenizer.js';
 
 // The GTUBE test string: any message containing it must be treated as spam.
 export const GTUBE = 'XJS*C4JDBQADN1.NSBN3*2IDNEN*GTUBE-STANDARD-ANTI-UBE-TEST-EMAIL*C.34X';
@@ -505,7 +507,10 @@ export function isArbitrary(mail, options) {
 	//  an image's alt text, a tooltip, a hidden field, a meta tag, a class)
 	//  (a form's help text only with an order on the verdict)
 	const markup = html.slice(0, 100_000);
-	if (isInjection(`${subject}\n${text.slice(0, 50_000)}\n${withoutHelp(markup)}`) || attributeText(markup).some(({text, start, end, help}) => (!help || isOrder(text)) && isInjection(unquoted(text), AI_ACTION_OBJECT, () => shownNear(markup, start, end)))) {
+	// (and as the language model reads it: references decoded, invisible
+	//  characters removed and compatibility forms folded, see readableText)
+	const readable = readableText(`${subject}\n${text.slice(0, 50_000)}\n${visibleText(withoutHelp(markup)).text}`);
+	if (isInjection(`${subject}\n${text.slice(0, 50_000)}\n${withoutHelp(markup)}`) || isInjection(readable) || attributeText(markup).some(({text, start, end, help}) => (!help || isOrder(text)) && isInjection(unquoted(text), AI_ACTION_OBJECT, () => shownNear(markup, start, end)))) {
 		hit('PROMPT_INJECTION', 3, 'Contains instructions addressed to an AI filter', 'SPAM');
 	}
 

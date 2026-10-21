@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {Buffer} from 'node:buffer';
 import {describe, it} from 'node:test';
 import SpamScanner, {unwrapLink} from '../src/index.js';
-import {expandAttachments, parseMessage} from '../src/parse.js';
+import {expandAttachments, isAttachedMessage, parseMessage} from '../src/parse.js';
 
 const offline = {phishing: {cloudflare: false}};
 const names = result => result.tests.map(test => test.name);
@@ -77,5 +77,29 @@ describe('what a message is read in part for', () => {
 		const unopened = [];
 		await expandAttachments([{filename: 'big.eml', contentType: 'message/rfc822', content: Buffer.alloc(26 * 1024 * 1024, 'a')}], [], parseMessage, unopened);
 		assert.deepEqual(unopened, [{filename: 'big.eml', reason: 'past 25 MB of attached messages'}]);
+		// (and past the attached messages opened in all, at every level)
+		const many = Array.from({length: 101}, (_, i) => ({filename: `m${i}.eml`, contentType: 'message/rfc822', content: Buffer.from('From: a@example.org\r\nSubject: hi\r\n\r\nhi\r\n')}));
+		const past = [];
+		await expandAttachments(many, [], parseMessage, past);
+		assert.deepEqual(past, [{filename: 'm100.eml', reason: 'more than 100 attached messages'}]);
+	});
+
+	it('opens an attached message/global (RFC 6532) as it opens message/rfc822', async () => {
+		const scanner = new SpamScanner({...offline, classifier: false});
+		const inner = 'From: a@example.org\r\nSubject: inner\r\nContent-Type: multipart/mixed; boundary=inner\r\n\r\n--inner\r\nContent-Type: application/octet-stream; name="run.exe"\r\nContent-Disposition: attachment; filename="run.exe"\r\n\r\nMZ\r\n--inner--\r\n';
+		const encoded = Buffer.from(inner).toString('base64');
+		for (const [type, encoding, body] of [
+			['message/global', '', inner],
+			['message/global', 'Content-Transfer-Encoding: base64\r\n', encoded],
+			['application/octet-stream; name="fw.u8msg"', 'Content-Transfer-Encoding: base64\r\n', encoded],
+		]) {
+			const result = await scanner.scan(`From: b@example.org\r\nSubject: fw\r\nMIME-Version: 1.0\r\nContent-Type: multipart/mixed; boundary=o\r\n\r\n--o\r\nContent-Type: text/plain\r\n\r\nsee\r\n--o\r\nContent-Type: ${type}\r\n${encoding}\r\n${body}\r\n--o--\r\n`);
+			assert.ok(result.results.executables.some(item => item.filename.endsWith('run.exe')), type);
+		}
+
+		assert.ok(isAttachedMessage({contentType: 'Message/Global'}));
+		assert.ok(isAttachedMessage({filename: 'FW.EML'}));
+		assert.ok(!isAttachedMessage({contentType: 'text/plain', filename: 'notes.txt'}));
+		assert.ok(!isAttachedMessage({}));
 	});
 });

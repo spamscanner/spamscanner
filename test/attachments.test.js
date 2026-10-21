@@ -361,6 +361,11 @@ describe('attachments people send every day', () => {
 		assert.deepEqual(types([{filename: 'Rechnung.pdf', content: Buffer.from('%PDF-1.7\n1 0 obj<</Type /EmbeddedFile /Subtype /text#2Fxml>>stream\n<rsm:CrossIndustryInvoice/>\nendstream endobj\n<</Names<</EmbeddedFiles 2 0 R>>>>\n%%EOF')}]), []);
 		assert.deepEqual(types([{filename: 'x.pdf', content: Buffer.from('%PDF-1.7\n<</OpenAction<</S/J#61vaScript/J#53(app.alert(1))>>>>\n%%EOF')}]), ['pdf_active']);
 		assert.deepEqual(types([{filename: 'x.pdf', content: Buffer.from('%PDF-1.7\n<</S/#4caunch/F(cmd.exe)>>\n%%EOF')}]), ['pdf_active']);
+		assert.deepEqual(types([{filename: 'x.pdf', content: Buffer.from('%PDF-1.7\n<</S/#4A#53(app.alert(1))>>\n%%EOF')}]), ['pdf_active']);
+		// (each name decoded on its own, not a copy of the file: quickly)
+		const started = Date.now();
+		assert.deepEqual(types([{filename: 'x.pdf', content: Buffer.concat([Buffer.from('%PDF-1.7\n'), Buffer.from('/#41'.repeat(5_000_000))])}]), []);
+		assert.ok(Date.now() - started < 2000, `${Date.now() - started} ms`);
 	});
 
 	it('finds VBA projects in a compound file\'s directory only', () => {

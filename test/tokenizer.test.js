@@ -998,8 +998,17 @@ describe('links through security gateways and mailing services', () => {
 		assert.equal(unwrapLink(safeLinks('https://www.example.org/news?a=1&b=2')).href, 'https://www.example.org/news?a=1&b=2');
 		assert.equal(unwrapLink(proofpoint2('https://my-site.example.org/a_b/c?d=1')).href, 'https://my-site.example.org/a_b/c?d=1');
 		assert.equal(unwrapLink(proofpoint3('https://www.example.org/report')).href, 'https://www.example.org/report');
-		// (wrapped twice)
+		// (wrapped twice, also by the same gateway, and many times)
 		assert.equal(unwrapLink(safeLinks(proofpoint3('https://www.example.org/'))).hostname, 'www.example.org');
+		assert.equal(unwrapLink(proofpoint3(proofpoint3('http://www.example.org/a'))).href, 'http://www.example.org/a');
+		let wrapped = 'https://www.example.org/deep';
+		for (let i = 0; i < 16; i++) {
+			wrapped = i % 2 ? safeLinks(wrapped) : proofpoint3(wrapped);
+		}
+
+		assert.equal(unwrapLink(wrapped).href, 'https://www.example.org/deep');
+		// (past as many as are unwrapped: a gateway's link, still wrapping one)
+		assert.equal(unwrapLink(safeLinks(wrapped)).hostname, 'urldefense.com');
 		// (a link through no gateway makes one URL, rather than also one that
 		//  throws for each)
 		const {URL: Original} = globalThis;

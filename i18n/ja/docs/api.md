@@ -1,4 +1,4 @@
-<!-- source: e15795fd8287 -->
+<!-- source: 9134d1cd102c -->
 
 # APIリファレンス
 
@@ -152,7 +152,7 @@ await scanner.scan(raw, {authenticationResults: auth});
 }
 ```
 
-`phishing`、`attachments`、`executables`、`macros`、`viruses`、`arbitrary`の検出結果は、`type`と`message`を持つオブジェクトです。`String(finding)`はそのメッセージになります。添付されたメッセージ（`message/rfc822`、`.eml`）の添付ファイルは、そのメッセージ名を付けて呼ばれます（`fw.eml/invoice.exe`）。そのような添付ファイルで ClamAV が見つけたウイルスは、その添付ファイルについてだけ報告し、それを含む添付されたメッセージについて重ねて報告することはありません。`virusScanErrors` は ClamAV がスキャンできなかった添付ファイルを `{filename, error}` の形で列挙します。そのようなメッセージはウイルスを含むかもしれないので、配送せずに保留してください。milter とコンテンツフィルターは、`onError`（`--on-error`）が `accept` でない限りそのメッセージを延期します。また、どのサーバーも、そのようなメッセージを通過させる場合は `X-Spam-Virus-Scan: failed` を付けます。`virusScanSkipped` は、clamd が受け付けるサイズ（clamd の `StreamMaxLength`）より大きい添付ファイルを `{filename, reason}` の形で列挙します。clamd はこれらを何度試しても拒否するため、clamav-milter が `MaxFileSize` を超えるファイルをスキップするのと同じく、失敗とはみなしません。clamd のその他の上限（`MaxScanSize`、`MaxFiles`、`MaxRecursion`、`MaxScanTime`）は、アーカイブ爆弾が達するものであり、失敗とみなします。添付されたメッセージは、3 階層の深さまで、その中の添付ファイル 100 個まで、合計 25 MB まで開きます。`unopenedAttachments` は、これらの上限を超えて開かなかったものを `{filename, reason}` として列挙し、その添付ファイルは検査していません。転送されたメッセージはこのように入れ子になることがあるため、スコアには加えませんが、メッセージを全体まで読む必要がある呼び出し側は、たとえば含まれるプログラムをブロックするために、これがひとつでもあるメッセージを拒否できます。
+`phishing`、`attachments`、`executables`、`macros`、`viruses`、`arbitrary`の検出結果は、`type`と`message`を持つオブジェクトです。`String(finding)`はそのメッセージになります。添付されたメッセージ（`message/rfc822`、`message/global`、`.eml`、`.u8msg`）の添付ファイルは、そのメッセージ名を付けて呼ばれます（`fw.eml/invoice.exe`）。そのような添付ファイルで ClamAV が見つけたウイルスは、その添付ファイルについてだけ報告し、それを含む添付されたメッセージについて重ねて報告することはありません。`virusScanErrors` は ClamAV がスキャンできなかった添付ファイルを `{filename, error}` の形で列挙します。そのようなメッセージはウイルスを含むかもしれないので、配送せずに保留してください。milter とコンテンツフィルターは、`onError`（`--on-error`）が `accept` でない限りそのメッセージを延期します。また、どのサーバーも、そのようなメッセージを通過させる場合は `X-Spam-Virus-Scan: failed` を付けます。`virusScanSkipped` は、clamd が受け付けるサイズ（clamd の `StreamMaxLength`）より大きい添付ファイルを `{filename, reason}` の形で列挙します。clamd はこれらを何度試しても拒否するため、clamav-milter が `MaxFileSize` を超えるファイルをスキップするのと同じく、失敗とはみなしません。clamd のその他の上限（`MaxScanSize`、`MaxFiles`、`MaxRecursion`、`MaxScanTime`）は、アーカイブ爆弾が達するものであり、失敗とみなします。添付されたメッセージは、3 階層の深さまで、その中の添付ファイル 100 個まで、合計 25 MB まで開きます。`unopenedAttachments` は、これらの上限を超えて開かなかったものを `{filename, reason}` として列挙し、その添付ファイルは検査していません。転送されたメッセージはこのように入れ子になることがあるため、スコアには加えませんが、メッセージを全体まで読む必要がある呼び出し側は、たとえば含まれるプログラムをブロックするために、これがひとつでもあるメッセージを拒否できます。開く添付メッセージは合計で最大 100 件です。
 
 `dnsbl` の各項目には、そのリストの `answers`（127.0.0.0/8 内のアドレスで、意味は各リストが文書化しています）が含まれます。リストが拒否した、または答えられないクエリに返す回答は、クライアントのアドレスについてもリンクのドメイン（`phishing` 内の `uribl` の検出結果）についても、掲載ではありません。Spamhaus の 127.255.255.x（公開リゾルバー経由のクエリに対する 127.255.255.254、クエリ過多に対する 127.255.255.255 など）、Spamhaus DBL の 127.0.1.255、すべてのリストの 127.0.0.255、そして SURBL と URIBL がブロックしているリゾルバーに返す 127.0.0.1 です。
 

@@ -14,7 +14,7 @@ import {isArbitrary} from './is-arbitrary.js';
 import {normalizeLanguageCode} from './language.js';
 import {LLMClassifier} from './llm.js';
 import {loadDefaultModel, loadModel, saveModel} from './model.js';
-import {expandAttachments, parseWithin} from './parse.js';
+import {expandAttachments, isAttachedMessage, parseWithin} from './parse.js';
 import {
 	ReputationChecker, reputationValues, trustReputation, trustedReputationValues,
 } from './reputation.js';
@@ -790,7 +790,7 @@ export class SpamScanner {
 						viruses.push(found);
 						// (an attached message: its attachments are named after it,
 						//  as expandAttachments names them)
-						if (attachment.contentType === 'message/rfc822' || /\.eml$/i.test(attachment.filename || '')) {
+						if (isAttachedMessage(attachment)) {
 							carriers.set(found, attachment.filename || 'attached message');
 						}
 					}

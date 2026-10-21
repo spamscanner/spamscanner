@@ -352,9 +352,18 @@ function oleHasMacros(buffer) {
 const PDF_ACTIVE = linear(String.raw`\/(?:JavaScript|JS|Launch)\b`);
 
 // A PDF name with a character written as #xx ("/J#61vaScript" is
-// "/JavaScript"), decoded before it is matched.
-const PDF_ESCAPED_NAME = /\/[^\s/<>[\]()%{}]*#[\dA-Fa-f]{2}[^\s/<>[\]()%{}]*/g;
-const decodePdfNames = text => text.replaceAll(PDF_ESCAPED_NAME, name => name.replaceAll(/#([\dA-Fa-f]{2})/g, (_, hex) => String.fromCodePoint(Number.parseInt(hex, 16))));
+// "/JavaScript") is the same name: each character of the active names is
+// matched as itself or as its #xx form, and the name must end there (no
+// letter, digit or "_" after it, written either way), so the file is read
+// once, without a decoded copy of it.
+const escaped = character => {
+	const hex = character.codePointAt(0).toString(16);
+	return `(?:${character}|#${hex[0]}[${hex[1].toLowerCase()}${hex[1].toUpperCase()}])`;
+};
+
+const WORD_ESCAPE = String.raw`#(?:3\d|4[1-9a-fA-F]|5[\daA]|5[fF]|6[1-9a-fA-F]|7[\daA])`;
+const PDF_ACTIVE_ESCAPED = new RegExp(`/(?:${['JavaScript', 'JS', 'Launch'].map(name => [...name].map(character => escaped(character)).join('')).join('|')})(?![\\w]|${WORD_ESCAPE})`);
+const pdfActive = text => PDF_ACTIVE.test(text) || PDF_ACTIVE_ESCAPED.test(text);
 
 /**
  * Inspect a message's attachments.
@@ -453,7 +462,7 @@ export function inspectAttachments(attachments = []) {
 				add('macro', `Attachment "${name}" is an Office document with a VBA macro project`, {extension});
 			}
 		} else if (detected?.type === 'pdf' || extension === 'pdf') {
-			if (PDF_ACTIVE.test(decodePdfNames(content.toString('latin1')))) {
+			if (pdfActive(content.toString('latin1'))) {
 				add('pdf_active', `PDF "${name}" contains JavaScript or a launch action`, {extension: 'pdf'});
 			}
 		} else if (detected?.type === 'rtf' && /\\object\b|\\objdata\b|\\objupdate\b/.test(content.toString('latin1'))) {
