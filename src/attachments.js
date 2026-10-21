@@ -38,6 +38,7 @@ const DOCUMENT_EXTENSIONS = new Set(['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt',
 const TEMPORARY_EXTENSIONS = new Set(['tmp']);
 
 const BIDI_CONTROLS = characterClass([[0x20_2A, 0x20_2E], [0x20_66, 0x20_69]], 'u');
+const ALL_BIDI_CONTROLS = characterClass([[0x20_2A, 0x20_2E], [0x20_66, 0x20_69]], 'gu');
 
 const ARCHIVE_TYPES = new Set(['zip', 'rar', '7z', 'gz', 'bz2', 'xz', 'cab', 'iso', 'tar', 'zst', 'lzh', 'ace', 'arj']);
 
@@ -315,9 +316,26 @@ function shorten(name, max = 100) {
 	return characters.length <= max ? name : `${characters.slice(0, max - 41).join('')}…${characters.slice(-40).join('')}`;
 }
 
-// (Windows drops dots and spaces at the end of a file name: "run.js." runs)
+// (Windows drops dots and spaces at the end of a file name: "run.js." runs,
+//  and the direction controls that hide its extension: "macro.vb\u2069s")
 function extensionOf(name) {
-	const base = trimEndOf(String(name).toLowerCase().split(/[/\\]/).pop(), '. ');
+	const base = trimEndOf(String(name).toLowerCase().replace(ALL_BIDI_CONTROLS, '').split(/[/\\]/).pop(), '. ');
+	const whole = lastExtension(base);
+	// (a name with the stream name of a file's own content by the name Windows
+	//  saves it as: without a drive, before "::$DATA", "macro.vbs::$DATA" is
+	//  "macro.vbs"; another stream name, "Amazon.com:Order.pdf", is a stream
+	//  of an empty file, nothing to run, so the name as other systems save
+	//  it, as "Report: Q1.exe")
+	const file = base.replace(/^[a-z]:/, '');
+	const colon = file.indexOf(':');
+	if (colon !== -1 && /^(?::?\$data)?$/.test(file.slice(colon + 1))) {
+		return lastExtension(trimEndOf(file.slice(0, colon), '. '));
+	}
+
+	return whole;
+}
+
+function lastExtension(base) {
 	const dot = base.lastIndexOf('.');
 	return dot === -1 ? '' : base.slice(dot + 1).trim();
 }

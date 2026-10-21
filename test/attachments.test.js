@@ -237,6 +237,26 @@ describe('inspectAttachments', () => {
 	it('flags programs by extension and by content', () => {
 		assert.deepEqual(types([{filename: 'setup.exe', content: pe()}]), ['executable']);
 		assert.deepEqual(types([{filename: 'tool.js', content: Buffer.from('x()')}]), ['executable']);
+		// (by the name before the stream name of its own content, as Windows
+		//  reads it)
+		assert.deepEqual(types([{filename: 'macro.vbs::$DATA', content: Buffer.from('MsgBox 1')}]), ['executable']);
+		assert.deepEqual(types([{filename: 'macro.vbs:$DATA', content: Buffer.from('MsgBox 1')}]), ['executable']);
+		assert.deepEqual(types([{filename: 'run.bat:', content: Buffer.from('echo 1')}]), ['executable']);
+		assert.deepEqual(types([{filename: 'c:run.cmd', content: Buffer.from('echo 1')}]), ['executable']);
+		// (with the direction controls Windows saves it without)
+		assert.deepEqual(types([{filename: 'macro.vbs:\u2069$DATA', content: Buffer.from('MsgBox 1')}]), ['rtl_override', 'executable']);
+		// (of any type, read by the name it is saved as)
+		assert.deepEqual(types([{filename: 'page.html::$DATA', content: Buffer.from('hello')}]), types([{filename: 'page.html', content: Buffer.from('hello')}]));
+		assert.notDeepEqual(types([{filename: 'page.html', content: Buffer.from('hello')}]), []);
+		// (not another stream name, a stream of an empty file)
+		assert.deepEqual(types([{filename: 'run.bat:x.txt', content: Buffer.from('echo 1')}]), []);
+		assert.deepEqual(types([{filename: 'notes.txt::$DATA', content: Buffer.from('hello')}]), []);
+		assert.deepEqual(types([{filename: 'Amazon.com:Order.pdf', content: Buffer.from('%PDF-1.4')}]), []);
+		assert.deepEqual(types([{filename: 'Report: Q1.exe'}]), ['executable']);
+		assert.deepEqual(types([{filename: 'notes:draft.txt', content: Buffer.from('hello')}]), []);
+		// (nor a subject as a name, its colon followed by a space)
+		assert.deepEqual(types([{filename: 'Booking.com: Your reservation.pdf', content: Buffer.from('%PDF-1.4')}]), []);
+		assert.deepEqual(types([{filename: 'Node.js: notes.txt', content: Buffer.from('hello')}]), []);
 		assert.deepEqual(types([{filename: 'photo.jpg', content: pe()}]), ['disguised_executable']);
 		assert.deepEqual(types([{content: pad(bytes(0x7F, 0x45, 0x4C, 0x46))}]), ['executable']);
 		// (a program named as a script or another type that runs code, by its
