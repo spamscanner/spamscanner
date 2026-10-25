@@ -124,14 +124,12 @@ function urlOf(value) {
 		return null;
 	}
 
-	let url;
+	// (http or https: as read above)
 	try {
-		url = new URL(href);
+		return new URL(href);
 	} catch {
 		return null;
 	}
-
-	return url.protocol === 'http:' || url.protocol === 'https:' ? url : null;
 }
 
 // A host as it is looked up (see lookupName), an address as it is, or null

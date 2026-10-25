@@ -220,3 +220,204 @@ describe('link checks of what a message carries', () => {
 		assert.ok(result.results.uncheckedHosts >= 1);
 	});
 });
+
+describe('carriedLinkHosts on every shape of input', () => {
+	const read = (document, options) => carriedLinkHosts(document, options);
+	const file = (filename, contentType, content) => ({filename, contentType, content: Buffer.isBuffer(content) ? content : Buffer.from(content)});
+
+	it('reads attributes as a browser does: spaces, stray "=", no value, unclosed and unquoted values', () => {
+		const hosts = hostsOf({
+			html: [
+				'<a href=" https://lead.example.com/">x</a>',
+				'<a href="https://trail.example.com/ ">x</a>',
+				'<a ="x" href="https://stray.example.com/">x</a>',
+				'<a href = \'https://spaced.example.com/\'>x</a>',
+				'<a download href="https://novalue.example.com/">x</a>',
+				'<a href=https://unquoted.example.com/>x</a>',
+				'<a href="https://unclosed.example.com/',
+			].join('\n'),
+		});
+		for (const host of ['lead.example.com', 'trail.example.com', 'stray.example.com', 'spaced.example.com', 'novalue.example.com', 'unquoted.example.com', 'unclosed.example.com']) {
+			assert.ok(hosts.includes(host), host);
+		}
+	});
+
+	it('reads hosts with dots at their end and addresses, and not a namespace, nothing, or what is no URL', () => {
+		const hosts = hostsOf({
+			html: [
+				'<a href="http://dots.example.com../">x</a>',
+				'<a href="http://[2001:db8::1]/">x</a>',
+				'<a href="http://192.0.2.1/">x</a>',
+				'<a href="http://www.w3.org/1999/xhtml">x</a>',
+				'<a href="http://./">x</a>',
+				'<a href="https://[::1/">x</a>',
+				'<a href="mailto:bob@example.com">x</a>',
+			].join('\n'),
+		});
+		assert.deepEqual(hosts, ['dots.example.com', '2001:db8::1', '192.0.2.1']);
+	});
+
+	it('takes a link wrapped deeper than unwrapLink unwraps for one never read whole', () => {
+		// (17 gateways, one more than unwrapLink unwraps)
+		const gateway = 'https://eur01.safelinks.protection.outlook.com/?url=';
+		const nested = `${gateway.repeat(17)}https://deep.example.com/`;
+		assert.equal(read({text: nested}).tooComplex, true);
+		assert.equal(read({text: `${gateway.repeat(3)}https://shallow.example.com/`}).tooComplex, false);
+	});
+
+	it('reads names before "/" as extractLinks reads them, and not what is no name', () => {
+		const text = '//start.example.com/x port.example.com:8080/ dot.example.com./ x..two.example.com/ --.example.com/ see build.x1/ dup.example.com/ dup.example.com/ /alone';
+		const hosts = hostsOf({text});
+		for (const host of ['start.example.com', 'port.example.com', 'dot.example.com', 'two.example.com', 'dup.example.com']) {
+			assert.ok(hosts.includes(host), host);
+		}
+
+		assert.ok(!hosts.some(host => host.includes('x1') || host.startsWith('-')));
+	});
+
+	it('reads names without "/" once each, not too long ones, and stops once there are more than room for', () => {
+		const long = `${'a'.repeat(400)}.${'b'.repeat(400)}.com`;
+		assert.deepEqual(hostsOf({text: `${long} once.example.com once.example.com`}, {hostsInText: true}), ['once.example.com']);
+		// (one link and room for none of them)
+		assert.deepEqual(hostsOf({text: 'https://link.example.com/ a.example.com b.example.com c.example.com'}, {hostsInText: true, maxHosts: 1}), ['link.example.com']);
+		assert.deepEqual(hostsOf({text: 'a.example.com b.example.com c.example.com'}, {hostsInText: true, maxHosts: 1}), ['a.example.com']);
+	});
+
+	it('stops reading once there are more hosts than room for, in text, styles and documents', () => {
+		const text = read({text: 'https://a.example.com/ https://b.example.com/ c.example.com/ https://d.example.com/'}, {maxHosts: 1});
+		assert.deepEqual(text, {
+			hosts: ['a.example.com'], more: true, tooComplex: false, incomplete: false,
+		});
+		const styles = read({html: '<style>.a{background:url(https://s1.example.com/a)}.b{background:url(https://s2.example.com/b)}.c{background:url(https://s3.example.com/c)}</style>'}, {maxHosts: 1});
+		assert.equal(styles.more, true);
+		const documents = read({html: '<a href="https://first.example.com/">x</a><a href="https://second.example.com/">y</a>'}, {mails: [{html: '<a href="https://third.example.com/">z</a>'}], maxHosts: 1});
+		assert.deepEqual(documents.hosts, ['first.example.com']);
+	});
+
+	it('reads data: URLs by their escapes and charset, and not other data', () => {
+		const hosts = hostsOf({
+			html: [
+				'<iframe src="data:text/html,%3ca href=%22https://lower.example.com/%22%3ex%3c/a%3e%zz"></iframe>',
+				`<iframe src="data:text/html;charset=utf-16be;base64,${Buffer.from('<a href="https://wide.example.com/">x</a>', 'utf16le').swap16().toString('base64')}"></iframe>`,
+				'<img src="data:image/png;base64,iVBORw0KGgo=">',
+			].join('\n'),
+		});
+		assert.deepEqual(hosts.sort(), ['lower.example.com', 'wide.example.com']);
+	});
+
+	it('reads text files by their byte order mark or UTF-16 label, and skips what has no content', () => {
+		const hosts = hostsOf({}, {
+			attachments: [
+				file('be.txt', 'text/plain', Buffer.concat([Buffer.from([0xFE, 0xFF]), Buffer.from('https://bom.example.com/', 'utf16le').swap16()])),
+				{
+					filename: 'le.txt', contentType: 'text/plain', content: Buffer.from('https://label.example.com/', 'utf16le'), headers: new Map([['content-type', {value: 'text/plain', params: {charset: 'UTF-16'}}]]),
+				},
+				{
+					filename: 'odd.txt', contentType: 'text/plain', content: Buffer.from('https://odd.example.com/x', 'utf16le').swap16(), headers: new Map([['content-type', {value: 'text/plain', params: {charset: 'utf-16be'}}]]),
+				},
+				{filename: 'empty.html', contentType: 'text/html', content: Buffer.alloc(0)},
+				// (by name alone: without a type, and names without an extension)
+				{filename: 'typeless.html', content: Buffer.from('<a href="https://typeless.example.com/">x</a>')},
+				file('README', 'application/octet-stream', 'https://readme.example.com/'),
+				file('page.\t', 'application/octet-stream', 'https://tab.example.com/'),
+				{filename: 'none.html', contentType: 'text/html'},
+				null,
+			],
+		});
+		assert.deepEqual(hosts.sort(), ['bom.example.com', 'label.example.com', 'odd.example.com', 'typeless.example.com']);
+	});
+
+	it('reads cards by every shape of their values', () => {
+		const card = (text, filename = 'c.vcf') => file(filename, 'text/vcard', text);
+		const many = `NOTE:${String.raw`\n`.repeat(40_000)}https://escapes.example.com/\r\n`;
+		const hosts = hostsOf({}, {
+			attachments: [
+				// (quoted-printable with escapes, spaces after soft breaks, a charset no decoder has, and text beyond ASCII)
+				card('BEGIN:VCARD\r\nURL;ENCODING=QUOTED-PRINTABLE;CHARSET=bogus:https=3A//qp1.example.com/   \r\nNOTE;QUOTED-PRINTABLE:é https=3A=2F=2Fqp2.example.com/\r\nEND:VCARD\r\n'),
+				// (folded, with quoted-printable: also decoded with its folds kept)
+				card('BEGIN:VCARD\r\nURL;ENCODING=QUOTED-PRINTABLE:https=3A//fol\r\n ded.example.com/\r\nEND:VCARD\r\n'),
+				// (a quoted parameter value with a ":" in it, and one never closed)
+				card('BEGIN:VCARD\r\nX-A;P="a:b":https://quoted.example.com/\r\nX-B;P="open:https://open.example.com/\r\nEND:VCARD\r\n'),
+				// (binary values: a photo left out, another decoded, folded and vCard 2.1 lines of base64, and a link marked binary)
+				card(`BEGIN:VCARD\r\nPHOTO;ENCODING=b:${Buffer.from('https://photo.example.com/').toString('base64')}\r\nNOTE;ENCODING=b:${Buffer.from('https://b64.example.com/').toString('base64')}\r\nX-N;ENCODING=BASE64:${Buffer.from('https://fold').toString('base64')}\r\n ${Buffer.from('.example.com/').toString('base64')}\r\nX-V;BASE64:${Buffer.from('https://v21x').toString('base64')}\r\n${Buffer.from('.example.com/').toString('base64')}\r\n\r\nURL;VALUE=binary:https://marked.example.com/\r\nEND:VCARD\r\n`),
+				// (many escapes)
+				card(many, 'e.ics'),
+				// (an invitation's descriptions: no colon, no markup)
+				card('BEGIN:VEVENT\r\nNOCOLON\r\nX-B;P="open:<b>x</b>\r\nDESCRIPTION:plain & simple https://desc.example.com/\r\nCOMMENT:no markup\r\nEND:VEVENT\r\n', 'd.ics'),
+			],
+		});
+		for (const host of ['qp1.example.com', 'qp2.example.com', 'folded.example.com', 'quoted.example.com', 'b64.example.com', 'fold.example.com', 'v21x.example.com', 'marked.example.com', 'escapes.example.com', 'desc.example.com']) {
+			assert.ok(hosts.includes(host), host);
+		}
+
+		assert.ok(!hosts.includes('photo.example.com'));
+	});
+
+	it('takes a card past what is read with a value in quoted-printable for one never read whole, and reads one without', () => {
+		const big = 'x'.repeat((4 * 1024 * 1024) + 1);
+		const withQp = read({}, {attachments: [file('big.vcf', 'text/vcard', `BEGIN:VCARD\r\nNOTE:${big}\r\nURL;QUOTED-PRINTABLE:https=3A//qp.example.com/\r\nEND:VCARD\r\n`), file('after.html', 'text/html', '<a href="https://after.example.com/">x</a>')]});
+		assert.equal(withQp.tooComplex, true);
+		assert.deepEqual(withQp.hosts, ['after.example.com']);
+		const withoutQp = read({}, {attachments: [file('big.vcf', 'text/vcard', `BEGIN:VCARD\r\nNOTE:${big}\r\nURL:https://plain.example.com/\r\nEND:VCARD\r\n`)]});
+		assert.equal(withoutQp.tooComplex, false);
+		assert.ok(withoutQp.hosts.includes('plain.example.com'));
+	});
+
+	it('reads at most so many HTML files', () => {
+		const files = Array.from({length: 101}, (_, i) => file(`p${i}.html`, 'text/html', `<p>${i}</p>`));
+		assert.equal(read({}, {attachments: files}).tooComplex, true);
+	});
+
+	it('reads long HTML cut where no link goes on, and a link across the cut', () => {
+		const chunk = 1024 * 1024;
+		// (">" is no place to cut, so each part is cut hard: a link at the start
+		//  of the part after the cut is read in the part before it, whole)
+		const start = read({html: `${'x'.repeat(chunk - 4097)}>https://cutstart.example.com/${'y'.repeat(chunk)}`});
+		assert.deepEqual(start.hosts, ['cutstart.example.com']);
+		// (a link whose host ends before the cut, one whose host runs a little
+		//  past it, read whole in the next part, and one whose host runs past
+		//  it, never read whole)
+		const ends = read({html: `${'x'.repeat(chunk - 30)}>https://ends.example.com/${'z'.repeat(chunk)}`});
+		assert.deepEqual(ends.hosts, ['ends.example.com']);
+		const next = read({html: `${'x'.repeat(chunk - 10)}>https://next.example.com/ ${'w'.repeat(chunk)}`});
+		assert.deepEqual(next.hosts, ['next.example.com']);
+		const runs = read({html: `${'x'.repeat(chunk - 5000)}>https://${'a'.repeat(6000)}.example.com/`});
+		assert.equal(runs.tooComplex, true);
+		// (also a link without a scheme, and names with no "/" after them, which
+		//  are not read where a part was cut)
+		const www = read({html: `${'x'.repeat(chunk - 30)}>www.wends.example.com/${'z'.repeat(chunk)}`});
+		assert.deepEqual(www.hosts, ['www.wends.example.com']);
+		const loose = read({html: `${'x'.repeat(chunk - 4097)}>https://cutstart.example.com/${'y'.repeat(chunk)} loose.example.com`}, {hostsInText: true});
+		assert.deepEqual(loose.hosts, ['cutstart.example.com', 'loose.example.com']);
+	});
+
+	it('stops reading at its time limit, and says so', () => {
+		const {now} = Date;
+		const clock = steps => {
+			let calls = 0;
+			Date.now = () => now() + (calls++ >= steps ? 10_000 : 0);
+		};
+
+		try {
+			// (before an attachment)
+			clock(1);
+			assert.equal(read({}, {attachments: [file('a.html', 'text/html', '<a href="https://a.example.com/">x</a>')]}).incomplete, true);
+			// (before a document)
+			clock(1);
+			assert.deepEqual(read({html: '<a href="https://b.example.com/">x</a>'}), {
+				hosts: [], more: false, tooComplex: false, incomplete: true,
+			});
+			// (before a part of one)
+			clock(2);
+			assert.equal(read({html: 'https://c.example.com/'}).incomplete, true);
+		} finally {
+			Date.now = now;
+		}
+	});
+
+	it('gives checkLinks the sender\'s domain as earlier versions did', async () => {
+		const scanner = new SpamScanner({classifier: false, phishing: {cloudflare: false}});
+		const checked = await scanner.checkLinks([{url: 'https://example.com/', host: 'example.com', text: null}], scanner.config, [], 'example.com');
+		assert.equal(checked.uncheckedHosts, 0);
+	});
+});
