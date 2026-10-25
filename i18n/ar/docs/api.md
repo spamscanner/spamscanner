@@ -1,4 +1,4 @@
-<!-- source: 9134d1cd102c -->
+<!-- source: 4c8f9a16e4e6 -->
 
 # مرجع API
 
@@ -19,34 +19,37 @@ const result = await scanner.scan(rawMessage, scanOptions);
 
 يمكن تمرير كل خيار إلى المُنشئ. ويمكن تمرير معظمها أيضًا إلى `scan()` لرسالة واحدة، فتُدمج فوق خيارات المُنشئ. الخيارات الممرَّرة بقيمة `undefined` تحتفظ بقيمها الافتراضية. لا يقرأ `classifier` و`classifierOptions` و`dns` و`phishing.homograph` و`strictIDNDetection` إلا المُنشئ؛ ويُقرأ ملف النموذج أو كائنه المعطى في `classifier` هناك، فيرمي النموذج المفقود أو التالف خطأً فورًا.
 
-| الخيار                  | القيمة الافتراضية                | المعنى                                                                                                                                                                   |
-| ----------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `threshold`             | `5`                              | الدرجة التي تصبح عندها الرسالة مزعجة                                                                                                                                     |
-| `rejectThreshold`       | `15`                             | الدرجة التي يصبح عندها `action` هو `reject`                                                                                                                              |
-| `scores`                | `{}`                             | النقاط لكل اختبار: مفاتيح إعدادات أو أسماء اختبارات ([الاختبارات والدرجات](scoring.md))                                                                                  |
-| `classifier`            | النموذج المرفق                   | `Classifier`، أو كائن نموذج، أو مسار ملف نموذج، أو `false`                                                                                                               |
-| `classifierOptions`     | `{}`                             | خيارات النموذج المرفق (انظر [المصنِّف](#classifier))                                                                                                                     |
-| `allowedLanguages`      | `[]`                             | رموز ISO 639-1 (يُقرأ `no` على أنه `nb`، و`fil` على أنه `tl`، والرموز القديمة `iw` و`in` و`ji` على أنها `he` و`id` و`yi`)؛ اللغات الأخرى تحصل على `LANGUAGE_NOT_ALLOWED` |
-| `phishing.cloudflare`   | `true`                           | سؤال محلِّلات Cloudflare الترشيحية عن مضيفي الروابط                                                                                                                      |
-| `phishing.adult`        | `true`                           | سؤال المحلِّل العائلي أيضًا، وهو يحظر مواقع البالغين                                                                                                                     |
-| `phishing.maxHosts`     | `25`                             | عدد مضيفي الروابط الذين يُبحث عنهم في كل رسالة                                                                                                                           |
-| `phishing.maxLength`    | `1000000`                        | عدد أحرف النص المقروءة بحثًا عن الروابط (وضعفها من HTML)؛ النص الأطول يضبط `results.linksTruncated`؛ القيمة `Infinity` أو أي شيء غير عدد موجب تعني القيمة الافتراضية     |
-| `phishing.homograph`    | `{}`                             | `brands` (يستبدل القائمة المدمجة)، و`extraBrands`، و`allowlist` (نطاقات لا تُوسم أبدًا)، و`strictMode`                                                                   |
-| `dnsbl`                 | `{ip: [], domain: []}`           | مناطق قوائم حظر DNS لعنوان IP للعميل ولنطاقات الروابط                                                                                                                    |
-| `dns`                   | `{servers: null, timeout: 3000}` | خوادم الأسماء لفحوص DNS (الافتراضي: خوادم النظام)                                                                                                                        |
-| `attachments`           | `true`                           | فحص المرفقات                                                                                                                                                             |
-| `macros`                | `true`                           | وسم وحدات الماكرو وملفات PDF النشطة وكائنات RTF                                                                                                                          |
-| `arbitrary`             | `true`                           | تشغيل [القواعد](scoring.md#rules)                                                                                                                                        |
-| `authentication`        | `false`                          | `true`، أو `{dnsServers, timeout, maxDnsQueries, mta, weights, trustedArcSealers}`: SPF وDKIM وDMARC وARC ([التقييم](scoring.md#authentication))                         |
-| `reputation`            | `false`                          | `{allowlist, denylist, apiUrl, headers, timeout, concurrency, cacheTtl, cacheSize}`؛ تُحفظ الإجابات لكل خدمة وترويسات، و`cacheSize` يخص الماسح كله                       |
-| `allowlist`، `denylist` |                                  | عناوين IP أو نطاقات أو عناوين بريد؛ اختصار لـ `reputation` → [قائمة السماح وقائمة الحظر](#allowlist-and-denylist)                                                        |
-| `clamav`                | `false`                          | `true` (المقبس الافتراضي)، أو `{socket}` أو `{host, port}`، مع `timeout`: المللي ثانية لكل مرفقات الرسالة (`60000`)                                                      |
-| `llm`                   | `null`                           | [إعدادات النموذج اللغوي](llm.md#any-server-port-and-authentication)، مع `mode` و`minScore` و`maxScore`                                                                   |
-| `toxicity`              | `false`                          | `{model, threshold = 0.7}`: نموذج تجيب `classify([text])` فيه مثل `@tensorflow-models/toxicity`                                                                          |
-| `nsfw`                  | `false`                          | `{model, threshold = 0.6}`: نموذج تجيب `classify(imageBuffer)` فيه مثل `nsfwjs`                                                                                          |
-| `maxLength`             | `100000`                         | عدد محارف نص المتن المقروءة                                                                                                                                              |
-| `timeout`               | `10000`                          | المللي ثانية المسموح بها لكل فحص شبكي؛ وتحصل المصادقة ونموذج الصور على هذه المدة إجمالًا (لـ ClamAV مهلته الخاصة `clamav.timeout`)                                       |
-| `session`               | `{}`                             | تفاصيل جلسة SMTP الافتراضية                                                                                                                                              |
+| الخيار                  | القيمة الافتراضية                | المعنى                                                                                                                                                                                                                           |
+| ----------------------- | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `threshold`             | `5`                              | الدرجة التي تصبح عندها الرسالة مزعجة                                                                                                                                                                                             |
+| `rejectThreshold`       | `15`                             | الدرجة التي يصبح عندها `action` هو `reject`                                                                                                                                                                                      |
+| `scores`                | `{}`                             | النقاط لكل اختبار: مفاتيح إعدادات أو أسماء اختبارات ([الاختبارات والدرجات](scoring.md))                                                                                                                                          |
+| `classifier`            | النموذج المرفق                   | `Classifier`، أو كائن نموذج، أو مسار ملف نموذج، أو `false`                                                                                                                                                                       |
+| `classifierOptions`     | `{}`                             | خيارات النموذج المرفق (انظر [المصنِّف](#classifier))                                                                                                                                                                             |
+| `allowedLanguages`      | `[]`                             | رموز ISO 639-1 (يُقرأ `no` على أنه `nb`، و`fil` على أنه `tl`، والرموز القديمة `iw` و`in` و`ji` على أنها `he` و`id` و`yi`)؛ اللغات الأخرى تحصل على `LANGUAGE_NOT_ALLOWED`                                                         |
+| `phishing.cloudflare`   | `true`                           | سؤال محلِّلات Cloudflare الترشيحية عن مضيفي الروابط                                                                                                                                                                              |
+| `phishing.adult`        | `true`                           | سؤال المحلِّل العائلي أيضًا، وهو يحظر مواقع البالغين                                                                                                                                                                             |
+| `phishing.maxHosts`     | `25`                             | عدد مضيفي الروابط الذين يُبحث عنهم في كل رسالة                                                                                                                                                                                   |
+| `phishing.attachments`  | `false`                          | عند البحث عن مضيفي الروابط، تُقرأ أيضًا روابط الرسالة كاملةً وما تحمله، لمدة خمس ثوانٍ على الأكثر: الرسائل المرفقة، وملفات HTML وSVG وXML، والملفات النصية، والدعوات وبطاقات جهات الاتصال، والمستندات في iframes وعناوين `data:` |
+| `phishing.hostsInText`  | `false`                          | البحث أيضًا عن أسماء المضيفين المكتوبة بلا رابط أو مسار (`evil.example`)، التي تحوّلها برامج البريد إلى روابط، بعد الروابط، بقدر ما يتسع المجال                                                                                  |
+| `phishing.timeout`      | `timeout`                        | المللي ثانية المتاحة لعمليات البحث عن الروابط كلها مجتمعةً                                                                                                                                                                       |
+| `phishing.maxLength`    | `1000000`                        | عدد أحرف النص المقروءة بحثًا عن الروابط (وضعفها من HTML)؛ النص الأطول يضبط `results.linksTruncated`؛ القيمة `Infinity` أو أي شيء غير عدد موجب تعني القيمة الافتراضية                                                             |
+| `phishing.homograph`    | `{}`                             | `brands` (يستبدل القائمة المدمجة)، و`extraBrands`، و`allowlist` (نطاقات لا تُوسم أبدًا)، و`strictMode`                                                                                                                           |
+| `dnsbl`                 | `{ip: [], domain: []}`           | مناطق قوائم حظر DNS لعنوان IP للعميل ولنطاقات الروابط                                                                                                                                                                            |
+| `dns`                   | `{servers: null, timeout: 3000}` | خوادم الأسماء لفحوص DNS (الافتراضي: خوادم النظام)                                                                                                                                                                                |
+| `attachments`           | `true`                           | فحص المرفقات                                                                                                                                                                                                                     |
+| `macros`                | `true`                           | وسم وحدات الماكرو وملفات PDF النشطة وكائنات RTF                                                                                                                                                                                  |
+| `arbitrary`             | `true`                           | تشغيل [القواعد](scoring.md#rules)                                                                                                                                                                                                |
+| `authentication`        | `false`                          | `true`، أو `{dnsServers, timeout, maxDnsQueries, mta, weights, trustedArcSealers}`: SPF وDKIM وDMARC وARC ([التقييم](scoring.md#authentication))                                                                                 |
+| `reputation`            | `false`                          | `{allowlist, denylist, apiUrl, headers, timeout, concurrency, cacheTtl, cacheSize}`؛ تُحفظ الإجابات لكل خدمة وترويسات، و`cacheSize` يخص الماسح كله                                                                               |
+| `allowlist`، `denylist` |                                  | عناوين IP أو نطاقات أو عناوين بريد؛ اختصار لـ `reputation` → [قائمة السماح وقائمة الحظر](#allowlist-and-denylist)                                                                                                                |
+| `clamav`                | `false`                          | `true` (المقبس الافتراضي)، أو `{socket}` أو `{host, port}`، مع `timeout`: المللي ثانية لكل مرفقات الرسالة (`60000`)                                                                                                              |
+| `llm`                   | `null`                           | [إعدادات النموذج اللغوي](llm.md#any-server-port-and-authentication)، مع `mode` و`minScore` و`maxScore`                                                                                                                           |
+| `toxicity`              | `false`                          | `{model, threshold = 0.7}`: نموذج تجيب `classify([text])` فيه مثل `@tensorflow-models/toxicity`                                                                                                                                  |
+| `nsfw`                  | `false`                          | `{model, threshold = 0.6}`: نموذج تجيب `classify(imageBuffer)` فيه مثل `nsfwjs`                                                                                                                                                  |
+| `maxLength`             | `100000`                         | عدد محارف نص المتن المقروءة                                                                                                                                                                                                      |
+| `timeout`               | `10000`                          | المللي ثانية المسموح بها لكل فحص شبكي؛ وتحصل المصادقة ونموذج الصور على هذه المدة إجمالًا (لـ ClamAV مهلته الخاصة `clamav.timeout`)                                                                                               |
+| `session`               | `{}`                             | تفاصيل جلسة SMTP الافتراضية                                                                                                                                                                                                      |
 
 تأخذ `scan()` أيضًا `session`:
 
@@ -125,6 +128,8 @@ await scanner.scan(raw, {authenticationResults: auth});
     uncheckedHosts: 0,   // link hosts beyond phishing.maxHosts, not looked up
     timedOutHosts: 0,    // link hosts looked up but not answered (in time, or at all)
     linksTruncated: false, // more text than phishing.maxLength, whose links were not read
+    linksTooComplex: false, // a link host never read whole (cut where long text is cut, wrapped deeper than unwrapped, or in more documents than are read)
+    linksIncomplete: false, // an attachment left unread for its links, for time
     attachments: [],     // every attachment finding
     executables: [],     // the executable findings among them
     macros: [],          // macros, active PDFs, RTF objects
@@ -147,6 +152,7 @@ await scanner.scan(raw, {authenticationResults: auth});
   language: 'en',
   tokens: ['dear', 'customer', /* ... */],
   mail: {/* the parsed message, from mailparser; mail.text: the plain text parts only */},
+  attached: [],          // its attachments and those of its attached messages, named after them: fw.eml/invoice.exe
   version: VERSION,      // this package's version
   metrics: {totalTime: 42},
 }

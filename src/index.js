@@ -9,6 +9,7 @@ import {scanBuffer} from './clamav.js';
 import {Classifier} from './classifier.js';
 import {DnsChecker, lookupName} from './dnsbl.js';
 import {visibleText} from './html.js';
+import {carriedLinkHosts} from './links.js';
 import HomographDetector from './homograph.js';
 import {isArbitrary} from './is-arbitrary.js';
 import {normalizeLanguageCode} from './language.js';
@@ -103,6 +104,19 @@ export const DEFAULTS = {
 		cloudflare: true,
 		adult: true,
 		maxHosts: 25,
+		// Also read the links of the whole message and of what it carries
+		// (attached messages, HTML, SVG and XML files, text files, invitations
+		// and contact cards, documents in iframes and data: URLs) when link
+		// hosts are looked up, for at most five seconds: off by default, as it
+		// reads all of it, up to 50 MB of attachments.
+		attachments: false,
+		// Milliseconds the link lookups may take in all (default: timeout).
+		timeout: undefined,
+		// Also look up host names written in the text without a link or a path
+		// ("evil.example"), which mail clients make links of, as far as there is
+		// room: off by default, as a quoted reply or a signature may name any
+		// site (they are checked for lookalikes either way).
+		hostsInText: false,
 		// Characters of text read for links (twice as many of HTML): more than
 		// for the classifier (maxLength), as a link anywhere in a message may be
 		// followed; a longer message sets results.linksTruncated.
@@ -183,7 +197,7 @@ const NESTED = ['phishing', 'dnsbl', 'dns', 'session'];
  * @property {Classifier|object|string|false} [classifier] - a classifier, a model object or file, or false
  * @property {object} [classifierOptions]
  * @property {string[]|null} [allowedLanguages] - ISO 639-1 codes; empty for every language
- * @property {{cloudflare?: boolean, adult?: boolean, maxHosts?: number, maxLength?: number, homograph?: object}} [phishing]
+ * @property {{cloudflare?: boolean, adult?: boolean, maxHosts?: number, attachments?: boolean, hostsInText?: boolean, timeout?: number, maxLength?: number, homograph?: object}} [phishing]
  * @property {{ip?: string[], domain?: string[]}} [dnsbl] - DNS blocklist zones
  * @property {{servers?: string[]|null, timeout?: number, resolve4?: (name: string, servers?: string[]|null) => Promise<string[]>}} [dns]
  * @property {boolean} [attachments]
@@ -267,6 +281,8 @@ const NESTED = ['phishing', 'dnsbl', 'dns', 'session'];
  * @property {Array<{filename: string, reason: string}>} virusScanSkipped - attachments larger than clamd accepts (StreamMaxLength), not scanned
  * @property {Array<{filename: string, reason: string}>} unopenedAttachments - attached messages not opened, past the limits attached messages are read within (nested more than 3 deep, more than 100 attachments in them, or more than 25 MB of them), whose attachments were not inspected: not scored, as forwarded messages can be nested so
  * @property {boolean} linksTruncated - whether text beyond phishing.maxLength was not read for links
+ * @property {boolean} linksTooComplex - whether a link host of the message or of what it carries was never read whole
+ * @property {boolean} linksIncomplete - whether an attachment was left unread for links, for time
  * @property {{detected: boolean, domains: ScanFinding[], riskScore: number}} idnHomographAttack
  */
 
@@ -284,6 +300,7 @@ const NESTED = ['phishing', 'dnsbl', 'dns', 'session'];
  * @property {string|null} language
  * @property {string[]} tokens
  * @property {object} mail - the message parsed by mailparser
+ * @property {Array<object>} attached - its attachments and those of its attached messages (see expandAttachments)
  * @property {string} version
  * @property {{totalTime: number}} metrics
  */
@@ -594,7 +611,10 @@ export class SpamScanner {
 		return this.scan(await readFile(file), options);
 	}
 
-	async checkLinks(links, config, hosts = [], from = '') {
+	// (`from`: the sender's domain; `carried`: the link hosts of the whole
+	//  message and of what it carries, see carriedLinkHosts)
+	async checkLinks(links, config, hosts = [], options = {}) {
+		const {from = '', carried = null} = typeof options === 'string' ? {from: options} : options;
 		const phishing = [];
 		const homographs = [];
 		const seenHosts = new Set();
@@ -684,7 +704,14 @@ export class SpamScanner {
 		// (by the names they are looked up as, see lookupName: "evil.example"
 		//  for "x!y.evil.example" and "evil.example...")
 		// (hosts found without a link last: they cannot put a link out of reach)
-		const ordered = [...new Set([...found.filter(link => link.text), ...found.filter(link => !link.text), ...bare].map(link => lookupName(destination(link))).filter(Boolean))];
+		// (and then those of the whole message and of what it carries, see
+		//  carriedLinkHosts)
+		const carriedHosts = (carried?.hosts ?? []).map(host => lookupName(host)).filter(Boolean);
+		for (const host of carriedHosts) {
+			seenHosts.add(host);
+		}
+
+		const ordered = [...new Set([...[...found.filter(link => link.text), ...found.filter(link => !link.text), ...bare].map(link => lookupName(destination(link))).filter(Boolean), ...carriedHosts])];
 		const firsts = new Map();
 		for (const host of ordered) {
 			const domain = registrableDomain(host);
@@ -701,6 +728,7 @@ export class SpamScanner {
 		// counted.
 		const blocked = [];
 		let answered = 0;
+		const linkTimeout = Number(config.phishing.timeout) > 0 ? Number(config.phishing.timeout) : config.timeout;
 		const cloudflare = async () => {
 			await withTimeout(Promise.all(checked.map(async host => {
 				const found = await this.dns.checkCloudflare([host], {adult: config.phishing.adult});
@@ -708,7 +736,7 @@ export class SpamScanner {
 				if (!found.unanswered?.length) {
 					answered++;
 				}
-			})), config.timeout, null);
+			})), linkTimeout, null);
 			// (copies taken at once: an answer that comes later is not added
 			//  after the fact)
 			return {found: [...blocked], unanswered: checked.length - answered};
@@ -716,7 +744,7 @@ export class SpamScanner {
 
 		const [cloudflareResult, listed] = await Promise.all([
 			config.phishing.cloudflare && checked.length > 0 ? cloudflare() : {found: [], unanswered: 0},
-			config.dnsbl.domain?.length > 0 && domains.length > 0 ? withTimeout(this.dns.checkDomains(domains, config.dnsbl.domain), config.timeout, []) : [],
+			config.dnsbl.domain?.length > 0 && domains.length > 0 ? withTimeout(this.dns.checkDomains(domains, config.dnsbl.domain), linkTimeout, []) : [],
 		]);
 		for (const {host, category} of cloudflareResult.found) {
 			phishing.push(finding(category === 'malware'
@@ -731,7 +759,11 @@ export class SpamScanner {
 		}
 
 		return {
-			phishing, homographs, uncheckedHosts: seenHosts.size - checked.length, timedOutHosts: cloudflareResult.unanswered,
+			phishing,
+			homographs,
+			// (at least one when the message has more hosts than were read)
+			uncheckedHosts: Math.max(seenHosts.size - checked.length, carried?.more ? 1 : 0),
+			timedOutHosts: cloudflareResult.unanswered,
 		};
 	}
 
@@ -937,11 +969,19 @@ export class SpamScanner {
 
 		// (with the attachments of attached messages, and those not opened)
 		const unopened = [];
-		const attached = await expandAttachments(mail.attachments, parseErrors, undefined, unopened);
+		const opened = [];
+		const attached = await expandAttachments(mail.attachments, parseErrors, undefined, {unopened, mails: opened});
+		// (every link host of the message and of what it carries, when link
+		//  hosts are looked up: see carriedLinkHosts)
+		const carried = config.phishing.attachments === true && (config.phishing.cloudflare || config.dnsbl.domain?.length > 0)
+			? carriedLinkHosts(mail, {
+				mails: opened, attachments: attached, maxHosts: config.phishing.maxHosts, hostsInText: config.phishing.hostsInText === true,
+			})
+			: null;
 		const attachments = config.attachments === false ? [] : inspectAttachments(attached).filter(item => config.macros !== false || !['macro', 'pdf_active', 'rtf_object'].includes(item.type)).map(item => finding(item));
 
 		const [links, authentication, checkedReputation, dnsbl, virusScan, toxicity, nsfw] = await Promise.all([
-			this.checkLinks(checkedLinks, config, extracted.hosts, fromDomain(mail)),
+			this.checkLinks(checkedLinks, config, extracted.hosts, {from: fromDomain(mail), carried}),
 			config.authenticationResults && typeof config.authenticationResults === 'object'
 				? normalizeAuthOutput(config.authenticationResults)
 				: (config.authentication && session.remoteAddress
@@ -1079,6 +1119,14 @@ export class SpamScanner {
 				// Whether the message has more text than phishing.maxLength, whose
 				// links were not read.
 				linksTruncated,
+				// Whether a link host of the message or of what it carries was
+				// never read whole (it runs past where long text is cut to be
+				// read, it goes through more security gateways than are
+				// unwrapped, or it is in more documents than are read), and whether
+				// an attachment was left unread for time: in either case not every
+				// link was checked (see phishing.attachments).
+				linksTooComplex: Boolean(carried?.tooComplex),
+				linksIncomplete: Boolean(carried?.incomplete),
 				idnHomographAttack: {
 					detected: links.homographs.length > 0,
 					domains: links.homographs,
@@ -1090,6 +1138,9 @@ export class SpamScanner {
 			language: extracted.language,
 			tokens: extracted.words,
 			mail,
+			// (the attachments of the message and of its attached messages, as
+			//  read, an attached message's named after it)
+			attached,
 			version: VERSION,
 			metrics: {totalTime: time},
 		};

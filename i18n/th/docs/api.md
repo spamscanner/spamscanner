@@ -1,4 +1,4 @@
-<!-- source: 9134d1cd102c -->
+<!-- source: 4c8f9a16e4e6 -->
 
 # เอกสารอ้างอิง API
 
@@ -19,34 +19,37 @@ const result = await scanner.scan(rawMessage, scanOptions);
 
 ส่งทุกตัวเลือกให้ constructor ได้ ตัวเลือกส่วนใหญ่ส่งให้ `scan()` สำหรับข้อความเดียวได้ด้วย ซึ่งจะผสานทับค่าของ constructor ตัวเลือกที่ส่งเป็น `undefined` จะคงค่าเริ่มต้นไว้ `classifier`, `classifierOptions`, `dns`, `phishing.homograph` และ `strictIDNDetection` อ่านโดยคอนสตรักเตอร์เท่านั้น ไฟล์หรืออ็อบเจกต์โมเดลที่ให้ใน `classifier` จะถูกอ่านตอนนั้น โมเดลที่หายไปหรือเสียหายจึงทำให้เกิดข้อผิดพลาดทันที
 
-| ตัวเลือก                | ค่าเริ่มต้น                      | ความหมาย                                                                                                                                                                        |
-| ----------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `threshold`             | `5`                              | คะแนนที่ข้อความถือเป็นสแปม                                                                                                                                                      |
-| `rejectThreshold`       | `15`                             | คะแนนที่ `action` เป็น `reject`                                                                                                                                                 |
-| `scores`                | `{}`                             | คะแนนของแต่ละการทดสอบ: ระบุด้วยคีย์การตั้งค่าหรือชื่อการทดสอบ ([การทดสอบและคะแนน](scoring.md))                                                                                  |
-| `classifier`            | โมเดลที่มาพร้อมแพ็กเกจ           | `Classifier` ออบเจ็กต์โมเดล พาธไฟล์โมเดล หรือ `false`                                                                                                                           |
-| `classifierOptions`     | `{}`                             | ตัวเลือกสำหรับโมเดลที่มาพร้อมแพ็กเกจ (ดู [ตัวจำแนก](#classifier))                                                                                                               |
-| `allowedLanguages`      | `[]`                             | รหัส ISO 639-1 (`no` อ่านเป็น `nb`, `fil` เป็น `tl` และรหัสเก่า `iw`, `in`, `ji` เป็น `he`, `id`, `yi`) ภาษาอื่นจะได้ `LANGUAGE_NOT_ALLOWED`                                    |
-| `phishing.cloudflare`   | `true`                           | ถาม resolver แบบกรองของ Cloudflare เกี่ยวกับโฮสต์ของลิงก์                                                                                                                       |
-| `phishing.adult`        | `true`                           | ถาม resolver สำหรับครอบครัวซึ่งบล็อกเว็บไซต์สำหรับผู้ใหญ่ด้วย                                                                                                                   |
-| `phishing.maxHosts`     | `25`                             | จำนวนโฮสต์ของลิงก์ที่ค้นหาต่อข้อความ                                                                                                                                            |
-| `phishing.maxLength`    | `1000000`                        | จำนวนอักขระของข้อความที่อ่านเพื่อหาลิงก์ (HTML อ่านเป็นสองเท่า) ข้อความที่ยาวกว่านี้จะตั้งค่า `results.linksTruncated`; `Infinity` หรือค่าใดที่ไม่ใช่จำนวนบวกหมายถึงค่าเริ่มต้น |
-| `phishing.homograph`    | `{}`                             | `brands` (แทนที่รายการในตัว), `extraBrands`, `allowlist` (โดเมนที่ไม่ถูกตีว่าผิดเลย), `strictMode`                                                                              |
-| `dnsbl`                 | `{ip: [], domain: []}`           | โซนของ DNS blocklist สำหรับ IP ของไคลเอนต์และโดเมนของลิงก์                                                                                                                      |
-| `dns`                   | `{servers: null, timeout: 3000}` | name server สำหรับการตรวจทาง DNS (ค่าเริ่มต้น: ของระบบ)                                                                                                                         |
-| `attachments`           | `true`                           | ตรวจไฟล์แนบ                                                                                                                                                                     |
-| `macros`                | `true`                           | ตีธงมาโคร PDF ที่ทำงานได้ และออบเจ็กต์ RTF                                                                                                                                      |
-| `arbitrary`             | `true`                           | รัน[กฎ](scoring.md#rules)                                                                                                                                                       |
-| `authentication`        | `false`                          | `true` หรือ `{dnsServers, timeout, maxDnsQueries, mta, weights, trustedArcSealers}`: SPF, DKIM, DMARC, ARC ([การให้คะแนน](scoring.md#authentication))                           |
-| `reputation`            | `false`                          | `{allowlist, denylist, apiUrl, headers, timeout, concurrency, cacheTtl, cacheSize}` คำตอบจะถูกเก็บแยกตามบริการและเฮดเดอร์ และ `cacheSize` ใช้กับตัวสแกนทั้งตัว                  |
-| `allowlist`, `denylist` |                                  | ที่อยู่ IP โดเมน หรือที่อยู่อีเมล รูปย่อของ `reputation` → [รายการอนุญาตและรายการปฏิเสธ](#allowlist-and-denylist)                                                               |
-| `clamav`                | `false`                          | `true` (ซ็อกเก็ตค่าเริ่มต้น), `{socket}` หรือ `{host, port}` พร้อม `timeout`: มิลลิวินาทีสำหรับไฟล์แนบทั้งหมดของข้อความหนึ่งรวมกัน (`60000`)                                    |
-| `llm`                   | `null`                           | [การตั้งค่าโมเดลภาษา](llm.md#any-server-port-and-authentication) พร้อม `mode`, `minScore`, `maxScore`                                                                           |
-| `toxicity`              | `false`                          | `{model, threshold = 0.7}`: โมเดลที่ `classify([text])` ตอบแบบเดียวกับ `@tensorflow-models/toxicity`                                                                            |
-| `nsfw`                  | `false`                          | `{model, threshold = 0.6}`: โมเดลที่ `classify(imageBuffer)` ตอบแบบเดียวกับ `nsfwjs`                                                                                            |
-| `maxLength`             | `100000`                         | จำนวนอักขระของเนื้อหาที่อ่าน                                                                                                                                                    |
-| `timeout`               | `10000`                          | เวลาที่อนุญาตเป็นมิลลิวินาทีสำหรับการตรวจทางเครือข่ายแต่ละรายการ; การยืนยันตัวตนและโมเดลรูปภาพได้เวลาเท่านี้รวมทั้งหมด (ClamAV มี `clamav.timeout` ของตัวเอง)                   |
-| `session`               | `{}`                             | รายละเอียดเซสชัน SMTP ค่าเริ่มต้น                                                                                                                                               |
+| ตัวเลือก                | ค่าเริ่มต้น                      | ความหมาย                                                                                                                                                                                                                  |
+| ----------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `threshold`             | `5`                              | คะแนนที่ข้อความถือเป็นสแปม                                                                                                                                                                                                |
+| `rejectThreshold`       | `15`                             | คะแนนที่ `action` เป็น `reject`                                                                                                                                                                                           |
+| `scores`                | `{}`                             | คะแนนของแต่ละการทดสอบ: ระบุด้วยคีย์การตั้งค่าหรือชื่อการทดสอบ ([การทดสอบและคะแนน](scoring.md))                                                                                                                            |
+| `classifier`            | โมเดลที่มาพร้อมแพ็กเกจ           | `Classifier` ออบเจ็กต์โมเดล พาธไฟล์โมเดล หรือ `false`                                                                                                                                                                     |
+| `classifierOptions`     | `{}`                             | ตัวเลือกสำหรับโมเดลที่มาพร้อมแพ็กเกจ (ดู [ตัวจำแนก](#classifier))                                                                                                                                                         |
+| `allowedLanguages`      | `[]`                             | รหัส ISO 639-1 (`no` อ่านเป็น `nb`, `fil` เป็น `tl` และรหัสเก่า `iw`, `in`, `ji` เป็น `he`, `id`, `yi`) ภาษาอื่นจะได้ `LANGUAGE_NOT_ALLOWED`                                                                              |
+| `phishing.cloudflare`   | `true`                           | ถาม resolver แบบกรองของ Cloudflare เกี่ยวกับโฮสต์ของลิงก์                                                                                                                                                                 |
+| `phishing.adult`        | `true`                           | ถาม resolver สำหรับครอบครัวซึ่งบล็อกเว็บไซต์สำหรับผู้ใหญ่ด้วย                                                                                                                                                             |
+| `phishing.maxHosts`     | `25`                             | จำนวนโฮสต์ของลิงก์ที่ค้นหาต่อข้อความ                                                                                                                                                                                      |
+| `phishing.attachments`  | `false`                          | เมื่อค้นหาโฮสต์ของลิงก์ จะอ่านลิงก์ของข้อความทั้งหมดและสิ่งที่ข้อความนั้นนำมาด้วย เป็นเวลาไม่เกินห้าวินาที: ข้อความที่แนบมา ไฟล์ HTML, SVG และ XML ไฟล์ข้อความ คำเชิญและการ์ดผู้ติดต่อ และเอกสารใน iframe และ URL `data:` |
+| `phishing.hostsInText`  | `false`                          | ค้นหาชื่อโฮสต์ที่เขียนโดยไม่มีลิงก์หรือพาธ (`evil.example`) ซึ่งโปรแกรมอีเมลทำให้เป็นลิงก์ด้วย หลังจากลิงก์ ตราบที่ยังมีที่เหลือ                                                                                          |
+| `phishing.timeout`      | `timeout`                        | มิลลิวินาทีที่การค้นหาลิงก์ทั้งหมดใช้ได้รวมกัน                                                                                                                                                                            |
+| `phishing.maxLength`    | `1000000`                        | จำนวนอักขระของข้อความที่อ่านเพื่อหาลิงก์ (HTML อ่านเป็นสองเท่า) ข้อความที่ยาวกว่านี้จะตั้งค่า `results.linksTruncated`; `Infinity` หรือค่าใดที่ไม่ใช่จำนวนบวกหมายถึงค่าเริ่มต้น                                           |
+| `phishing.homograph`    | `{}`                             | `brands` (แทนที่รายการในตัว), `extraBrands`, `allowlist` (โดเมนที่ไม่ถูกตีว่าผิดเลย), `strictMode`                                                                                                                        |
+| `dnsbl`                 | `{ip: [], domain: []}`           | โซนของ DNS blocklist สำหรับ IP ของไคลเอนต์และโดเมนของลิงก์                                                                                                                                                                |
+| `dns`                   | `{servers: null, timeout: 3000}` | name server สำหรับการตรวจทาง DNS (ค่าเริ่มต้น: ของระบบ)                                                                                                                                                                   |
+| `attachments`           | `true`                           | ตรวจไฟล์แนบ                                                                                                                                                                                                               |
+| `macros`                | `true`                           | ตีธงมาโคร PDF ที่ทำงานได้ และออบเจ็กต์ RTF                                                                                                                                                                                |
+| `arbitrary`             | `true`                           | รัน[กฎ](scoring.md#rules)                                                                                                                                                                                                 |
+| `authentication`        | `false`                          | `true` หรือ `{dnsServers, timeout, maxDnsQueries, mta, weights, trustedArcSealers}`: SPF, DKIM, DMARC, ARC ([การให้คะแนน](scoring.md#authentication))                                                                     |
+| `reputation`            | `false`                          | `{allowlist, denylist, apiUrl, headers, timeout, concurrency, cacheTtl, cacheSize}` คำตอบจะถูกเก็บแยกตามบริการและเฮดเดอร์ และ `cacheSize` ใช้กับตัวสแกนทั้งตัว                                                            |
+| `allowlist`, `denylist` |                                  | ที่อยู่ IP โดเมน หรือที่อยู่อีเมล รูปย่อของ `reputation` → [รายการอนุญาตและรายการปฏิเสธ](#allowlist-and-denylist)                                                                                                         |
+| `clamav`                | `false`                          | `true` (ซ็อกเก็ตค่าเริ่มต้น), `{socket}` หรือ `{host, port}` พร้อม `timeout`: มิลลิวินาทีสำหรับไฟล์แนบทั้งหมดของข้อความหนึ่งรวมกัน (`60000`)                                                                              |
+| `llm`                   | `null`                           | [การตั้งค่าโมเดลภาษา](llm.md#any-server-port-and-authentication) พร้อม `mode`, `minScore`, `maxScore`                                                                                                                     |
+| `toxicity`              | `false`                          | `{model, threshold = 0.7}`: โมเดลที่ `classify([text])` ตอบแบบเดียวกับ `@tensorflow-models/toxicity`                                                                                                                      |
+| `nsfw`                  | `false`                          | `{model, threshold = 0.6}`: โมเดลที่ `classify(imageBuffer)` ตอบแบบเดียวกับ `nsfwjs`                                                                                                                                      |
+| `maxLength`             | `100000`                         | จำนวนอักขระของเนื้อหาที่อ่าน                                                                                                                                                                                              |
+| `timeout`               | `10000`                          | เวลาที่อนุญาตเป็นมิลลิวินาทีสำหรับการตรวจทางเครือข่ายแต่ละรายการ; การยืนยันตัวตนและโมเดลรูปภาพได้เวลาเท่านี้รวมทั้งหมด (ClamAV มี `clamav.timeout` ของตัวเอง)                                                             |
+| `session`               | `{}`                             | รายละเอียดเซสชัน SMTP ค่าเริ่มต้น                                                                                                                                                                                         |
 
 `scan()` รับ `session` ด้วย:
 
@@ -125,6 +128,8 @@ await scanner.scan(raw, {authenticationResults: auth});
     uncheckedHosts: 0,   // link hosts beyond phishing.maxHosts, not looked up
     timedOutHosts: 0,    // link hosts looked up but not answered (in time, or at all)
     linksTruncated: false, // more text than phishing.maxLength, whose links were not read
+    linksTooComplex: false, // a link host never read whole (cut where long text is cut, wrapped deeper than unwrapped, or in more documents than are read)
+    linksIncomplete: false, // an attachment left unread for its links, for time
     attachments: [],     // every attachment finding
     executables: [],     // the executable findings among them
     macros: [],          // macros, active PDFs, RTF objects
@@ -147,6 +152,7 @@ await scanner.scan(raw, {authenticationResults: auth});
   language: 'en',
   tokens: ['dear', 'customer', /* ... */],
   mail: {/* the parsed message, from mailparser; mail.text: the plain text parts only */},
+  attached: [],          // its attachments and those of its attached messages, named after them: fw.eml/invoice.exe
   version: VERSION,      // this package's version
   metrics: {totalTime: 42},
 }

@@ -621,7 +621,10 @@ describe('visibleText', () => {
 		assert.equal(decodeEntities('V&#105agra don&#146;t &#x0000000041; &#0;&#55296;&#x110000;'), 'Viagra don\u2019t A \uFFFD\uFFFD\uFFFD');
 		// (the names browsers read without a ";", in text, not in an attribute
 		//  where a letter, digit or "=" follows)
-		assert.equal(decodeEntities('Free&nbspSpins &amp &notin;'), 'Free\u00A0Spins & &notin;');
+		assert.equal(decodeEntities('Free&nbspSpins &amp &notin;'), 'Free\u00A0Spins & \u2209');
+		// (every name browsers know, with its ";": a mathematical letter, a
+		//  Cyrillic one, two letters)
+		assert.equal(decodeEntities('ev&iopf;l p&acy;ypal &fjlig;'), 'ev\u{1D55A}l p\u0430ypal fj');
 		assert.equal(decodeEntities('?a=1&copy=2&amp;b&lt', {attribute: true}), '?a=1&copy=2&b<');
 		// (an unknown name, and names of object properties, stay)
 		assert.equal(decodeEntities('&nosuch; &constructor; &__proto__; &zz'), '&nosuch; &constructor; &__proto__; &zz');
@@ -970,7 +973,7 @@ describe('visibleText as browsers build the page', () => {
 
 	it('reads a name ending in ";" that starts with one read without it, in text', () => {
 		assert.equal(decodeEntities('Buy Vi&shyagra; now'), 'Buy Vi­agra; now');
-		assert.equal(decodeEntities('a&nbspfoo; &notin; &ltimes; &zz;'), 'a foo; &notin; &ltimes; &zz;');
+		assert.equal(decodeEntities('a&nbspfoo; &notin; &ltimes; &zz;'), 'a foo; \u2209 \u22C9 &zz;');
 		assert.equal(decodeEntities('?Vi&shyagra;', {attribute: true}), '?Vi&shyagra;');
 	});
 });

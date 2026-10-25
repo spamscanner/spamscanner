@@ -1,4 +1,4 @@
-<!-- source: 9134d1cd102c -->
+<!-- source: 4c8f9a16e4e6 -->
 
 # API 参考
 
@@ -30,6 +30,9 @@ const result = await scanner.scan(rawMessage, scanOptions);
 | `phishing.cloudflare`  | `true`                           | 向 Cloudflare 的过滤解析器查询链接主机                                                                                                            |
 | `phishing.adult`       | `true`                           | 同时查询拦截成人网站的家庭解析器                                                                                                                     |
 | `phishing.maxHosts`    | `25`                             | 每封邮件查询的链接主机数量                                                                                                                        |
+| `phishing.attachments` | `false`                          | 查询链接主机时，也在最多五秒内读取整封邮件及其所携带内容中的链接：附带邮件、HTML、SVG 和 XML 文件、文本文件、邀请和联系人名片，以及 iframe 和 `data:` URL 中的文档                                   |
+| `phishing.hostsInText` | `false`                          | 在链接之后、尚有余量时，也查询没有链接或路径而直接写出的主机名（`evil.example`），邮件客户端会将其变为链接                                                                         |
+| `phishing.timeout`     | `timeout`                        | 所有链接查询合计可用的毫秒数                                                                                                                       |
 | `phishing.maxLength`   | `1000000`                        | 为查找链接而读取的正文字符数（HTML 为其两倍）；更长的正文会设置 `results.linksTruncated`；`Infinity` 或任何非正数的值表示使用默认值                                               |
 | `phishing.homograph`   | `{}`                             | `brands`（替换内置列表）、`extraBrands`、`allowlist`（从不标记的域名）、`strictMode`                                                                     |
 | `dnsbl`                | `{ip: [], domain: []}`           | 针对客户端 IP 和链接域名的 DNS 黑名单区域                                                                                                            |
@@ -125,6 +128,8 @@ await scanner.scan(raw, {authenticationResults: auth});
     uncheckedHosts: 0,   // link hosts beyond phishing.maxHosts, not looked up
     timedOutHosts: 0,    // link hosts looked up but not answered (in time, or at all)
     linksTruncated: false, // more text than phishing.maxLength, whose links were not read
+    linksTooComplex: false, // a link host never read whole (cut where long text is cut, wrapped deeper than unwrapped, or in more documents than are read)
+    linksIncomplete: false, // an attachment left unread for its links, for time
     attachments: [],     // every attachment finding
     executables: [],     // the executable findings among them
     macros: [],          // macros, active PDFs, RTF objects
@@ -147,6 +152,7 @@ await scanner.scan(raw, {authenticationResults: auth});
   language: 'en',
   tokens: ['dear', 'customer', /* ... */],
   mail: {/* the parsed message, from mailparser; mail.text: the plain text parts only */},
+  attached: [],          // its attachments and those of its attached messages, named after them: fw.eml/invoice.exe
   version: VERSION,      // this package's version
   metrics: {totalTime: 42},
 }

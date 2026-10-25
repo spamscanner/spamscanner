@@ -1,109 +1,16 @@
+import {NAMED_REFERENCES} from './entities.js';
 import {caseless, linear} from './linear.js';
 
-// Named character references for the characters of Latin-1 (160 to 255, in
-// order) and the other ones mail commonly uses, as browsers read them (the
-// names are case-sensitive: "&Eacute;" is "É", "&eacute;" is "é")
+// The names of the characters of Latin-1 (160 to 255, in order), which
+// browsers also read without a ";" (names are case-sensitive: "&Eacute;" is
+// "É", "&eacute;" is "é")
 const LATIN1 = 'nbsp iexcl cent pound curren yen brvbar sect uml copy ordf laquo not shy reg macr deg plusmn sup2 sup3 acute micro para middot cedil sup1 ordm raquo frac14 frac12 frac34 iquest Agrave Aacute Acirc Atilde Auml Aring AElig Ccedil Egrave Eacute Ecirc Euml Igrave Iacute Icirc Iuml ETH Ntilde Ograve Oacute Ocirc Otilde Ouml times Oslash Ugrave Uacute Ucirc Uuml Yacute THORN szlig agrave aacute acirc atilde auml aring aelig ccedil egrave eacute ecirc euml igrave iacute icirc iuml eth ntilde ograve oacute ocirc otilde ouml divide oslash ugrave uacute ucirc uuml yacute thorn yuml'.split(' ');
-const ENTITIES = new Map([
-	...LATIN1.map((name, index) => [name, String.fromCodePoint(160 + index)]),
-	['amp', '&'],
-	['lt', '<'],
-	['gt', '>'],
-	['quot', '"'],
-	['apos', '\''],
-	['AMP', '&'],
-	['LT', '<'],
-	['GT', '>'],
-	['QUOT', '"'],
-	['COPY', '©'],
-	['REG', '®'],
-	['OElig', 'Œ'],
-	['oelig', 'œ'],
-	['Scaron', 'Š'],
-	['scaron', 'š'],
-	['Yuml', 'Ÿ'],
-	['fnof', 'ƒ'],
-	['circ', 'ˆ'],
-	['tilde', '˜'],
-	['ensp', ' '],
-	['emsp', ' '],
-	['thinsp', ' '],
-	['zwnj', '‌'],
-	['zwj', '‍'],
-	['lrm', '‎'],
-	['rlm', '‏'],
-	['ndash', '–'],
-	['mdash', '—'],
-	['lsquo', '‘'],
-	['rsquo', '’'],
-	['sbquo', '‚'],
-	['ldquo', '“'],
-	['rdquo', '”'],
-	['bdquo', '„'],
-	['dagger', '†'],
-	['Dagger', '‡'],
-	['bull', '•'],
-	['hellip', '…'],
-	['permil', '‰'],
-	['prime', '′'],
-	['Prime', '″'],
-	['lsaquo', '‹'],
-	['rsaquo', '›'],
-	['euro', '€'],
-	['trade', '™'],
-	['larr', '←'],
-	['uarr', '↑'],
-	['rarr', '→'],
-	['darr', '↓'],
-	['hearts', '♥'],
-	['check', '✓'],
-	// The punctuation of a web address, as browsers read these names
-	// ("https://bank.example&commat;evil.example/" goes to evil.example)
-	['Tab', '\t'],
-	['NewLine', '\n'],
-	['excl', '!'],
-	['num', '#'],
-	['dollar', '$'],
-	['percnt', '%'],
-	['lpar', '('],
-	['rpar', ')'],
-	['ast', '*'],
-	['midast', '*'],
-	['plus', '+'],
-	['comma', ','],
-	['period', '.'],
-	['sol', '/'],
-	['colon', ':'],
-	['semi', ';'],
-	['equals', '='],
-	['quest', '?'],
-	['commat', '@'],
-	['lsqb', '['],
-	['lbrack', '['],
-	['bsol', '\\'],
-	['rsqb', ']'],
-	['rbrack', ']'],
-	['Hat', '^'],
-	['lowbar', '_'],
-	['UnderBar', '_'],
-	['grave', '`'],
-	['DiacriticalGrave', '`'],
-	['lcub', '{'],
-	['lbrace', '{'],
-	['verbar', '|'],
-	['vert', '|'],
-	['VerticalLine', '|'],
-	['rcub', '}'],
-	['rbrace', '}'],
-]);
 // The names browsers also read without a ";" ("&nbsp", "&amp"), the longest
 // at the start of a name ("&notit" is "¬it", "Vi&shyagra;" is "Vi­agra" in
-// text), and the names with a ";" that start with one of them, which
-// browsers read whole ("&notin;" is "∉"): this table does not have them, so
-// they are left as they are
+// text); a name with a ";" is read whole by every name browsers know
+// ("&notin;" is "∉", "&iopf;" is "𝕚"), see NAMED_REFERENCES
 const LEGACY = new Set([...LATIN1, 'amp', 'lt', 'gt', 'quot', 'AMP', 'LT', 'GT', 'QUOT', 'COPY', 'REG']);
 const LEGACY_LONGEST = Math.max(...[...LEGACY].map(name => name.length));
-const LONGER_NAMES = new Set('centerdot copysr divideontimes gtcc gtcir gtdot gtlPar gtquest gtrapprox gtrarr gtrdot gtreqless gtreqqless gtrless gtrsim ltcc ltcir ltdot lthree ltimes ltlarr ltquest ltrPar ltri ltrie ltrif notin notinE notindot notinva notinvb notinvc notni notniva notnivb notnivc parallel timesb timesbar timesd'.split(' '));
 // Windows-1252 for the references to C1 controls, as browsers read them
 // ("don&#146;t" is "don’t")
 const WINDOWS_1252 = [0x20_AC, 0x81, 0x20_1A, 0x1_92, 0x20_1E, 0x20_26, 0x20_20, 0x20_21, 0x2_C6, 0x20_30, 0x1_60, 0x20_39, 0x1_52, 0x8D, 0x1_7D, 0x8F, 0x90, 0x20_18, 0x20_19, 0x20_1C, 0x20_1D, 0x20_22, 0x20_13, 0x20_14, 0x2_DC, 0x21_22, 0x1_61, 0x20_3A, 0x1_53, 0x9D, 0x1_7E, 0x1_78];
@@ -123,8 +30,8 @@ function fromCode(code) {
 
 /**
  * Text with its character references decoded, as browsers decode them: by
- * number, also without a ";", and by name (the names of Latin-1 and those
- * mail commonly uses; also without a ";" for the names browsers read so,
+ * number, also without a ";", and by name (every name browsers know; also
+ * without a ";" for the names browsers read so,
  * except in an attribute where a letter, digit or "=" follows, as in a link
  * "?a=1&copy=2"). An unknown name stays as it is.
  * @param {string} value
@@ -139,8 +46,8 @@ export function decodeEntities(value, {attribute = false} = {}) {
 			return fromCode(hex === undefined ? Number.parseInt(decimal, 10) : Number.parseInt(hex, 16));
 		}
 
-		if (semicolon && (ENTITIES.has(name) || LONGER_NAMES.has(name))) {
-			return ENTITIES.get(name) ?? match;
+		if (semicolon && NAMED_REFERENCES.has(name)) {
+			return NAMED_REFERENCES.get(name);
 		}
 
 		// (the longest name read without a ";" that the name starts with; an
@@ -160,7 +67,7 @@ export function decodeEntities(value, {attribute = false} = {}) {
 			return match;
 		}
 
-		return ENTITIES.get(legacy) + rest;
+		return NAMED_REFERENCES.get(legacy) + rest;
 	});
 }
 

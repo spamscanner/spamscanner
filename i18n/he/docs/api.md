@@ -1,4 +1,4 @@
-<!-- source: 9134d1cd102c -->
+<!-- source: 4c8f9a16e4e6 -->
 
 # תיעוד API
 
@@ -19,34 +19,37 @@ const result = await scanner.scan(rawMessage, scanOptions);
 
 אפשר להעביר כל אפשרות לבנאי. את רובן אפשר להעביר גם ל-`scan()` עבור הודעה אחת, ואז הן ממוזגות מעל האפשרויות של הבנאי. אפשרויות שמועברות כ-`undefined` שומרות על ברירת המחדל שלהן. את `classifier`, `classifierOptions`, `dns`, `phishing.homograph` ו-`strictIDNDetection` קורא הבנאי בלבד; קובץ או אובייקט מודל שניתנו ב-`classifier` נקראים שם, כך שמודל חסר או פגום זורק שגיאה מיד.
 
-| אפשרות                  | ברירת מחדל                       | משמעות                                                                                                                                                            |
-| ----------------------- | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `threshold`             | `5`                              | הניקוד שבו הודעה היא ספאם                                                                                                                                         |
-| `rejectThreshold`       | `15`                             | הניקוד שבו `action` הוא `reject`                                                                                                                                  |
-| `scores`                | `{}`                             | נקודות לכל בדיקה: מפתחות הגדרה או שמות בדיקות ([בדיקות וניקוד](scoring.md))                                                                                       |
-| `classifier`            | המודל המצורף                     | ‏`Classifier`, אובייקט מודל, נתיב לקובץ מודל, או `false`                                                                                                          |
-| `classifierOptions`     | `{}`                             | אפשרויות למודל המצורף (ראו [Classifier](#classifier))                                                                                                             |
-| `allowedLanguages`      | `[]`                             | קודי ISO 639-1 (`no` נקרא כ-`nb`,‏ `fil` כ-`tl`, והקודים הישנים `iw`,‏ `in`,‏ `ji` כ-`he`,‏ `id`,‏ `yi`); שפות אחרות מקבלות `LANGUAGE_NOT_ALLOWED`                |
-| `phishing.cloudflare`   | `true`                           | לשאול את שרתי ה-DNS המסננים של Cloudflare על המארחים שבקישורים                                                                                                    |
-| `phishing.adult`        | `true`                           | לשאול גם את שרת ה-DNS המשפחתי, שחוסם אתרים למבוגרים                                                                                                               |
-| `phishing.maxHosts`     | `25`                             | מספר המארחים מקישורים שנבדקים בכל הודעה                                                                                                                           |
-| `phishing.maxLength`    | `1000000`                        | תווי הטקסט שנקראים לאיתור קישורים (פי שניים ב-HTML); טקסט ארוך יותר מגדיר את `results.linksTruncated`; `Infinity`, או כל דבר שאינו מספר חיובי, פירושו ברירת המחדל |
-| `phishing.homograph`    | `{}`                             | `brands` (מחליף את הרשימה המובנית), `extraBrands`, `allowlist` (דומיינים שלעולם לא מסומנים), `strictMode`                                                         |
-| `dnsbl`                 | `{ip: [], domain: []}`           | אזורי רשימות שחורות ב-DNS עבור ה-IP של הלקוח ועבור דומיינים מקישורים                                                                                              |
-| `dns`                   | `{servers: null, timeout: 3000}` | שרתי שמות לבדיקות DNS (ברירת מחדל: של המערכת)                                                                                                                     |
-| `attachments`           | `true`                           | לבדוק קבצים מצורפים                                                                                                                                               |
-| `macros`                | `true`                           | לסמן פקודות מאקרו, קובצי PDF פעילים ואובייקטי RTF                                                                                                                 |
-| `arbitrary`             | `true`                           | להריץ את [הכללים](scoring.md#rules)                                                                                                                               |
-| `authentication`        | `false`                          | `true`, או `{dnsServers, timeout, maxDnsQueries, mta, weights, trustedArcSealers}`: SPF,‏ DKIM,‏ DMARC,‏ ARC ([ניקוד](scoring.md#authentication))                 |
-| `reputation`            | `false`                          | `{allowlist, denylist, apiUrl, headers, timeout, concurrency, cacheTtl, cacheSize}`; התשובות נשמרות לפי שירות וכותרות, ו-`cacheSize` חל על הסורק כולו             |
-| `allowlist`, `denylist` |                                  | כתובות IP, דומיינים או כתובות; קיצור של `reputation` → [רשימת היתר ורשימת חסימה](#allowlist-and-denylist)                                                         |
-| `clamav`                | `false`                          | `true` (ה-socket ברירת המחדל), `{socket}` או `{host, port}`, עם `timeout`: אלפיות שנייה לכל הקבצים המצורפים של הודעה (`60000`)                                    |
-| `llm`                   | `null`                           | [הגדרות מודל השפה](llm.md#any-server-port-and-authentication), עם `mode`, `minScore`, `maxScore`                                                                  |
-| `toxicity`              | `false`                          | `{model, threshold = 0.7}`: מודל שה-`classify([text])` שלו עונה כמו `@tensorflow-models/toxicity`                                                                 |
-| `nsfw`                  | `false`                          | `{model, threshold = 0.6}`: מודל שה-`classify(imageBuffer)` שלו עונה כמו `nsfwjs`                                                                                 |
-| `maxLength`             | `100000`                         | מספר התווים מגוף ההודעה שנקראים                                                                                                                                   |
-| `timeout`               | `10000`                          | אלפיות השנייה שמוקצות לכל בדיקת רשת; האימות ומודל התמונות מקבלים את הזמן הזה בסך הכול (ל-ClamAV יש `clamav.timeout` משלו)                                         |
-| `session`               | `{}`                             | פרטי ברירת מחדל של שיחת ה-SMTP                                                                                                                                    |
+| אפשרות                  | ברירת מחדל                       | משמעות                                                                                                                                                                                                                   |
+| ----------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `threshold`             | `5`                              | הניקוד שבו הודעה היא ספאם                                                                                                                                                                                                |
+| `rejectThreshold`       | `15`                             | הניקוד שבו `action` הוא `reject`                                                                                                                                                                                         |
+| `scores`                | `{}`                             | נקודות לכל בדיקה: מפתחות הגדרה או שמות בדיקות ([בדיקות וניקוד](scoring.md))                                                                                                                                              |
+| `classifier`            | המודל המצורף                     | ‏`Classifier`, אובייקט מודל, נתיב לקובץ מודל, או `false`                                                                                                                                                                 |
+| `classifierOptions`     | `{}`                             | אפשרויות למודל המצורף (ראו [Classifier](#classifier))                                                                                                                                                                    |
+| `allowedLanguages`      | `[]`                             | קודי ISO 639-1 (`no` נקרא כ-`nb`,‏ `fil` כ-`tl`, והקודים הישנים `iw`,‏ `in`,‏ `ji` כ-`he`,‏ `id`,‏ `yi`); שפות אחרות מקבלות `LANGUAGE_NOT_ALLOWED`                                                                       |
+| `phishing.cloudflare`   | `true`                           | לשאול את שרתי ה-DNS המסננים של Cloudflare על המארחים שבקישורים                                                                                                                                                           |
+| `phishing.adult`        | `true`                           | לשאול גם את שרת ה-DNS המשפחתי, שחוסם אתרים למבוגרים                                                                                                                                                                      |
+| `phishing.maxHosts`     | `25`                             | מספר המארחים מקישורים שנבדקים בכל הודעה                                                                                                                                                                                  |
+| `phishing.attachments`  | `false`                          | כשבודקים מארחים מקישורים, לקרוא גם את הקישורים של ההודעה כולה ושל מה שהיא נושאת, למשך חמש שניות לכל היותר: הודעות מצורפות, קובצי HTML, SVG ו-XML, קובצי טקסט, הזמנות וכרטיסי איש קשר, ומסמכים ב-iframes ובכתובות `data:` |
+| `phishing.hostsInText`  | `false`                          | לבדוק גם שמות מארחים שנכתבו בלי קישור או נתיב (`evil.example`), שתוכנות דואר הופכות לקישורים, אחרי הקישורים, ככל שיש מקום                                                                                                |
+| `phishing.timeout`      | `timeout`                        | אלפיות השנייה שבדיקות הקישורים רשאיות להימשך בסך הכול                                                                                                                                                                    |
+| `phishing.maxLength`    | `1000000`                        | תווי הטקסט שנקראים לאיתור קישורים (פי שניים ב-HTML); טקסט ארוך יותר מגדיר את `results.linksTruncated`; `Infinity`, או כל דבר שאינו מספר חיובי, פירושו ברירת המחדל                                                        |
+| `phishing.homograph`    | `{}`                             | `brands` (מחליף את הרשימה המובנית), `extraBrands`, `allowlist` (דומיינים שלעולם לא מסומנים), `strictMode`                                                                                                                |
+| `dnsbl`                 | `{ip: [], domain: []}`           | אזורי רשימות שחורות ב-DNS עבור ה-IP של הלקוח ועבור דומיינים מקישורים                                                                                                                                                     |
+| `dns`                   | `{servers: null, timeout: 3000}` | שרתי שמות לבדיקות DNS (ברירת מחדל: של המערכת)                                                                                                                                                                            |
+| `attachments`           | `true`                           | לבדוק קבצים מצורפים                                                                                                                                                                                                      |
+| `macros`                | `true`                           | לסמן פקודות מאקרו, קובצי PDF פעילים ואובייקטי RTF                                                                                                                                                                        |
+| `arbitrary`             | `true`                           | להריץ את [הכללים](scoring.md#rules)                                                                                                                                                                                      |
+| `authentication`        | `false`                          | `true`, או `{dnsServers, timeout, maxDnsQueries, mta, weights, trustedArcSealers}`: SPF,‏ DKIM,‏ DMARC,‏ ARC ([ניקוד](scoring.md#authentication))                                                                        |
+| `reputation`            | `false`                          | `{allowlist, denylist, apiUrl, headers, timeout, concurrency, cacheTtl, cacheSize}`; התשובות נשמרות לפי שירות וכותרות, ו-`cacheSize` חל על הסורק כולו                                                                    |
+| `allowlist`, `denylist` |                                  | כתובות IP, דומיינים או כתובות; קיצור של `reputation` → [רשימת היתר ורשימת חסימה](#allowlist-and-denylist)                                                                                                                |
+| `clamav`                | `false`                          | `true` (ה-socket ברירת המחדל), `{socket}` או `{host, port}`, עם `timeout`: אלפיות שנייה לכל הקבצים המצורפים של הודעה (`60000`)                                                                                           |
+| `llm`                   | `null`                           | [הגדרות מודל השפה](llm.md#any-server-port-and-authentication), עם `mode`, `minScore`, `maxScore`                                                                                                                         |
+| `toxicity`              | `false`                          | `{model, threshold = 0.7}`: מודל שה-`classify([text])` שלו עונה כמו `@tensorflow-models/toxicity`                                                                                                                        |
+| `nsfw`                  | `false`                          | `{model, threshold = 0.6}`: מודל שה-`classify(imageBuffer)` שלו עונה כמו `nsfwjs`                                                                                                                                        |
+| `maxLength`             | `100000`                         | מספר התווים מגוף ההודעה שנקראים                                                                                                                                                                                          |
+| `timeout`               | `10000`                          | אלפיות השנייה שמוקצות לכל בדיקת רשת; האימות ומודל התמונות מקבלים את הזמן הזה בסך הכול (ל-ClamAV יש `clamav.timeout` משלו)                                                                                                |
+| `session`               | `{}`                             | פרטי ברירת מחדל של שיחת ה-SMTP                                                                                                                                                                                           |
 
 `scan()` מקבלת גם `session`:
 
@@ -125,6 +128,8 @@ await scanner.scan(raw, {authenticationResults: auth});
     uncheckedHosts: 0,   // link hosts beyond phishing.maxHosts, not looked up
     timedOutHosts: 0,    // link hosts looked up but not answered (in time, or at all)
     linksTruncated: false, // more text than phishing.maxLength, whose links were not read
+    linksTooComplex: false, // a link host never read whole (cut where long text is cut, wrapped deeper than unwrapped, or in more documents than are read)
+    linksIncomplete: false, // an attachment left unread for its links, for time
     attachments: [],     // every attachment finding
     executables: [],     // the executable findings among them
     macros: [],          // macros, active PDFs, RTF objects
@@ -147,6 +152,7 @@ await scanner.scan(raw, {authenticationResults: auth});
   language: 'en',
   tokens: ['dear', 'customer', /* ... */],
   mail: {/* the parsed message, from mailparser; mail.text: the plain text parts only */},
+  attached: [],          // its attachments and those of its attached messages, named after them: fw.eml/invoice.exe
   version: VERSION,      // this package's version
   metrics: {totalTime: 42},
 }

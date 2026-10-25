@@ -672,9 +672,12 @@ export async function parseWithin(raw, parse = parseMessage, deadline = Date.now
  * @param {(raw: Buffer) => Promise<object>} [parse] - for tests
  * @returns {Promise<Array<object>>}
  */
-// (`unopened`: the attached messages not opened, past the limits above, as
-//  {filename, reason}, whose attachments were not inspected)
-export async function expandAttachments(attachments = [], errors = [], parse = parseMessage, unopened = []) {
+// (`unopened`: gets the attached messages not opened, past the limits above,
+//  as {filename, reason}, whose attachments were not inspected; `mails`:
+//  gets the attached messages opened, as mailparser parsed them; or an array,
+//  `unopened`)
+export async function expandAttachments(attachments = [], errors = [], parse = parseMessage, gets = {}) {
+	const {unopened = [], mails = []} = Array.isArray(gets) ? {unopened: gets} : gets;
 	const all = [];
 	// (one time limit for all of them)
 	const deadline = Date.now() + PARSE_TIMEOUT;
@@ -734,6 +737,8 @@ export async function expandAttachments(attachments = [], errors = [], parse = p
 				if (inner.error) {
 					errors.push(inner.error);
 				}
+
+				mails.push(inner.mail);
 
 				// eslint-disable-next-line no-await-in-loop
 				await visit(inner.mail.attachments, prefix ? `${prefix}/${name}` : (name || 'attached message'), depth + 1);

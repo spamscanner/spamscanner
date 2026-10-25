@@ -318,7 +318,7 @@ function shorten(name, max = 100) {
 
 // (Windows drops dots and spaces at the end of a file name: "run.js." runs,
 //  and the direction controls that hide its extension: "macro.vb\u2069s")
-function extensionOf(name) {
+export function extensionOf(name) {
 	const base = trimEndOf(String(name).toLowerCase().replace(ALL_BIDI_CONTROLS, '').split(/[/\\]/).pop(), '. ');
 	const whole = lastExtension(base);
 	// (a name with the stream name of a file's own content by the name Windows
