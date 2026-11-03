@@ -1,4 +1,4 @@
-<!-- source: 6675649d593a -->
+<!-- source: 0ef64d277a8c -->
 
 # Postfix и Sendmail
 
@@ -110,6 +110,15 @@ Postfix запускает фильтр почти с пустым окруже�
 
 ```sh
 sudo postfix reload
+```
+
+В Debian 13, Ubuntu 26.04 и новее служба systemd для Postfix задаёт `MemoryDenyWriteExecute=yes`, из-за чего Node.js не может компилировать JavaScript: фильтр аварийно завершается ("Check failed" в журнале Postfix), а Postfix продолжает откладывать почту. Отключите это для Postfix (milter, отдельная служба, не затронут):
+
+```sh
+sudo mkdir -p /etc/systemd/system/postfix.service.d
+printf '[Service]\nMemoryDenyWriteExecute=no\n' | sudo tee /etc/systemd/system/postfix.service.d/spamscanner.conf
+sudo systemctl daemon-reload
+sudo systemctl restart postfix
 ```
 
 Фильтр возвращает письмо через `sendmail -G -i`. Почта, отправленная таким способом, повторно не проходит через слушатель `smtp`, поэтому не фильтруется дважды.

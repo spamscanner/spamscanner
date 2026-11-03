@@ -1,4 +1,4 @@
-<!-- source: 6675649d593a -->
+<!-- source: 0ef64d277a8c -->
 
 # Postfix és Sendmail
 
@@ -110,6 +110,15 @@ A Postfix szinte üres környezettel futtatja a szűrőt, ezért az `argv` telje
 
 ```sh
 sudo postfix reload
+```
+
+Debian 13, Ubuntu 26.04 és újabb rendszereken a Postfix systemd-szolgáltatása beállítja a `MemoryDenyWriteExecute=yes` értéket, ami megakadályozza, hogy a Node.js JavaScriptet fordítson: a szűrő összeomlik ("Check failed" a Postfix naplójában), és a Postfix újra meg újra elhalasztja a levelet. Kapcsolja ki a Postfix számára (a milter, amely külön szolgáltatás, nem érintett):
+
+```sh
+sudo mkdir -p /etc/systemd/system/postfix.service.d
+printf '[Service]\nMemoryDenyWriteExecute=no\n' | sudo tee /etc/systemd/system/postfix.service.d/spamscanner.conf
+sudo systemctl daemon-reload
+sudo systemctl restart postfix
 ```
 
 A szűrő a `sendmail -G -i` paranccsal adja vissza a levelet. Az így beküldött levél nem halad át újra az `smtp` figyelőn, így nem kerül kétszer szűrésre.

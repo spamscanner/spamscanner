@@ -1,4 +1,4 @@
-<!-- source: 6675649d593a -->
+<!-- source: 0ef64d277a8c -->
 
 # Postfix ו-Sendmail
 
@@ -110,6 +110,15 @@ Postfix מריץ את המסנן עם סביבה כמעט ריקה, ולכן `ar
 
 ```sh
 sudo postfix reload
+```
+
+ב-Debian 13, ב-Ubuntu 26.04 ובגרסאות מאוחרות יותר, שירות systemd של Postfix מגדיר `MemoryDenyWriteExecute=yes`, מה שמונע מ-Node.js להדר JavaScript: המסנן קורס ("Check failed" ביומן של Postfix) ו-Postfix ממשיך לדחות את הדואר. בטלו זאת עבור Postfix (ה-milter, שהוא שירות נפרד, אינו מושפע):
+
+```sh
+sudo mkdir -p /etc/systemd/system/postfix.service.d
+printf '[Service]\nMemoryDenyWriteExecute=no\n' | sudo tee /etc/systemd/system/postfix.service.d/spamscanner.conf
+sudo systemctl daemon-reload
+sudo systemctl restart postfix
 ```
 
 המסנן מחזיר את ההודעה עם `sendmail -G -i`. דואר שנשלח בדרך הזו לא עובר שוב דרך המאזין `smtp`, כך שהוא לא מסונן פעמיים.

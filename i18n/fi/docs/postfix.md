@@ -1,4 +1,4 @@
-<!-- source: 6675649d593a -->
+<!-- source: 0ef64d277a8c -->
 
 # Postfix ja Sendmail
 
@@ -110,6 +110,15 @@ Postfix ajaa suodattimen lähes tyhjällä ympäristöllä, joten `argv` nimeä�
 
 ```sh
 sudo postfix reload
+```
+
+Debian 13:ssa, Ubuntu 26.04:ssä ja uudemmissa Postfixin systemd-palvelu asettaa `MemoryDenyWriteExecute=yes`, mikä estää Node.js:ää kääntämästä JavaScriptiä: suodatin kaatuu ("Check failed" Postfixin lokissa) ja Postfix lykkää postia yhä uudelleen. Poista se käytöstä Postfixilta (oma palvelunsa oleva milter ei kärsi tästä):
+
+```sh
+sudo mkdir -p /etc/systemd/system/postfix.service.d
+printf '[Service]\nMemoryDenyWriteExecute=no\n' | sudo tee /etc/systemd/system/postfix.service.d/spamscanner.conf
+sudo systemctl daemon-reload
+sudo systemctl restart postfix
 ```
 
 Suodatin palauttaa viestin komennolla `sendmail -G -i`. Tällä tavalla lähetetty posti ei kulje uudelleen `smtp`-kuuntelijan kautta, joten sitä ei suodateta kahdesti.

@@ -1,4 +1,4 @@
-<!-- source: 6675649d593a -->
+<!-- source: 0ef64d277a8c -->
 
 # Postfix og Sendmail
 
@@ -110,6 +110,15 @@ Postfix kjører filteret med et nesten tomt miljø, så `argv` oppgir Node.js og
 
 ```sh
 sudo postfix reload
+```
+
+På Debian 13, Ubuntu 26.04 og nyere setter systemd-tjenesten til Postfix `MemoryDenyWriteExecute=yes`, som hindrer Node.js i å kompilere JavaScript: filteret krasjer ("Check failed" i Postfix-loggen), og Postfix fortsetter å utsette e-posten. Slå det av for Postfix (milteren, som er en egen tjeneste, påvirkes ikke):
+
+```sh
+sudo mkdir -p /etc/systemd/system/postfix.service.d
+printf '[Service]\nMemoryDenyWriteExecute=no\n' | sudo tee /etc/systemd/system/postfix.service.d/spamscanner.conf
+sudo systemctl daemon-reload
+sudo systemctl restart postfix
 ```
 
 Filteret sender meldingen tilbake med `sendmail -G -i`. E-post som sendes inn på denne måten, går ikke gjennom `smtp`-lytteren igjen, så den filtreres ikke to ganger.

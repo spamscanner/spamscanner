@@ -1,4 +1,4 @@
-<!-- source: 6675649d593a -->
+<!-- source: 0ef64d277a8c -->
 
 # PostfixとSendmail
 
@@ -110,6 +110,15 @@ Postfixはほとんど空の環境でフィルターを実行するため、`arg
 
 ```sh
 sudo postfix reload
+```
+
+Debian 13、Ubuntu 26.04以降では、Postfixのsystemdサービスが`MemoryDenyWriteExecute=yes`を設定しており、Node.jsがJavaScriptをコンパイルできません。フィルターはクラッシュし（Postfixのログに"Check failed"）、Postfixはメールを延期し続けます。Postfixではこれを無効にしてください（独立したサービスであるmilterには影響しません）：
+
+```sh
+sudo mkdir -p /etc/systemd/system/postfix.service.d
+printf '[Service]\nMemoryDenyWriteExecute=no\n' | sudo tee /etc/systemd/system/postfix.service.d/spamscanner.conf
+sudo systemctl daemon-reload
+sudo systemctl restart postfix
 ```
 
 フィルターは`sendmail -G -i`でメッセージを戻します。この方法で投入されたメールは再び`smtp`リスナーを通らないため、二重にフィルタリングされることはありません。

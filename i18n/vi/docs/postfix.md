@@ -1,4 +1,4 @@
-<!-- source: 6675649d593a -->
+<!-- source: 0ef64d277a8c -->
 
 # Postfix và Sendmail
 
@@ -110,6 +110,15 @@ Postfix chạy bộ lọc với môi trường gần như trống, nên `argv` g
 
 ```sh
 sudo postfix reload
+```
+
+Trên Debian 13, Ubuntu 26.04 trở lên, dịch vụ systemd của Postfix đặt `MemoryDenyWriteExecute=yes`, khiến Node.js không thể biên dịch JavaScript: bộ lọc bị sập ("Check failed" trong nhật ký Postfix) và Postfix tiếp tục hoãn thư. Hãy tắt nó cho Postfix (milter, một dịch vụ riêng, không bị ảnh hưởng):
+
+```sh
+sudo mkdir -p /etc/systemd/system/postfix.service.d
+printf '[Service]\nMemoryDenyWriteExecute=no\n' | sudo tee /etc/systemd/system/postfix.service.d/spamscanner.conf
+sudo systemctl daemon-reload
+sudo systemctl restart postfix
 ```
 
 Bộ lọc trả thư lại bằng `sendmail -G -i`. Thư gửi theo cách này không đi qua listener `smtp` lần nữa, nên không bị lọc hai lần.

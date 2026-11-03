@@ -1,4 +1,4 @@
-<!-- source: 6675649d593a -->
+<!-- source: 0ef64d277a8c -->
 
 # Postfix와 Sendmail
 
@@ -110,6 +110,15 @@ Postfix는 거의 비어 있는 환경으로 필터를 실행하므로, `argv`�
 
 ```sh
 sudo postfix reload
+```
+
+Debian 13, Ubuntu 26.04 이상에서는 Postfix의 systemd 서비스가 `MemoryDenyWriteExecute=yes`를 설정하여 Node.js가 JavaScript를 컴파일하지 못합니다. 필터가 비정상 종료되고(Postfix 로그에 "Check failed") Postfix는 메일을 계속 연기합니다. Postfix에서 이 설정을 끄세요(별도 서비스인 milter는 영향을 받지 않습니다):
+
+```sh
+sudo mkdir -p /etc/systemd/system/postfix.service.d
+printf '[Service]\nMemoryDenyWriteExecute=no\n' | sudo tee /etc/systemd/system/postfix.service.d/spamscanner.conf
+sudo systemctl daemon-reload
+sudo systemctl restart postfix
 ```
 
 필터는 `sendmail -G -i`로 메시지를 다시 넘겨줍니다. 이렇게 제출한 메일은 `smtp` 리스너를 다시 거치지 않으므로 두 번 필터링되지 않습니다.

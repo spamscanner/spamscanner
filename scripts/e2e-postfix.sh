@@ -75,8 +75,21 @@ postfix check
 
 # A reload keeps the old inet_interfaces and inet_protocols, so Postfix,
 # which the package manager may already have started, is stopped and started.
-postfix stop >/dev/null 2>&1 || true
-postfix start
+# Under systemd (which starts it again when it is stopped otherwise) it is
+# restarted by systemd; its service on Debian 13 and Ubuntu 26.04 sets
+# MemoryDenyWriteExecute=yes, which stops Node.js from compiling JavaScript,
+# so the filter would crash on every message (see docs/postfix.md).
+if command -v systemctl >/dev/null 2>&1 && systemctl cat postfix.service >/dev/null 2>&1; then
+	if [ "$(systemctl show --property=MemoryDenyWriteExecute --value postfix.service)" = yes ]; then
+		mkdir -p /etc/systemd/system/postfix.service.d
+		printf '[Service]\nMemoryDenyWriteExecute=no\n' >/etc/systemd/system/postfix.service.d/spamscanner.conf
+		systemctl daemon-reload
+	fi
+	systemctl restart postfix.service
+else
+	postfix stop >/dev/null 2>&1 || true
+	postfix start
+fi
 
 # Wait until both ports take connections; otherwise show why not.
 for _ in $(seq 1 30); do

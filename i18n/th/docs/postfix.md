@@ -1,4 +1,4 @@
-<!-- source: 6675649d593a -->
+<!-- source: 0ef64d277a8c -->
 
 # Postfix และ Sendmail
 
@@ -110,6 +110,15 @@ Postfix รันตัวกรองด้วยสภาพแวดล้อ
 
 ```sh
 sudo postfix reload
+```
+
+บน Debian 13, Ubuntu 26.04 และใหม่กว่า บริการ systemd ของ Postfix ตั้งค่า `MemoryDenyWriteExecute=yes` ซึ่งทำให้ Node.js คอมไพล์ JavaScript ไม่ได้ ตัวกรองจะหยุดทำงาน ("Check failed" ในบันทึกของ Postfix) และ Postfix จะเลื่อนการส่งอีเมลไปเรื่อย ๆ ให้ปิดค่านี้สำหรับ Postfix (milter ซึ่งเป็นบริการแยกต่างหากไม่ได้รับผลกระทบ):
+
+```sh
+sudo mkdir -p /etc/systemd/system/postfix.service.d
+printf '[Service]\nMemoryDenyWriteExecute=no\n' | sudo tee /etc/systemd/system/postfix.service.d/spamscanner.conf
+sudo systemctl daemon-reload
+sudo systemctl restart postfix
 ```
 
 ตัวกรองส่งข้อความกลับด้วย `sendmail -G -i` อีเมลที่ส่งด้วยวิธีนี้ไม่ผ่าน listener `smtp` อีกครั้ง จึงไม่ถูกกรองซ้ำสองรอบ

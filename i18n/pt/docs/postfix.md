@@ -1,4 +1,4 @@
-<!-- source: 6675649d593a -->
+<!-- source: 0ef64d277a8c -->
 
 # Postfix e Sendmail
 
@@ -110,6 +110,15 @@ O Postfix executa o filtro com um ambiente quase vazio, então o `argv` indica o
 
 ```sh
 sudo postfix reload
+```
+
+No Debian 13, Ubuntu 26.04 e posteriores, o serviço systemd do Postfix define `MemoryDenyWriteExecute=yes`, o que impede o Node.js de compilar JavaScript: o filtro falha ("Check failed" no log do Postfix) e o Postfix continua adiando o e-mail. Desative isso para o Postfix (o milter, um serviço à parte, não é afetado):
+
+```sh
+sudo mkdir -p /etc/systemd/system/postfix.service.d
+printf '[Service]\nMemoryDenyWriteExecute=no\n' | sudo tee /etc/systemd/system/postfix.service.d/spamscanner.conf
+sudo systemctl daemon-reload
+sudo systemctl restart postfix
 ```
 
 O filtro devolve a mensagem com `sendmail -G -i`. Os e-mails enviados dessa forma não passam de novo pelo listener `smtp`, então não são filtrados duas vezes.

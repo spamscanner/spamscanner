@@ -1,4 +1,4 @@
-<!-- source: 6675649d593a -->
+<!-- source: 0ef64d277a8c -->
 
 # Postfix وSendmail
 
@@ -110,6 +110,15 @@ spamscanner unix -      n       n       -       10      pipe
 
 ```sh
 sudo postfix reload
+```
+
+في Debian 13 وUbuntu 26.04 وما بعدهما، تضبط خدمة systemd الخاصة بـ Postfix القيمة `MemoryDenyWriteExecute=yes`، وهذا يمنع Node.js من ترجمة JavaScript: يتعطل المرشِّح ("Check failed" في سجل Postfix) ويظل Postfix يؤجل البريد. أوقف هذا الإعداد لـ Postfix (لا يتأثر الـ milter، فهو خدمة مستقلة):
+
+```sh
+sudo mkdir -p /etc/systemd/system/postfix.service.d
+printf '[Service]\nMemoryDenyWriteExecute=no\n' | sudo tee /etc/systemd/system/postfix.service.d/spamscanner.conf
+sudo systemctl daemon-reload
+sudo systemctl restart postfix
 ```
 
 يعيد المرشِّح الرسالة باستخدام `sendmail -G -i`. البريد المُرسل بهذه الطريقة لا يمر عبر مستمع `smtp` مرة أخرى، فلا يُرشَّح مرتين.

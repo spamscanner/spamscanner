@@ -110,6 +110,15 @@ Postfix runs the filter with an almost empty environment, so `argv` names Node.j
 sudo postfix reload
 ```
 
+On Debian 13, Ubuntu 26.04 and later, Postfix's systemd service sets `MemoryDenyWriteExecute=yes`, which stops Node.js from compiling JavaScript: the filter crashes ("Check failed" in the Postfix log) and Postfix keeps deferring the mail. Turn it off for Postfix (the milter, a service of its own, is not affected):
+
+```sh
+sudo mkdir -p /etc/systemd/system/postfix.service.d
+printf '[Service]\nMemoryDenyWriteExecute=no\n' | sudo tee /etc/systemd/system/postfix.service.d/spamscanner.conf
+sudo systemctl daemon-reload
+sudo systemctl restart postfix
+```
+
 The filter passes the message back with `sendmail -G -i`. Mail submitted this way does not pass through the `smtp` listener again, so it is not filtered twice.
 
 Exit codes tell Postfix what happened: 0 delivered, 69 refused (with `--reject`: Postfix bounces it to the sender), 75 temporary failure (Postfix keeps the message and tries again). Any scan or delivery failure is 75, and so is a message with an attachment ClamAV could not scan, so a broken setting never loses or bounces mail. With `--on-error accept`, a message whose scan failed, or that ClamAV could not fully scan, is passed on instead, marked `X-Spam-Virus-Scan: failed` (see [the CLI](cli.md#filter)).

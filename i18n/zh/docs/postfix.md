@@ -1,4 +1,4 @@
-<!-- source: 6675649d593a -->
+<!-- source: 0ef64d277a8c -->
 
 # Postfix 和 Sendmail
 
@@ -110,6 +110,15 @@ Postfix 在几乎为空的环境中运行过滤器，因此 `argv` 要用完整�
 
 ```sh
 sudo postfix reload
+```
+
+在 Debian 13、Ubuntu 26.04 及更新版本上，Postfix 的 systemd 服务设置了 `MemoryDenyWriteExecute=yes`，这会阻止 Node.js 编译 JavaScript：过滤器崩溃（Postfix 日志中出现 "Check failed"），Postfix 会不断推迟邮件。请为 Postfix 关闭此设置（milter 是独立的服务，不受影响）：
+
+```sh
+sudo mkdir -p /etc/systemd/system/postfix.service.d
+printf '[Service]\nMemoryDenyWriteExecute=no\n' | sudo tee /etc/systemd/system/postfix.service.d/spamscanner.conf
+sudo systemctl daemon-reload
+sudo systemctl restart postfix
 ```
 
 过滤器用 `sendmail -G -i` 把邮件交回。以这种方式提交的邮件不会再次经过 `smtp` 监听器，因此不会被过滤两次。

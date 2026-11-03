@@ -1,4 +1,4 @@
-<!-- source: 6675649d593a -->
+<!-- source: 0ef64d277a8c -->
 
 # Postfix ve Sendmail
 
@@ -110,6 +110,15 @@ Postfix filtreyi neredeyse boş bir ortamla çalıştırır; bu nedenle `argv` N
 
 ```sh
 sudo postfix reload
+```
+
+Debian 13, Ubuntu 26.04 ve sonrasında Postfix'in systemd hizmeti `MemoryDenyWriteExecute=yes` ayarlar; bu da Node.js'in JavaScript derlemesini engeller: filtre çöker (Postfix günlüğünde "Check failed") ve Postfix postayı ertelemeye devam eder. Bunu Postfix için kapatın (ayrı bir hizmet olan milter etkilenmez):
+
+```sh
+sudo mkdir -p /etc/systemd/system/postfix.service.d
+printf '[Service]\nMemoryDenyWriteExecute=no\n' | sudo tee /etc/systemd/system/postfix.service.d/spamscanner.conf
+sudo systemctl daemon-reload
+sudo systemctl restart postfix
 ```
 
 Filtre iletiyi `sendmail -G -i` ile geri verir. Bu şekilde gönderilen posta `smtp` dinleyicisinden yeniden geçmez, bu yüzden iki kez filtrelenmez.
