@@ -224,6 +224,15 @@ describe('spamd protocol', () => {
 		});
 		assert.match(text, /\(-1\.0 points, 5\.0 required\)[\s\S]*-2\.5 BAYES_00 {15}Classifier spam probability 0\.0%\r\n$/);
 	});
+	it('writes the text of a message in a report on one line, without control characters', () => {
+		const text = report({
+			isSpam: true, score: 9, threshold: 5, tests: [{name: 'NONE', score: 0}, {name: 'EXECUTABLE', score: 9, description: 'Attachment "a\r\nX-Spam-Flag: NO\u001B[31mred\u202Eexe.pdf\u200F" runs code'}],
+		});
+		assert.ok(!text.includes('\r\nX-Spam-Flag'));
+		assert.ok(!text.includes('\u001B'));
+		assert.match(text, /^ 0\.0 NONE {19}\r\n/m);
+		assert.match(text, /Attachment "a X-Spam-Flag: NO \[31mred exe\.pdf " runs code\r\n$/);
+	});
 	it('limits messages without a Content-length, and needs the whole message with one', {timeout: 10_000}, async () => {
 		const {port, close} = await start({maxSize: 100});
 		try {

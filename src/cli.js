@@ -455,19 +455,24 @@ async function readInput(file, stdin, maxSize) {
 	return data;
 }
 
+// (text of the message or its sender, e.g. an attachment's name, without
+//  the control characters, e.g. a terminal's escape codes, or the marks that
+//  reorder text it may hold)
+const printable = text => String(text ?? '').replaceAll(/[\p{Cc}\u061C\u200E\u200F\u2028\u2029\u202A-\u202E\u2066-\u2069]+/gu, ' ');
+
 function formatResult(result, verbose) {
 	const lines = [`${result.isSpam ? 'SPAM' : 'HAM'}  score ${result.score.toFixed(1)} (spam at ${result.threshold.toFixed(1)}, reject at ${result.rejectThreshold.toFixed(1)})  action: ${result.action}${result.language ? `  language: ${result.language}` : ''}`];
 	const tests = verbose ? result.tests : result.tests.filter(test => test.score !== 0);
 	for (const test of [...tests].sort((a, b) => Math.abs(b.score) - Math.abs(a.score))) {
-		lines.push(`  ${`${test.score > 0 ? '+' : ''}${test.score.toFixed(1)}`.padStart(7)}  ${test.name.padEnd(28)} ${test.description}`);
+		lines.push(`  ${`${test.score > 0 ? '+' : ''}${test.score.toFixed(1)}`.padStart(7)}  ${printable(test.name).padEnd(28)} ${printable(test.description)}`);
 	}
 
 	if (verbose && result.results.classification.clues?.length > 0) {
-		lines.push('  Strongest clues:', ...result.results.classification.clues.slice(0, 10).map(clue => `    ${clue.probability.toFixed(3)}  ${clue.feature}`));
+		lines.push('  Strongest clues:', ...result.results.classification.clues.slice(0, 10).map(clue => `    ${clue.probability.toFixed(3)}  ${printable(clue.feature)}`));
 	}
 
 	if (result.results.llm?.error) {
-		lines.push(`  Language model failed: ${result.results.llm.error}`);
+		lines.push(`  Language model failed: ${printable(result.results.llm.error)}`);
 	}
 
 	return lines.join('\n');
@@ -641,12 +646,12 @@ const HANDLERS = {
 		} catch (error) {
 			if (!accept) {
 				// Defer: Postfix keeps the message and tries again later.
-				stderr.write(`filter: scan failed, deferring: ${error.message}\n`);
+				stderr.write(`filter: scan failed, deferring: ${printable(error.message)}\n`);
 				return 75;
 			}
 
 			// (without the sender's X-Spam headers, and marked)
-			stderr.write(`filter: scan failed, passing the message on: ${error.message}\n`);
+			stderr.write(`filter: scan failed, passing the message on: ${printable(error.message)}\n`);
 			result = null;
 			message = rewriteMessage(raw, [['X-Spam-Virus-Scan', 'failed']]);
 		}
@@ -680,9 +685,9 @@ const HANDLERS = {
 			...limits(values),
 			reject: Boolean(values.reject), rejectCode: values['reject-code'] ? number(values['reject-code'], '--reject-code') : 451, quarantine: Boolean(values.quarantine), subjectTag: values['subject-tag'] ?? null, hostname: values.name || 'spamscanner', onError: onError(values),
 		});
-		milter.on('error', error => stderr.write(`milter: ${error.message}\n`));
+		milter.on('error', error => stderr.write(`milter: ${printable(error.message)}\n`));
 		if (values.verbose) {
-			milter.on('scan', ({session, result}) => stderr.write(`${session.remoteAddress || '-'} ${session.envelope?.mailFrom?.address || '<>'} ${result.score.toFixed(1)} ${result.action} ${result.tests.map(test => test.name).join(',')}\n`));
+			milter.on('scan', ({session, result}) => stderr.write(`${session.remoteAddress || '-'} ${printable(session.envelope?.mailFrom?.address) || '<>'} ${result.score.toFixed(1)} ${result.action} ${result.tests.map(test => test.name).join(',')}\n`));
 		}
 
 		await listen(milter.server, values, 7831, {stderr});

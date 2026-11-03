@@ -217,6 +217,12 @@ describe('spamscanner scan', () => {
 		const bad = await cli(['scan', '-', ...offline], {stdin: spam});
 		assert.equal(bad.code, 1);
 		assert.match(bad.stdout, /^SPAM[\s\S]*\+1000\.0 {2}GTUBE/m);
+		// (text of the message, e.g. an attachment's name, without control
+		//  characters, e.g. a terminal's escape codes)
+		const name = Buffer.from('a\u001B[31m\r\nred\u202Efdp.exe').toString('base64');
+		const named = await cli(['scan', '--no-cloudflare', '--verbose'], {stdin: `From: a@example.com\r\nSubject: hi\r\nContent-Type: multipart/mixed; boundary=b\r\n\r\n--b\r\nContent-Type: text/plain\r\n\r\nhi\r\n--b\r\nContent-Type: application/octet-stream; name="=?utf-8?B?${name}?="\r\nContent-Disposition: attachment; filename="=?utf-8?B?${name}?="\r\nContent-Transfer-Encoding: base64\r\n\r\nTVqQAAMAAAAEAAAA//8AALgAAAAAAAAAQAAAAAAAAAA=\r\n--b--\r\n`});
+		assert.match(named.stdout, /red fdp\.exe/);
+		assert.ok(!named.stdout.includes('\u001B') && !named.stdout.includes('\u202E'));
 		const nothing = await cli(['scan', ...offline, '--no-classifier'], {stdin: message({text: '12345'})});
 		assert.doesNotMatch(nothing.stdout, /language:/);
 	});

@@ -53,6 +53,11 @@ function reply(code, text, headers = [], body = null) {
 	return body === null ? Buffer.from(lines.join('\r\n')) : Buffer.concat([Buffer.from(lines.join('\r\n')), body]);
 }
 
+// (a test's description holds text of the message, e.g. an attachment's
+//  name: on one line, without control characters, as a client may put the
+//  report in a header or a log, and without the marks that reorder text)
+const oneLine = text => String(text ?? '').replaceAll(/[\p{Cc}\u061C\u200E\u200F\u2028\u2029\u202A-\u202E\u2066-\u2069]+/gu, ' ');
+
 /**
  * The text of a REPORT answer: one line per test with its points.
  * @param {object} result
@@ -66,7 +71,7 @@ export function report(result) {
 		'',
 		' pts rule name              description',
 		'---- ---------------------- --------------------------------------------------',
-		...result.tests.map(test => `${test.score.toFixed(1).padStart(4)} ${test.name.padEnd(22)} ${test.description}`),
+		...result.tests.map(test => `${test.score.toFixed(1).padStart(4)} ${oneLine(test.name).padEnd(22)} ${oneLine(test.description)}`),
 	];
 	return `${lines.join('\r\n')}\r\n`;
 }

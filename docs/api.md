@@ -126,7 +126,7 @@ In `getFeatures`, `text` is the text a mail client shows, which the words are re
     uncheckedHosts: 0,   // link hosts beyond phishing.maxHosts, not looked up
     timedOutHosts: 0,    // link hosts looked up but not answered (in time, or at all)
     linksTruncated: false, // more text than phishing.maxLength, whose links were not read
-    linksTooComplex: false, // a link host never read whole (cut where long text is cut, wrapped deeper than unwrapped, or in more documents than are read)
+    linksTooComplex: false, // a link host never read whole (its host, or a click tracker's or security gateway's link, cut where long text is cut; in an attribute value or a card longer than is read; wrapped deeper than unwrapped; or in more documents than are read)
     linksIncomplete: false, // an attachment left unread for its links, for time
     attachments: [],     // every attachment finding
     executables: [],     // the executable findings among them

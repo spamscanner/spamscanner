@@ -14,6 +14,43 @@ CLI=$2
 READER=${3:-${SUDO_USER:-}}
 
 id spamscanner >/dev/null 2>&1 || useradd --system --no-create-home --shell /usr/sbin/nologin spamscanner
+
+# Postfix's pipe runs Node and the CLI as the spamscanner user, so both must be
+# readable by it, whatever the umask the package was installed with or the
+# permissions of the directory Node is in (a tool cache in a home directory):
+# Node is copied where every user can run it, the package made readable by
+# all, and the CLI run once as that user, so a setup it cannot run fails here
+# rather than as a message Postfix bounces later.
+NODE_REAL=$(readlink -f "$NODE") || NODE_REAL=
+if [ ! -x "$NODE_REAL" ]; then
+	echo "No such program: $NODE" >&2
+	exit 1
+fi
+if [ "$NODE_REAL" != /usr/local/bin/spamscanner-e2e-node ]; then
+	install -m 755 "$NODE_REAL" /usr/local/bin/spamscanner-e2e-node
+fi
+NODE=/usr/local/bin/spamscanner-e2e-node
+CLI_REAL=$(readlink -f "$CLI") || CLI_REAL=
+if [ ! -f "$CLI_REAL" ]; then
+	echo "No such file: $CLI" >&2
+	exit 1
+fi
+PACKAGE=$(dirname "$CLI_REAL")
+while [ ! -f "$PACKAGE/package.json" ] && [ "$PACKAGE" != / ]; do
+	PACKAGE=$(dirname "$PACKAGE")
+done
+case $PACKAGE in
+/ | /usr | /usr/local)
+	echo "No package found for $CLI" >&2
+	exit 1
+	;;
+esac
+chmod -R a+rX "$PACKAGE"
+if ! runuser -u spamscanner -- "$NODE" "$CLI" --version >/dev/null; then
+	echo "The spamscanner user cannot run $CLI with $NODE" >&2
+	exit 1
+fi
+
 id testuser >/dev/null 2>&1 || useradd --create-home testuser
 # (Postfix does not deliver mail as root)
 if [ -z "$READER" ] || [ "$(id -u "$READER")" -eq 0 ]; then

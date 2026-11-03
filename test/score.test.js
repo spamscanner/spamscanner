@@ -169,7 +169,7 @@ describe('headers', () => {
 		const lf = rewriteMessage('From: a@example.org\n\nbody\n', [['X-Spam-Flag', 'NO']], {subjectTag: '[SPAM]'}).toString();
 		assert.equal(lf, 'X-Spam-Flag: NO\nFrom: a@example.org\nSubject: [SPAM]\n\nbody\n');
 		assert.equal(rewriteMessage('From: a@example.org', [['X-A', '1']]).toString(), 'X-A: 1\r\nFrom: a@example.org\r\n\r\n');
-		assert.equal(rewriteMessage('From: a@example.org\r\n', [], {remove: /^from$/i}).toString(), '\r\n\r\n');
+		assert.equal(rewriteMessage('From: a@example.org\r\n', [], {remove: /^from$/i}).toString(), '\r\n');
 		assert.equal(rewriteMessage('', [['X-A', '1']]).toString(), 'X-A: 1\r\n\r\n');
 		assert.equal(rewriteMessage('From: a@example.org\n', [['X-A', '1']]).toString(), 'X-A: 1\nFrom: a@example.org\n\n');
 		assert.deepEqual(splitMessage(Buffer.from('A: b\r\n')), {header: 'A: b', body: Buffer.alloc(0), newline: '\r\n'});

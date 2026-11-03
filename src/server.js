@@ -29,7 +29,11 @@ export const MAX_CONNECTIONS = 200;
  * @returns {object}
  */
 export function serializeResult(result, options = {}) {
-	const {mail, tokens, ...rest} = result;
+	// (not the parsed message nor its attachments, whose content would be
+	//  serialized byte by byte)
+	const {
+		mail, tokens, attached, ...rest
+	} = result;
 	const output = {
 		...rest,
 		results: {...result.results},

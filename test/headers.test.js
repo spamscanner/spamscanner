@@ -150,3 +150,18 @@ describe('subject tags (RFC 2047)', () => {
 		assert.equal((await simpleParser(once)).subject, `${tag} Hello there`);
 	});
 });
+
+describe('rewriteMessage with a header starting with a folded line', () => {
+	it('drops that line, which would continue a header it adds', () => {
+		const out = rewriteMessage(' ham\r\nSubject: hi\r\n\r\nbody', [['X-Spam-Action', 'reject']]).toString('latin1');
+		assert.ok(out.includes('X-Spam-Action: reject\r\nSubject: hi'), JSON.stringify(out));
+		assert.ok(out.startsWith('X-Spam-Action: reject\r\n'));
+		assert.ok(!out.includes('ham'));
+		// (also below an mbox "From " line, which a delivery agent removes)
+		assert.equal(rewriteMessage('From x@y Mon\n X-Spam-Action: allow\n\tmore\nSubject: a\n\nbody', [['X-Spam-Flag', 'YES']]).toString('latin1'), 'From x@y Mon\nX-Spam-Flag: YES\nSubject: a\n\nbody');
+		// (and a header with nothing left keeps the body as it was)
+		for (const message of [' ham\r\n\r\nbody', 'X-Spam-Flag: NO\r\n\r\nbody']) {
+			assert.equal(rewriteMessage(message).toString('latin1'), '\r\nbody');
+		}
+	});
+});

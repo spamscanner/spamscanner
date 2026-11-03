@@ -171,12 +171,70 @@ const LINK_FILE_TLDS = new Set(['md', 'mov', 'pm', 'ps', 'py', 'rs', 'sh', 'so',
 // isDeceptiveLink says.
 const CLICK_TRACKERS = ['sendgrid.net', 'list-manage.com', 'mandrillapp.com', 'awstrack.me', 'pstmrk.it', 'hubspotlinks.com', 'rs6.net', 'klclick.com', 'mjt.lu', 'exacttarget.com', 'convertkit-mail.com', 'convertkit-mail2.com', 'kit-mail3.com', 'sendibt2.com', 'sendibt3.com', 'createsend1.com', 'cmail20.com', 'clicks.mlsend.com', 'acemlnb.com', 'link.mail.beehiiv.com', 'bhclick.com', 'safelinks.protection.outlook.com', 'urldefense.com', 'urldefense.proofpoint.com', 'mimecast.com', 'mimecastprotect.com', 'cudasvc.com', 'secure-web.cisco.com'];
 
+// The most characters of a link's host read, past those the URL parser drops
+// (below) and its port: the parser's time grows with the square of the labels
+// it converts (non-ASCII or percent-encoded), and of a punycode ("xn--")
+// label's length, a second for 40,000 labels or 300 KB; a host is at most
+// 253 characters, and percent-encoding takes nine for one
+const MAX_URL_HOST = 4096;
+const AUTHORITY_END = /[/\\?#]/g;
+// (the characters the URL parser drops from a host, as IDNA ignores them, e.g.
+//  a soft hyphen: a host padded with them is still read)
+//  (in UTF-16 code units, which is far faster on long hosts than with the
+//  "u" flag: U+1BCA0 to U+1BCA3 and U+E0100 to U+E01EF as surrogate pairs)
+// eslint-disable-next-line no-misleading-character-class
+const IGNORED_IN_HOST = /[\u00AD\u034F\u180B-\u180D\u180F\u200B\u2060\u2064\uFE00-\uFE0F\uFEFF]|\uD82F[\uDCA0-\uDCA3]|\uDB40[\uDD00-\uDDEF]/g;
+
+/**
+ * A URL as the URL parser reads it, refused (a TypeError, as for one that is
+ * no URL) when its host is longer than any host is, so a link in a message
+ * cannot hold the parser for seconds.
+ * @param {string} address
+ * @returns {URL}
+ */
+export function boundedUrl(address) {
+	// (the parser drops tabs and line breaks anywhere, so they are dropped
+	//  before the host is found)
+	const text = String(address).replaceAll(/[\t\n\r]/g, '');
+	const colon = text.indexOf(':');
+	let start = colon === -1 ? 0 : colon + 1;
+	while (start < text.length && (text[start] === '/' || text[start] === '\\')) {
+		start++;
+	}
+
+	// (the whole authority, so a host after long userinfo is read, in linear
+	//  time)
+	AUTHORITY_END.lastIndex = start;
+	const end = AUTHORITY_END.exec(text)?.index ?? text.length;
+	// (a file URL has neither user information nor a port: its host is the
+	//  whole authority)
+	const file = /^[\0- ]*file:/i.test(text);
+	const at = file ? start : Math.max(start, text.lastIndexOf('@', end - 1) + 1);
+
+	// (without its port, e.g. one padded with zeros, and with its
+	//  percent-encoding decoded, as the parser reads it)
+	const bracket = text.lastIndexOf(']', end - 1);
+	const port = text.lastIndexOf(':', end - 1);
+	let host = text.slice(at, !file && port > Math.max(at - 1, bracket) ? port : end);
+	if (host.length > MAX_URL_HOST && host.includes('%')) {
+		try {
+			host = decodeURIComponent(host);
+		} catch {}
+	}
+
+	if (host.length > MAX_URL_HOST && host.replaceAll(IGNORED_IN_HOST, '').length > MAX_URL_HOST) {
+		throw new TypeError('Invalid URL: host too long');
+	}
+
+	return new URL(text);
+}
+
 // Whether a host is a domain or under it
 const isUnder = (host, domain) => host === domain || host.endsWith(`.${domain}`);
 
 // Whether a link goes through click tracking or a security gateway (see
 // CLICK_TRACKERS)
-function isClickTracker(url) {
+export function isClickTracker(url) {
 	const host = url.hostname.toLowerCase();
 	return CLICK_TRACKERS.some(domain => isUnder(host, domain)) || (host === 'substack.com' && url.pathname.startsWith('/redirect/'));
 }
@@ -225,7 +283,7 @@ const MAX_GATEWAYS = 16;
 export function unwrapLink(address) {
 	let url;
 	try {
-		url = new URL(address);
+		url = boundedUrl(address);
 	} catch {
 		return null;
 	}
@@ -240,7 +298,7 @@ export function unwrapLink(address) {
 
 		let next;
 		try {
-			next = new URL(target);
+			next = boundedUrl(target);
 		} catch {
 			break;
 		}
@@ -719,7 +777,7 @@ export function extractLinks(text, html, {maxLength = 500_000, bareHosts = false
 
 		let url;
 		try {
-			url = new URL(href);
+			url = boundedUrl(href);
 		} catch {
 			return;
 		}
@@ -1249,7 +1307,7 @@ export function isDeceptiveLink(link, {from} = {}) {
 
 	let shownUrl;
 	try {
-		shownUrl = new URL(/^https?:\/\//i.test(link.text) ? link.text : `http://${link.text}`);
+		shownUrl = boundedUrl(/^https?:\/\//i.test(link.text) ? link.text : `http://${link.text}`);
 	} catch {
 		return false;
 	}

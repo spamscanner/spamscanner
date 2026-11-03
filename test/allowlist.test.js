@@ -9,7 +9,9 @@ import {
 } from '../src/auth.js';
 import {normalizeIp} from '../src/dnsbl.js';
 import SpamScanner from '../src/index.js';
-import {ReputationChecker, matchList, trustedReputationValues} from '../src/reputation.js';
+import {
+	ReputationChecker, matchList, trustReputation, trustedReputationValues,
+} from '../src/reputation.js';
 import {cpuTime} from './helpers/cpu-time.js';
 
 // Domains with their own DKIM keys, published by a resolver for mailauth.
@@ -376,5 +378,15 @@ describe('authentication credit for signatures of part of the body', () => {
 		assert.deepEqual(direct.results.authentication.score.tests.map(test => test.name), ['SPF_PASS', 'DMARC_PASS']);
 		const whole = await scanner.scan(signed, {session: session('198.51.100.7', 'bounce@attacker.example')});
 		assert.deepEqual(whole.results.authentication.score.tests.map(test => test.name), ['DKIM_PASS', 'SPF_PASS', 'DMARC_PASS']);
+	});
+});
+
+describe('allowlist lookups', () => {
+	it('read only the values on the allowlist, not ones every object has', async () => {
+		const checker = new ReputationChecker({allowlist: ['trusted.example']});
+		for (const value of ['constructor', '__proto__', 'toString']) {
+			const result = await checker.check([value]);
+			assert.equal(trustReputation(result, [value]).isAllowlisted, false, value);
+		}
 	});
 });

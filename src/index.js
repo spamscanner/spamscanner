@@ -614,7 +614,7 @@ export class SpamScanner {
 	// (`from`: the sender's domain; `carried`: the link hosts of the whole
 	//  message and of what it carries, see carriedLinkHosts)
 	async checkLinks(links, config, hosts = [], options = {}) {
-		const {from = '', carried = null} = typeof options === 'string' ? {from: options} : options;
+		const {from = '', carried = null} = typeof options === 'string' ? {from: options} : (options ?? {});
 		const phishing = [];
 		const homographs = [];
 		const seenHosts = new Set();
@@ -711,16 +711,20 @@ export class SpamScanner {
 			seenHosts.add(host);
 		}
 
-		const ordered = [...new Set([...[...found.filter(link => link.text), ...found.filter(link => !link.text), ...bare].map(link => lookupName(destination(link))).filter(Boolean), ...carriedHosts])];
+		// (the first host of each domain of both first, the message's own
+		//  before those of what it carries, then the rest of its own, then the
+		//  rest of what it carries: neither can put the other's domains out of
+		//  reach with hosts of one domain)
+		const own = [...found.filter(link => link.text), ...found.filter(link => !link.text), ...bare].map(link => lookupName(destination(link))).filter(Boolean);
 		const firsts = new Map();
-		for (const host of ordered) {
+		for (const host of [...own, ...carriedHosts]) {
 			const domain = registrableDomain(host);
 			if (!firsts.has(domain)) {
 				firsts.set(domain, host);
 			}
 		}
 
-		const checked = [...new Set([...firsts.values(), ...ordered])].slice(0, config.phishing.maxHosts);
+		const checked = [...new Set([...firsts.values(), ...own, ...carriedHosts])].slice(0, config.phishing.maxHosts);
 		const domains = [...new Set(checked.map(host => registrableDomain(host)))];
 		// Each host is looked up on its own, and what was found by the time
 		// limit is kept (a slow answer for one host does not lose the others);

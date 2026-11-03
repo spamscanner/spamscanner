@@ -29,7 +29,9 @@ export function asciiHostname(value) {
 
 	// (checked after NFKC as well, as IDNA maps "／" to "/")
 	const lower = value.normalize('NFKC').toLowerCase().replace(/\.$/, '');
-	if (lower === '' || /[\0-,/:-^`{-\u007F]/.test(lower)) {
+	// (and no longer than a name in Unicode is: converting a long punycode
+	//  label, or many labels, takes time in the square of them)
+	if (lower === '' || lower.length > 1024 || /[\0-,/:-^`{-\u007F]/.test(lower)) {
 		return null;
 	}
 
@@ -293,8 +295,10 @@ export function trustReputation(result, trusted = []) {
 	for (const value of result.checkedValues.filter(item => allowed.has(item))) {
 		const signers = allowed.get(value);
 		const counts = entry => Boolean(entry) && (signers === null || signers.some(signer => vouches(normalizeEntry(entry), signer)));
-		const detail = result.details[value];
-		const listed = result.allowlisted[value] || (detail?.isAllowlisted ? detail.allowlistValue : null);
+		// (own entries only: a value such as "constructor" would otherwise read
+		//  one every object has)
+		const detail = Object.hasOwn(result.details, value) ? result.details[value] : undefined;
+		const listed = (Object.hasOwn(result.allowlisted, value) && result.allowlisted[value]) || (detail?.isAllowlisted ? detail.allowlistValue : null);
 		if (counts(listed) && !out.isAllowlisted) {
 			out.isAllowlisted = true;
 			out.allowlistValue = listed;

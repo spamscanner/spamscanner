@@ -2,7 +2,9 @@ import assert from 'node:assert/strict';
 import {Buffer} from 'node:buffer';
 import {describe, it} from 'node:test';
 import SpamScanner from '../src/index.js';
+import {decodeEntities} from '../src/html.js';
 import {carriedLinkHosts} from '../src/links.js';
+import {serializeResult} from '../src/server.js';
 import {message} from './helpers/index.js';
 
 const hostsOf = (mail, options) => carriedLinkHosts(mail, options).hosts;
@@ -353,14 +355,20 @@ describe('carriedLinkHosts on every shape of input', () => {
 		assert.ok(!hosts.includes('photo.example.com'));
 	});
 
-	it('takes a card past what is read with a value in quoted-printable for one never read whole, and reads one without', () => {
-		const big = 'x'.repeat((4 * 1024 * 1024) + 1);
-		const withQp = read({}, {attachments: [file('big.vcf', 'text/vcard', `BEGIN:VCARD\r\nNOTE:${big}\r\nURL;QUOTED-PRINTABLE:https=3A//qp.example.com/\r\nEND:VCARD\r\n`), file('after.html', 'text/html', '<a href="https://after.example.com/">x</a>')]});
-		assert.equal(withQp.tooComplex, true);
-		assert.deepEqual(withQp.hosts, ['after.example.com']);
-		const withoutQp = read({}, {attachments: [file('big.vcf', 'text/vcard', `BEGIN:VCARD\r\nNOTE:${big}\r\nURL:https://plain.example.com/\r\nEND:VCARD\r\n`)]});
-		assert.equal(withoutQp.tooComplex, false);
-		assert.ok(withoutQp.hosts.includes('plain.example.com'));
+	it('reads a card only so far, past which it was never read whole, and what follows it', () => {
+		// (1 MB without its photos, which are not read)
+		const photo = `PHOTO;ENCODING=b;TYPE=JPEG:${'QUJD'.repeat(500_000)}`;
+		const withPhoto = read({}, {attachments: [file('photo.vcf', 'text/vcard', `BEGIN:VCARD\r\n${photo}\r\nURL;QUOTED-PRINTABLE:https=3A//qp.example.com/\r\nEND:VCARD\r\n`)]});
+		assert.equal(withPhoto.tooComplex, false);
+		assert.deepEqual(withPhoto.hosts, ['qp.example.com']);
+		const big = 'x'.repeat(1024 * 1024);
+		const past = read({}, {attachments: [file('big.vcf', 'text/vcard', `BEGIN:VCARD\r\nURL:https://before.example.com/\r\nNOTE:${big}\r\nURL:https://past.example.com/\r\nEND:VCARD\r\n`), file('after.html', 'text/html', '<a href="https://after.example.com/">x</a>')]});
+		assert.equal(past.tooComplex, true);
+		assert.deepEqual(past.hosts, ['before.example.com', 'after.example.com']);
+		// (and 4 MB with them)
+		const huge = read({}, {attachments: [file('huge.vcf', 'text/vcard', `BEGIN:VCARD\r\nURL:https://first.example.com/\r\nPHOTO;ENCODING=b:${'QUJD'.repeat(1_100_000)}\r\nEND:VCARD\r\n`)]});
+		assert.equal(huge.tooComplex, true);
+		assert.deepEqual(huge.hosts, ['first.example.com']);
 	});
 
 	it('reads at most so many HTML files', () => {
@@ -402,6 +410,11 @@ describe('carriedLinkHosts on every shape of input', () => {
 			// (before an attachment)
 			clock(1);
 			assert.equal(read({}, {attachments: [file('a.html', 'text/html', '<a href="https://a.example.com/">x</a>')]}).incomplete, true);
+			// (while an attachment is opened)
+			clock(3);
+			assert.deepEqual(read({}, {attachments: [file('a.html', 'text/html', '<a href="https://a.example.com/">x</a>')]}), {
+				hosts: [], more: false, tooComplex: false, incomplete: true,
+			});
 			// (before a document)
 			clock(1);
 			assert.deepEqual(read({html: '<a href="https://b.example.com/">x</a>'}), {
@@ -415,9 +428,199 @@ describe('carriedLinkHosts on every shape of input', () => {
 		}
 	});
 
-	it('gives checkLinks the sender\'s domain as earlier versions did', async () => {
+	it('gives checkLinks the sender\'s domain as earlier versions did, and takes no options as none', async () => {
 		const scanner = new SpamScanner({classifier: false, phishing: {cloudflare: false}});
-		const checked = await scanner.checkLinks([{url: 'https://example.com/', host: 'example.com', text: null}], scanner.config, [], 'example.com');
-		assert.equal(checked.uncheckedHosts, 0);
+		// (a brand's sign-in address shown through click tracking is deceptive
+		//  from anyone but the brand)
+		const links = [{url: 'https://example.us1.list-manage.com/track/click?u=1&id=2', host: 'example.us1.list-manage.com', text: 'https://www.paypal.com/signin'}];
+		const deceptive = checked => checked.phishing.some(item => item.type === 'deceptive_link');
+		assert.ok(deceptive(await scanner.checkLinks(links, scanner.config, [], 'notice-center.example')));
+		assert.ok(!deceptive(await scanner.checkLinks(links, scanner.config, [], 'paypal.com')));
+		assert.ok(!deceptive(await scanner.checkLinks(links, scanner.config, [], {from: 'paypal.com'})));
+		const none = await scanner.checkLinks(links, scanner.config, [], null);
+		assert.equal(none.uncheckedHosts, 0);
+	});
+
+	it('reads each document an iframe or data: URL holds once, so repeating one does not use up the documents read', () => {
+		const frames = Array.from({length: 400}, (_, i) => `<iframe srcdoc="<a href=https://h${i % 5}.example.com/>x</a>"></iframe>`).join('');
+		const result = read({html: frames});
+		assert.equal(result.tooComplex, false);
+		assert.deepEqual(result.hosts.sort(), ['h0.example.com', 'h1.example.com', 'h2.example.com', 'h3.example.com', 'h4.example.com']);
+		// (and 400 different ones, nested three deep, within what is read)
+		const distinct = Array.from({length: 400}, (_, i) => `<iframe srcdoc="<a href=https://d${i}.example.com/>x</a>"></iframe>`).join('');
+		assert.equal(read({html: distinct}, {maxHosts: 1000}).tooComplex, false);
+	});
+
+	it('takes a link cut where a part is cut hard for one never read whole, unless the next part reads it whole', () => {
+		const chunk = 1024 * 1024;
+		// (the link a gateway's link wraps, cut: its own host is read, but where
+		//  it goes is not known)
+		const head = '>https://nam12.safelinks.protection.outlook.com/?x=';
+		const gateway = read({html: `${'-'.repeat(chunk - 5000)}${head}${'A'.repeat(6000)}&url=https%3A%2F%2Fevil.example%2F`});
+		assert.equal(gateway.tooComplex, true);
+		// (one within the part after the cut is read there whole)
+		const whole = read({html: `${'-'.repeat(chunk - head.length)}${head}${'A'.repeat(6000)}&url=https%3A%2F%2Fevil.example%2F`});
+		assert.deepEqual(whole, {
+			hosts: ['nam12.safelinks.protection.outlook.com', 'evil.example'], more: false, tooComplex: false, incomplete: false,
+		});
+		// (a part is not cut within a character reference, however long, but
+		//  before it: the next part reads the link whole)
+		const references = read({html: `${'-'.repeat(chunk - 6000)}>https://&#x${'0'.repeat(10_000)}65;vil.example/x`});
+		assert.deepEqual(references, {
+			hosts: ['evil.example'], more: false, tooComplex: false, incomplete: false,
+		});
+		// (so one cut where it would decode as a line break, which would end
+		//  a link before the cut, is a link whose host runs past it, not one
+		//  to "ev")
+		const link = `http://${'a'.repeat(5000)}@ev&#10`;
+		const broken = read({html: `${'x'.repeat(chunk - link.length - 1)}.${link}5;l.example?x end`});
+		assert.deepEqual(broken, {
+			hosts: [], more: false, tooComplex: true, incomplete: false,
+		});
+	});
+
+	it('takes a long link across a hard cut whose host was read for one read whole, unless it is a gateway\'s, also in HTML with character references', () => {
+		const chunk = 1024 * 1024;
+		// (a long link, its host before the cut and its path past it)
+		const long = read({html: `${'-'.repeat(chunk - 5000)}>https://long.example.com/${'p'.repeat(6000)}`});
+		assert.deepEqual(long, {
+			hosts: ['long.example.com'], more: false, tooComplex: false, incomplete: false,
+		});
+		// (a short one at the cut, in a part with a character reference before
+		//  it, read whole in the next part)
+		const references = read({html: `&amp;${'-'.repeat(chunk - 30)}>https://short.example.com/${'q'.repeat(chunk)}`});
+		assert.deepEqual(references, {
+			hosts: ['short.example.com'], more: false, tooComplex: false, incomplete: false,
+		});
+	});
+
+	it('reads an attribute\'s value only so far, and checks the time limit before a long one', () => {
+		const tooLong = read({html: `<a href="https://cut.example.com/?${'&amp;'.repeat(300_000)}">x</a>`});
+		assert.deepEqual(tooLong.hosts, ['cut.example.com']);
+		assert.equal(tooLong.tooComplex, true);
+		const {now} = Date;
+		let calls = 0;
+		// (past the time limit after the first look at the clock)
+		Date.now = () => now() + (calls++ >= 2 ? 10_000 : 0);
+		try {
+			const late = read({html: `<p>${'x'.repeat(10)}</p><a href="https://late.example.com/${'y'.repeat(70_000)}">x</a>`});
+			assert.equal(late.incomplete, true);
+			assert.deepEqual(late.hosts, []);
+			// (also one read leniently, outside a tag)
+			calls = 0;
+			const lenient = read({html: `<p>text href=https://lenient.example.com/${'y'.repeat(70_000)}</p>`});
+			assert.equal(lenient.incomplete, true);
+			assert.deepEqual(lenient.hosts, []);
+		} finally {
+			Date.now = now;
+		}
+	});
+
+	it('says attachments past what is read are too many before reading stops for more hosts', () => {
+		const many = Array.from({length: 101}, (_, i) => file(`p${i}.html`, 'text/html', `<a href="https://h${i}.example.com/">x</a>`));
+		const result = read({}, {attachments: many, maxHosts: 5});
+		assert.equal(result.more, true);
+		assert.equal(result.tooComplex, true);
+	});
+
+	it('checks the time limit once so much of attribute values was read, however short each', () => {
+		const {now} = Date;
+		let calls = 0;
+		Date.now = () => now() + (calls++ >= 2 ? 10_000 : 0);
+		try {
+			const value = host => `https://${host}/?${'x'.repeat(40_000)}`;
+			const result = read({html: ['a', 'b', 'c'].map(host => `<a href="${value(`${host}.example.com`)}">x</a>`).join('')});
+			assert.deepEqual(result, {
+				hosts: ['a.example.com'], more: false, tooComplex: false, incomplete: true,
+			});
+		} finally {
+			Date.now = now;
+		}
+	});
+
+	it('reads a CSS link only so far, as an attribute\'s value', () => {
+		const result = read({html: `<p>x</p><style>p { background: url(https://css.example.com/?${'&amp;'.repeat(300_000)}) }</style>`});
+		assert.deepEqual(result.hosts, ['css.example.com']);
+		assert.equal(result.tooComplex, true);
+	});
+
+	it('stops reading a card at its time limit between the steps of reading it', () => {
+		const {now} = Date;
+		const card = file('c.vcf', 'text/vcard', 'BEGIN:VCARD\r\nURL:https://card.example.com/\r\nNOTE:x\r\nEND:VCARD\r\n');
+		for (const steps of [2, 3, 4, 5, 6, 7]) {
+			let calls = 0;
+			Date.now = () => now() + (calls++ >= steps ? 10_000 : 0);
+			try {
+				const result = read({}, {attachments: [card]});
+				assert.equal(result.incomplete, true);
+				// (past it once the card is read for its text: nothing of it read)
+				if (steps === 5) {
+					assert.deepEqual(result.hosts, []);
+				}
+			} finally {
+				Date.now = now;
+			}
+		}
+	});
+
+	it('collects the first host of each domain past maxHosts, so hosts of one domain do not keep another from being looked up', () => {
+		const filler = Array.from({length: 30}, (_, i) => `<a href="https://a${i}.filler.example/">${i}</a>`).join('');
+		const result = read({html: filler}, {attachments: [file('a.html', 'text/html', '<a href="https://evil.example/">x</a>')], maxHosts: 25});
+		assert.equal(result.more, true);
+		assert.ok(result.hosts.includes('evil.example'));
+		assert.equal(result.hosts.length, 26);
+		// (and no more domains than are looked up)
+		const domains = Array.from({length: 60}, (_, i) => `<a href="https://d${i}.example/">${i}</a>`).join('');
+		assert.equal(read({html: domains}, {maxHosts: 25}).hosts.length, 25);
+	});
+
+	it('stops reading text at its time limit, a part at a time', () => {
+		const {now} = Date;
+		let calls = 0;
+		Date.now = () => now() + (calls++ >= 2 ? 10_000 : 0);
+		try {
+			assert.deepEqual(read({text: 'https://late.example.com/'}), {
+				hosts: [], more: false, tooComplex: false, incomplete: true,
+			});
+		} finally {
+			Date.now = now;
+		}
+	});
+
+	it('looks up the first host of every domain, the message\'s own and those of what it carries, before more of one domain', async () => {
+		const asked = [];
+		const scanner = new SpamScanner({
+			classifier: false,
+			phishing: {attachments: true},
+			dns: {
+				async resolve4(name) {
+					asked.push(name);
+					return ['192.0.2.1'];
+				},
+			},
+		});
+		// (links to 30 hosts of one domain, and a ping, which only the reading of
+		//  the whole message finds, to another)
+		const stuffing = Array.from({length: 30}, (_, i) => `<a href="https://h${i}.stuffing.example/">${i}</a>`).join('');
+		const result = await scanner.scan(message({text: 'Hello.', html: `<a ping="https://evil.example/p" href="#">x</a>${stuffing}`}));
+		assert.ok(asked.includes('h0.stuffing.example'));
+		assert.ok(asked.includes('evil.example'));
+		assert.ok(result.results.uncheckedHosts >= 1);
+	});
+
+	it('decodes the angle brackets by name as browsers do', () => {
+		assert.equal(decodeEntities('&lang;x&rang; &Lang;&Rang;'), '\u27E8x\u27E9 \u27EA\u27EB');
+	});
+});
+
+describe('scan results sent to clients', () => {
+	it('leave out the parsed message and its attachments', async () => {
+		const scanner = new SpamScanner({classifier: false, phishing: {cloudflare: false}});
+		const result = await scanner.scan(message({text: 'Hello.', attachments: [{filename: 'big.bin', contentType: 'application/octet-stream', content: Buffer.alloc(100_000, 7)}]}));
+		assert.equal(result.attached.length, 1);
+		const output = serializeResult(result);
+		assert.equal(output.attached, undefined);
+		assert.equal(output.mail, undefined);
+		assert.ok(JSON.stringify(output).length < 20_000);
 	});
 });

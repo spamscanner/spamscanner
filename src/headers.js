@@ -216,9 +216,18 @@ export function rewriteMessage(source, headers = [], options = {}) {
 	}
 
 	const added = headers.map(([name, value]) => foldHeader(name, Buffer.from(String(value), 'utf8').toString('latin1'), newline));
-	// (an mbox "From " line, as procmail passes a message, stays the first)
-	const mbox = kept.length > 0 && kept[0][0].startsWith('From ') ? kept.shift() : [];
+	// (an mbox "From " line, as procmail passes a message, stays the first,
+	//  without lines continuing it, dropped as those below)
+	const mbox = kept.length > 0 && kept[0][0].startsWith('From ') ? kept.shift().slice(0, 1) : [];
+	// (lines continuing nothing at the top are dropped: after the headers
+	//  added they would continue the last one, e.g. append to
+	//  "X-Spam-Action: reject", and before them a reader could take the
+	//  whole header for a body)
+	if (kept.length > 0 && /^[ \t]/.test(kept[0][0])) {
+		kept.shift();
+	}
+
 	const head = [...mbox, ...added, ...kept.map(field => field.join(newline))].join(newline);
-	// (and no headers at all, but the blank line before the body)
-	return Buffer.concat([Buffer.from(head === '' && header === '' ? newline : `${head}${newline}${newline}`, 'latin1'), body]);
+	// (and no headers left at all, but the blank line before the body)
+	return Buffer.concat([Buffer.from(head === '' ? newline : `${head}${newline}${newline}`, 'latin1'), body]);
 }

@@ -325,3 +325,40 @@ describe('reasoning and report fields', () => {
 		});
 	});
 });
+
+describe('links with hosts longer than any host is', () => {
+	it('are not given to the URL parser, which takes time in the square of their labels or of a punycode label', async () => {
+		const {boundedUrl} = await import('../src/tokenizer.js');
+		// (40,000 non-ASCII labels took the parser 0.4s, 300 KB of them in a
+		//  message 4s)
+		const host = 'é.'.repeat(80_000);
+		const started = Date.now();
+		const safe = `https://nam12.safelinks.protection.outlook.com/?url=http:%09//${encodeURIComponent(host)}com/`;
+		for (const address of [`http://${host}com/`, `http:\t//${host}com/`, `http://${'é。'.repeat(80_000)}com/`, `http://${'é%2E'.repeat(80_000)}com/`, `http://xn--${'ba'.repeat(200_000)}.com/`, `http://${'%zz'.repeat(2000)}.com/`, `file://a:${host}/`, `file://${host}@x/`]) {
+			assert.throws(() => boundedUrl(address), TypeError);
+		}
+
+		assert.deepEqual(extractLinks(`see http://${host}com/ and www.${host}com/`, `<a href="http://${host}com/">x</a> <a href="http:&#9;//${host}com/">y</a>`), []);
+		assert.deepEqual(extractLinks('', `<a href="${safe}">z</a>`).map(link => link.host), ['nam12.safelinks.protection.outlook.com']);
+		assert.ok(Date.now() - started < 3000, `took ${Date.now() - started}ms`);
+		// (but a host that is long only with characters the parser drops is read)
+		assert.equal(boundedUrl(`http://e${'\u00AD'.repeat(5000)}vil.com/`).hostname, 'evil.com');
+		assert.equal(boundedUrl(`http://e${'%C2%AD'.repeat(5000)}vil.com/`).hostname, 'evil.com');
+		assert.equal(boundedUrl(`http://evil.com:${'0'.repeat(5000)}80/`).hostname, 'evil.com');
+		assert.equal(boundedUrl(`http://evil.example${'.'.repeat(200)}/`).hostname, `evil.example${'.'.repeat(200)}`);
+		// (and names with more labels than any are not converted to ASCII
+		//  whole)
+		const {lookupName} = await import('../src/dnsbl.js');
+		const {asciiHostname} = await import('../src/reputation.js');
+		const begun = Date.now();
+		assert.ok(lookupName(`${host}bücher.example`).endsWith('.xn--9ca.xn--bcher-kva.example'));
+		assert.equal(asciiHostname(`${host}example`), null);
+		assert.equal(asciiHostname(`xn--${'ba'.repeat(200_000)}.example`), null);
+		assert.equal(asciiHostname('bücher.example'), 'xn--bcher-kva.example');
+		assert.ok(Date.now() - begun < 500, `took ${Date.now() - begun}ms`);
+		// (and a host after long user information is read)
+		assert.equal(boundedUrl(`http://${'a'.repeat(5000)}@example.com/`).hostname, 'example.com');
+		assert.equal(boundedUrl('http://u:p@[::1]:8080/x').hostname, '[::1]');
+		assert.equal(boundedUrl('FILE://h.example/x').hostname, 'h.example');
+	});
+});

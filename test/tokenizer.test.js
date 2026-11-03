@@ -350,7 +350,8 @@ describe('links', () => {
 		// (in linear time on long runs of them)
 		const started = cpuTime();
 		const links = extractLinks('', `<a href="${'\u0001 '.repeat(100_000)}https://e.example/${' \u0001'.repeat(100_000)}">x</a><a href="${'h\t'.repeat(100_000)}">y</a>`);
-		assert.deepEqual(links.map(link => link.host.length), [9, 100_000]);
+		// (the second's host, 100,000 characters, longer than any is, is not read)
+		assert.deepEqual(links.map(link => link.host.length), [9]);
 		assert.ok(cpuTime() - started < 1500);
 	});
 

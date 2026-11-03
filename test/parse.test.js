@@ -82,6 +82,9 @@ describe('what a message is read in part for', () => {
 		const past = [];
 		await expandAttachments(many, [], parseMessage, past);
 		assert.deepEqual(past, [{filename: 'm100.eml', reason: 'more than 100 attached messages'}]);
+		// (and with nothing to tell, as with none given)
+		const opened = await expandAttachments(many.slice(0, 1), [], parseMessage, null);
+		assert.equal(opened.length, 1);
 	});
 
 	it('opens an attached message/global (RFC 6532) as it opens message/rfc822', async () => {

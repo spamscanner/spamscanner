@@ -677,7 +677,7 @@ export async function parseWithin(raw, parse = parseMessage, deadline = Date.now
 //  gets the attached messages opened, as mailparser parsed them; or an array,
 //  `unopened`)
 export async function expandAttachments(attachments = [], errors = [], parse = parseMessage, gets = {}) {
-	const {unopened = [], mails = []} = Array.isArray(gets) ? {unopened: gets} : gets;
+	const {unopened = [], mails = []} = Array.isArray(gets) ? {unopened: gets} : (gets ?? {});
 	const all = [];
 	// (one time limit for all of them)
 	const deadline = Date.now() + PARSE_TIMEOUT;

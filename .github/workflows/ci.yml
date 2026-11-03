@@ -131,7 +131,10 @@ jobs:
           SPAMSCANNER_E2E_CLAMAV: '1'
           SPAMSCANNER_E2E_SPAMC: '1'
       - if: failure()
-        run: sudo tail -50 /var/log/mail.log /var/log/postfix.log 2>/dev/null || true
+        run: |
+          sudo postqueue -p || true
+          sudo tail -n 50 /var/log/postfix.log /var/log/mail.log || true
+          sudo journalctl -u 'postfix*' --no-pager -n 50 || true
 
   ollama:
     name: End to end (Ollama)

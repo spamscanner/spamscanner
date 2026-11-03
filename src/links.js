@@ -4,7 +4,9 @@ import {parse as parseDomain} from 'tldts';
 import {extensionOf as savedExtensionOf} from './attachments.js';
 import {lookupName} from './dnsbl.js';
 import {decodeEntities} from './html.js';
-import {unwrapLink} from './tokenizer.js';
+import {
+	boundedUrl, isClickTracker, registrableDomain, unwrapLink,
+} from './tokenizer.js';
 
 //
 // Every link host of a message and of what it carries, for the link checks
@@ -81,10 +83,12 @@ const MAX_EMBEDDED_LENGTH = 10 * 1024 * 1024;
 const MAX_ATTACHED = 100;
 const MAX_ATTACHED_BYTES = 50 * 1024 * 1024;
 const MAX_READ_TIME = 5000;
-// (an invitation or a contact card read in every way its programs show it,
-//  of at most so many characters without its photos: one of more is not
-//  decoded from quoted-printable, so one with a value in it is too complex)
-const MAX_SHOWN_BYTES = 4 * 1024 * 1024;
+// (an invitation or a contact card is read in every way its programs show
+//  it, which takes up to 0.4s a megabyte, past the time limit if it passes
+//  as reading it starts: at most so many characters of it, with its photos,
+//  and without them, past which it is too complex)
+const MAX_CARD_BYTES = 4 * 1024 * 1024;
+const MAX_SHOWN_BYTES = 1024 * 1024;
 
 // Whether a character is one of a host name ("a" to "z", digits, "-", ".")
 function isHostCode(code) {
@@ -126,7 +130,7 @@ function urlOf(value) {
 
 	// (http or https: as read above)
 	try {
-		return new URL(href);
+		return boundedUrl(href);
 	} catch {
 		return null;
 	}
@@ -243,9 +247,23 @@ function * attributesOf(html) {
 	}
 }
 
+// (the most of an attribute's value read for its links: decoding its
+//  character references takes about a microsecond each, all at once)
+const MAX_VALUE = 1024 * 1024;
+// (values are read only within the time limit, checked before more than
+//  this much of them was read since it was last checked: decoding 64 KB of
+//  character references takes about 8ms)
+const LONG_VALUE = 64 * 1024;
+
 // The links in an attribute's value (`embed`: for a document it holds, an
-// iframe's srcdoc, read as HTML of its own)
-function linksOf(name, value, add, embed) {
+// iframe's srcdoc, read as HTML of its own; `cut`: called for one longer
+// than is read)
+function linksOf(name, value, {add, embed, cut}) {
+	if (value.length > MAX_VALUE) {
+		cut();
+		value = value.slice(0, MAX_VALUE);
+	}
+
 	const decoded = decodeEntities(value, {attribute: true});
 	switch (name) {
 		case 'srcdoc': {
@@ -300,7 +318,7 @@ const MAX_LENIENT_VALUE = 4096;
 const UNQUOTED_END = new Set(['<', '>', '"', '\'', '`', '=']);
 
 // The attributes that are links, read leniently (see LENIENT)
-function lenientLinks(html, add, done, embed) {
+function lenientLinks(html, done, reader) {
 	LENIENT.lastIndex = 0;
 	let match;
 	while (!done() && (match = LENIENT.exec(html)) !== null) {
@@ -320,8 +338,8 @@ function lenientLinks(html, add, done, embed) {
 			//  evil.example)
 			if (end < html.length && html[end] !== quote) {
 				const close = html.indexOf(quote, end);
-				if (close !== -1 && close - i <= MAX_LENIENT_VALUE) {
-					linksOf(name, html.slice(i, close), add, embed);
+				if (close !== -1 && close - i <= MAX_LENIENT_VALUE && !reader.spend(close - i)) {
+					linksOf(name, html.slice(i, close), reader);
 				}
 			}
 		} else {
@@ -330,7 +348,11 @@ function lenientLinks(html, add, done, embed) {
 			}
 		}
 
-		linksOf(name, html.slice(i, end), add, embed);
+		if (reader.spend(end - i)) {
+			break;
+		}
+
+		linksOf(name, html.slice(i, end), reader);
 	}
 }
 
@@ -565,8 +587,23 @@ function * chunksOf(html) {
 				continue;
 			}
 
-			yield {text: html.slice(start, end), cutStart, cutEnd: true};
-			start = end - CHUNK_OVERLAP;
+			// (not within a character reference, which would decode as another
+			//  character, e.g. "&#10" as a line break, ending a link before the
+			//  cut: before its "&", as long as the next part still starts after
+			//  this one; its digits or name can be long, e.g. leading zeros)
+			let hard = end;
+			while (hard > start + CHUNK_OVERLAP + 1 && /[\dA-Za-z#]/.test(html[hard - 1])) {
+				hard--;
+			}
+
+			if (hard < end && html[hard - 1] === '&' && hard - 1 > start + CHUNK_OVERLAP) {
+				hard--;
+			} else {
+				hard = end;
+			}
+
+			yield {text: html.slice(start, hard), cutStart, cutEnd: true};
+			start = hard - CHUNK_OVERLAP;
 			cutStart = true;
 			continue;
 		}
@@ -797,35 +834,19 @@ function quotedPrintableValues(text) {
 	return out.join('\n');
 }
 
-// (whether a property line has a value in quoted-printable)
-function hasQuotedPrintable(text) {
-	const unfolded = text.replaceAll(FOLD, '');
-	if (!/quoted-printable/i.test(unfolded)) {
-		return false;
-	}
-
-	return unfolded.split(LINE_BREAK).some(line => {
-		const colon = valueColon(line);
-		return colon !== -1 && QUOTED_PRINTABLE.test(line.slice(0, colon));
-	});
-}
-
 // An invitation's or a contact card's text as its programs show it: its lines
 // unfolded and its escapes read (and with a backslash before any other
 // character read as that character, "https\://"); with a vCard 2.1 value in
 // quoted-printable decoded, by its charset, also with its folds kept; and as
-// it is; one past MAX_SHOWN_BYTES (`full` false) not decoded
-function shownText(text, full = true) {
+// it is
+function shownText(text) {
 	const unfolded = text.replaceAll(FOLD, '');
 	const shown = new Set([text, readEscapes(unfolded)]);
-	let decoded = unfolded;
-	if (full) {
-		decoded = quotedPrintableValues(unfolded);
-		if (decoded !== unfolded) {
-			shown.add(readEscapes(decoded));
-			if (unfolded !== text) {
-				shown.add(quotedPrintableValues(text));
-			}
+	const decoded = quotedPrintableValues(unfolded);
+	if (decoded !== unfolded) {
+		shown.add(readEscapes(decoded));
+		if (unfolded !== text) {
+			shown.add(quotedPrintableValues(text));
 		}
 	}
 
@@ -979,87 +1000,114 @@ function charsetOf(attachment) {
 	return typeof charset === 'string' ? charset.toLowerCase() : '';
 }
 
+// What of an attachment is read for links: its HTML, or its text (or that of
+// an invitation or contact card); or null
+function kindOf(attachment) {
+	const {content} = attachment ?? {};
+	if (!Buffer.isBuffer(content) || content.length === 0) {
+		return null;
+	}
+
+	const type = typeof attachment.contentType === 'string' ? attachment.contentType.toLowerCase() : '';
+	const extensions = extensionsOf(attachment);
+	const has = set => [...extensions].some(name => set.has(name));
+	if (MESSAGE_TYPES.has(type) || extensions.has('eml') || extensions.has('u8msg')) {
+		return null;
+	}
+
+	const isHtml = HTML_TYPES.has(type) || has(HTML_EXTENSIONS);
+	const isCard = !isHtml && (CARD_TYPES.has(type) || has(CARD_EXTENSIONS));
+	const isText = isCard || (!isHtml && type === 'text/plain');
+	return isHtml || isText ? {isHtml, isText, isCard} : null;
+}
+
 // The documents of attachments a mail client shows, or opens in a browser:
-// HTML, SVG and XML files, text files, and invitations and contact cards
-// (`tooComplex`: more of them than are read, or of more bytes, or a card past
-//  what is read with a value in quoted-printable; `incomplete`: one was left
-//  unread past the time they are read for)
-function documentsOf(attachments, until) {
-	const documents = [];
+// HTML, SVG and XML files, text files, and invitations and contact cards, one
+// at a time, as they are read (`state.tooComplex`: more of them than are read,
+// or of more bytes, known before any is read, or a card past what is read with
+// a value in quoted-printable; `state.incomplete`: one was left unread past
+// the time they are read for)
+function * documentsOf(attachments, state, late) {
+	// (those within the limits, found before any is decoded, so the limits
+	//  are known to be passed also when reading stops before them)
+	const read = [];
 	let bytes = 0;
 	let opened = 0;
 	for (const attachment of attachments) {
-		const {content} = attachment ?? {};
-		if (!Buffer.isBuffer(content) || content.length === 0) {
+		const kind = kindOf(attachment);
+		if (!kind) {
 			continue;
 		}
 
-		const type = typeof attachment.contentType === 'string' ? attachment.contentType.toLowerCase() : '';
-		const extensions = extensionsOf(attachment);
-		const has = set => [...extensions].some(name => set.has(name));
-		if (MESSAGE_TYPES.has(type) || extensions.has('eml') || extensions.has('u8msg')) {
-			continue;
+		if ((!kind.isText && ++opened > MAX_ATTACHED) || bytes + attachment.content.length > MAX_ATTACHED_BYTES) {
+			state.tooComplex = true;
+			break;
 		}
 
-		const isHtml = HTML_TYPES.has(type) || has(HTML_EXTENSIONS);
-		const isCard = !isHtml && (CARD_TYPES.has(type) || has(CARD_EXTENSIONS));
-		const isText = isCard || (!isHtml && type === 'text/plain');
-		if (!isHtml && !isText) {
-			continue;
+		bytes += attachment.content.length;
+		read.push({attachment, kind});
+	}
+
+	for (const {attachment, kind: {isHtml, isCard}} of read) {
+		if (late()) {
+			state.incomplete = true;
+			return;
 		}
 
-		if ((!isText && ++opened > MAX_ATTACHED) || bytes + content.length > MAX_ATTACHED_BYTES) {
-			documents.tooComplex = true;
-			return documents;
-		}
-
-		if (Date.now() > until) {
-			documents.incomplete = true;
-			return documents;
-		}
-
-		bytes += content.length;
-		const text = decodeText(content, charsetOf(attachment));
+		const text = decodeText(attachment.content, charsetOf(attachment));
 		if (isHtml) {
-			documents.push({html: text});
+			yield {html: text};
 			continue;
 		}
 
 		if (!isCard) {
-			documents.push({text});
+			yield {text};
 			continue;
 		}
 
-		const readable = withoutBinaryValues(text);
-		const full = readable.length <= MAX_SHOWN_BYTES;
-		// (its links not all read; what follows is read)
-		if (!full && hasQuotedPrintable(readable)) {
-			documents.tooComplex = true;
-			continue;
+		// (each step of reading a card only within the time limit, and only
+		//  so much of it, see MAX_CARD_BYTES)
+		let readable = withoutBinaryValues(text.length > MAX_CARD_BYTES ? text.slice(0, MAX_CARD_BYTES) : text);
+		if (text.length > MAX_CARD_BYTES || readable.length > MAX_SHOWN_BYTES) {
+			state.tooComplex = true;
+			readable = readable.slice(0, MAX_SHOWN_BYTES);
 		}
 
-		documents.push({text: shownText(readable, full)});
+		if (late()) {
+			state.incomplete = true;
+			return;
+		}
+
+		yield {text: shownText(readable)};
+		if (late()) {
+			state.incomplete = true;
+			return;
+		}
+
 		const html = htmlDescriptions(readable);
 		if (html !== '') {
-			documents.push({html});
+			yield {html};
 		}
 	}
-
-	return documents;
 }
+
+// (how often the time limit is checked in a loop over what is read)
+const LATE_EVERY = 1024;
 
 /**
  * The link hosts of a message and of what it carries, as they are looked up
  * (see lookupName; an address as it is), in the order they are found, up to
- * `maxHosts`; names with no "/" after them come last, as far as there is
- * room, as text that is not a link may read as one.
+ * `maxHosts` and then the first of each domain not found yet (`maxHosts`
+ * domains in all); names with no "/" after them come last, as far as there is
+ * room, as text that is not a link may read as one. All of it is read for at
+ * most five seconds.
  * @param {object} mail - the message, as mailparser parsed it
  * @param {object} [options]
  * @param {object[]} [options.mails] - the messages attached to it, opened (see expandAttachments)
  * @param {object[]} [options.attachments] - its attachments and theirs (see expandAttachments)
  * @param {number} [options.maxHosts]
  * @param {boolean} [options.hostsInText] - also names with no "/" after them, "evil.example", as mail clients make links of them
- * @returns {{hosts: string[], more: boolean, tooComplex: boolean, incomplete: boolean}} `more`: it has more hosts, so not every link was read; `tooComplex`: a link whose host was never read whole (it runs past where the text is cut to be read, it is wrapped deeper than unwrapLink unwraps, or in more documents than are read); `incomplete`: an attachment was left unread for time
+ * @returns {{hosts: string[], more: boolean, tooComplex: boolean, incomplete: boolean}} `more`: it has more hosts than are given (at most `maxHosts`, and past them the first host of each domain not found yet, `maxHosts` domains in all), so not every link was read; `tooComplex`: a link whose host was never read whole (its host, or a link of click tracking or a security gateway, runs past where the text is cut to be read, it is in an attribute value or a card longer than is read, it is wrapped deeper than unwrapLink unwraps, or in more documents than are read); `incomplete`: not all of it was read in time
  */
 export function carriedLinkHosts(mail, {
 	mails = [], attachments = [], maxHosts = 250, hostsInText = false,
@@ -1069,48 +1117,61 @@ export function carriedLinkHosts(mail, {
 	const seen = new Set();
 	const seenBare = new Set();
 	const seenLoose = new Set();
+	// (`more`: a host was left out; `full`: hosts of as many domains as are
+	//  looked up were found, so the rest need not be read)
 	let more = false;
-	let tooComplex = false;
-	const done = () => more;
-	const looseDone = () => more || loose.size > maxHosts;
+	let full = false;
+	const domains = new Set();
+	const state = {tooComplex: false, incomplete: false};
+	// (all of it read for at most MAX_READ_TIME: past it, the rest is not)
+	const until = Date.now() + MAX_READ_TIME;
+	const late = () => {
+		if (!state.incomplete && Date.now() > until) {
+			state.incomplete = true;
+		}
+
+		return state.incomplete;
+	};
+
+	// (whether the rest need not be read: more hosts than are looked up, or
+	//  past the time limit, checked every so often)
+	let calls = 0;
+	const done = () => full || state.incomplete || (++calls % LATE_EVERY === 0 && late());
+	const looseDone = () => done() || loose.size > maxHosts;
 	const addLoose = host => {
 		if (!looseDone()) {
 			loose.add(host);
 		}
 	};
 
-	// (all of it read for at most MAX_READ_TIME: past it, the rest is not)
-	const until = Date.now() + MAX_READ_TIME;
-	let incomplete = false;
-	const late = () => {
-		if (!incomplete && Date.now() > until) {
-			incomplete = true;
-		}
-
-		return incomplete;
-	};
-
-	const carried = documentsOf(attachments, until);
-	tooComplex = Boolean(carried.tooComplex);
-	incomplete = Boolean(carried.incomplete);
-	const queue = [mail, ...mails, ...carried].map(document => ({document, depth: 0}));
+	// (the documents read: the message, those attached to it, then what it
+	//  carries, each as it is reached, and those they hold, each once)
+	const queue = [mail, ...mails].map(document => ({document, depth: 0}));
+	const carried = documentsOf(attachments, state, late);
 	let depth = 0;
 	let embedded = 0;
 	let embeddedLength = 0;
+	const embeddedSeen = new Set();
 	const embed = html => {
-		if (depth >= MAX_EMBED_DEPTH || embedded >= MAX_EMBEDDED || embeddedLength + html.length > MAX_EMBEDDED_LENGTH) {
-			tooComplex = true;
+		if (html === '' || embeddedSeen.has(html)) {
 			return;
 		}
 
+		if (depth >= MAX_EMBED_DEPTH || embedded >= MAX_EMBEDDED || embeddedLength + html.length > MAX_EMBEDDED_LENGTH) {
+			state.tooComplex = true;
+			return;
+		}
+
+		embeddedSeen.add(html);
 		embedded++;
 		embeddedLength += html.length;
 		queue.push({document: {html}, depth: depth + 1});
 	};
 
 	const add = value => {
-		// (once there are more hosts than are looked up, the rest need not be read)
-		if (more || typeof value !== 'string' || value === '' || seen.has(value)) {
+		// (once there are hosts of more domains than are looked up, the rest
+		//  need not be read)
+		if (full || typeof value !== 'string' || value === '' || seen.has(value)) {
 			return;
 		}
 
@@ -1130,26 +1191,62 @@ export function carriedLinkHosts(mail, {
 
 		const found = hostsOf(value);
 		if (found.unresolved) {
-			tooComplex = true;
+			state.tooComplex = true;
 		}
 
+		// (as many hosts as are looked up, and past them the first of each
+		//  domain not found yet, as many again at most: so hosts of one domain,
+		//  e.g. a newsletter's, cannot keep those of another, e.g. an attached
+		//  file's, from being looked up, see checkLinks)
 		for (const host of found) {
 			if (hosts.has(host)) {
 				continue;
 			}
 
-			if (hosts.size >= maxHosts) {
-				more = true;
-				return;
+			const domain = registrableDomain(host);
+			if (hosts.size < maxHosts || (!domains.has(domain) && domains.size < maxHosts)) {
+				hosts.add(host);
+				domains.add(domain);
+				continue;
 			}
 
-			hosts.add(host);
+			more = true;
+			if (domains.size >= maxHosts) {
+				full = true;
+				return;
+			}
 		}
 	};
 
-	const readText = (source, {cutStart = false, cutEnd = false} = {}) => {
+	// (what reads an attribute's links: one longer than is read was never
+	//  read whole)
+	// (whether past the time limit, checked once so much was read, see
+	//  LONG_VALUE)
+	let spent = 0;
+	const spend = length => {
+		spent += length;
+		if (spent < LONG_VALUE) {
+			return false;
+		}
+
+		spent = 0;
+		return late();
+	};
+
+	const reader = {
+		add,
+		embed,
+		spend,
+		cut() {
+			state.tooComplex = true;
+		},
+	};
+
+	// (`exact`: the end of the part, CHUNK_OVERLAP long, is as it was in the
+	//  document, so a link starting there is read whole in the next part)
+	const readText = (source, {cutStart = false, cutEnd = false, exact = false} = {}) => {
 		for (const match of source.matchAll(URL_START)) {
-			if (more) {
+			if (done()) {
 				break;
 			}
 
@@ -1158,16 +1255,29 @@ export function carriedLinkHosts(mail, {
 				continue;
 			}
 
-			// (one cut at the end of a part: read here when its host ends before
-			//  the cut, else whole in the next part, which overlaps it; one whose
-			//  host runs further is never read whole)
+			// (one cut at the end of a part: read whole in the next part, which
+			//  starts CHUNK_OVERLAP before the end, when it starts after that;
+			//  otherwise its host, when it ends before the cut, is read, and it
+			//  was never read whole when its host runs past the cut, or it is a
+			//  link of click tracking or a security gateway, which may wrap
+			//  another link cut with it)
 			if (cutEnd && match.index + match[0].length === source.length) {
+				if (exact && source.length - match.index < CHUNK_OVERLAP) {
+					continue;
+				}
+
 				const value = match[0];
 				const at = /^www\./i.test(value) ? 0 : value.indexOf('//') + 2;
-				if (/[/?#\\]/.test(value.slice(at))) {
-					add(value);
-				} else if (source.length - match.index > CHUNK_OVERLAP) {
-					tooComplex = true;
+				if (!/[/?#\\]/.test(value.slice(at))) {
+					// (its host itself cut)
+					state.tooComplex = true;
+					continue;
+				}
+
+				add(value);
+				const url = urlOf(value);
+				if (url && isClickTracker(url)) {
+					state.tooComplex = true;
 				}
 
 				continue;
@@ -1187,51 +1297,78 @@ export function carriedLinkHosts(mail, {
 		}
 	};
 
-	for (const element of queue) {
-		if (more || late()) {
+	for (let index = 0; ; index++) {
+		if (full || late()) {
 			break;
 		}
 
-		({depth} = element);
-		const {document} = element;
+		if (index >= queue.length) {
+			const next = carried.next();
+			if (next.done) {
+				break;
+			}
+
+			queue.push({document: next.value, depth: 0});
+		}
+
+		({depth} = queue[index]);
+		const {document} = queue[index];
 		const html = withoutNul(typeof document?.html === 'string' ? document.html : '');
 		const text = withoutNul(typeof document?.text === 'string' ? document.text : '');
 		for (const [name, value] of attributesOf(html)) {
-			if (more) {
+			if (done()) {
 				break;
 			}
 
-			if (LINK_ATTRIBUTES.has(name)) {
-				linksOf(name, value, add, embed);
+			if (!LINK_ATTRIBUTES.has(name)) {
+				continue;
 			}
+
+			if (spend(value.length)) {
+				break;
+			}
+
+			linksOf(name, value, reader);
 		}
 
-		lenientLinks(html, add, done, embed);
+		lenientLinks(html, done, reader);
 		for (const pattern of [CSS_URL, CSS_IMPORT]) {
 			for (const [, link] of html.matchAll(pattern)) {
-				if (more) {
+				if (done() || spend(link.length)) {
 					break;
 				}
 
-				add(decodeEntities(link, {attribute: true}));
+				// (as an attribute's value, read only so far)
+				if (link.length > MAX_VALUE) {
+					state.tooComplex = true;
+				}
+
+				add(decodeEntities(link.slice(0, MAX_VALUE), {attribute: true}));
 			}
 		}
 
-		if (!more) {
-			readText(text);
-		}
-
-		for (const chunk of chunksOf(html)) {
-			if (more || late()) {
+		// (text and HTML a part at a time, so the time limit is checked as they
+		//  are read)
+		for (const chunk of chunksOf(text)) {
+			if (full || late()) {
 				break;
 			}
 
-			readText(decodeEntities(chunk.text), chunk);
+			readText(chunk.text, {...chunk, exact: true});
+		}
+
+		for (const chunk of chunksOf(html)) {
+			if (full || late()) {
+				break;
+			}
+
+			const decoded = decodeEntities(chunk.text);
+			readText(decoded, {...chunk, exact: decoded.endsWith(chunk.text.slice(-CHUNK_OVERLAP))});
 		}
 	}
 
 	// (then the names with no "/" after them, as far as there is room)
-	if (!more && !incomplete) {
+	if (!more && !state.incomplete) {
 		for (const name of loose) {
 			if (hosts.size >= maxHosts) {
 				break;
@@ -1245,6 +1382,6 @@ export function carriedLinkHosts(mail, {
 	}
 
 	return {
-		hosts: [...hosts], more, tooComplex, incomplete,
+		hosts: [...hosts], more, tooComplex: state.tooComplex, incomplete: state.incomplete,
 	};
 }

@@ -18,6 +18,18 @@ export function isLookupName(name) {
 // name in its ASCII form)
 const LOOKUP_LABEL = /^[a-z\d_-]{1,63}$/;
 
+// A label separator as IDNA reads one: a dot, or an ideographic or fullwidth
+// one
+const LABEL_SEPARATOR = /[.\u3002\uFF0E\uFF61]/g;
+
+// Where a name's last 128 labels start (a name has at most 127): converting
+// a name to ASCII takes time in the square of its labels, a second for
+// 40,000. In linear time.
+function lastLabels(name) {
+	const separators = [...name.matchAll(LABEL_SEPARATOR)];
+	return separators.length < 128 ? 0 : separators.at(-128).index + 1;
+}
+
 /**
  * The name a link host is looked up as. The URL parser keeps characters no
  * host name has ("!", ",", "{", "~" and more, also from "%2C") and empty or
@@ -46,6 +58,8 @@ export function lookupName(host) {
 	//  ASCII form is read as it is)
 	let name = host.slice(0, end).toLowerCase();
 	if (/[\u0080-\u{10FFFF}]/u.test(name)) {
+		// (of its last labels, all that 253 characters can hold)
+		name = name.slice(lastLabels(name));
 		name = domainToASCII(name) || name;
 	}
 
