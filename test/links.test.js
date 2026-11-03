@@ -361,14 +361,30 @@ describe('carriedLinkHosts on every shape of input', () => {
 		const withPhoto = read({}, {attachments: [file('photo.vcf', 'text/vcard', `BEGIN:VCARD\r\n${photo}\r\nURL;QUOTED-PRINTABLE:https=3A//qp.example.com/\r\nEND:VCARD\r\n`)]});
 		assert.equal(withPhoto.tooComplex, false);
 		assert.deepEqual(withPhoto.hosts, ['qp.example.com']);
+		// (more than 1 MB of it with a value in quoted-printable, not decoded;
+		//  one of only escapes, as Apple's cards have, read in every way)
 		const big = 'x'.repeat(1024 * 1024);
-		const past = read({}, {attachments: [file('big.vcf', 'text/vcard', `BEGIN:VCARD\r\nURL:https://before.example.com/\r\nNOTE:${big}\r\nURL:https://past.example.com/\r\nEND:VCARD\r\n`), file('after.html', 'text/html', '<a href="https://after.example.com/">x</a>')]});
+		const qp = read({}, {attachments: [file('big.vcf', 'text/vcard', `BEGIN:VCARD\r\nURL:https://before.example.com/\r\nNOTE:${big}\r\nURL;QUOTED-PRINTABLE:https=3A//past.example.com/\r\nEND:VCARD\r\n`), file('after.html', 'text/html', '<a href="https://after.example.com/">x</a>')]});
+		assert.equal(qp.tooComplex, true);
+		assert.deepEqual(qp.hosts, ['before.example.com', 'after.example.com']);
+		const escapes = read({}, {attachments: [file('apple.vcf', 'text/vcard', `BEGIN:VCARD\r\nNOTE:${big}\r\nitem1.URL:https\\://escaped.example.com/\r\nEND:VCARD\r\n`)]});
+		assert.equal(escapes.tooComplex, false);
+		assert.deepEqual(escapes.hosts, ['escaped.example.com']);
+		// (and more than 8 MB of it at all, read only so far)
+		const past = read({}, {attachments: [file('big.vcf', 'text/vcard', `BEGIN:VCARD\r\nURL:https://before.example.com/\r\nNOTE:${big.repeat(9)}\r\nURL:https://past.example.com/\r\nEND:VCARD\r\n`), file('after.html', 'text/html', '<a href="https://after.example.com/">x</a>')]});
 		assert.equal(past.tooComplex, true);
 		assert.deepEqual(past.hosts, ['before.example.com', 'after.example.com']);
-		// (and 4 MB with them)
-		const huge = read({}, {attachments: [file('huge.vcf', 'text/vcard', `BEGIN:VCARD\r\nURL:https://first.example.com/\r\nPHOTO;ENCODING=b:${'QUJD'.repeat(1_100_000)}\r\nEND:VCARD\r\n`)]});
-		assert.equal(huge.tooComplex, true);
-		assert.deepEqual(huge.hosts, ['first.example.com']);
+		// (however large its photos, e.g. a backup, folded or not: read whole)
+		for (const photo of ['QUJD'.repeat(1_100_000), `QUJD${'\r\n QUJD'.repeat(1_100_000)}`]) {
+			const huge = read({}, {attachments: [file('huge.vcf', 'text/vcard', `BEGIN:VCARD\r\nURL:https://first.example.com/\r\nPHOTO;ENCODING=b:${photo}\r\nURL:https://after.example.com/\r\nEND:VCARD\r\n`)]});
+			assert.equal(huge.tooComplex, false);
+			assert.deepEqual(huge.hosts, ['first.example.com', 'after.example.com']);
+		}
+
+		// (and other binary values decoded, so long only as what is shown)
+		const decoded = read({}, {attachments: [file('decoded.vcf', 'text/vcard', `BEGIN:VCARD\r\nURL:https://first.example.com/\r\n${'X-DATA;ENCODING=b:QUJD\r\n'.repeat(500_000)}URL:https://past.example.com/\r\nEND:VCARD\r\n`)]});
+		assert.equal(decoded.tooComplex, true);
+		assert.deepEqual(decoded.hosts, ['first.example.com']);
 	});
 
 	it('reads at most so many HTML files', () => {
@@ -542,6 +558,20 @@ describe('carriedLinkHosts on every shape of input', () => {
 		const result = read({html: `<p>x</p><style>p { background: url(https://css.example.com/?${'&amp;'.repeat(300_000)}) }</style>`});
 		assert.deepEqual(result.hosts, ['css.example.com']);
 		assert.equal(result.tooComplex, true);
+	});
+
+	it('reads a long value with few character references whole, e.g. an image written into the message', () => {
+		const image = `data:image/png;base64,${'QUJD'.repeat(700_000)}`;
+		for (const html of [
+			`<p>Hi</p><img src="${image}"><a href="https://after.example.com/">x</a>`,
+			`<p style="background: url(${image})">Hi</p><a href="https://after.example.com/">x</a>`,
+			`<style>p { background: url(${image}) }</style><a href="https://after.example.com/">x</a>`,
+			`<img srcset="${image} 1x, https://after.example.com/2x.png 2x">`,
+		]) {
+			const result = read({html});
+			assert.deepEqual(result.hosts, ['after.example.com'], html.slice(0, 40));
+			assert.equal(result.tooComplex, false, html.slice(0, 40));
+		}
 	});
 
 	it('stops reading a card at its time limit between the steps of reading it', () => {

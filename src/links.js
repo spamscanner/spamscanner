@@ -84,11 +84,15 @@ const MAX_ATTACHED = 100;
 const MAX_ATTACHED_BYTES = 50 * 1024 * 1024;
 const MAX_READ_TIME = 5000;
 // (an invitation or a contact card is read in every way its programs show
-//  it, which takes up to 0.4s a megabyte, past the time limit if it passes
-//  as reading it starts: at most so many characters of it, with its photos,
-//  and without them, past which it is too complex)
-const MAX_CARD_BYTES = 4 * 1024 * 1024;
+//  it, past the time limit if it passes as reading it starts: without the
+//  values of its photos and other binary properties, which are left out in
+//  linear time, about 50ms a megabyte, so a card with large photos, e.g. a
+//  backup, is read; at most MAX_CARD_TEXT characters of what is left, its
+//  unfolded lines and escapes read (about 80ms a megabyte), and its values in
+//  quoted-printable decoded (about 0.4s a megabyte) only in one of at most
+//  MAX_SHOWN_BYTES: past either, it is too complex)
 const MAX_SHOWN_BYTES = 1024 * 1024;
+const MAX_CARD_TEXT = 8 * 1024 * 1024;
 
 // Whether a character is one of a host name ("a" to "z", digits, "-", ".")
 function isHostCode(code) {
@@ -247,9 +251,27 @@ function * attributesOf(html) {
 	}
 }
 
-// (the most of an attribute's value read for its links: decoding its
-//  character references takes about a microsecond each, all at once)
+// (the most of an attribute's value read for its links when it has more
+//  than MAX_REFERENCES character references: decoding them takes about a
+//  microsecond each, all at once; one with fewer, e.g. an image written into
+//  the message as a data: URL, is read whole, in linear time)
 const MAX_VALUE = 1024 * 1024;
+const MAX_REFERENCES = 64 * 1024;
+function isCut(value) {
+	if (value.length <= MAX_VALUE) {
+		return false;
+	}
+
+	let references = 0;
+	for (let index = value.indexOf('&'); index !== -1; index = value.indexOf('&', index + 1)) {
+		if (++references > MAX_REFERENCES) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
 // (values are read only within the time limit, checked before more than
 //  this much of them was read since it was last checked: decoding 64 KB of
 //  character references takes about 8ms)
@@ -259,7 +281,7 @@ const LONG_VALUE = 64 * 1024;
 // iframe's srcdoc, read as HTML of its own; `cut`: called for one longer
 // than is read)
 function linksOf(name, value, {add, embed, cut}) {
-	if (value.length > MAX_VALUE) {
+	if (isCut(value)) {
 		cut();
 		value = value.slice(0, MAX_VALUE);
 	}
@@ -834,19 +856,35 @@ function quotedPrintableValues(text) {
 	return out.join('\n');
 }
 
+// (whether a property line has a value in quoted-printable)
+function hasQuotedPrintable(text) {
+	const unfolded = text.replaceAll(FOLD, '');
+	if (!/quoted-printable/i.test(unfolded)) {
+		return false;
+	}
+
+	return unfolded.split(LINE_BREAK).some(line => {
+		const colon = valueColon(line);
+		return colon !== -1 && QUOTED_PRINTABLE.test(line.slice(0, colon));
+	});
+}
+
 // An invitation's or a contact card's text as its programs show it: its lines
 // unfolded and its escapes read (and with a backslash before any other
 // character read as that character, "https\://"); with a vCard 2.1 value in
 // quoted-printable decoded, by its charset, also with its folds kept; and as
-// it is
-function shownText(text) {
+// it is; one past MAX_SHOWN_BYTES (`full` false) not decoded
+function shownText(text, full = true) {
 	const unfolded = text.replaceAll(FOLD, '');
 	const shown = new Set([text, readEscapes(unfolded)]);
-	const decoded = quotedPrintableValues(unfolded);
-	if (decoded !== unfolded) {
-		shown.add(readEscapes(decoded));
-		if (unfolded !== text) {
-			shown.add(quotedPrintableValues(text));
+	let decoded = unfolded;
+	if (full) {
+		decoded = quotedPrintableValues(unfolded);
+		if (decoded !== unfolded) {
+			shown.add(readEscapes(decoded));
+			if (unfolded !== text) {
+				shown.add(quotedPrintableValues(text));
+			}
 		}
 	}
 
@@ -895,32 +933,46 @@ function htmlDescriptions(text) {
 // properties, photos and the like, which its programs never show as text (with
 // a vCard 2.1 reader's lines of base64 after it, up to a blank line); one of
 // another property decoded, as a reader may show it; a value marked so that is
-// not base64, a link, as it is
+// not base64, a link, as it is; once it is longer than `limit`, the rest is
+// left out (it is too complex then, and the rest need not be read)
 const BINARY = /;\s*(?:(?:encoding\s*=\s*)?"?(?:b|base64)"?|value\s*=\s*"?binary"?)\s*(?:;|$)/i;
-function withoutBinaryValues(text) {
+function withoutBinaryValues(text, limit = Number.POSITIVE_INFINITY) {
 	if (!/base64|binary|encoding\s*=\s*"?b|;\s*b\s*[;:]/i.test(text)) {
 		return text;
 	}
 
 	const lines = text.split(LINE_BREAK);
 	const out = [];
+	let length = 0;
+	const push = line => {
+		out.push(line);
+		length += line.length + 1;
+	};
+
 	for (let i = 0; i < lines.length; i++) {
+		if (length > limit) {
+			break;
+		}
+
 		const line = lines[i];
 		const colon = valueColon(line);
 		if (colon === -1 || !BINARY.test(line.slice(0, colon))) {
-			out.push(line);
+			push(line);
 			continue;
 		}
 
-		const value = [line.slice(colon + 1)];
+		// (its folded lines, and a vCard 2.1 reader's lines of base64 after it;
+		//  only a value that is not a photo or the like is put together)
+		let base64 = /^[\w+/=\s]*$/.test(line.slice(colon + 1));
 		let next = i + 1;
 		while (next < lines.length && (lines[next].startsWith(' ') || lines[next].startsWith('\t'))) {
-			value.push(lines[next++]);
+			base64 &&= /^[\w+/=\s]*$/.test(lines[next]);
+			next++;
 		}
 
-		if (!value.every(part => /^[\w+/=\s]*$/.test(part))) {
+		if (!base64) {
 			for (let index = i; index < next; index++) {
-				out.push(lines[index]);
+				push(lines[index]);
 			}
 
 			i = next - 1;
@@ -928,18 +980,19 @@ function withoutBinaryValues(text) {
 		}
 
 		while (next < lines.length && lines[next] !== '' && /^[\w+/=]+$/.test(lines[next])) {
-			value.push(lines[next++]);
+			next++;
 		}
 
+		const end = next;
 		if (next < lines.length && lines[next] === '') {
 			next++;
 		}
 
-		i = next - 1;
 		const name = line.slice(0, colon).split(';')[0].split('.').pop().trim().toLowerCase();
-		out.push(MEDIA_PROPERTIES.has(name)
+		push(MEDIA_PROPERTIES.has(name)
 			? line.slice(0, colon + 1)
-			: line.slice(0, colon + 1) + Buffer.from(value.join('').replaceAll(/\s/g, ''), 'base64').toString('utf8'));
+			: line.slice(0, colon + 1) + Buffer.from([line.slice(colon + 1), ...lines.slice(i + 1, end)].join('').replaceAll(/\s/g, ''), 'base64').toString('utf8'));
+		i = next - 1;
 	}
 
 	return out.join('\n');
@@ -1066,11 +1119,17 @@ function * documentsOf(attachments, state, late) {
 		}
 
 		// (each step of reading a card only within the time limit, and only
-		//  so much of it, see MAX_CARD_BYTES)
-		let readable = withoutBinaryValues(text.length > MAX_CARD_BYTES ? text.slice(0, MAX_CARD_BYTES) : text);
-		if (text.length > MAX_CARD_BYTES || readable.length > MAX_SHOWN_BYTES) {
+		//  so much of it, see MAX_CARD_TEXT)
+		let readable = withoutBinaryValues(text, MAX_CARD_TEXT);
+		if (readable.length > MAX_CARD_TEXT) {
 			state.tooComplex = true;
-			readable = readable.slice(0, MAX_SHOWN_BYTES);
+			readable = readable.slice(0, MAX_CARD_TEXT);
+		}
+
+		// (a value in quoted-printable in one too long to decode)
+		const full = readable.length <= MAX_SHOWN_BYTES;
+		if (!full && hasQuotedPrintable(readable)) {
+			state.tooComplex = true;
 		}
 
 		if (late()) {
@@ -1078,7 +1137,7 @@ function * documentsOf(attachments, state, late) {
 			return;
 		}
 
-		yield {text: shownText(readable)};
+		yield {text: shownText(readable, full)};
 		if (late()) {
 			state.incomplete = true;
 			return;
@@ -1339,11 +1398,12 @@ export function carriedLinkHosts(mail, {
 				}
 
 				// (as an attribute's value, read only so far)
-				if (link.length > MAX_VALUE) {
+				const cut = isCut(link);
+				if (cut) {
 					state.tooComplex = true;
 				}
 
-				add(decodeEntities(link.slice(0, MAX_VALUE), {attribute: true}));
+				add(decodeEntities(cut ? link.slice(0, MAX_VALUE) : link, {attribute: true}));
 			}
 		}
 
