@@ -135,7 +135,7 @@ Answers are cached by message, so the same message sent to many recipients is as
 | `jev`                    | `https://api.typesafe.ai/v1`                              | `jev-latest`            | `TYPESAFE_API_KEY`     |
 | `openrouter-jev`         | `https://openrouter.ai/api/alpha`                         | `~typesafe/jev-latest`  | `OPENROUTER_API_KEY`   |
 | `decision-compatible`    | (required)                                                | (required)              |                        |
-| `openai`                 | `https://api.openai.com/v1`                               | `gpt-5-mini`            | `OPENAI_API_KEY`       |
+| `openai`                 | `https://api.openai.com/v1`                               | `gpt-5.6-terra`         | `OPENAI_API_KEY`       |
 | `anthropic`              | `https://api.anthropic.com/v1`                            | `claude-haiku-4-5`      | `ANTHROPIC_API_KEY`    |
 | `gemini`                 | `https://generativelanguage.googleapis.com/v1beta/openai` | `gemini-3.5-flash-lite` | `GEMINI_API_KEY`       |
 | `mistral`                | `https://api.mistral.ai/v1`                               | `mistral-small-latest`  | `MISTRAL_API_KEY`      |
@@ -164,7 +164,7 @@ ChatGPT models:
 
 ```sh
 export OPENAI_API_KEY=...
-spamscanner scan message.eml --llm openai --llm-model gpt-5-mini
+spamscanner scan message.eml --llm openai --llm-model gpt-5.6-terra
 ```
 
 
