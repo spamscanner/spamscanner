@@ -279,13 +279,41 @@ describe('parts and names mail programs show as attachments', () => {
 
 describe('parseWithin', () => {
 	it('reads the sender of a header too large for its many short lines', async () => {
-		// (each of which the parser counts as 64 characters)
+		const pads = ['a:\r\n'.repeat(20_000), 'Received: x\r\n'.repeat(20_000)];
+		const message = pad => `${pad}From: bad@spammer.example\r\nSubject: win\r\n\r\nverify your bank password now\r\n`;
+
+		// (mailsplit 5.4.25 and later, which mailparser 3.10 and later use,
+		//  count each header line as at least 64 characters and fail on these;
+		//  earlier versions count bytes and read them whole: the sender is read
+		//  either way)
 		const scanner = new SpamScanner({...offline, classifier: false, denylist: ['spammer.example']});
-		for (const pad of ['a:\r\n'.repeat(20_000), 'Received: x\r\n'.repeat(20_000)]) {
-			const result = await scanner.scan(`${pad}From: bad@spammer.example\r\nSubject: win\r\n\r\nverify your bank password now\r\n`);
-			assert.match(result.results.parseError, /header size/);
+		for (const pad of pads) {
+			const result = await scanner.scan(message(pad));
+			if (result.results.parseError !== null) {
+				assert.match(result.results.parseError, /header size/);
+			}
+
 			assert.ok(names(result).includes('DENYLISTED'));
 			assert.equal(result.mail.subject, 'win');
+		}
+
+		// (and with a parser that counts lines so, whatever version is installed)
+		const tooLarge = Object.assign(new Error('Max header size for a MIME node exceeded'), {code: 'EMAXLEN'});
+		const countsLines = async input => {
+			const text = input.toString('latin1');
+			const header = text.slice(0, text.search(/\r?\n\r?\n/));
+			if (header.split('\n').reduce((cost, line) => cost + Math.max(64, line.length + 1), 0) > 1024 * 1024) {
+				throw tooLarge;
+			}
+
+			return parseMessage(input);
+		};
+
+		for (const pad of pads) {
+			const {mail, error} = await parseWithin(Buffer.from(message(pad)), countsLines);
+			assert.equal(error, tooLarge.message);
+			assert.equal(mail.from.value[0].address, 'bad@spammer.example');
+			assert.equal(mail.subject, 'win');
 		}
 	});
 

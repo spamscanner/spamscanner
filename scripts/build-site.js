@@ -1317,39 +1317,45 @@ function notFound() {
 // ---------------------------------------------------------------------------
 // Files for search engines and agents
 
-const lastModified = new Map();
-function lastmod(sources, fallback) {
-	const dates = sources.map(source => {
-		if (!lastModified.has(source)) {
-			let date = '';
-			try {
-				date = execFileSync('git', ['-C', root, 'log', '-1', '--format=%cI', '--', source], {encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore']}).trim();
-			} catch {}
+// When each file was last changed and first added, from git, read in one
+// pass over the history: a `git log` for each of the hundreds of source
+// files took most of the build, and a minute where starting a process is
+// slow. (Renames are an addition, as they were to `git log -- <file>`; a
+// file git does not know has no dates.)
+let history;
+function gitHistory() {
+	if (!history) {
+		history = new Map();
+		let log = '';
+		try {
+			log = execFileSync('git', ['-C', root, 'log', '--no-renames', '--relative', '--name-status', '-z', '--format=%x01%cI'], {encoding: 'utf8', maxBuffer: 1024 * 1024 * 1024, stdio: ['ignore', 'pipe', 'ignore']});
+		} catch {}
 
-			lastModified.set(source, date);
+		// (newest first: "\x01<date>\0", then a status and a path for each file)
+		for (const commit of log.split('\u0001').slice(1)) {
+			const [date, ...fields] = commit.split('\0');
+			for (let i = 0; i + 1 < fields.length; i += 2) {
+				const file = history.get(fields[i + 1]) ?? {modified: date, added: ''};
+				if (fields[i].trim() === 'A') {
+					file.added = date;
+				}
+
+				history.set(fields[i + 1], file);
+			}
 		}
+	}
 
-		return lastModified.get(source);
-	}).filter(Boolean).sort();
+	return history;
+}
+
+function lastmod(sources, fallback) {
+	const dates = sources.map(source => gitHistory().get(source)?.modified).filter(Boolean).sort();
 	return dates.length > 0 ? dates.at(-1) : fallback;
 }
 
 // When a page's first source file was added, from git; nothing if unknown.
-const firstAdded = new Map();
 function published(sources) {
-	const dates = sources.map(source => {
-		if (!firstAdded.has(source)) {
-			let date = '';
-			try {
-				date = execFileSync('git', ['-C', root, 'log', '--diff-filter=A', '--format=%cI', '--', source], {encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore']}).trim().split('\n').at(-1);
-			} catch {}
-
-			firstAdded.set(source, date);
-		}
-
-		return firstAdded.get(source);
-	}).filter(Boolean).sort();
-	return dates[0];
+	return sources.map(source => gitHistory().get(source)?.added).filter(Boolean).sort()[0];
 }
 
 function llms(pages) {

@@ -24,7 +24,8 @@ const run = promisify(execFile);
 // A package export, not a file.
 const ARF = 'spamscanner/arf';
 
-describe('built package', () => {
+// (each test has its own processes, ports and directories, so they run at once)
+describe('built package', {concurrency: true}, () => {
 	it('loads with require() and works the way Forward Email calls it', async () => {
 		const SpamScanner = require('spamscanner');
 		assert.equal(typeof SpamScanner, 'function');
