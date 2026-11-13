@@ -1,4 +1,4 @@
-<!-- source: 9a190e0ae31e -->
+<!-- source: 929ac4bf99d9 -->
 
 # Тесты и баллы
 
@@ -38,14 +38,14 @@
 | `DISGUISED_EXECUTABLE`  |      12 | `disguisedExecutable`                    | Программа с именем документа или изображения                                                                                                                                     |
 | `DOUBLE_EXTENSION`      |       6 | `doubleExtension`                        | Имя вроде `invoice.pdf.exe`                                                                                                                                                      |
 | `RTL_OVERRIDE_FILENAME` |       6 | `rtlOverride`                            | Символ смены направления справа налево скрывает настоящее расширение                                                                                                             |
-| `EXECUTABLE_IN_ARCHIVE` |       8 | `executableInArchive`                    | Программа внутри ZIP-архива                                                                                                                                                      |
-| `SCRIPT_IN_ARCHIVE`     |       3 | `scriptInArchive`                        | Скрипты (JavaScript, Python, shell, Perl) и никаких других программ в ZIP-файле                                                                                                  |
+| `EXECUTABLE_IN_ARCHIVE` |       8 | `executableInArchive`                    | Программа внутри ZIP-архива; а также файл, сжатый отдельно и названный как программа (`invoice.exe.gz`)                                                                          |
+| `SCRIPT_IN_ARCHIVE`     |       3 | `scriptInArchive`                        | Скрипты (JavaScript, Python, shell, Perl) и никаких других программ в ZIP-файле; а также скрипт, сжатый отдельно (`build.sh.xz`)                                                 |
 | `RISKY_ATTACHMENT_TYPE` |       2 | `riskyAttachment`                        | Сертификат, интернет-ярлык, тема или файл данных, которые блокирует Outlook (`.cer`, `.url`, `.tmp`)                                                                             |
 | `ENCRYPTED_ARCHIVE`     |       2 | `encryptedArchive`                       | Архив, который сканеры не могут открыть                                                                                                                                          |
 | `MACRO_ATTACHMENT`      |       4 | `macro`                                  | Файл Office с макросами                                                                                                                                                          |
 | `PDF_ACTIVE_CONTENT`    |       3 | `pdfActive`                              | PDF с JavaScript или действиями запуска                                                                                                                                          |
 | `RTF_EMBEDDED_OBJECT`   |       4 | `rtfObject`                              | Файл RTF со встроенными объектами                                                                                                                                                |
-| `HTML_ATTACHMENT`       | 1 или 3 | `htmlAttachment`, `activeHtmlAttachment` | HTML-файл; 3, если в нём есть скрипты или формы                                                                                                                                  |
+| `HTML_ATTACHMENT`       | 1 или 3 | `htmlAttachment`, `activeHtmlAttachment` | HTML-файл; 3, если в нём есть скрипты или формы; а также часть с таким именем                                                                                                    |
 | `VIRUS`                 |     100 | `virus`                                  | ClamAV обнаружил вирус                                                                                                                                                           |
 | `MIME_TOO_COMPLEX`      |       6 | `mimeTooComplex`                         | Более 1000 MIME-частей или заголовок части больше 1 МБ, в том числе во вложенном сообщении, или вложенное сообщение, которое не удаётся прочитать; последующие части не читаются |
 

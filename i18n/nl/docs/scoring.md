@@ -1,4 +1,4 @@
-<!-- source: 9a190e0ae31e -->
+<!-- source: 929ac4bf99d9 -->
 
 # Tests en scores
 
@@ -38,14 +38,14 @@ Domeinen die alleen in de tekst worden genoemd, niet gelinkt, worden ook op look
 | `DISGUISED_EXECUTABLE`  |     12 | `disguisedExecutable`                    | Een programma met de naam van een document of afbeelding                                                                                                                                |
 | `DOUBLE_EXTENSION`      |      6 | `doubleExtension`                        | Een naam zoals `invoice.pdf.exe`                                                                                                                                                        |
 | `RTL_OVERRIDE_FILENAME` |      6 | `rtlOverride`                            | Een right-to-left-override verbergt de echte extensie                                                                                                                                   |
-| `EXECUTABLE_IN_ARCHIVE` |      8 | `executableInArchive`                    | Een programma in een ZIP-bestand                                                                                                                                                        |
-| `SCRIPT_IN_ARCHIVE`     |      3 | `scriptInArchive`                        | Scripts (JavaScript, Python, shell, Perl) en geen andere programma's in een ZIP-bestand                                                                                                 |
+| `EXECUTABLE_IN_ARCHIVE` |      8 | `executableInArchive`                    | Een programma in een ZIP-bestand; ook een los gecomprimeerd bestand dat naar een programma is genoemd (`invoice.exe.gz`)                                                                |
+| `SCRIPT_IN_ARCHIVE`     |      3 | `scriptInArchive`                        | Scripts (JavaScript, Python, shell, Perl) en geen andere programma's in een ZIP-bestand; ook een los gecomprimeerd script (`build.sh.xz`)                                               |
 | `RISKY_ATTACHMENT_TYPE` |      2 | `riskyAttachment`                        | Een certificaat, internetsnelkoppeling, thema of gegevensbestand dat Outlook blokkeert (`.cer`, `.url`, `.tmp`)                                                                         |
 | `ENCRYPTED_ARCHIVE`     |      2 | `encryptedArchive`                       | Een archief dat scanners niet kunnen openen                                                                                                                                             |
 | `MACRO_ATTACHMENT`      |      4 | `macro`                                  | Een Office-bestand met macro's                                                                                                                                                          |
 | `PDF_ACTIVE_CONTENT`    |      3 | `pdfActive`                              | Een pdf met JavaScript of startacties                                                                                                                                                   |
 | `RTF_EMBEDDED_OBJECT`   |      4 | `rtfObject`                              | Een RTF-bestand met ingesloten objecten                                                                                                                                                 |
-| `HTML_ATTACHMENT`       | 1 of 3 | `htmlAttachment`, `activeHtmlAttachment` | Een HTML-bestand; 3 als het scripts of formulieren bevat                                                                                                                                |
+| `HTML_ATTACHMENT`       | 1 of 3 | `htmlAttachment`, `activeHtmlAttachment` | Een HTML-bestand; 3 als het scripts of formulieren bevat; ook een deel met zo'n naam                                                                                                    |
 | `VIRUS`                 |    100 | `virus`                                  | ClamAV heeft een virus gevonden                                                                                                                                                         |
 | `MIME_TOO_COMPLEX`      |      6 | `mimeTooComplex`                         | Meer dan 1000 MIME-delen, of een header van een deel boven 1 MB, ook in een bijgevoegd bericht, of een bijgevoegd bericht dat niet gelezen kan worden; latere delen worden niet gelezen |
 

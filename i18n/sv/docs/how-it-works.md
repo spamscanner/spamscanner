@@ -1,4 +1,4 @@
-<!-- source: a7dfb7c0fde2 -->
+<!-- source: ab57fd1d3952 -->
 
 # Så fungerar det
 
@@ -77,6 +77,9 @@ Bilagor identifieras utifrån sina byte och sina namn, inte sina angivna typer:
 * körbara filer i ZIP-arkiv, och krypterade arkiv som skannrar inte kan öppna
 * Office-filer med makron, PDF-filer med JavaScript eller startåtgärder, RTF-filer med inbäddade objekt
 * HTML-bilagor, som nätfiske använder för att visa en falsk inloggningssida offline
+* program som komprimerats ensamma, med sitt namn (`invoice.exe.gz`)
+* efter namn: text- och HTML-delar med filnamn, och namnet i en bilagas `Content-Type` när det skiljer sig från filnamnet – e-postprogram visar dem som bilagor
+* efter namn: varje namn på en del som namnger sig själv två gånger (ett `Content-Disposition`- eller `Content-Type`-fält, eller ett filnamn i ett, angivet två gånger) – e-postprogram visar inte alla samma
 * bilagor i bifogade meddelanden (`message/rfc822`, `.eml`), upp till tre nivåer djupt och högst 100 bilagor (meddelandets egna bilagor granskas alltid samtliga)
 
 Med ClamAV skannas bilagor också med `clamd` över dess socket. Fyra skannas åt gången, alla inom `clamav.timeout` (60 sekunder), och de som inte kunde skannas listas i `results.virusScanErrors`. De som är större än clamd accepterar (dess `StreamMaxLength`) listas i stället i `results.virusScanSkipped`: clamd nekar dem vid varje försök.

@@ -1,4 +1,4 @@
-<!-- source: 9a190e0ae31e -->
+<!-- source: 929ac4bf99d9 -->
 
 # בדיקות וניקוד
 
@@ -38,14 +38,14 @@
 | `DISGUISED_EXECUTABLE`  |     12 | `disguisedExecutable`                    | תוכנה ששמה נראה כמו מסמך או תמונה                                                                                          |
 | `DOUBLE_EXTENSION`      |      6 | `doubleExtension`                        | שם כמו `invoice.pdf.exe`                                                                                                   |
 | `RTL_OVERRIDE_FILENAME` |      6 | `rtlOverride`                            | תו עקיפת כיווניות מימין לשמאל מסתיר את הסיומת האמיתית                                                                      |
-| `EXECUTABLE_IN_ARCHIVE` |      8 | `executableInArchive`                    | תוכנה בתוך קובץ ZIP                                                                                                        |
-| `SCRIPT_IN_ARCHIVE`     |      3 | `scriptInArchive`                        | סקריפטים (JavaScript, Python, shell, Perl) וללא תוכנות אחרות בקובץ ZIP                                                     |
+| `EXECUTABLE_IN_ARCHIVE` |      8 | `executableInArchive`                    | תוכנה בתוך קובץ ZIP; וגם קובץ שנדחס לבדו ונקרא בשם של תוכנה (`invoice.exe.gz`)                                             |
+| `SCRIPT_IN_ARCHIVE`     |      3 | `scriptInArchive`                        | סקריפטים (JavaScript, Python, shell, Perl) וללא תוכנות אחרות בקובץ ZIP; וגם סקריפט שנדחס לבדו (`build.sh.xz`)              |
 | `RISKY_ATTACHMENT_TYPE` |      2 | `riskyAttachment`                        | תעודה, קיצור דרך לאינטרנט, ערכת נושא או קובץ נתונים ש-Outlook חוסם (`.cer`, `.url`, `.tmp`)                                |
 | `ENCRYPTED_ARCHIVE`     |      2 | `encryptedArchive`                       | ארכיון שסורקים לא יכולים לפתוח                                                                                             |
 | `MACRO_ATTACHMENT`      |      4 | `macro`                                  | קובץ Office עם פקודות מאקרו                                                                                                |
 | `PDF_ACTIVE_CONTENT`    |      3 | `pdfActive`                              | קובץ PDF עם JavaScript או פעולות הפעלה                                                                                     |
 | `RTF_EMBEDDED_OBJECT`   |      4 | `rtfObject`                              | קובץ RTF עם אובייקטים משובצים                                                                                              |
-| `HTML_ATTACHMENT`       | 1 או 3 | `htmlAttachment`, `activeHtmlAttachment` | קובץ HTML; ‏3 כשיש בו סקריפטים או טפסים                                                                                    |
+| `HTML_ATTACHMENT`       | 1 או 3 | `htmlAttachment`, `activeHtmlAttachment` | קובץ HTML; ‏3 כשיש בו סקריפטים או טפסים; וגם חלק שנקרא כך                                                                  |
 | `VIRUS`                 |    100 | `virus`                                  | ClamAV מצא וירוס                                                                                                           |
 | `MIME_TOO_COMPLEX`      |      6 | `mimeTooComplex`                         | יותר מ-1000 חלקי MIME, או כותרות של חלק מעל 1 MB, גם בהודעה מצורפת, או הודעה מצורפת שלא ניתן לקרוא; החלקים הבאים לא נקראים |
 

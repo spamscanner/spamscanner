@@ -1,4 +1,4 @@
-<!-- source: 9a190e0ae31e -->
+<!-- source: 929ac4bf99d9 -->
 
 # Test og scorer
 
@@ -38,14 +38,14 @@ Domæner, der kun nævnes i teksten uden at være linket, tjekkes også for efte
 | `DISGUISED_EXECUTABLE`  |        12 | `disguisedExecutable`                    | Et program navngivet som et dokument eller billede                                                                                                  |
 | `DOUBLE_EXTENSION`      |         6 | `doubleExtension`                        | Et navn som `invoice.pdf.exe`                                                                                                                       |
 | `RTL_OVERRIDE_FILENAME` |         6 | `rtlOverride`                            | Et højre-mod-venstre-tegn skjuler den rigtige filendelse                                                                                            |
-| `EXECUTABLE_IN_ARCHIVE` |         8 | `executableInArchive`                    | Et program i en ZIP-fil                                                                                                                             |
-| `SCRIPT_IN_ARCHIVE`     |         3 | `scriptInArchive`                        | Scripts (JavaScript, Python, shell, Perl) og ingen andre programmer i en ZIP-fil                                                                    |
+| `EXECUTABLE_IN_ARCHIVE` |         8 | `executableInArchive`                    | Et program i en ZIP-fil; også en fil, der er komprimeret alene og opkaldt efter et program (`invoice.exe.gz`)                                       |
+| `SCRIPT_IN_ARCHIVE`     |         3 | `scriptInArchive`                        | Scripts (JavaScript, Python, shell, Perl) og ingen andre programmer i en ZIP-fil; også et script, der er komprimeret alene (`build.sh.xz`)          |
 | `RISKY_ATTACHMENT_TYPE` |         2 | `riskyAttachment`                        | Et certifikat, en internetgenvej, et tema eller en datafil, som Outlook blokerer (`.cer`, `.url`, `.tmp`)                                           |
 | `ENCRYPTED_ARCHIVE`     |         2 | `encryptedArchive`                       | Et arkiv, som scannere ikke kan åbne                                                                                                                |
 | `MACRO_ATTACHMENT`      |         4 | `macro`                                  | En Office-fil med makroer                                                                                                                           |
 | `PDF_ACTIVE_CONTENT`    |         3 | `pdfActive`                              | En PDF med JavaScript eller starthandlinger                                                                                                         |
 | `RTF_EMBEDDED_OBJECT`   |         4 | `rtfObject`                              | En RTF-fil med indlejrede objekter                                                                                                                  |
-| `HTML_ATTACHMENT`       | 1 eller 3 | `htmlAttachment`, `activeHtmlAttachment` | En HTML-fil; 3, når den har scripts eller formularer                                                                                                |
+| `HTML_ATTACHMENT`       | 1 eller 3 | `htmlAttachment`, `activeHtmlAttachment` | En HTML-fil; 3, når den har scripts eller formularer; også en del med sådan et navn                                                                 |
 | `VIRUS`                 |       100 | `virus`                                  | ClamAV fandt en virus                                                                                                                               |
 | `MIME_TOO_COMPLEX`      |         6 | `mimeTooComplex`                         | Over 1000 MIME-dele eller en delheader over 1 MB, også i en vedhæftet besked, eller en vedhæftet besked, der ikke kan læses; senere dele læses ikke |
 

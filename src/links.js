@@ -1004,7 +1004,9 @@ function withoutBinaryValues(text, limit = Number.POSITIVE_INFINITY) {
 
 // what a browser renders as HTML: by content type or file name (XML as XHTML
 // or SVG by its namespace)
-const HTML_TYPES = new Set(['text/html', 'application/xhtml+xml', 'image/svg+xml', 'text/xml', 'application/xml']);
+// (and the AMP part of a message, which the mail programs that show it show
+//  instead of its HTML part)
+const HTML_TYPES = new Set(['text/html', 'text/x-amp-html', 'application/xhtml+xml', 'image/svg+xml', 'text/xml', 'application/xml']);
 const HTML_EXTENSIONS = new Set(['html', 'htm', 'shtml', 'xhtml', 'xht', 'svg', 'xml']);
 // Invitations and contact cards, whose URL fields a mail client shows as
 // links, by type and by name

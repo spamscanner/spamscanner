@@ -1,4 +1,4 @@
-<!-- source: a7dfb7c0fde2 -->
+<!-- source: ab57fd1d3952 -->
 
 # Cómo funciona
 
@@ -77,6 +77,9 @@ Los adjuntos se identifican por sus bytes y sus nombres, no por sus tipos declar
 * ejecutables dentro de archivos ZIP, y archivos cifrados que los analizadores no pueden abrir
 * archivos de Office con macros, PDF con JavaScript o acciones de ejecución, archivos RTF con objetos incrustados
 * adjuntos HTML, que el phishing usa para mostrar una página de inicio de sesión falsa sin conexión
+* programas comprimidos por sí solos, con su nombre (`invoice.exe.gz`)
+* por su nombre, las partes de texto y HTML con nombre de archivo, y el nombre en el `Content-Type` de un adjunto cuando difiere de su nombre de archivo: los programas de correo los muestran como adjuntos
+* por su nombre, cada nombre de una parte que se nombra dos veces (un campo `Content-Disposition` o `Content-Type`, o un nombre de archivo en uno, repetido): los programas de correo no muestran todos el mismo
 * los adjuntos de mensajes adjuntos (`message/rfc822`, `.eml`), hasta tres niveles de profundidad y 100 adjuntos (los adjuntos propios del mensaje siempre se inspeccionan todos)
 
 Con ClamAV, los adjuntos también se analizan con `clamd` a través de su socket. Se analizan cuatro a la vez, todos dentro de `clamav.timeout` (60 segundos), y los que no pudo analizar se enumeran en `results.virusScanErrors`. Los que son más grandes de lo que acepta clamd (su `StreamMaxLength`) se enumeran en cambio en `results.virusScanSkipped`: clamd los rechaza en cada intento.

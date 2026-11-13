@@ -1,4 +1,4 @@
-<!-- source: 9a190e0ae31e -->
+<!-- source: 929ac4bf99d9 -->
 
 # テストとスコア
 
@@ -32,22 +32,22 @@
 
 ## 添付ファイル
 
-| テスト                     |    点数 | 設定キー                                    | 意味                                                                                      |
-| ----------------------- | ----: | --------------------------------------- | --------------------------------------------------------------------------------------- |
-| `EXECUTABLE_ATTACHMENT` |    10 | `executable`                            | プログラムまたはスクリプト                                                                           |
-| `DISGUISED_EXECUTABLE`  |    12 | `disguisedExecutable`                   | 文書や画像のような名前のプログラム                                                                       |
-| `DOUBLE_EXTENSION`      |     6 | `doubleExtension`                       | `invoice.pdf.exe`のような名前                                                                 |
-| `RTL_OVERRIDE_FILENAME` |     6 | `rtlOverride`                           | 右から左への書字方向の上書きで本当の拡張子を隠している                                                             |
-| `EXECUTABLE_IN_ARCHIVE` |     8 | `executableInArchive`                   | ZIPファイル内のプログラム                                                                          |
-| `SCRIPT_IN_ARCHIVE`     |     3 | `scriptInArchive`                       | ZIP ファイル内のスクリプト（JavaScript、Python、シェル、Perl）で、ほかのプログラムはないもの                              |
-| `RISKY_ATTACHMENT_TYPE` |     2 | `riskyAttachment`                       | Outlook がブロックする証明書、インターネットショートカット、テーマ、データファイル（`.cer`、`.url`、`.tmp`）                     |
-| `ENCRYPTED_ARCHIVE`     |     2 | `encryptedArchive`                      | スキャナーが開けないアーカイブ                                                                         |
-| `MACRO_ATTACHMENT`      |     4 | `macro`                                 | マクロ付きのOfficeファイル                                                                        |
-| `PDF_ACTIVE_CONTENT`    |     3 | `pdfActive`                             | JavaScript や起動アクションを含む PDF                                                              |
-| `RTF_EMBEDDED_OBJECT`   |     4 | `rtfObject`                             | 埋め込みオブジェクトを含むRTFファイル                                                                    |
-| `HTML_ATTACHMENT`       | 1または3 | `htmlAttachment`、`activeHtmlAttachment` | HTMLファイル。スクリプトやフォームを含む場合は3                                                              |
-| `VIRUS`                 |   100 | `virus`                                 | ClamAVがウイルスを検出した                                                                        |
-| `MIME_TOO_COMPLEX`      |     6 | `mimeTooComplex`                        | MIME パートが 1000 を超えるか、パートのヘッダーが 1 MB を超える（添付されたメッセージ内も含む）、または添付されたメッセージを読めない。以降のパートは読まない |
+| テスト                     |    点数 | 設定キー                                    | 意味                                                                                          |
+| ----------------------- | ----: | --------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `EXECUTABLE_ATTACHMENT` |    10 | `executable`                            | プログラムまたはスクリプト                                                                               |
+| `DISGUISED_EXECUTABLE`  |    12 | `disguisedExecutable`                   | 文書や画像のような名前のプログラム                                                                           |
+| `DOUBLE_EXTENSION`      |     6 | `doubleExtension`                       | `invoice.pdf.exe`のような名前                                                                     |
+| `RTL_OVERRIDE_FILENAME` |     6 | `rtlOverride`                           | 右から左への書字方向の上書きで本当の拡張子を隠している                                                                 |
+| `EXECUTABLE_IN_ARCHIVE` |     8 | `executableInArchive`                   | ZIPファイル内のプログラム；単独で圧縮され、プログラムの名前が付いたファイルも含む (`invoice.exe.gz`)                               |
+| `SCRIPT_IN_ARCHIVE`     |     3 | `scriptInArchive`                       | ZIP ファイル内のスクリプト（JavaScript、Python、シェル、Perl）で、ほかのプログラムはないもの；単独で圧縮されたスクリプトも含む (`build.sh.xz`) |
+| `RISKY_ATTACHMENT_TYPE` |     2 | `riskyAttachment`                       | Outlook がブロックする証明書、インターネットショートカット、テーマ、データファイル（`.cer`、`.url`、`.tmp`）                         |
+| `ENCRYPTED_ARCHIVE`     |     2 | `encryptedArchive`                      | スキャナーが開けないアーカイブ                                                                             |
+| `MACRO_ATTACHMENT`      |     4 | `macro`                                 | マクロ付きのOfficeファイル                                                                            |
+| `PDF_ACTIVE_CONTENT`    |     3 | `pdfActive`                             | JavaScript や起動アクションを含む PDF                                                                  |
+| `RTF_EMBEDDED_OBJECT`   |     4 | `rtfObject`                             | 埋め込みオブジェクトを含むRTFファイル                                                                        |
+| `HTML_ATTACHMENT`       | 1または3 | `htmlAttachment`、`activeHtmlAttachment` | HTMLファイル。スクリプトやフォームを含む場合は3；そのような名前のパートも含む                                                   |
+| `VIRUS`                 |   100 | `virus`                                 | ClamAVがウイルスを検出した                                                                            |
+| `MIME_TOO_COMPLEX`      |     6 | `mimeTooComplex`                        | MIME パートが 1000 を超えるか、パートのヘッダーが 1 MB を超える（添付されたメッセージ内も含む）、または添付されたメッセージを読めない。以降のパートは読まない     |
 
 `MIME_TOO_COMPLEX` を付けるのは、MIME パーサーのこの 2 つの上限と、パーサーが失敗する添付されたメッセージだけです。それ以外のパーサーエラーはスキャンを失敗させ、サーバーは以前のバージョンと同じくメッセージを延期します。パートが多すぎるメッセージは、パートを開始しうる行（`--`）の 990 行目まで読みます。インラインの添付されたメッセージがパートを構成する場合は、読めるようになるまで前半、次に 4 分の 1 と読みます。メッセージ自体のヘッダーが大きすぎる場合は、そのヘッダーを切り詰めて読みます（1 行最大 998 文字、1 フィールド最大 8 KB とし、アドレスフィールドは完全なアドレスの区切りで切り詰め、それでも 512 KB を超える場合は、誰がどのように送ったかを示すフィールドだけにします）。そのため送信者は引き続き評価されます。後続のパートのヘッダーが大きすぎる場合は、その最初の 1 MB を読みます。ClamAV はメッセージ全体を読みます。これを相殺できるのは `ALLOWLISTED` と `TRUTH_SOURCE` だけです。その他のクレジット（ベイズの ham、SPF、DKIM、DMARC、ARC、言語モデルの ham）はこのメッセージでは何の効果もありません。読まれなかった部分は保証できないからです。
 

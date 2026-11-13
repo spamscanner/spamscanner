@@ -1,4 +1,4 @@
-<!-- source: a7dfb7c0fde2 -->
+<!-- source: ab57fd1d3952 -->
 
 # Funktionsweise
 
@@ -77,6 +77,9 @@ Anhänge werden an ihren Bytes und ihren Namen erkannt, nicht an ihrem angegeben
 * ausführbare Dateien in ZIP-Archiven und verschlüsselte Archive, die Scanner nicht öffnen können
 * Office-Dateien mit Makros, PDFs mit JavaScript oder Launch-Aktionen, RTF-Dateien mit eingebetteten Objekten
 * HTML-Anhänge, mit denen Phishing offline eine gefälschte Anmeldeseite anzeigt
+* einzeln komprimierte Programme, nach ihnen benannt (`invoice.exe.gz`)
+* nach Namen: als Dateien benannte Text- und HTML-Teile sowie der Name im `Content-Type` eines Anhangs, wenn er von seinem Dateinamen abweicht – Mailprogramme zeigen sie als Anhänge
+* nach Namen: jeder Name eines Teils, der sich zweimal benennt (ein `Content-Disposition`- oder `Content-Type`-Feld oder ein Dateiname darin, doppelt angegeben) – Mailprogramme zeigen nicht alle denselben
 * Anhänge angehängter Nachrichten (`message/rfc822`, `.eml`), bis zu drei Ebenen tief und 100 Anhänge (die eigenen Anhänge der Nachricht werden immer alle untersucht)
 
 Mit ClamAV werden Anhänge zusätzlich über den Socket von `clamd` geprüft. Es werden vier gleichzeitig geprüft, alle innerhalb von `clamav.timeout` (60 Sekunden), und die, die nicht geprüft werden konnten, stehen in `results.virusScanErrors`. Die, die größer sind, als clamd annimmt (sein `StreamMaxLength`), stehen stattdessen in `results.virusScanSkipped`: clamd lehnt sie bei jedem Versuch ab.

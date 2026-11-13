@@ -2,6 +2,8 @@ import {Buffer} from 'node:buffer';
 import {createHash} from 'node:crypto';
 import {Readable} from 'node:stream';
 import {MailParser, simpleParser} from 'mailparser';
+import {inspectAttachments} from './attachments.js';
+import {trimEndOf} from './linear.js';
 
 // Address fields, which mailparser (of every MIME part's header) and mailauth
 // (From and Return-Path of the message's header) read with nodemailer's
@@ -247,6 +249,9 @@ const MAX_LINE = 998;
 const MAX_FIELD = 8192;
 const MAX_HEADER = 512 * 1024;
 const MAX_REPEATED = 100;
+// (the parser counts each header line as at least this many characters, so
+//  many short lines are too large as well)
+const MIN_LINE_COST = 64;
 const KEPT_FIELDS = new Set([
 	'from', 'sender', 'reply-to', 'to', 'cc', 'subject', 'date', 'message-id', 'return-path', 'received', 'authentication-results', 'arc-authentication-results', 'dkim-signature', 'mime-version', 'content-type', 'content-transfer-encoding', 'list-unsubscribe', 'list-id',
 ]);
@@ -295,6 +300,129 @@ const MAX_ATTACHED_MESSAGES = 100;
 // that would never settle, or a process that exits with it unsettled.
 export const PARSE_TIMEOUT = 60_000;
 
+const NAMED_TEXT = Symbol('named text parts');
+
+// Files written into a plain text body, uuencoded or yEncoded ("begin 644
+// invoice.exe", "=ybegin line=128 size=1024 name=invoice.exe"), which mail
+// programs show as attachments: their names, the first MAX_ENCODED_FILES of
+// them (each line read once, in linear time).
+// (not across the line separators U+2028 and U+2029, which end a line for
+//  "^" and "$" too: each line would be read again from every one)
+const ENCODED_FILES = /^(?:begin [0-7]{3,4} |=ybegin\b[^\r\n\u2028\u2029]*?\bname=)([^\r\n\u2028\u2029]+)\r?$/gm;
+const MAX_ENCODED_FILES = 1000;
+
+// The kinds of findings of the attachments in each list addFinding adds to.
+const foundIn = new WeakMap();
+
+// Adds an attachment inspected by name to `list` when inspecting it finds a
+// kind of finding none before it did (more of a kind add nothing to the
+// score): so `list` holds one for each kind at most, and names that are
+// harmless, or many of one kind, never take the place of another.
+function addFinding(list, part) {
+	const found = foundIn.get(list) ?? new Set();
+	foundIn.set(list, found);
+	const types = inspectAttachments([part]).map(finding => finding.type);
+	if (types.some(type => !found.has(type))) {
+		list.push(part);
+		for (const type of types) {
+			found.add(type);
+		}
+	}
+}
+
+// The parameters of a header field's value, as written: split at the
+// semicolons outside quoted strings (each character read once).
+function parametersOf(value) {
+	const parameters = [];
+	let start = -1;
+	let quoted = false;
+	for (let i = 0; i < value.length; i++) {
+		if (quoted && value[i] === '\\') {
+			i++;
+		} else if (value[i] === '"') {
+			quoted = !quoted;
+		} else if (value[i] === ';' && !quoted) {
+			if (start !== -1) {
+				parameters.push(value.slice(start, i));
+			}
+
+			start = i + 1;
+		}
+	}
+
+	if (start !== -1) {
+		parameters.push(value.slice(start));
+	}
+
+	return parameters;
+}
+
+// The most header fields of a part, and parameters of one, read for names.
+const MAX_NAME_FIELDS = 8;
+const MAX_NAME_PARAMETERS = 32;
+
+/**
+ * The names a part gives itself more than once: by a Content-Disposition or
+ * Content-Type field that is there twice, or a "filename" or "name" parameter
+ * given twice in one (which no mail program writes). Mail programs differ in
+ * which they show, and mailparser reads one (the first or the last, by its
+ * version), so each is a name the part may go by. None for a part that names
+ * itself once.
+ * @param {object} node - a part, as mailsplit read it
+ * @returns {string[]}
+ */
+function repeatedNames(node) {
+	const names = [];
+	const {headers, libmime} = node ?? {};
+	if (typeof headers?.get !== 'function' || typeof libmime?.parseHeaderValue !== 'function') {
+		return names;
+	}
+
+	// (a value that cannot be read names nothing)
+	const read = (value, parameter) => {
+		let name = '';
+		try {
+			name = libmime.decodeWords(String(libmime.parseHeaderValue(value, {stripComments: true}).params[parameter] ?? '')).trim();
+		} catch {}
+
+		if (name !== '') {
+			names.push(name);
+		}
+	};
+
+	for (const [field, parameter] of [['content-disposition', 'filename'], ['content-type', 'name']]) {
+		const values = headers.get(field).slice(0, MAX_NAME_FIELDS);
+		for (const value of values) {
+			// (the key of each parameter as written, "filename*0" apart from
+			//  "filename": the pieces of one name are not names of their own)
+			const parameters = parametersOf(value).slice(0, MAX_NAME_PARAMETERS).map(text => ({text, key: text.slice(0, Math.max(0, text.indexOf('='))).trim().toLowerCase()}));
+			const repeated = parameters.filter(({key}) => (key === parameter || key.startsWith(`${parameter}*`)) && parameters.filter(other => other.key === key).length > 1);
+			if (values.length > 1) {
+				read(value, parameter);
+			}
+
+			for (const {text} of repeated) {
+				read(`x;${text}`, text.slice(0, text.indexOf('=')).trim().toLowerCase().replace(/\*.*$/, ''));
+			}
+		}
+	}
+
+	return names;
+}
+
+/**
+ * A parsed message's plain text and HTML parts named as files (by a file name
+ * or a name), and the files uuencoded or yEncoded into its text, which mail
+ * programs list as attachments while mailparser reads them as the body, as attachments without content: {filename, contentType,
+ * content: null}. Only those inspecting by name finds a kind of finding in
+ * that none before them did (see addFinding).
+ * @param {object} mail - as simpleParse parsed it
+ * @returns {Array<{filename: string, contentType: string, content: null}>}
+ */
+export function namedTextParts(mail) {
+	return mail[NAMED_TEXT] ?? [];
+}
+
 /**
  * The simpleParser of mailparser on a message it can finish (see finishable),
  * settled within `timeout`: a parse that has not settled by then is stopped
@@ -317,15 +445,36 @@ export async function simpleParse(raw, {timeout = PARSE_TIMEOUT, parser = simple
 	//  mailsplit it uses, which splits a line at a time: with what it read so
 	//  far, or never, as a parse that never finishes. Node.js 18 gets 3.9.21
 	//  at most.)
+	// (and records the text parts named as files: see namedTextParts)
+	const named = [];
 	const {pipe} = input;
 	input.pipe = function (parser, options) {
 		parser.splitter?.on('error', error => input.destroy(error));
+		const {createNode} = parser;
+		if (typeof createNode === 'function') {
+			parser.createNode = function (node) {
+				const created = createNode.call(this, node);
+				if (created?.isAttachment === false && node?.filename) {
+					addFinding(named, {filename: String(node.filename), contentType: created.contentType, content: null});
+				}
+
+				// (and by every name a part gives itself twice: see repeatedNames)
+				for (const filename of repeatedNames(node)) {
+					if (filename !== node?.filename) {
+						addFinding(named, {filename, contentType: created?.contentType || 'application/octet-stream', content: null});
+					}
+				}
+
+				return created;
+			};
+		}
+
 		return pipe.call(this, parser, options);
 	};
 
 	let timer;
 	try {
-		return await Promise.race([
+		const mail = await Promise.race([
 			parser(input, PARSER_OPTIONS),
 			new Promise((resolve, reject) => {
 				timer = setTimeout(() => {
@@ -335,6 +484,20 @@ export async function simpleParse(raw, {timeout = PARSE_TIMEOUT, parser = simple
 				}, timeout);
 			}),
 		]);
+		if (mail && typeof mail === 'object') {
+			// (and files written into its text, which mailparser leaves there)
+			let count = 0;
+			for (const [, filename] of String(mail.text ?? '').matchAll(ENCODED_FILES)) {
+				addFinding(named, {filename: filename.trim(), contentType: 'application/octet-stream', content: null});
+				if (++count >= MAX_ENCODED_FILES) {
+					break;
+				}
+			}
+
+			Object.defineProperty(mail, NAMED_TEXT, {value: named});
+		}
+
+		return mail;
 	} finally {
 		clearTimeout(timer);
 		input.destroy();
@@ -532,6 +695,11 @@ export function unfoldHeaders(raw) {
 	return Buffer.concat(chunks);
 }
 
+// What a header line counts for against the parser's limit.
+function lineCost(line) {
+	return Math.max(line.length, MIN_LINE_COST);
+}
+
 // The message up to the start of the line at `offset` or before it.
 function upToLine(raw, offset) {
 	return raw.subarray(0, Math.max(raw.lastIndexOf(0x0A, offset - 1) + 1, 0));
@@ -570,16 +738,16 @@ function smallerHeader(raw) {
 		const whole = text.slice(start, stop).replace(/\r$/, '');
 		if (last && (whole.startsWith(' ') || whole.startsWith('\t'))) {
 			const line = last.address ? whole : whole.slice(0, MAX_LINE);
-			if (last.address || last.size + line.length <= MAX_FIELD) {
+			if (last.address || last.size + lineCost(line) <= MAX_FIELD) {
 				last.lines.push(line);
-				last.size += line.length;
+				last.size += lineCost(line);
 			}
 		} else {
 			const name = whole.slice(0, whole.indexOf(':')).trim().toLowerCase();
 			const address = ADDRESS_FIELDS.has(name) || name.startsWith('list-');
 			const line = address ? whole : whole.slice(0, MAX_LINE);
 			fields.push({
-				name, address, lines: [line], size: line.length,
+				name, address, lines: [line], size: lineCost(line),
 			});
 		}
 
@@ -592,7 +760,7 @@ function smallerHeader(raw) {
 		const bounded = boundAddressField(line, Number.POSITIVE_INFINITY);
 		fromCut ||= field.name === 'from' && bounded !== line;
 		field.lines = [bounded];
-		field.size = bounded.length;
+		field.size = lineCost(bounded);
 	}
 
 	const total = fields.reduce((sum, field) => sum + field.size, 0);
@@ -647,7 +815,9 @@ export async function parseWithin(raw, parse = parseMessage, deadline = Date.now
 				shorter = fewerParts(input);
 			} else if (limit === HEADER_TOO_LARGE) {
 				const smaller = smallerHeader(input);
-				shorter = smaller.raw.length < input.length ? smaller.raw : upToLine(input, MAX_PREFIX_BYTES);
+				// (or its first megabyte, or its first half when it is no longer,
+				//  so each try reads less)
+				shorter = smaller.raw.length < input.length ? smaller.raw : upToLine(input, input.length > MAX_PREFIX_BYTES ? MAX_PREFIX_BYTES : Math.floor(input.length / 2));
 				fromCut ||= smaller.raw === shorter && smaller.fromCut;
 			}
 
@@ -674,10 +844,22 @@ export async function parseWithin(raw, parse = parseMessage, deadline = Date.now
  */
 // (`unopened`: gets the attached messages not opened, past the limits above,
 //  as {filename, reason}, whose attachments were not inspected; `mails`:
-//  gets the attached messages opened, as mailparser parsed them; or an array,
-//  `unopened`)
+//  gets the attached messages opened, as mailparser parsed them; `named`:
+//  gets their namedTextParts, named as their attachments are, and the other
+//  names attachments give in their Content-Type, without content; or an
+//  array, `unopened`)
 export async function expandAttachments(attachments = [], errors = [], parse = parseMessage, gets = {}) {
-	const {unopened = [], mails = []} = Array.isArray(gets) ? {unopened: gets} : (gets ?? {});
+	const {unopened = [], mails = [], named = []} = Array.isArray(gets) ? {unopened: gets} : (gets ?? {});
+	// (those inspection finds a kind of finding in that none before them did,
+	//  see addFinding)
+	const addNamed = (...parts) => {
+		for (const part of parts) {
+			addFinding(named, part);
+		}
+	};
+
+	// (as Windows saves a file: case, and dots and spaces at its end, left out)
+	const nameOf = value => trimEndOf(String(value ?? '').trim().toLowerCase(), '. ');
 	const all = [];
 	// (one time limit for all of them)
 	const deadline = Date.now() + PARSE_TIMEOUT;
@@ -704,6 +886,13 @@ export async function expandAttachments(attachments = [], errors = [], parse = p
 			const name = attachment.filename || (prefix ? 'unnamed attachment' : '');
 			const filename = prefix ? `${prefix}/${name}` : (name || 'attached message');
 			all.push(prefix ? {...attachment, filename: `${prefix}/${name}`} : attachment);
+			// (and the name its Content-Type gives, when another, which some
+			//  mail programs show: in `named`, inspected by name)
+			const typeName = String(attachment.headers?.get?.('content-type')?.params?.name ?? '').trim();
+			if (typeName && nameOf(typeName) !== nameOf(attachment.filename)) {
+				addNamed({filename: prefix ? `${prefix}/${typeName}` : typeName, contentType: attachment.contentType, content: null});
+			}
+
 			const {content} = attachment;
 			const attached = isAttachedMessage(attachment);
 			if (attached && Buffer.isBuffer(content) && depth >= MAX_NESTED_DEPTH) {
@@ -739,9 +928,11 @@ export async function expandAttachments(attachments = [], errors = [], parse = p
 				}
 
 				mails.push(inner.mail);
+				const carrier = prefix ? `${prefix}/${name}` : (name || 'attached message');
+				addNamed(...namedTextParts(inner.mail).map(part => ({...part, filename: `${carrier}/${part.filename}`})));
 
 				// eslint-disable-next-line no-await-in-loop
-				await visit(inner.mail.attachments, prefix ? `${prefix}/${name}` : (name || 'attached message'), depth + 1);
+				await visit(inner.mail.attachments, carrier, depth + 1);
 			}
 		}
 	};

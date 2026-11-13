@@ -1,4 +1,4 @@
-<!-- source: a7dfb7c0fde2 -->
+<!-- source: ab57fd1d3952 -->
 
 # Jak to działa
 
@@ -77,6 +77,9 @@ Załączniki są rozpoznawane po bajtach i nazwach, a nie po deklarowanych typac
 * pliki wykonywalne w archiwach ZIP oraz zaszyfrowane archiwa, których skanery nie mogą otworzyć
 * pliki Office z makrami, pliki PDF z JavaScript lub akcjami uruchamiania, pliki RTF z osadzonymi obiektami
 * załączniki HTML, których phishing używa, by offline pokazać fałszywą stronę logowania
+* programy skompresowane osobno, nazwane od nich (`invoice.exe.gz`)
+* po nazwie: części tekstowe i HTML nazwane jak pliki oraz nazwa w nagłówku `Content-Type` załącznika, gdy różni się od nazwy pliku – programy pocztowe pokazują je jako załączniki
+* po nazwie: każda nazwa części, która nazywa się dwukrotnie (pole `Content-Disposition` lub `Content-Type` albo nazwa pliku w nim, podane dwa razy) – programy pocztowe nie pokazują wszystkie tej samej
 * załączniki załączonych wiadomości (`message/rfc822`, `.eml`), do trzech poziomów w głąb i do 100 załączników (własne załączniki wiadomości są zawsze sprawdzane wszystkie)
 
 Z ClamAV załączniki są też skanowane przez `clamd` przez jego gniazdo. Skanowane są cztery naraz, wszystkie w ramach `clamav.timeout` (60 sekund), a te, których nie dało się przeskanować, są wymienione w `results.virusScanErrors`. Te, które są większe, niż clamd przyjmuje (jego `StreamMaxLength`), są zamiast tego wymienione w `results.virusScanSkipped`: clamd odrzuca je przy każdej próbie.

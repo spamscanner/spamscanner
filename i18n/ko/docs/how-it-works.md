@@ -1,4 +1,4 @@
-<!-- source: a7dfb7c0fde2 -->
+<!-- source: ab57fd1d3952 -->
 
 # 작동 방식
 
@@ -77,6 +77,9 @@ Spam Scanner는 단어 세기에서 효과가 있는 부분, 즉 통계는 그�
 * ZIP 압축 파일 안의 실행 파일, 그리고 검사기가 열 수 없는 암호화된 압축 파일
 * 매크로가 있는 Office 파일, JavaScript나 실행 동작이 있는 PDF, 개체가 포함된 RTF 파일
 * HTML 첨부 파일(피싱에서 오프라인으로 가짜 로그인 페이지를 보여 주는 데 쓰입니다)
+* 단독으로 압축되고 원래 이름이 붙은 프로그램(`invoice.exe.gz`)
+* 이름으로: 파일 이름이 붙은 일반 텍스트와 HTML 파트, 그리고 첨부 파일의 `Content-Type` 이름이 파일 이름과 다를 때의 그 이름(메일 프로그램은 이를 첨부 파일로 표시합니다)
+* 이름으로: 자신의 이름을 두 번 지정한 파트의 각 이름(`Content-Disposition` 또는 `Content-Type` 필드나 그 안의 파일 이름이 두 번 쓰인 경우. 어느 것을 표시하는지는 메일 프로그램마다 다릅니다)
 * 첨부된 메시지(`message/rfc822`, `.eml`)의 첨부 파일, 세 단계 깊이까지 최대 100개(메시지 자체의 첨부 파일은 항상 모두 검사합니다)
 
 ClamAV를 사용하면 소켓을 통해 `clamd`로도 첨부 파일을 검사합니다. 한 번에 4개씩, 모두 `clamav.timeout`(60초) 안에 검사하며, 검사하지 못한 것은 `results.virusScanErrors`에 나열됩니다. clamd가 받아들이는 크기(clamd의 `StreamMaxLength`)보다 큰 것은 대신 `results.virusScanSkipped`에 나열됩니다. clamd는 이런 파일을 몇 번을 시도해도 거부합니다.

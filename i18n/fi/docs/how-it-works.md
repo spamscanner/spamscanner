@@ -1,4 +1,4 @@
-<!-- source: a7dfb7c0fde2 -->
+<!-- source: ab57fd1d3952 -->
 
 # Miten se toimii
 
@@ -77,6 +77,9 @@ Liitteet tunnistetaan niiden tavuista ja nimistä, ei ilmoitetuista tyypeistä:
 * ZIP-arkistojen sisällä olevat suoritettavat tiedostot sekä salatut arkistot, joita tarkistimet eivät voi avata
 * Office-tiedostot, joissa on makroja, PDF:t, joissa on JavaScriptiä tai käynnistystoimintoja, RTF-tiedostot, joissa on upotettuja objekteja
 * HTML-liitteet, joilla tietojenkalastelijat näyttävät väärennetyn kirjautumissivun ilman verkkoyhteyttä
+* yksinään pakatut ohjelmat, nimettyinä niiden mukaan (`invoice.exe.gz`)
+* nimen perusteella: tiedostoiksi nimetyt teksti- ja HTML-osat sekä liitteen `Content-Type`-otsakkeen nimi, kun se eroaa tiedostonimestä – sähköpostiohjelmat näyttävät ne liitteinä
+* nimen perusteella: jokainen nimi osasta, joka nimeää itsensä kahdesti (`Content-Disposition`- tai `Content-Type`-kenttä tai tiedostonimi sellaisessa kahteen kertaan) – sähköpostiohjelmat eivät kaikki näytä samaa
 * liitettyjen viestien (`message/rfc822`, `.eml`) liitteet, enintään kolmen tason syvyyteen ja 100 liitteeseen asti (viestin omat liitteet tarkastetaan aina kaikki)
 
 ClamAV:n kanssa liitteet tarkistetaan myös `clamd`:llä sen socketin kautta. Neljä tarkistetaan kerrallaan, kaikki `clamav.timeout`-ajan (60 sekuntia) kuluessa, ja ne, joita ei voitu tarkistaa, luetellaan kohdassa `results.virusScanErrors`. Ne, jotka ovat suurempia kuin clamd hyväksyy (sen `StreamMaxLength`), luetellaan sen sijaan kohdassa `results.virusScanSkipped`: clamd hylkää ne joka yrityksellä.

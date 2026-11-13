@@ -1,4 +1,4 @@
-<!-- source: 9a190e0ae31e -->
+<!-- source: 929ac4bf99d9 -->
 
 # Testler ve puanlar
 
@@ -38,14 +38,14 @@ Metinde yalnızca adı geçen, bağlantı verilmemiş alan adları da benzerlik 
 | `DISGUISED_EXECUTABLE`  |       12 | `disguisedExecutable`                    | Belge veya görüntü gibi adlandırılmış bir program                                                                                                  |
 | `DOUBLE_EXTENSION`      |        6 | `doubleExtension`                        | `invoice.pdf.exe` gibi bir ad                                                                                                                      |
 | `RTL_OVERRIDE_FILENAME` |        6 | `rtlOverride`                            | Sağdan sola geçersiz kılma karakteri gerçek uzantıyı gizliyor                                                                                      |
-| `EXECUTABLE_IN_ARCHIVE` |        8 | `executableInArchive`                    | Bir ZIP dosyasının içinde bir program                                                                                                              |
-| `SCRIPT_IN_ARCHIVE`     |        3 | `scriptInArchive`                        | Bir ZIP dosyasında betikler (JavaScript, Python, kabuk, Perl) var, başka program yok                                                               |
+| `EXECUTABLE_IN_ARCHIVE` |        8 | `executableInArchive`                    | Bir ZIP dosyasının içinde bir program; tek başına sıkıştırılmış ve bir programın adını taşıyan bir dosya da (`invoice.exe.gz`)                     |
+| `SCRIPT_IN_ARCHIVE`     |        3 | `scriptInArchive`                        | Bir ZIP dosyasında betikler (JavaScript, Python, kabuk, Perl) var, başka program yok; tek başına sıkıştırılmış bir betik de (`build.sh.xz`)        |
 | `RISKY_ATTACHMENT_TYPE` |        2 | `riskyAttachment`                        | Outlook'un engellediği bir sertifika, İnternet kısayolu, tema veya veri dosyası (`.cer`, `.url`, `.tmp`)                                           |
 | `ENCRYPTED_ARCHIVE`     |        2 | `encryptedArchive`                       | Tarayıcıların açamadığı bir arşiv                                                                                                                  |
 | `MACRO_ATTACHMENT`      |        4 | `macro`                                  | Makro içeren bir Office dosyası                                                                                                                    |
 | `PDF_ACTIVE_CONTENT`    |        3 | `pdfActive`                              | JavaScript veya başlatma eylemleri içeren bir PDF                                                                                                  |
 | `RTF_EMBEDDED_OBJECT`   |        4 | `rtfObject`                              | Gömülü nesneler içeren bir RTF dosyası                                                                                                             |
-| `HTML_ATTACHMENT`       | 1 veya 3 | `htmlAttachment`, `activeHtmlAttachment` | Bir HTML dosyası; betik veya form içeriyorsa 3                                                                                                     |
+| `HTML_ATTACHMENT`       | 1 veya 3 | `htmlAttachment`, `activeHtmlAttachment` | Bir HTML dosyası; betik veya form içeriyorsa 3; bu şekilde adlandırılmış bir bölüm de                                                              |
 | `VIRUS`                 |      100 | `virus`                                  | ClamAV bir virüs buldu                                                                                                                             |
 | `MIME_TOO_COMPLEX`      |        6 | `mimeTooComplex`                         | 1000'den fazla MIME parçası ya da 1 MB'tan büyük bir parça başlığı, ekli bir iletide de, ya da okunamayan ekli bir ileti; sonraki parçalar okunmaz |
 

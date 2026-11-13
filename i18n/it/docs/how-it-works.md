@@ -1,4 +1,4 @@
-<!-- source: a7dfb7c0fde2 -->
+<!-- source: ab57fd1d3952 -->
 
 # Come funziona
 
@@ -77,6 +77,9 @@ Gli allegati vengono identificati dai loro byte e dai loro nomi, non dai tipi di
 * eseguibili dentro archivi ZIP, e archivi cifrati che gli scanner non possono aprire
 * file Office con macro, PDF con JavaScript o azioni di avvio, file RTF con oggetti incorporati
 * allegati HTML, che il phishing usa per mostrare una falsa pagina di accesso offline
+* programmi compressi da soli, con il loro nome (`invoice.exe.gz`)
+* per nome, le parti di testo e HTML con un nome di file, e il nome nel `Content-Type` di un allegato quando è diverso dal nome del file: i programmi di posta li mostrano come allegati
+* per nome, ogni nome di una parte che si nomina due volte (un campo `Content-Disposition` o `Content-Type`, o un nome di file al suo interno, ripetuto): i programmi di posta non mostrano tutti lo stesso
 * gli allegati dei messaggi allegati (`message/rfc822`, `.eml`), fino a tre livelli di profondità e 100 allegati (gli allegati del messaggio stesso vengono sempre ispezionati tutti)
 
 Con ClamAV, gli allegati vengono anche analizzati con `clamd` tramite il suo socket. Ne vengono analizzati quattro alla volta, tutti entro `clamav.timeout` (60 secondi), e quelli che non è stato possibile analizzare sono elencati in `results.virusScanErrors`. Quelli più grandi di quanto clamd accetti (il suo `StreamMaxLength`) sono invece elencati in `results.virusScanSkipped`: clamd li rifiuta a ogni tentativo.

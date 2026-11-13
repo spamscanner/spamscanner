@@ -1,4 +1,4 @@
-<!-- source: 9a190e0ae31e -->
+<!-- source: 929ac4bf99d9 -->
 
 # Tester och poäng
 
@@ -38,14 +38,14 @@ Domäner som bara nämns i texten, utan länk, kontrolleras också för förväx
 | `DISGUISED_EXECUTABLE`  |        12 | `disguisedExecutable`                    | Ett program med namn som ett dokument eller en bild                                                                                                           |
 | `DOUBLE_EXTENSION`      |         6 | `doubleExtension`                        | Ett namn som `invoice.pdf.exe`                                                                                                                                |
 | `RTL_OVERRIDE_FILENAME` |         6 | `rtlOverride`                            | En höger-till-vänster-åsidosättning döljer den verkliga filändelsen                                                                                           |
-| `EXECUTABLE_IN_ARCHIVE` |         8 | `executableInArchive`                    | Ett program i en ZIP-fil                                                                                                                                      |
-| `SCRIPT_IN_ARCHIVE`     |         3 | `scriptInArchive`                        | Skript (JavaScript, Python, skal, Perl) och inga andra program i en ZIP-fil                                                                                   |
+| `EXECUTABLE_IN_ARCHIVE` |         8 | `executableInArchive`                    | Ett program i en ZIP-fil; även en fil som komprimerats ensam och fått namn efter ett program (`invoice.exe.gz`)                                               |
+| `SCRIPT_IN_ARCHIVE`     |         3 | `scriptInArchive`                        | Skript (JavaScript, Python, skal, Perl) och inga andra program i en ZIP-fil; även ett skript som komprimerats ensamt (`build.sh.xz`)                          |
 | `RISKY_ATTACHMENT_TYPE` |         2 | `riskyAttachment`                        | Ett certifikat, en Internetgenväg, ett tema eller en datafil som Outlook blockerar (`.cer`, `.url`, `.tmp`)                                                   |
 | `ENCRYPTED_ARCHIVE`     |         2 | `encryptedArchive`                       | Ett arkiv som skannrar inte kan öppna                                                                                                                         |
 | `MACRO_ATTACHMENT`      |         4 | `macro`                                  | En Office-fil med makron                                                                                                                                      |
 | `PDF_ACTIVE_CONTENT`    |         3 | `pdfActive`                              | En PDF med JavaScript eller startåtgärder                                                                                                                     |
 | `RTF_EMBEDDED_OBJECT`   |         4 | `rtfObject`                              | En RTF-fil med inbäddade objekt                                                                                                                               |
-| `HTML_ATTACHMENT`       | 1 eller 3 | `htmlAttachment`, `activeHtmlAttachment` | En HTML-fil; 3 när den har skript eller formulär                                                                                                              |
+| `HTML_ATTACHMENT`       | 1 eller 3 | `htmlAttachment`, `activeHtmlAttachment` | En HTML-fil; 3 när den har skript eller formulär; även en del med ett sådant namn                                                                             |
 | `VIRUS`                 |       100 | `virus`                                  | ClamAV hittade ett virus                                                                                                                                      |
 | `MIME_TOO_COMPLEX`      |         6 | `mimeTooComplex`                         | Över 1000 MIME-delar, eller en dels header över 1 MB, även i ett bifogat meddelande, eller ett bifogat meddelande som inte kan läsas; senare delar läses inte |
 

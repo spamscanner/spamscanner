@@ -1,4 +1,4 @@
-<!-- source: 9a190e0ae31e -->
+<!-- source: 929ac4bf99d9 -->
 
 # Testit ja pisteet
 
@@ -38,14 +38,14 @@ Myös vain tekstissä mainitut, linkittämättömät verkkotunnukset tarkistetaa
 | `DISGUISED_EXECUTABLE`  |      12 | `disguisedExecutable`                    | Ohjelma, joka on nimetty kuin asiakirja tai kuva                                                                                          |
 | `DOUBLE_EXTENSION`      |       6 | `doubleExtension`                        | Nimi kuten `invoice.pdf.exe`                                                                                                              |
 | `RTL_OVERRIDE_FILENAME` |       6 | `rtlOverride`                            | Oikealta vasemmalle -ohitusmerkki piilottaa todellisen päätteen                                                                           |
-| `EXECUTABLE_IN_ARCHIVE` |       8 | `executableInArchive`                    | Ohjelma ZIP-tiedoston sisällä                                                                                                             |
-| `SCRIPT_IN_ARCHIVE`     |       3 | `scriptInArchive`                        | Skriptejä (JavaScript, Python, shell, Perl) eikä muita ohjelmia ZIP-tiedostossa                                                           |
+| `EXECUTABLE_IN_ARCHIVE` |       8 | `executableInArchive`                    | Ohjelma ZIP-tiedoston sisällä; myös yksinään pakattu tiedosto, joka on nimetty ohjelman mukaan (`invoice.exe.gz`)                         |
+| `SCRIPT_IN_ARCHIVE`     |       3 | `scriptInArchive`                        | Skriptejä (JavaScript, Python, shell, Perl) eikä muita ohjelmia ZIP-tiedostossa; myös yksinään pakattu skripti (`build.sh.xz`)            |
 | `RISKY_ATTACHMENT_TYPE` |       2 | `riskyAttachment`                        | Varmenne, Internet-pikakuvake, teema tai datatiedosto, jonka Outlook estää (`.cer`, `.url`, `.tmp`)                                       |
 | `ENCRYPTED_ARCHIVE`     |       2 | `encryptedArchive`                       | Arkisto, jota tarkistimet eivät voi avata                                                                                                 |
 | `MACRO_ATTACHMENT`      |       4 | `macro`                                  | Office-tiedosto, jossa on makroja                                                                                                         |
 | `PDF_ACTIVE_CONTENT`    |       3 | `pdfActive`                              | PDF, jossa on JavaScriptiä tai käynnistystoimintoja                                                                                       |
 | `RTF_EMBEDDED_OBJECT`   |       4 | `rtfObject`                              | RTF-tiedosto, jossa on upotettuja objekteja                                                                                               |
-| `HTML_ATTACHMENT`       | 1 tai 3 | `htmlAttachment`, `activeHtmlAttachment` | HTML-tiedosto; 3, kun siinä on skriptejä tai lomakkeita                                                                                   |
+| `HTML_ATTACHMENT`       | 1 tai 3 | `htmlAttachment`, `activeHtmlAttachment` | HTML-tiedosto; 3, kun siinä on skriptejä tai lomakkeita; myös näin nimetty osa                                                            |
 | `VIRUS`                 |     100 | `virus`                                  | ClamAV löysi viruksen                                                                                                                     |
 | `MIME_TOO_COMPLEX`      |       6 | `mimeTooComplex`                         | Yli 1000 MIME-osaa tai yli 1 Mt:n osan otsake, myös liitetyssä viestissä, tai liitetty viesti, jota ei voi lukea; myöhempiä osia ei lueta |
 

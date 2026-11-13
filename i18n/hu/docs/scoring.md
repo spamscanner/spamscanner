@@ -1,4 +1,4 @@
-<!-- source: 9a190e0ae31e -->
+<!-- source: 929ac4bf99d9 -->
 
 # Tesztek és pontszámok
 
@@ -38,14 +38,14 @@ A csak a szövegben említett, nem hivatkozott domaineket is ellenőrzi hasonmá
 | `DISGUISED_EXECUTABLE`  |       12 | `disguisedExecutable`                    | Dokumentumnak vagy képnek elnevezett program                                                                                                        |
 | `DOUBLE_EXTENSION`      |        6 | `doubleExtension`                        | Olyan név, mint az `invoice.pdf.exe`                                                                                                                |
 | `RTL_OVERRIDE_FILENAME` |        6 | `rtlOverride`                            | Egy jobbról balra író felülíró karakter elrejti a valódi kiterjesztést                                                                              |
-| `EXECUTABLE_IN_ARCHIVE` |        8 | `executableInArchive`                    | Program egy ZIP-fájlban                                                                                                                             |
-| `SCRIPT_IN_ARCHIVE`     |        3 | `scriptInArchive`                        | Szkriptek (JavaScript, Python, shell, Perl), más program nélkül egy ZIP-fájlban                                                                     |
+| `EXECUTABLE_IN_ARCHIVE` |        8 | `executableInArchive`                    | Program egy ZIP-fájlban; egy önmagában tömörített, programról elnevezett fájl is (`invoice.exe.gz`)                                                 |
+| `SCRIPT_IN_ARCHIVE`     |        3 | `scriptInArchive`                        | Szkriptek (JavaScript, Python, shell, Perl), más program nélkül egy ZIP-fájlban; egy önmagában tömörített szkript is (`build.sh.xz`)                |
 | `RISKY_ATTACHMENT_TYPE` |        2 | `riskyAttachment`                        | Tanúsítvány, internetes parancsikon, téma vagy adatfájl, amelyet az Outlook letilt (`.cer`, `.url`, `.tmp`)                                         |
 | `ENCRYPTED_ARCHIVE`     |        2 | `encryptedArchive`                       | A vírusirtók által meg nem nyitható archívum                                                                                                        |
 | `MACRO_ATTACHMENT`      |        4 | `macro`                                  | Makrókat tartalmazó Office-fájl                                                                                                                     |
 | `PDF_ACTIVE_CONTENT`    |        3 | `pdfActive`                              | JavaScriptet vagy indítási műveletet tartalmazó PDF                                                                                                 |
 | `RTF_EMBEDDED_OBJECT`   |        4 | `rtfObject`                              | Beágyazott objektumokat tartalmazó RTF-fájl                                                                                                         |
-| `HTML_ATTACHMENT`       | 1 vagy 3 | `htmlAttachment`, `activeHtmlAttachment` | HTML-fájl; 3, ha szkripteket vagy űrlapokat tartalmaz                                                                                               |
+| `HTML_ATTACHMENT`       | 1 vagy 3 | `htmlAttachment`, `activeHtmlAttachment` | HTML-fájl; 3, ha szkripteket vagy űrlapokat tartalmaz; egy így elnevezett rész is                                                                   |
 | `VIRUS`                 |      100 | `virus`                                  | A ClamAV vírust talált                                                                                                                              |
 | `MIME_TOO_COMPLEX`      |        6 | `mimeTooComplex`                         | Több mint 1000 MIME-rész, vagy 1 MB-nál nagyobb részfejléc, csatolt üzenetben is, vagy olvashatatlan csatolt üzenet; a későbbi részeket nem olvassa |
 

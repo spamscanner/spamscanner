@@ -1,4 +1,4 @@
-<!-- source: a7dfb7c0fde2 -->
+<!-- source: ab57fd1d3952 -->
 
 # Sådan virker det
 
@@ -77,6 +77,9 @@ Vedhæftninger genkendes ud fra deres bytes og deres navne, ikke deres angivne t
 * programfiler i ZIP-arkiver og krypterede arkiver, som scannere ikke kan åbne
 * Office-filer med makroer, PDF'er med JavaScript eller starthandlinger, RTF-filer med indlejrede objekter
 * HTML-vedhæftninger, som phishing bruger til at vise en falsk login-side offline
+* programmer komprimeret alene, opkaldt efter dem selv (`invoice.exe.gz`)
+* efter navn: tekst- og HTML-dele med filnavne, og navnet i en vedhæftet fils `Content-Type`, når det afviger fra filnavnet – mailprogrammer viser dem som vedhæftede filer
+* efter navn: hvert navn på en del, der navngiver sig selv to gange (et `Content-Disposition`- eller `Content-Type`-felt, eller et filnavn i et, angivet to gange) – mailprogrammer viser ikke alle det samme
 * vedhæftninger i vedhæftede beskeder (`message/rfc822`, `.eml`), op til tre niveauer dybt og 100 vedhæftninger (beskedens egne vedhæftninger undersøges altid alle)
 
 Med ClamAV scannes vedhæftede filer også med `clamd` via dens socket. Fire scannes ad gangen, alle inden for `clamav.timeout` (60 sekunder), og dem, der ikke kunne scannes, vises i `results.virusScanErrors`. Dem, der er større, end clamd accepterer (dens `StreamMaxLength`), vises i stedet i `results.virusScanSkipped`: clamd afviser dem ved hvert forsøg.

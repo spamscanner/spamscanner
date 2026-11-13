@@ -1,4 +1,4 @@
-<!-- source: a7dfb7c0fde2 -->
+<!-- source: ab57fd1d3952 -->
 
 # Fonctionnement
 
@@ -77,6 +77,9 @@ Les pièces jointes sont identifiées par leurs octets et leurs noms, non par le
 * exécutables dans des archives ZIP, et archives chiffrées que les antivirus ne peuvent pas ouvrir
 * fichiers Office contenant des macros, PDF contenant du JavaScript ou des actions de lancement, fichiers RTF contenant des objets incorporés
 * pièces jointes HTML, que l’hameçonnage utilise pour afficher hors ligne une fausse page de connexion
+* les programmes compressés seuls, nommés d'après eux (`invoice.exe.gz`)
+* par leur nom, les parties texte et HTML nommées comme des fichiers, et le nom dans le `Content-Type` d'une pièce jointe quand il diffère de son nom de fichier : les logiciels de messagerie les affichent comme des pièces jointes
+* par leur nom, chaque nom d'une partie qui se nomme deux fois (un champ `Content-Disposition` ou `Content-Type`, ou un nom de fichier dans l'un d'eux, donné deux fois) : les logiciels de messagerie n'affichent pas tous le même
 * les pièces jointes des messages joints (`message/rfc822`, `.eml`), jusqu'à trois niveaux de profondeur et 100 pièces jointes (les pièces jointes du message lui-même sont toujours toutes inspectées)
 
 Avec ClamAV, les pièces jointes sont aussi analysées par `clamd` via son socket. Quatre sont analysées à la fois, toutes dans le délai `clamav.timeout` (60 secondes), et celles qui n'ont pas pu l'être sont listées dans `results.virusScanErrors`. Celles qui sont plus grandes que ce qu’accepte clamd (son `StreamMaxLength`) sont listées à la place dans `results.virusScanSkipped` : clamd les refuse à chaque tentative.

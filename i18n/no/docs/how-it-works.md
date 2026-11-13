@@ -1,4 +1,4 @@
-<!-- source: a7dfb7c0fde2 -->
+<!-- source: ab57fd1d3952 -->
 
 # Slik virker det
 
@@ -77,6 +77,9 @@ Vedlegg gjenkjennes ut fra bytene og navnene sine, ikke de oppgitte typene:
 * kjørbare filer i ZIP-arkiver, og krypterte arkiver som skannere ikke kan åpne
 * Office-filer med makroer, PDF-er med JavaScript eller starthandlinger, RTF-filer med innebygde objekter
 * HTML-vedlegg, som phishing bruker til å vise en falsk innloggingsside uten nett
+* programmer komprimert alene, oppkalt etter seg selv (`invoice.exe.gz`)
+* etter navn: tekst- og HTML-deler med filnavn, og navnet i et vedleggs `Content-Type` når det avviker fra filnavnet – e-postprogrammer viser dem som vedlegg
+* etter navn: hvert navn på en del som navngir seg selv to ganger (et `Content-Disposition`- eller `Content-Type`-felt, eller et filnavn i et, oppgitt to ganger) – e-postprogrammer viser ikke alle det samme
 * vedlegg i vedlagte meldinger (`message/rfc822`, `.eml`), opptil tre nivåer dypt og 100 vedlegg (meldingens egne vedlegg undersøkes alltid alle)
 
 Med ClamAV skannes vedlegg også med `clamd` over socketen. Fire skannes om gangen, alle innenfor `clamav.timeout` (60 sekunder), og de som ikke kunne skannes, står i `results.virusScanErrors`. De som er større enn clamd godtar (dens `StreamMaxLength`), står i stedet i `results.virusScanSkipped`: clamd avviser dem ved hvert forsøk.

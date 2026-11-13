@@ -1,4 +1,4 @@
-<!-- source: 9a190e0ae31e -->
+<!-- source: 929ac4bf99d9 -->
 
 # الاختبارات والدرجات
 
@@ -38,14 +38,14 @@
 | `DISGUISED_EXECUTABLE`  |     12 | `disguisedExecutable`                    | برنامج مسمّى كمستند أو صورة                                                                                                   |
 | `DOUBLE_EXTENSION`      |      6 | `doubleExtension`                        | اسم مثل `invoice.pdf.exe`                                                                                                     |
 | `RTL_OVERRIDE_FILENAME` |      6 | `rtlOverride`                            | محرف تجاوز من اليمين إلى اليسار يخفي الامتداد الحقيقي                                                                         |
-| `EXECUTABLE_IN_ARCHIVE` |      8 | `executableInArchive`                    | برنامج داخل ملف ZIP                                                                                                           |
-| `SCRIPT_IN_ARCHIVE`     |      3 | `scriptInArchive`                        | سكربتات (JavaScript وPython وshell وPerl) ولا برامج أخرى داخل ملف ZIP                                                         |
+| `EXECUTABLE_IN_ARCHIVE` |      8 | `executableInArchive`                    | برنامج داخل ملف ZIP؛ وكذلك ملف مضغوط وحده ومسمّى باسم برنامج (`invoice.exe.gz`)                                               |
+| `SCRIPT_IN_ARCHIVE`     |      3 | `scriptInArchive`                        | سكربتات (JavaScript وPython وshell وPerl) ولا برامج أخرى داخل ملف ZIP؛ وكذلك سكربت مضغوط وحده (`build.sh.xz`)                 |
 | `RISKY_ATTACHMENT_TYPE` |      2 | `riskyAttachment`                        | شهادة أو اختصار إنترنت أو سمة أو ملف بيانات يحظره Outlook (`.cer` و`.url` و`.tmp`)                                            |
 | `ENCRYPTED_ARCHIVE`     |      2 | `encryptedArchive`                       | أرشيف لا تستطيع الماسحات فتحه                                                                                                 |
 | `MACRO_ATTACHMENT`      |      4 | `macro`                                  | ملف Office يحتوي وحدات ماكرو                                                                                                  |
 | `PDF_ACTIVE_CONTENT`    |      3 | `pdfActive`                              | ملف PDF يحتوي على JavaScript أو إجراءات تشغيل                                                                                 |
 | `RTF_EMBEDDED_OBJECT`   |      4 | `rtfObject`                              | ملف RTF يحتوي كائنات مضمَّنة                                                                                                  |
-| `HTML_ATTACHMENT`       | 1 أو 3 | `htmlAttachment`، `activeHtmlAttachment` | ملف HTML؛ و3 عندما يحتوي سكربتات أو نماذج                                                                                     |
+| `HTML_ATTACHMENT`       | 1 أو 3 | `htmlAttachment`، `activeHtmlAttachment` | ملف HTML؛ و3 عندما يحتوي سكربتات أو نماذج؛ وكذلك جزء مسمّى بهذا الاسم                                                         |
 | `VIRUS`                 |    100 | `virus`                                  | عثر ClamAV على فيروس                                                                                                          |
 | `MIME_TOO_COMPLEX`      |      6 | `mimeTooComplex`                         | أكثر من 1000 جزء MIME، أو ترويسة جزء تتجاوز 1 MB، ولو في رسالة مرفقة، أو رسالة مرفقة تتعذّر قراءتها؛ لا تُقرأ الأجزاء اللاحقة |
 

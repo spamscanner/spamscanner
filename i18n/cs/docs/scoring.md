@@ -1,4 +1,4 @@
-<!-- source: 9a190e0ae31e -->
+<!-- source: 929ac4bf99d9 -->
 
 # Testy a skóre
 
@@ -38,14 +38,14 @@ Domény, které jsou v textu jen zmíněné, ne odkazované, se také kontroluj�
 | `DISGUISED_EXECUTABLE`  |       12 | `disguisedExecutable`                    | Program pojmenovaný jako dokument nebo obrázek                                                                                                     |
 | `DOUBLE_EXTENSION`      |        6 | `doubleExtension`                        | Název jako `invoice.pdf.exe`                                                                                                                       |
 | `RTL_OVERRIDE_FILENAME` |        6 | `rtlOverride`                            | Znak pro přepnutí směru zprava doleva skrývá skutečnou příponu                                                                                     |
-| `EXECUTABLE_IN_ARCHIVE` |        8 | `executableInArchive`                    | Program uvnitř souboru ZIP                                                                                                                         |
-| `SCRIPT_IN_ARCHIVE`     |        3 | `scriptInArchive`                        | Skripty (JavaScript, Python, shell, Perl) a žádné jiné programy v souboru ZIP                                                                      |
+| `EXECUTABLE_IN_ARCHIVE` |        8 | `executableInArchive`                    | Program uvnitř souboru ZIP; také soubor komprimovaný samostatně a pojmenovaný po programu (`invoice.exe.gz`)                                       |
+| `SCRIPT_IN_ARCHIVE`     |        3 | `scriptInArchive`                        | Skripty (JavaScript, Python, shell, Perl) a žádné jiné programy v souboru ZIP; také skript komprimovaný samostatně (`build.sh.xz`)                 |
 | `RISKY_ATTACHMENT_TYPE` |        2 | `riskyAttachment`                        | Certifikát, internetový zástupce, motiv nebo datový soubor, které Outlook blokuje (`.cer`, `.url`, `.tmp`)                                         |
 | `ENCRYPTED_ARCHIVE`     |        2 | `encryptedArchive`                       | Archiv, který skenery nedokážou otevřít                                                                                                            |
 | `MACRO_ATTACHMENT`      |        4 | `macro`                                  | Soubor Office s makry                                                                                                                              |
 | `PDF_ACTIVE_CONTENT`    |        3 | `pdfActive`                              | PDF s JavaScriptem nebo akcemi spuštění                                                                                                            |
 | `RTF_EMBEDDED_OBJECT`   |        4 | `rtfObject`                              | Soubor RTF s vloženými objekty                                                                                                                     |
-| `HTML_ATTACHMENT`       | 1 nebo 3 | `htmlAttachment`, `activeHtmlAttachment` | Soubor HTML; 3, pokud obsahuje skripty nebo formuláře                                                                                              |
+| `HTML_ATTACHMENT`       | 1 nebo 3 | `htmlAttachment`, `activeHtmlAttachment` | Soubor HTML; 3, pokud obsahuje skripty nebo formuláře; také část s takovým názvem                                                                  |
 | `VIRUS`                 |      100 | `virus`                                  | ClamAV našel virus                                                                                                                                 |
 | `MIME_TOO_COMPLEX`      |        6 | `mimeTooComplex`                         | Více než 1000 částí MIME nebo hlavička části nad 1 MB, i v přiložené zprávě, nebo přiložená zpráva, kterou nelze přečíst; pozdější části se nečtou |
 

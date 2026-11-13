@@ -1,4 +1,4 @@
-<!-- source: a7dfb7c0fde2 -->
+<!-- source: ab57fd1d3952 -->
 
 # Cách hoạt động
 
@@ -77,6 +77,9 @@ Tệp đính kèm được nhận diện từ byte và tên của chúng, không
 * tệp thực thi trong tệp nén ZIP, và tệp nén mã hóa mà trình quét không mở được
 * tệp Office có macro, PDF có JavaScript hoặc hành động khởi chạy, tệp RTF có đối tượng nhúng
 * tệp đính kèm HTML, thứ mà phishing dùng để hiển thị trang đăng nhập giả ngay trên máy, không cần mạng
+* chương trình được nén riêng, đặt tên theo chính nó (`invoice.exe.gz`)
+* theo tên: các phần văn bản thuần và HTML được đặt tên như tệp, và tên trong `Content-Type` của tệp đính kèm khi khác tên tệp của nó; các chương trình email hiển thị chúng như tệp đính kèm
+* theo tên: mọi tên của một phần tự đặt tên hai lần (trường `Content-Disposition` hoặc `Content-Type`, hoặc tên tệp trong đó, được ghi hai lần); các chương trình email không hiển thị cùng một tên
 * tệp đính kèm của các thư được đính kèm (`message/rfc822`, `.eml`), sâu tối đa ba cấp và tối đa 100 tệp đính kèm (các tệp đính kèm của chính thư luôn được kiểm tra hết)
 
 Với ClamAV, tệp đính kèm còn được quét bằng `clamd` qua socket của nó. Mỗi lần quét bốn tệp, tất cả trong `clamav.timeout` (60 giây), và những tệp không quét được được liệt kê trong `results.virusScanErrors`. Những tệp lớn hơn mức clamd chấp nhận (`StreamMaxLength` của nó) thì được liệt kê trong `results.virusScanSkipped`: clamd từ chối chúng ở mọi lần thử.

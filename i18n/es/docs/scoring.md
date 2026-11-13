@@ -1,4 +1,4 @@
-<!-- source: 9a190e0ae31e -->
+<!-- source: 929ac4bf99d9 -->
 
 # Pruebas y puntuaciones
 
@@ -38,14 +38,14 @@ Los dominios que solo se nombran en el texto, sin enlazar, también se comprueba
 | `DISGUISED_EXECUTABLE`  |     12 | `disguisedExecutable`                    | Un programa con nombre de documento o de imagen                                                                                                                              |
 | `DOUBLE_EXTENSION`      |      6 | `doubleExtension`                        | Un nombre como `invoice.pdf.exe`                                                                                                                                             |
 | `RTL_OVERRIDE_FILENAME` |      6 | `rtlOverride`                            | Un carácter de anulación de derecha a izquierda oculta la extensión real                                                                                                     |
-| `EXECUTABLE_IN_ARCHIVE` |      8 | `executableInArchive`                    | Un programa dentro de un archivo ZIP                                                                                                                                         |
-| `SCRIPT_IN_ARCHIVE`     |      3 | `scriptInArchive`                        | Scripts (JavaScript, Python, shell, Perl) y ningún otro programa en un archivo ZIP                                                                                           |
+| `EXECUTABLE_IN_ARCHIVE` |      8 | `executableInArchive`                    | Un programa dentro de un archivo ZIP; también un archivo comprimido por sí solo con el nombre de un programa (`invoice.exe.gz`)                                              |
+| `SCRIPT_IN_ARCHIVE`     |      3 | `scriptInArchive`                        | Scripts (JavaScript, Python, shell, Perl) y ningún otro programa en un archivo ZIP; también un script comprimido por sí solo (`build.sh.xz`)                                 |
 | `RISKY_ATTACHMENT_TYPE` |      2 | `riskyAttachment`                        | Un certificado, acceso directo de Internet, tema o archivo de datos que Outlook bloquea (`.cer`, `.url`, `.tmp`)                                                             |
 | `ENCRYPTED_ARCHIVE`     |      2 | `encryptedArchive`                       | Un archivo comprimido que los analizadores no pueden abrir                                                                                                                   |
 | `MACRO_ATTACHMENT`      |      4 | `macro`                                  | Un archivo de Office con macros                                                                                                                                              |
 | `PDF_ACTIVE_CONTENT`    |      3 | `pdfActive`                              | Un PDF con JavaScript o acciones de ejecución                                                                                                                                |
 | `RTF_EMBEDDED_OBJECT`   |      4 | `rtfObject`                              | Un archivo RTF con objetos incrustados                                                                                                                                       |
-| `HTML_ATTACHMENT`       |  1 o 3 | `htmlAttachment`, `activeHtmlAttachment` | Un archivo HTML; 3 cuando tiene scripts o formularios                                                                                                                        |
+| `HTML_ATTACHMENT`       |  1 o 3 | `htmlAttachment`, `activeHtmlAttachment` | Un archivo HTML; 3 cuando tiene scripts o formularios; también una parte con ese nombre                                                                                      |
 | `VIRUS`                 |    100 | `virus`                                  | ClamAV encontró un virus                                                                                                                                                     |
 | `MIME_TOO_COMPLEX`      |      6 | `mimeTooComplex`                         | Más de 1000 partes MIME, o una cabecera de parte de más de 1 MB, también en un mensaje adjunto, o un mensaje adjunto que no se puede leer; las partes posteriores no se leen |
 

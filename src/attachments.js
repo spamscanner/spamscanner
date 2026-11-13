@@ -10,7 +10,7 @@ import {characterClass} from './tokenizer.js';
  * campaigns.
  */
 export const EXECUTABLE_EXTENSIONS = new Set([
-	'ade', 'adp', 'apk', 'app', 'appimage', 'application', 'appref-ms', 'appx', 'appxbundle', 'asp', 'aspx', 'asx', 'bas', 'bat', 'bgi', 'cab', 'chm', 'cmd', 'cnt', 'com', 'command', 'cpl', 'csh', 'diagcab', 'dll', 'dmg', 'docm', 'dotm', 'elf', 'exe', 'fxp', 'gadget', 'grp', 'hlp', 'hpj', 'hta', 'htc', 'img', 'inf', 'ins', 'ipa', 'iso', 'isp', 'its', 'jar', 'jnlp', 'js', 'jse', 'ksh', 'lnk', 'mad', 'maf', 'mag', 'mam', 'maq', 'mar', 'mas', 'mau', 'mav', 'maw', 'mcf', 'mda', 'mde', 'mdt', 'mdw', 'mdz', 'msc', 'msh', 'msh1', 'msh1xml', 'msh2', 'msh2xml', 'mshxml', 'msi', 'msix', 'msixbundle', 'msp', 'mst', 'msu', 'nsh', 'ops', 'osd', 'pcd', 'pif', 'pkg', 'pl', 'plg', 'potm', 'ppam', 'ppsm', 'pptm', 'prf', 'prg', 'ps1', 'ps1xml', 'ps2', 'ps2xml', 'psc1', 'psc2', 'py', 'pyc', 'pyo', 'pyw', 'pyz', 'pyzw', 'reg', 'scf', 'scpt', 'scr', 'sct', 'settingcontent-ms', 'sh', 'shb', 'shs', 'slk', 'sys', 'vb', 'vbe', 'vbp', 'vbs', 'vhd', 'vhdx', 'vsmacros', 'vsw', 'webpnp', 'website', 'ws', 'wsb', 'wsc', 'wsf', 'wsh', 'xbap', 'xlam', 'xll', 'xlsm', 'xltm', 'xnk',
+	'ade', 'adp', 'apk', 'app', 'appimage', 'appinstaller', 'application', 'appref-ms', 'appx', 'appxbundle', 'asp', 'aspx', 'asx', 'bas', 'bat', 'bgi', 'cab', 'chm', 'cmd', 'cnt', 'com', 'command', 'cpl', 'csh', 'diagcab', 'dll', 'dmg', 'docm', 'dotm', 'elf', 'exe', 'fxp', 'gadget', 'grp', 'hlp', 'hpj', 'hta', 'htc', 'img', 'inf', 'ins', 'ipa', 'iqy', 'iso', 'isp', 'its', 'jar', 'jnlp', 'js', 'jse', 'ksh', 'library-ms', 'lnk', 'mad', 'maf', 'mag', 'mam', 'maq', 'mar', 'mas', 'mau', 'mav', 'maw', 'mcf', 'mda', 'mde', 'mdt', 'mdw', 'mdz', 'msc', 'msh', 'msh1', 'msh1xml', 'msh2', 'msh2xml', 'mshxml', 'msi', 'msix', 'msixbundle', 'msp', 'mst', 'msu', 'nsh', 'one', 'onepkg', 'ops', 'osd', 'pcd', 'pif', 'pkg', 'pl', 'plg', 'potm', 'ppam', 'ppsm', 'pptm', 'prf', 'prg', 'ps1', 'ps1xml', 'ps2', 'ps2xml', 'psc1', 'psc2', 'py', 'pyc', 'pyo', 'pyw', 'pyz', 'pyzw', 'reg', 'scf', 'scpt', 'scr', 'sct', 'search-ms', 'searchconnector-ms', 'settingcontent-ms', 'sh', 'shb', 'shs', 'slk', 'sys', 'vb', 'vbe', 'vbp', 'vbs', 'vhd', 'vhdx', 'vsmacros', 'vsw', 'webpnp', 'website', 'ws', 'wsb', 'wsc', 'wsf', 'wsh', 'xbap', 'xlam', 'xll', 'xlsm', 'xltm', 'xnk',
 ]);
 
 /**
@@ -335,6 +335,21 @@ export function extensionOf(name) {
 	return whole;
 }
 
+// Formats that compress one file, named after it ("invoice.exe.gz").
+const COMPRESSED_EXTENSIONS = new Set(['gz', 'bz2', 'xz', 'zst']);
+
+// The name of the one file a compressed file holds, by its name: "invoice.exe"
+// of "invoice.exe.gz"; the name itself otherwise.
+function uncompressedName(name) {
+	if (!COMPRESSED_EXTENSIONS.has(extensionOf(name))) {
+		return String(name);
+	}
+
+	// (in linear time: without what Windows drops at its end, before its last dot)
+	const trimmed = trimEndOf(String(name).replace(ALL_BIDI_CONTROLS, ''), '. ');
+	return trimmed.slice(0, trimmed.lastIndexOf('.'));
+}
+
 function lastExtension(base) {
 	const dot = base.lastIndexOf('.');
 	return dot === -1 ? '' : base.slice(dot + 1).trim();
@@ -393,7 +408,8 @@ const pdfActive = text => PDF_ACTIVE.test(text) || PDF_ACTIVE_ESCAPED.test(text)
  * - rtl_override: a right-to-left override hides the real extension (a file named "invoice", U+202E, "fdp.exe" shows as "invoiceexe.pdf")
  * - risky_attachment: a type that is risky by name but not a program
  *   (a certificate, an Internet shortcut, a theme; see RISKY_EXTENSIONS)
- * - executable_in_archive: a ZIP holds a program, read without unpacking
+ * - executable_in_archive: a ZIP holds a program, read without unpacking, or
+ *   a file compressed on its own is named after one ("invoice.exe.gz")
  *   (extension: the first program's, extensions: every program's)
  * - script_in_archive: a ZIP holds scripts (JavaScript, Python, shell, Perl)
  *   but no other programs
@@ -440,9 +456,27 @@ export function inspectAttachments(attachments = []) {
 			add('risky_attachment', `Attachment "${name}" is a risky file type (.${extension})`, {extension});
 		}
 
+		// (a program compressed on its own, named after it: "invoice.exe.gz")
+		const held = COMPRESSED_EXTENSIONS.has(extension) ? extensionOf(uncompressedName(filename)) : '';
+		if (EXECUTABLE_EXTENSIONS.has(held)) {
+			const script = SCRIPT_EXTENSIONS.has(held);
+			add(script ? 'script_in_archive' : 'executable_in_archive', `Archive "${name}" contains ${script ? 'a script' : 'a program'} (${shorten(uncompressedName(filename).split(/[/\\]/).pop())})`, {extension: held, extensions: [held]});
+		}
+
+		const webPage = detected?.type === 'html' || detected?.type === 'svg' || ['htm', 'html', 'mht', 'mhtml', 'shtml', 'xht', 'xhtml', 'svg'].includes(extension);
+		const addWebPage = () => {
+			const active = content !== null && /<script\b|<form\b|\bon(?:load|error|click)\s*=|javascript:|window\.location|document\.location|atob\(/i.test(content.subarray(0, 200_000).toString('utf8'));
+			add('html_attachment', `Attachment "${name}" is ${detected?.type === 'svg' || extension === 'svg' ? 'an SVG image' : 'a web page'}${active ? ' with scripts or forms' : ''}`, {extension: extension || detected?.type, active});
+		};
+
 		// (a document named as one that holds macros counts only with a VBA
-		//  project inside)
+		//  project inside; a web page without content, a part named as one,
+		//  counts by name)
 		if (!content) {
+			if (webPage) {
+				addWebPage();
+			}
+
 			continue;
 		}
 
@@ -462,10 +496,11 @@ export function inspectAttachments(attachments = []) {
 
 			// (an Office document holding a program is an archive of programs
 			// too; not the documents and certificates Office itself embeds)
-			const inner = entries.filter(entry => EXECUTABLE_EXTENSIONS.has(extensionOf(entry.name)) && !(office && OFFICE_EMBEDDED.has(extensionOf(entry.name))));
-			const details = {extension: extensionOf(inner[0]?.name ?? ''), extensions: [...new Set(inner.map(entry => extensionOf(entry.name)))]};
+			// (and one compressed on its own, by its name: "setup.exe.gz")
+			const inner = entries.filter(entry => EXECUTABLE_EXTENSIONS.has(extensionOf(uncompressedName(entry.name))) && !(office && OFFICE_EMBEDDED.has(extensionOf(entry.name))));
+			const details = {extension: extensionOf(uncompressedName(inner[0]?.name ?? '')), extensions: [...new Set(inner.map(entry => extensionOf(uncompressedName(entry.name))))]};
 			const listed = inner.slice(0, 3).map(entry => shorten(entry.name.split('/').pop())).join(', ');
-			if (inner.some(entry => !SCRIPT_EXTENSIONS.has(extensionOf(entry.name)))) {
+			if (inner.some(entry => !SCRIPT_EXTENSIONS.has(extensionOf(uncompressedName(entry.name))))) {
 				add('executable_in_archive', `Archive "${name}" contains ${inner.length === 1 ? 'a program' : `${inner.length} programs`} (${listed})`, details);
 			} else if (inner.length > 0) {
 				add('script_in_archive', `Archive "${name}" contains ${inner.length === 1 ? 'a script' : `${inner.length} scripts`} (${listed})`, details);
@@ -487,10 +522,8 @@ export function inspectAttachments(attachments = []) {
 			add('rtf_object', `RTF document "${name}" embeds an OLE object`, {extension: 'rtf'});
 		}
 
-		if (detected?.type === 'html' || detected?.type === 'svg' || ['htm', 'html', 'shtml', 'xhtml', 'svg'].includes(extension)) {
-			const text = content.subarray(0, 200_000).toString('utf8');
-			const active = /<script\b|<form\b|\bon(?:load|error|click)\s*=|javascript:|window\.location|document\.location|atob\(/i.test(text);
-			add('html_attachment', `Attachment "${name}" is ${detected?.type === 'svg' || extension === 'svg' ? 'an SVG image' : 'a web page'}${active ? ' with scripts or forms' : ''}`, {extension: extension || detected?.type, active});
+		if (webPage) {
+			addWebPage();
 		}
 	}
 

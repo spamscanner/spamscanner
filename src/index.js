@@ -15,7 +15,9 @@ import {isArbitrary} from './is-arbitrary.js';
 import {normalizeLanguageCode} from './language.js';
 import {LLMClassifier} from './llm.js';
 import {loadDefaultModel, loadModel, saveModel} from './model.js';
-import {expandAttachments, isAttachedMessage, parseWithin} from './parse.js';
+import {
+	expandAttachments, isAttachedMessage, namedTextParts, parseWithin,
+} from './parse.js';
 import {
 	ReputationChecker, reputationValues, trustReputation, trustedReputationValues,
 } from './reputation.js';
@@ -971,10 +973,13 @@ export class SpamScanner {
 			styled: plainObfuscation.styled || shownObfuscation.styled,
 		};
 
-		// (with the attachments of attached messages, and those not opened)
+		// (with the attachments of attached messages, and those not opened;
+		//  text parts named as files, and the other names attachments give in
+		//  their Content-Type, are inspected by name)
 		const unopened = [];
 		const opened = [];
-		const attached = await expandAttachments(mail.attachments, parseErrors, undefined, {unopened, mails: opened});
+		const named = [];
+		const attached = await expandAttachments(mail.attachments, parseErrors, undefined, {unopened, mails: opened, named});
 		// (every link host of the message and of what it carries, when link
 		//  hosts are looked up: see carriedLinkHosts)
 		const carried = config.phishing.attachments === true && (config.phishing.cloudflare || config.dnsbl.domain?.length > 0)
@@ -982,7 +987,7 @@ export class SpamScanner {
 				mails: opened, attachments: attached, maxHosts: config.phishing.maxHosts, hostsInText: config.phishing.hostsInText === true,
 			})
 			: null;
-		const attachments = config.attachments === false ? [] : inspectAttachments(attached).filter(item => config.macros !== false || !['macro', 'pdf_active', 'rtf_object'].includes(item.type)).map(item => finding(item));
+		const attachments = config.attachments === false ? [] : inspectAttachments([...attached, ...namedTextParts(mail), ...named]).filter(item => config.macros !== false || !['macro', 'pdf_active', 'rtf_object'].includes(item.type)).map(item => finding(item));
 
 		const [links, authentication, checkedReputation, dnsbl, virusScan, toxicity, nsfw] = await Promise.all([
 			this.checkLinks(checkedLinks, config, extracted.hosts, {from: fromDomain(mail), carried}),

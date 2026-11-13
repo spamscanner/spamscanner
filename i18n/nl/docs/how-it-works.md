@@ -1,4 +1,4 @@
-<!-- source: a7dfb7c0fde2 -->
+<!-- source: ab57fd1d3952 -->
 
 # Hoe het werkt
 
@@ -77,6 +77,9 @@ Bijlagen worden herkend aan hun bytes en hun namen, niet aan hun opgegeven types
 * uitvoerbare bestanden in ZIP-archieven, en versleutelde archieven die scanners niet kunnen openen
 * Office-bestanden met macro's, pdf's met JavaScript of startacties, RTF-bestanden met ingesloten objecten
 * HTML-bijlagen, die phishing gebruikt om offline een nep-inlogpagina te tonen
+* los gecomprimeerde programma's, naar hen genoemd (`invoice.exe.gz`)
+* op naam: tekst- en HTML-delen met een bestandsnaam, en de naam in het `Content-Type` van een bijlage als die afwijkt van de bestandsnaam; mailprogramma's tonen ze als bijlagen
+* op naam: elke naam van een deel dat zichzelf twee keer een naam geeft (een `Content-Disposition`- of `Content-Type`-veld, of een bestandsnaam daarin, dat twee keer voorkomt); mailprogramma's tonen niet allemaal dezelfde
 * bijlagen van bijgevoegde berichten (`message/rfc822`, `.eml`), tot drie niveaus diep en 100 bijlagen (de eigen bijlagen van het bericht worden altijd allemaal gecontroleerd)
 
 Met ClamAV worden bijlagen ook gescand met `clamd` via de socket. Er worden er vier tegelijk gescand, alle binnen `clamav.timeout` (60 seconden), en de bijlagen die niet gescand konden worden staan in `results.virusScanErrors`. Bijlagen die groter zijn dan clamd accepteert (zijn `StreamMaxLength`), staan in plaats daarvan in `results.virusScanSkipped`: clamd weigert ze bij elke poging.

@@ -1,4 +1,4 @@
-<!-- source: a7dfb7c0fde2 -->
+<!-- source: ab57fd1d3952 -->
 
 # Cara kerja
 
@@ -77,6 +77,9 @@ Lampiran dikenali dari byte dan namanya, bukan dari tipe yang dinyatakan:
 * file executable di dalam arsip ZIP, dan arsip terenkripsi yang tidak dapat dibuka pemindai
 * file Office dengan makro, PDF dengan JavaScript atau aksi launch, file RTF dengan objek tertanam
 * lampiran HTML, yang dipakai phishing untuk menampilkan halaman login palsu secara offline
+* program yang dikompresi sendiri, dinamai sesuai programnya (`invoice.exe.gz`)
+* berdasarkan nama: bagian teks biasa dan HTML yang dinamai seperti berkas, serta nama di `Content-Type` lampiran jika berbeda dari nama berkasnya; program email menampilkannya sebagai lampiran
+* berdasarkan nama: setiap nama dari bagian yang menamai dirinya dua kali (kolom `Content-Disposition` atau `Content-Type`, atau nama berkas di dalamnya, yang ditulis dua kali); program email berbeda dalam menampilkan yang mana
 * lampiran dari pesan yang dilampirkan (`message/rfc822`, `.eml`), hingga tiga tingkat ke dalam dan 100 lampiran (lampiran milik pesan itu sendiri selalu diperiksa semuanya)
 
 Dengan ClamAV, lampiran juga dipindai dengan `clamd` melalui soketnya. Empat dipindai sekaligus, semuanya dalam `clamav.timeout` (60 detik), dan yang tidak dapat dipindai dicantumkan di `results.virusScanErrors`. Lampiran yang lebih besar daripada yang diterima clamd (`StreamMaxLength`-nya) justru dicantumkan di `results.virusScanSkipped`: clamd menolaknya pada setiap percobaan.

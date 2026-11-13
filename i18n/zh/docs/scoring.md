@@ -1,4 +1,4 @@
-<!-- source: 9a190e0ae31e -->
+<!-- source: 929ac4bf99d9 -->
 
 # 测试与分值
 
@@ -32,22 +32,22 @@
 
 ## 附件
 
-| 测试                      |    分值 | 设置键                                     | 含义                                                            |
-| ----------------------- | ----: | --------------------------------------- | ------------------------------------------------------------- |
-| `EXECUTABLE_ATTACHMENT` |    10 | `executable`                            | 程序或脚本                                                         |
-| `DISGUISED_EXECUTABLE`  |    12 | `disguisedExecutable`                   | 名称伪装成文档或图片的程序                                                 |
-| `DOUBLE_EXTENSION`      |     6 | `doubleExtension`                       | 例如 `invoice.pdf.exe` 这样的名称                                    |
-| `RTL_OVERRIDE_FILENAME` |     6 | `rtlOverride`                           | 从右到左覆盖字符隐藏了真实扩展名                                              |
-| `EXECUTABLE_IN_ARCHIVE` |     8 | `executableInArchive`                   | ZIP 文件中的程序                                                    |
-| `SCRIPT_IN_ARCHIVE`     |     3 | `scriptInArchive`                       | ZIP 文件中只有脚本（JavaScript、Python、shell、Perl），没有其他程序              |
-| `RISKY_ATTACHMENT_TYPE` |     2 | `riskyAttachment`                       | Outlook 会阻止的证书、Internet 快捷方式、主题或数据文件（`.cer`、`.url`、`.tmp`）    |
-| `ENCRYPTED_ARCHIVE`     |     2 | `encryptedArchive`                      | 扫描程序无法打开的压缩包                                                  |
-| `MACRO_ATTACHMENT`      |     4 | `macro`                                 | 带宏的 Office 文件                                                 |
-| `PDF_ACTIVE_CONTENT`    |     3 | `pdfActive`                             | 含有 JavaScript 或启动操作的 PDF                                      |
-| `RTF_EMBEDDED_OBJECT`   |     4 | `rtfObject`                             | 带嵌入对象的 RTF 文件                                                 |
-| `HTML_ATTACHMENT`       | 1 或 3 | `htmlAttachment`、`activeHtmlAttachment` | HTML 文件；含脚本或表单时为 3                                            |
-| `VIRUS`                 |   100 | `virus`                                 | ClamAV 发现了病毒                                                  |
-| `MIME_TOO_COMPLEX`      |     6 | `mimeTooComplex`                        | 超过 1000 个 MIME 部分，或某个部分的头超过 1 MB，附带的邮件中也算，或附带的邮件无法读取；之后的部分不读取 |
+| 测试                      |    分值 | 设置键                                     | 含义                                                                          |
+| ----------------------- | ----: | --------------------------------------- | --------------------------------------------------------------------------- |
+| `EXECUTABLE_ATTACHMENT` |    10 | `executable`                            | 程序或脚本                                                                       |
+| `DISGUISED_EXECUTABLE`  |    12 | `disguisedExecutable`                   | 名称伪装成文档或图片的程序                                                               |
+| `DOUBLE_EXTENSION`      |     6 | `doubleExtension`                       | 例如 `invoice.pdf.exe` 这样的名称                                                  |
+| `RTL_OVERRIDE_FILENAME` |     6 | `rtlOverride`                           | 从右到左覆盖字符隐藏了真实扩展名                                                            |
+| `EXECUTABLE_IN_ARCHIVE` |     8 | `executableInArchive`                   | ZIP 文件中的程序；也包括单独压缩并以程序命名的文件 (`invoice.exe.gz`)                              |
+| `SCRIPT_IN_ARCHIVE`     |     3 | `scriptInArchive`                       | ZIP 文件中只有脚本（JavaScript、Python、shell、Perl），没有其他程序；也包括单独压缩的脚本 (`build.sh.xz`) |
+| `RISKY_ATTACHMENT_TYPE` |     2 | `riskyAttachment`                       | Outlook 会阻止的证书、Internet 快捷方式、主题或数据文件（`.cer`、`.url`、`.tmp`）                  |
+| `ENCRYPTED_ARCHIVE`     |     2 | `encryptedArchive`                      | 扫描程序无法打开的压缩包                                                                |
+| `MACRO_ATTACHMENT`      |     4 | `macro`                                 | 带宏的 Office 文件                                                               |
+| `PDF_ACTIVE_CONTENT`    |     3 | `pdfActive`                             | 含有 JavaScript 或启动操作的 PDF                                                    |
+| `RTF_EMBEDDED_OBJECT`   |     4 | `rtfObject`                             | 带嵌入对象的 RTF 文件                                                               |
+| `HTML_ATTACHMENT`       | 1 或 3 | `htmlAttachment`、`activeHtmlAttachment` | HTML 文件；含脚本或表单时为 3；也包括以此命名的部分                                               |
+| `VIRUS`                 |   100 | `virus`                                 | ClamAV 发现了病毒                                                                |
+| `MIME_TOO_COMPLEX`      |     6 | `mimeTooComplex`                        | 超过 1000 个 MIME 部分，或某个部分的头超过 1 MB，附带的邮件中也算，或附带的邮件无法读取；之后的部分不读取               |
 
 只有 MIME 解析器的这两项限制会给出 `MIME_TOO_COMPLEX`，解析器无法解析的附带邮件也会；其他任何解析器错误都会导致扫描失败，服务器会像以前的版本一样推迟处理该邮件。部分过多的邮件读取到第 990 个可能开始一个部分的行（`--`）为止；如果这些部分是内联的附带邮件，则先读取前一半，再读取前四分之一，直到可以读取为止。自身头过大的邮件会在裁减头之后读取（每行最多 998 个字符，每个字段最多 8 KB，地址字段截断到完整的地址，如果仍超过 512 KB，则只保留说明由谁、如何发送的字段），因此发件人仍然计入；后面某个部分的头过大时，读取其前 1 MB。ClamAV 则读取整封邮件。只有 `ALLOWLISTED` 和 `TRUTH_SOURCE` 能抵消它：其他减分（贝叶斯 ham、SPF、DKIM、DMARC、ARC、语言模型的 ham）对它不起作用，因为没有读取的内容无法担保。
 

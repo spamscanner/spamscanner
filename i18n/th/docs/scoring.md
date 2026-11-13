@@ -1,4 +1,4 @@
-<!-- source: 9a190e0ae31e -->
+<!-- source: 929ac4bf99d9 -->
 
 # การทดสอบและคะแนน
 
@@ -38,14 +38,14 @@
 | `DISGUISED_EXECUTABLE`  |       12 | `disguisedExecutable`                    | โปรแกรมที่ตั้งชื่อให้ดูเหมือนเอกสารหรือรูปภาพ                                                                                                |
 | `DOUBLE_EXTENSION`      |        6 | `doubleExtension`                        | ชื่อไฟล์อย่าง `invoice.pdf.exe`                                                                                                              |
 | `RTL_OVERRIDE_FILENAME` |        6 | `rtlOverride`                            | อักขระ right-to-left override ซ่อนนามสกุลจริง                                                                                                |
-| `EXECUTABLE_IN_ARCHIVE` |        8 | `executableInArchive`                    | โปรแกรมในไฟล์ ZIP                                                                                                                            |
-| `SCRIPT_IN_ARCHIVE`     |        3 | `scriptInArchive`                        | สคริปต์ (JavaScript, Python, shell, Perl) และไม่มีโปรแกรมอื่นในไฟล์ ZIP                                                                      |
+| `EXECUTABLE_IN_ARCHIVE` |        8 | `executableInArchive`                    | โปรแกรมในไฟล์ ZIP; รวมถึงไฟล์ที่บีบอัดเดี่ยวและตั้งชื่อตามโปรแกรม (`invoice.exe.gz`)                                                         |
+| `SCRIPT_IN_ARCHIVE`     |        3 | `scriptInArchive`                        | สคริปต์ (JavaScript, Python, shell, Perl) และไม่มีโปรแกรมอื่นในไฟล์ ZIP; รวมถึงสคริปต์ที่บีบอัดเดี่ยว (`build.sh.xz`)                        |
 | `RISKY_ATTACHMENT_TYPE` |        2 | `riskyAttachment`                        | ใบรับรอง ทางลัดอินเทอร์เน็ต ธีม หรือไฟล์ข้อมูลที่ Outlook บล็อก (`.cer`, `.url`, `.tmp`)                                                     |
 | `ENCRYPTED_ARCHIVE`     |        2 | `encryptedArchive`                       | ไฟล์บีบอัดที่ตัวสแกนเปิดไม่ได้                                                                                                               |
 | `MACRO_ATTACHMENT`      |        4 | `macro`                                  | ไฟล์ Office ที่มีมาโคร                                                                                                                       |
 | `PDF_ACTIVE_CONTENT`    |        3 | `pdfActive`                              | PDF ที่มี JavaScript หรือการกระทำที่เปิดโปรแกรม                                                                                              |
 | `RTF_EMBEDDED_OBJECT`   |        4 | `rtfObject`                              | ไฟล์ RTF ที่มีออบเจ็กต์ฝังอยู่                                                                                                               |
-| `HTML_ATTACHMENT`       | 1 หรือ 3 | `htmlAttachment`, `activeHtmlAttachment` | ไฟล์ HTML ได้ 3 คะแนนเมื่อมีสคริปต์หรือฟอร์ม                                                                                                 |
+| `HTML_ATTACHMENT`       | 1 หรือ 3 | `htmlAttachment`, `activeHtmlAttachment` | ไฟล์ HTML ได้ 3 คะแนนเมื่อมีสคริปต์หรือฟอร์ม; รวมถึงส่วนที่ตั้งชื่อเช่นนั้น                                                                  |
 | `VIRUS`                 |      100 | `virus`                                  | ClamAV พบไวรัส                                                                                                                               |
 | `MIME_TOO_COMPLEX`      |        6 | `mimeTooComplex`                         | มีส่วน MIME เกิน 1000 ส่วน หรือเฮดเดอร์ของส่วนหนึ่งเกิน 1 MB รวมถึงในข้อความที่แนบมา หรือข้อความที่แนบมาซึ่งอ่านไม่ได้ ส่วนถัดไปจะไม่ถูกอ่าน |
 

@@ -1,4 +1,4 @@
-<!-- source: a7dfb7c0fde2 -->
+<!-- source: ab57fd1d3952 -->
 
 # Működés
 
@@ -77,6 +77,9 @@ A mellékleteket a bájtjaik és a nevük alapján azonosítja, nem a megadott t
 * ZIP-archívumokban lévő futtatható fájlok és a vírusirtók által meg nem nyitható titkosított archívumok
 * makrókat tartalmazó Office-fájlok, JavaScriptet vagy indítási műveleteket tartalmazó PDF-ek, beágyazott objektumokat tartalmazó RTF-fájlok
 * HTML-mellékletek, amelyekkel az adathalászok offline jelenítenek meg hamis bejelentkezési oldalt
+* önmagukban tömörített, róluk elnevezett programok (`invoice.exe.gz`)
+* név alapján: a fájlként elnevezett szöveges és HTML-részek, valamint egy melléklet `Content-Type` fejlécében lévő név, ha eltér a fájlnevétől – a levelezőprogramok mellékletként mutatják őket
+* név alapján: minden neve annak a résznek, amely kétszer nevezi meg magát (kétszer szereplő `Content-Disposition` vagy `Content-Type` mező, vagy azon belül kétszer megadott fájlnév) – a levelezőprogramok nem mind ugyanazt mutatják
 * a csatolt üzenetek (`message/rfc822`, `.eml`) mellékletei, legfeljebb három szint mélységig és 100 mellékletig (a levél saját mellékleteit mindig mind megvizsgálja)
 
 ClamAV-vel a mellékleteket a `clamd` is megvizsgálja a socketén keresztül. Egyszerre négyet vizsgál, mindet a `clamav.timeout` (60 másodperc) időn belül, az át nem vizsgálhatók pedig a `results.virusScanErrors` listában szerepelnek. Azok, amelyek nagyobbak, mint amit a clamd elfogad (a `StreamMaxLength` értéke), ehelyett a `results.virusScanSkipped` listában szerepelnek: ezeket a clamd minden próbálkozáskor elutasítja.

@@ -1,4 +1,4 @@
-<!-- source: 9a190e0ae31e -->
+<!-- source: 929ac4bf99d9 -->
 
 # Testes e pontuações
 
@@ -38,14 +38,14 @@ Domínios apenas mencionados no texto, sem link, também são verificados quanto
 | `DISGUISED_EXECUTABLE`  |     12 | `disguisedExecutable`                    | Um programa com nome de documento ou imagem                                                                                                                                           |
 | `DOUBLE_EXTENSION`      |      6 | `doubleExtension`                        | Um nome como `invoice.pdf.exe`                                                                                                                                                        |
 | `RTL_OVERRIDE_FILENAME` |      6 | `rtlOverride`                            | Uma substituição da direita para a esquerda esconde a extensão real                                                                                                                   |
-| `EXECUTABLE_IN_ARCHIVE` |      8 | `executableInArchive`                    | Um programa dentro de um arquivo ZIP                                                                                                                                                  |
-| `SCRIPT_IN_ARCHIVE`     |      3 | `scriptInArchive`                        | Scripts (JavaScript, Python, shell, Perl) e nenhum outro programa em um arquivo ZIP                                                                                                   |
+| `EXECUTABLE_IN_ARCHIVE` |      8 | `executableInArchive`                    | Um programa dentro de um arquivo ZIP; também um arquivo comprimido sozinho e com o nome de um programa (`invoice.exe.gz`)                                                             |
+| `SCRIPT_IN_ARCHIVE`     |      3 | `scriptInArchive`                        | Scripts (JavaScript, Python, shell, Perl) e nenhum outro programa em um arquivo ZIP; também um script comprimido sozinho (`build.sh.xz`)                                              |
 | `RISKY_ATTACHMENT_TYPE` |      2 | `riskyAttachment`                        | Um certificado, atalho da Internet, tema ou arquivo de dados que o Outlook bloqueia (`.cer`, `.url`, `.tmp`)                                                                          |
 | `ENCRYPTED_ARCHIVE`     |      2 | `encryptedArchive`                       | Um arquivo compactado que os analisadores não conseguem abrir                                                                                                                         |
 | `MACRO_ATTACHMENT`      |      4 | `macro`                                  | Um arquivo do Office com macros                                                                                                                                                       |
 | `PDF_ACTIVE_CONTENT`    |      3 | `pdfActive`                              | Um PDF com JavaScript ou ações de execução                                                                                                                                            |
 | `RTF_EMBEDDED_OBJECT`   |      4 | `rtfObject`                              | Um arquivo RTF com objetos incorporados                                                                                                                                               |
-| `HTML_ATTACHMENT`       | 1 ou 3 | `htmlAttachment`, `activeHtmlAttachment` | Um arquivo HTML; 3 quando tem scripts ou formulários                                                                                                                                  |
+| `HTML_ATTACHMENT`       | 1 ou 3 | `htmlAttachment`, `activeHtmlAttachment` | Um arquivo HTML; 3 quando tem scripts ou formulários; também uma parte com esse nome                                                                                                  |
 | `VIRUS`                 |    100 | `virus`                                  | O ClamAV encontrou um vírus                                                                                                                                                           |
 | `MIME_TOO_COMPLEX`      |      6 | `mimeTooComplex`                         | Mais de 1000 partes MIME, ou o cabeçalho de uma parte acima de 1 MB, também em uma mensagem anexada, ou uma mensagem anexada que não pode ser lida; as partes seguintes não são lidas |
 

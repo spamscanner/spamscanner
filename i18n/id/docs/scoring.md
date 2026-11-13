@@ -1,4 +1,4 @@
-<!-- source: 9a190e0ae31e -->
+<!-- source: 929ac4bf99d9 -->
 
 # Tes dan skor
 
@@ -38,14 +38,14 @@ Domain yang hanya disebut dalam teks, tanpa tautan, juga diperiksa apakah merupa
 | `DISGUISED_EXECUTABLE`  |       12 | `disguisedExecutable`                    | Program yang dinamai seperti dokumen atau gambar                                                                                                                                         |
 | `DOUBLE_EXTENSION`      |        6 | `doubleExtension`                        | Nama seperti `invoice.pdf.exe`                                                                                                                                                           |
 | `RTL_OVERRIDE_FILENAME` |        6 | `rtlOverride`                            | Right-to-left override menyembunyikan ekstensi sebenarnya                                                                                                                                |
-| `EXECUTABLE_IN_ARCHIVE` |        8 | `executableInArchive`                    | Program di dalam file ZIP                                                                                                                                                                |
-| `SCRIPT_IN_ARCHIVE`     |        3 | `scriptInArchive`                        | Skrip (JavaScript, Python, shell, Perl) tanpa program lain di dalam berkas ZIP                                                                                                           |
+| `EXECUTABLE_IN_ARCHIVE` |        8 | `executableInArchive`                    | Program di dalam file ZIP; juga berkas yang dikompresi sendiri dan dinamai seperti program (`invoice.exe.gz`)                                                                            |
+| `SCRIPT_IN_ARCHIVE`     |        3 | `scriptInArchive`                        | Skrip (JavaScript, Python, shell, Perl) tanpa program lain di dalam berkas ZIP; juga skrip yang dikompresi sendiri (`build.sh.xz`)                                                       |
 | `RISKY_ATTACHMENT_TYPE` |        2 | `riskyAttachment`                        | Sertifikat, pintasan Internet, tema, atau berkas data yang diblokir Outlook (`.cer`, `.url`, `.tmp`)                                                                                     |
 | `ENCRYPTED_ARCHIVE`     |        2 | `encryptedArchive`                       | Arsip yang tidak dapat dibuka pemindai                                                                                                                                                   |
 | `MACRO_ATTACHMENT`      |        4 | `macro`                                  | File Office dengan makro                                                                                                                                                                 |
 | `PDF_ACTIVE_CONTENT`    |        3 | `pdfActive`                              | PDF dengan JavaScript atau aksi peluncuran                                                                                                                                               |
 | `RTF_EMBEDDED_OBJECT`   |        4 | `rtfObject`                              | File RTF dengan objek tertanam                                                                                                                                                           |
-| `HTML_ATTACHMENT`       | 1 atau 3 | `htmlAttachment`, `activeHtmlAttachment` | File HTML; 3 jika memuat skrip atau formulir                                                                                                                                             |
+| `HTML_ATTACHMENT`       | 1 atau 3 | `htmlAttachment`, `activeHtmlAttachment` | File HTML; 3 jika memuat skrip atau formulir; juga bagian yang dinamai demikian                                                                                                          |
 | `VIRUS`                 |      100 | `virus`                                  | ClamAV menemukan virus                                                                                                                                                                   |
 | `MIME_TOO_COMPLEX`      |        6 | `mimeTooComplex`                         | Lebih dari 1000 bagian MIME, atau header bagian lebih dari 1 MB, juga dalam pesan yang dilampirkan, atau pesan yang dilampirkan yang tidak dapat dibaca; bagian selanjutnya tidak dibaca |
 

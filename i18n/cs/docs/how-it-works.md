@@ -1,4 +1,4 @@
-<!-- source: a7dfb7c0fde2 -->
+<!-- source: ab57fd1d3952 -->
 
 # Jak to funguje
 
@@ -77,6 +77,9 @@ Přílohy se rozpoznávají podle svých bajtů a názvů, ne podle deklarovaný
 * spustitelné soubory uvnitř archivů ZIP a šifrované archivy, které skenery nedokážou otevřít
 * soubory Office s makry, PDF s JavaScriptem nebo akcemi spuštění, soubory RTF s vloženými objekty
 * přílohy HTML, kterými phishing offline zobrazuje falešnou přihlašovací stránku
+* programy komprimované samostatně a pojmenované po nich (`invoice.exe.gz`)
+* podle názvu: textové a HTML části pojmenované jako soubory a název v `Content-Type` přílohy, když se liší od názvu souboru – poštovní programy je zobrazují jako přílohy
+* podle názvu: každý název části, která se pojmenuje dvakrát (pole `Content-Disposition` nebo `Content-Type`, nebo název souboru v něm, uvedené dvakrát) – poštovní programy nezobrazují všechny tentýž
 * přílohy přiložených zpráv (`message/rfc822`, `.eml`), až do hloubky tří úrovní a 100 příloh (vlastní přílohy zprávy se vždy kontrolují všechny)
 
 S ClamAV se přílohy kontrolují také pomocí `clamd` přes jeho socket. Kontrolují se čtyři najednou, všechny v rámci `clamav.timeout` (60 sekund), a ty, které nešlo zkontrolovat, jsou uvedeny v `results.virusScanErrors`. Ty, které jsou větší, než clamd přijme (jeho `StreamMaxLength`), jsou místo toho uvedeny v `results.virusScanSkipped`: clamd je odmítne při každém pokusu.

@@ -1,4 +1,4 @@
-<!-- source: 9a190e0ae31e -->
+<!-- source: 929ac4bf99d9 -->
 
 # Các phép kiểm tra và điểm
 
@@ -38,14 +38,14 @@ Các tên miền chỉ được nhắc tới trong văn bản, không được l
 | `DISGUISED_EXECUTABLE`  |       12 | `disguisedExecutable`                    | Một chương trình được đặt tên như tài liệu hoặc hình ảnh                                                                                                     |
 | `DOUBLE_EXTENSION`      |        6 | `doubleExtension`                        | Một tên như `invoice.pdf.exe`                                                                                                                                |
 | `RTL_OVERRIDE_FILENAME` |        6 | `rtlOverride`                            | Ký tự ghi đè hướng phải sang trái che giấu đuôi tệp thật                                                                                                     |
-| `EXECUTABLE_IN_ARCHIVE` |        8 | `executableInArchive`                    | Một chương trình bên trong tệp ZIP                                                                                                                           |
-| `SCRIPT_IN_ARCHIVE`     |        3 | `scriptInArchive`                        | Tập lệnh (JavaScript, Python, shell, Perl) và không có chương trình nào khác trong tệp ZIP                                                                   |
+| `EXECUTABLE_IN_ARCHIVE` |        8 | `executableInArchive`                    | Một chương trình bên trong tệp ZIP; cũng như một tệp được nén riêng và đặt tên theo một chương trình (`invoice.exe.gz`)                                      |
+| `SCRIPT_IN_ARCHIVE`     |        3 | `scriptInArchive`                        | Tập lệnh (JavaScript, Python, shell, Perl) và không có chương trình nào khác trong tệp ZIP; cũng như một script được nén riêng (`build.sh.xz`)               |
 | `RISKY_ATTACHMENT_TYPE` |        2 | `riskyAttachment`                        | Chứng chỉ, lối tắt Internet, chủ đề hoặc tệp dữ liệu mà Outlook chặn (`.cer`, `.url`, `.tmp`)                                                                |
 | `ENCRYPTED_ARCHIVE`     |        2 | `encryptedArchive`                       | Một tệp nén mà trình quét không mở được                                                                                                                      |
 | `MACRO_ATTACHMENT`      |        4 | `macro`                                  | Một tệp Office có macro                                                                                                                                      |
 | `PDF_ACTIVE_CONTENT`    |        3 | `pdfActive`                              | PDF chứa JavaScript hoặc hành động khởi chạy                                                                                                                 |
 | `RTF_EMBEDDED_OBJECT`   |        4 | `rtfObject`                              | Một tệp RTF có đối tượng nhúng                                                                                                                               |
-| `HTML_ATTACHMENT`       | 1 hoặc 3 | `htmlAttachment`, `activeHtmlAttachment` | Một tệp HTML; 3 khi có script hoặc biểu mẫu                                                                                                                  |
+| `HTML_ATTACHMENT`       | 1 hoặc 3 | `htmlAttachment`, `activeHtmlAttachment` | Một tệp HTML; 3 khi có script hoặc biểu mẫu; cũng như một phần được đặt tên như vậy                                                                          |
 | `VIRUS`                 |      100 | `virus`                                  | ClamAV phát hiện virus                                                                                                                                       |
 | `MIME_TOO_COMPLEX`      |        6 | `mimeTooComplex`                         | Hơn 1000 phần MIME, hoặc header của một phần quá 1 MB, kể cả trong thư được đính kèm, hoặc một thư được đính kèm không đọc được; các phần sau không được đọc |
 

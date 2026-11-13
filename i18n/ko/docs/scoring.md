@@ -1,4 +1,4 @@
-<!-- source: 9a190e0ae31e -->
+<!-- source: 929ac4bf99d9 -->
 
 # 테스트와 점수
 
@@ -32,22 +32,22 @@
 
 ## 첨부 파일
 
-| 테스트                     |     점수 | 설정 키                                     | 의미                                                                                          |
-| ----------------------- | -----: | ---------------------------------------- | ------------------------------------------------------------------------------------------- |
-| `EXECUTABLE_ATTACHMENT` |     10 | `executable`                             | 프로그램 또는 스크립트                                                                                |
-| `DISGUISED_EXECUTABLE`  |     12 | `disguisedExecutable`                    | 문서나 이미지처럼 이름을 붙인 프로그램                                                                       |
-| `DOUBLE_EXTENSION`      |      6 | `doubleExtension`                        | `invoice.pdf.exe` 같은 이름                                                                     |
-| `RTL_OVERRIDE_FILENAME` |      6 | `rtlOverride`                            | 오른쪽에서 왼쪽 쓰기 재정의 문자가 실제 확장자를 숨깁니다                                                            |
-| `EXECUTABLE_IN_ARCHIVE` |      8 | `executableInArchive`                    | ZIP 파일 안의 프로그램                                                                              |
-| `SCRIPT_IN_ARCHIVE`     |      3 | `scriptInArchive`                        | ZIP 파일 안의 스크립트(JavaScript, Python, 셸, Perl)이며 다른 프로그램은 없음                                   |
-| `RISKY_ATTACHMENT_TYPE` |      2 | `riskyAttachment`                        | Outlook이 차단하는 인증서, 인터넷 바로 가기, 테마, 데이터 파일(`.cer`, `.url`, `.tmp`)                            |
-| `ENCRYPTED_ARCHIVE`     |      2 | `encryptedArchive`                       | 검사기가 열 수 없는 압축 파일                                                                           |
-| `MACRO_ATTACHMENT`      |      4 | `macro`                                  | 매크로가 있는 Office 파일                                                                           |
-| `PDF_ACTIVE_CONTENT`    |      3 | `pdfActive`                              | JavaScript나 실행 동작이 있는 PDF                                                                   |
-| `RTF_EMBEDDED_OBJECT`   |      4 | `rtfObject`                              | 개체가 포함된 RTF 파일                                                                              |
-| `HTML_ATTACHMENT`       | 1 또는 3 | `htmlAttachment`, `activeHtmlAttachment` | HTML 파일. 스크립트나 폼이 있으면 3점                                                                    |
-| `VIRUS`                 |    100 | `virus`                                  | ClamAV가 바이러스를 발견했습니다                                                                        |
-| `MIME_TOO_COMPLEX`      |      6 | `mimeTooComplex`                         | MIME 파트가 1000개를 넘거나 한 파트의 헤더가 1 MB를 넘습니다(첨부된 메시지 포함). 또는 첨부된 메시지를 읽을 수 없습니다. 이후 파트는 읽지 않습니다 |
+| 테스트                     |     점수 | 설정 키                                     | 의미                                                                                           |
+| ----------------------- | -----: | ---------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `EXECUTABLE_ATTACHMENT` |     10 | `executable`                             | 프로그램 또는 스크립트                                                                                 |
+| `DISGUISED_EXECUTABLE`  |     12 | `disguisedExecutable`                    | 문서나 이미지처럼 이름을 붙인 프로그램                                                                        |
+| `DOUBLE_EXTENSION`      |      6 | `doubleExtension`                        | `invoice.pdf.exe` 같은 이름                                                                      |
+| `RTL_OVERRIDE_FILENAME` |      6 | `rtlOverride`                            | 오른쪽에서 왼쪽 쓰기 재정의 문자가 실제 확장자를 숨깁니다                                                             |
+| `EXECUTABLE_IN_ARCHIVE` |      8 | `executableInArchive`                    | ZIP 파일 안의 프로그램; 단독으로 압축되고 프로그램 이름이 붙은 파일도 포함 (`invoice.exe.gz`)                              |
+| `SCRIPT_IN_ARCHIVE`     |      3 | `scriptInArchive`                        | ZIP 파일 안의 스크립트(JavaScript, Python, 셸, Perl)이며 다른 프로그램은 없음; 단독으로 압축된 스크립트도 포함 (`build.sh.xz`) |
+| `RISKY_ATTACHMENT_TYPE` |      2 | `riskyAttachment`                        | Outlook이 차단하는 인증서, 인터넷 바로 가기, 테마, 데이터 파일(`.cer`, `.url`, `.tmp`)                             |
+| `ENCRYPTED_ARCHIVE`     |      2 | `encryptedArchive`                       | 검사기가 열 수 없는 압축 파일                                                                            |
+| `MACRO_ATTACHMENT`      |      4 | `macro`                                  | 매크로가 있는 Office 파일                                                                            |
+| `PDF_ACTIVE_CONTENT`    |      3 | `pdfActive`                              | JavaScript나 실행 동작이 있는 PDF                                                                    |
+| `RTF_EMBEDDED_OBJECT`   |      4 | `rtfObject`                              | 개체가 포함된 RTF 파일                                                                               |
+| `HTML_ATTACHMENT`       | 1 또는 3 | `htmlAttachment`, `activeHtmlAttachment` | HTML 파일. 스크립트나 폼이 있으면 3점; 그런 이름이 붙은 파트도 포함                                                   |
+| `VIRUS`                 |    100 | `virus`                                  | ClamAV가 바이러스를 발견했습니다                                                                         |
+| `MIME_TOO_COMPLEX`      |      6 | `mimeTooComplex`                         | MIME 파트가 1000개를 넘거나 한 파트의 헤더가 1 MB를 넘습니다(첨부된 메시지 포함). 또는 첨부된 메시지를 읽을 수 없습니다. 이후 파트는 읽지 않습니다  |
 
 MIME 파서의 한도 중 이 두 가지만 `MIME_TOO_COMPLEX`를 주며, 파서가 읽지 못한 첨부된 메시지도 마찬가지입니다. 그 밖의 파서 오류는 검사를 실패시키며, 이전 버전과 마찬가지로 서버는 메시지를 일시적으로 거부합니다. 파트가 너무 많은 메시지는 파트를 시작할 수 있는 990번째 줄(`--`)까지 읽으며, 인라인으로 첨부된 메시지가 파트를 이루는 경우에는 읽을 수 있을 때까지 앞쪽 절반, 그다음 4분의 1을 읽습니다. 메시지 자체의 헤더가 너무 크면 그 헤더를 줄여서 읽으므로(줄은 최대 998자, 필드는 최대 8 KB, 주소 필드는 온전한 주소 단위로 자르고, 그래도 512 KB를 넘으면 누가 어떻게 보냈는지 알려 주는 필드만) 발신자는 계속 반영됩니다. 뒤쪽 파트의 헤더가 너무 크면 그 첫 1메가바이트를 읽습니다. ClamAV는 메시지 전체를 읽습니다. 이를 상쇄할 수 있는 것은 `ALLOWLISTED`와 `TRUTH_SOURCE`뿐입니다. 다른 감점(Bayes 햄, SPF, DKIM, DMARC, ARC, 언어 모델의 햄)은 이 메시지에 아무 효과가 없습니다. 읽지 않은 내용은 보증할 수 없기 때문입니다.
 

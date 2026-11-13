@@ -288,6 +288,35 @@ describe('inspectAttachments', () => {
 		assert.deepEqual(types([{filename: 'clean.docx', content: zip([{name: 'word/document.xml', content: 'x'}])}]), []);
 	});
 
+	it('reports the formats malware campaigns send as programs, and web archives as web pages', () => {
+		for (const name of ['notes.one', 'notes.onepkg', 'report.iqy', 'files.library-ms', 'search.searchConnector-ms', 'query.search-ms', 'update.appinstaller']) {
+			assert.deepEqual(types([{filename: name}]), ['executable'], name);
+		}
+
+		for (const name of ['invoice.mht', 'invoice.mhtml', 'invoice.xht']) {
+			assert.deepEqual(types([{filename: name}]), ['html_attachment'], name);
+		}
+	});
+
+	it('reads a program compressed on its own by its name', () => {
+		const [gz] = inspectAttachments([{filename: 'invoice.exe.gz', content: Buffer.from([0x1F, 0x8B, 0x08, 0x00, 0x00])}]);
+		assert.deepEqual([gz.type, gz.extension, gz.message], ['executable_in_archive', 'exe', 'Archive "invoice.exe.gz" contains a program (invoice.exe)']);
+		assert.deepEqual(types([{filename: 'build.sh.xz'}]), ['script_in_archive']);
+		assert.deepEqual(types([{filename: 'files.zip', content: zip([{name: 'docs/setup.scr.bz2', content: 'x'}])}]), ['executable_in_archive']);
+		// (in linear time, however the name ends: dots and spaces)
+		const started = performance.now();
+		assert.deepEqual(types([{filename: `a${'. '.repeat(200_000)}x.gz`}]), []);
+		assert.ok(performance.now() - started < 1000);
+		assert.deepEqual(types([{filename: 'run.exe.gz. . '}, {filename: 'run.exe.gz::$DATA'}]), ['executable_in_archive', 'executable_in_archive']);
+		// (not an archive or a document compressed)
+		assert.deepEqual(types([{filename: 'site.tar.gz'}, {filename: 'report.pdf.zst'}, {filename: 'logs.gz'}, {filename: 'files.zip', content: zip([{name: 'data.csv.gz', content: 'x'}])}]), []);
+	});
+
+	it('reads a web page without content, a part named as one, by its name', () => {
+		const [page] = inspectAttachments([{filename: 'invoice.html', content: null}]);
+		assert.deepEqual([page.type, page.active], ['html_attachment', false]);
+	});
+
 	it('looks inside ZIP archives without unpacking them', () => {
 		assert.deepEqual(types([{filename: 'files.zip', content: zip([{name: 'docs/invoice.scr', content: 'x'}])}]), ['executable_in_archive']);
 		// A name ending in dots or spaces, which Windows drops.

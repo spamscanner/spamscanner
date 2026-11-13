@@ -1,4 +1,4 @@
-<!-- source: a7dfb7c0fde2 -->
+<!-- source: ab57fd1d3952 -->
 
 # 工作原理
 
@@ -77,6 +77,9 @@ Spam Scanner 保留了词语计数中有效的部分，即统计方法，而改�
 * ZIP 压缩包中的可执行文件，以及扫描程序无法打开的加密压缩包
 * 带宏的 Office 文件，带 JavaScript 或启动动作的 PDF，带嵌入对象的 RTF 文件
 * HTML 附件，钓鱼者用它离线显示假的登录页面
+* 单独压缩并以其命名的程序（`invoice.exe.gz`）
+* 按名称：以文件命名的纯文本和 HTML 部分，以及附件 `Content-Type` 中与文件名不同的名称（邮件程序会把它们显示为附件）
+* 按名称：给自己命名两次的部分的每个名称（`Content-Disposition` 或 `Content-Type` 字段，或其中的文件名，出现两次）；不同邮件程序显示的名称不同
 * 附带邮件（`message/rfc822`、`.eml`）中的附件，最多三层，最多 100 个附件（邮件本身的附件总是全部检查）
 
 配合 ClamAV 时，附件还会通过 `clamd` 的套接字进行扫描。每次扫描四个，全部在 `clamav.timeout`（60 秒）内完成，无法扫描的附件列在 `results.virusScanErrors` 中。大于 clamd 所接受大小（其 `StreamMaxLength`）的附件则改为列在 `results.virusScanSkipped` 中：clamd 每次尝试都会拒绝它们。

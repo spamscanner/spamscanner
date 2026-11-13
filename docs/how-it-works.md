@@ -75,6 +75,9 @@ Attachments are identified from their bytes and their names, not their declared 
 * executables inside ZIP archives, and encrypted archives that scanners cannot open
 * Office files with macros, PDFs with JavaScript or launch actions, RTF files with embedded objects
 * HTML attachments, which phishing uses to show a fake login page offline
+* programs compressed on their own, named after them (`invoice.exe.gz`)
+* by name, plain text and HTML parts named as files, and the name in an attachment's `Content-Type` when it differs from its file name: mail programs show them as attachments
+* by name, each name of a part that names itself twice (a `Content-Disposition` or `Content-Type` field, or a file name in one, given twice): mail programs differ in which one they show
 * the attachments of attached messages (`message/rfc822`, `.eml`), up to three levels deep and 100 attachments (the message's own attachments are always all inspected)
 
 With ClamAV, attachments are also scanned with `clamd` over its socket. Four are scanned at a time, all within `clamav.timeout` (60 seconds), and those it could not scan are listed in `results.virusScanErrors`. Those larger than clamd accepts (its `StreamMaxLength`) are listed in `results.virusScanSkipped` instead: clamd refuses them on every try.

@@ -683,18 +683,32 @@ export function parseVerdict(text) {
 		sources.push([text.slice(0, 20_000), answered]);
 	}
 
+	// (one verdict, when the verdict objects agree, those inside one left
+	//  out; none when they do not: a message can have the reply quote one of
+	//  its own, before or after the model's, to change its score either way)
 	for (const [source, wanted] of sources) {
+		let found = null;
+		let end = -1;
 		for (const candidate of jsonObjects(source)) {
-			if (!wanted(candidate)) {
+			if (!wanted(candidate) || candidate[0] < end) {
 				continue;
 			}
 
 			try {
 				const result = normalizeVerdict(JSON.parse(candidate[1]));
 				if (result) {
-					return result;
+					if (found && found.verdict !== result.verdict) {
+						return null;
+					}
+
+					found ??= result;
+					end = candidate[0] + candidate[1].length;
 				}
 			} catch {}
+		}
+
+		if (found) {
+			return found;
 		}
 	}
 

@@ -183,6 +183,15 @@ describe('link checks of what a message carries', () => {
 		assert.ok(result.attached.some(item => item.filename === 'fw.eml'));
 	});
 
+	it('looks up the link hosts of the AMP part of a message', async () => {
+		// (the mail programs that show it show it instead of the HTML part)
+		const amp = 'From: a@example.com\r\nTo: b@example.org\r\nSubject: amp\r\nMIME-Version: 1.0\r\nContent-Type: multipart/alternative; boundary=b\r\n\r\n--b\r\nContent-Type: text/plain\r\n\r\nhello\r\n--b\r\nContent-Type: text/x-amp-html\r\n\r\n<!doctype html><html amp4email><body><a href="https://bad.amp.example/">x</a></body></html>\r\n--b\r\nContent-Type: text/html\r\n\r\n<p>hello</p>\r\n--b--\r\n';
+		const {asked, resolve4} = lookups();
+		const scanner = new SpamScanner({classifier: false, dns: {resolve4}, phishing: {attachments: true}});
+		await scanner.scan(amp);
+		assert.ok(asked.includes('bad.amp.example'));
+	});
+
 	it('reads none of it by default (phishing.attachments off), or when no link host is looked up', async () => {
 		for (const options of [{}, {phishing: {attachments: false}}, {phishing: {attachments: true, cloudflare: false}}]) {
 			const {asked, resolve4} = lookups();

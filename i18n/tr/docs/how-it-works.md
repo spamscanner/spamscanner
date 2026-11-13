@@ -1,4 +1,4 @@
-<!-- source: a7dfb7c0fde2 -->
+<!-- source: ab57fd1d3952 -->
 
 # Nasıl çalışır
 
@@ -77,6 +77,9 @@ Ekler, bildirilen türlerine göre değil, baytlarına ve adlarına göre tanın
 * ZIP arşivlerinin içindeki yürütülebilir dosyalar ve tarayıcıların açamadığı şifreli arşivler
 * makro içeren Office dosyaları, JavaScript veya başlatma eylemleri içeren PDF'ler, gömülü nesneler içeren RTF dosyaları
 * kimlik avında çevrimdışı sahte bir oturum açma sayfası göstermek için kullanılan HTML ekleri
+* tek başına sıkıştırılmış ve kendi adlarını taşıyan programlar (`invoice.exe.gz`)
+* ada göre: dosya adı taşıyan düz metin ve HTML bölümleri ile bir ekin `Content-Type` başlığındaki ad, dosya adından farklı olduğunda; e-posta programları bunları ek olarak gösterir
+* ada göre: kendini iki kez adlandıran bir bölümün her adı (iki kez verilen bir `Content-Disposition` veya `Content-Type` alanı ya da bunlardan birinin içindeki dosya adı); e-posta programlarının hepsi aynısını göstermez
 * ekli iletilerin (`message/rfc822`, `.eml`) ekleri, en fazla üç düzey derinliğe kadar ve en fazla 100 eke kadar (iletinin kendi eklerinin hepsi her zaman incelenir)
 
 ClamAV ile ekler ayrıca soketi üzerinden `clamd` ile taranır. Aynı anda dört tanesi, tümü `clamav.timeout` (60 saniye) içinde taranır; taranamayanlar `results.virusScanErrors` içinde listelenir. clamd'nin kabul ettiğinden (`StreamMaxLength` değerinden) büyük olanlar ise bunun yerine `results.virusScanSkipped` içinde listelenir: clamd bunları her denemede reddeder.
