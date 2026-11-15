@@ -1,4 +1,4 @@
-<!-- source: 929ac4bf99d9 -->
+<!-- source: e76abba4e876 -->
 
 # Testler ve puanlar
 
@@ -106,6 +106,8 @@ DMARC kaydı, boşluk ve büyük/küçük harf ne olursa olsun, RFC 7489'un okud
 Bir DMARC hatası alan adının ilkesine göre puanlanır: alan adı hataların karantinaya alınmasını ya da reddedilmesini istediğinde veya ilke bilinmediğinde tam olarak; bu durumda SPF'nin de başarısız olması daha fazla bir şey eklemez (`SPF_FAIL` ve `SPF_SOFTFAIL` dışarıda bırakılır), çünkü DMARC onu zaten sayar. İlke `none` olduğunda alan adı kendi hatalarının arkasında durmaz, bu yüzden `DMARC_FAIL` küçüktür, ancak SPF'nin puanları bunun üstüne sayılır: ilkesi `none` olan bir alan adını taklit etmek, DMARC'ı olmayan bir alan adını taklit etmekten hiçbir zaman daha kolay değildir (`-all` ile başarısız olan SPF: DMARC olmadan 2 puan, `none` ilkesiyle 3, quarantine veya reject ile 3,5). SRS olmadan iletilen ve imzasını bozan bir altbilgi eklenmiş bir ileti 5,5 değil, en fazla 3,5 puan alır.
 
 İleti gövdesinin yalnızca başını imzalayan bir DKIM imzası (gövdeden kısa bir gövde uzunluğu, `l=`: ardına herkes metin ekleyebilir) `DKIM_PASS` kazanmaz; hizalı SPF olmadan yalnızca böyle bir imzaya dayanan bir DMARC geçişi de `DMARC_PASS` kazanmaz.
+
+DMARC'ı geçen ve `DMARC_PASS` alan bir gönderici, olduğunu söylediği kişidir; bu yüzden gizli bir gönderici arayan testler ona dokunmaz. `INVISIBLE_CHARACTERS` ve `STYLED_LETTERS` sayılmaz, göndericinin kendi markası için `BRAND_IN_DOMAIN` de sayılmaz. `DECEPTIVE_LINK` yalnızca bağlantı, göndericinin olmadığı bir markanın adresini gösterdiğinde sayılır: posta hizmetinin izleme alan adı üzerinde kendi adresini gösteren bir mağaza hiçbir şey almaz, başka herhangi bir alan adından `www.paypal.com` gösteren bir ileti ise onu almaya devam eder. `SPF_FAIL` ve `SPF_SOFTFAIL` de sayılmaz: ileti yönlendirilmiştir ve imzası ona kefil olur.
 
 Bir posta listesi gibi bir iletici, aldığı şeye bir ARC mührüyle kefil olabilir. Bir iletiyi herkes mühürleyebilir, bu yüzden bir mühür yalnızca `authentication.trustedArcSealers` içinde belirttiğiniz bir ileticiden geldiğinde sayılır (bir alan adı alt alan adlarını kapsar), o da yalnızca en yeni ARC kümesi o alan adı tarafından mühürlendiğinde (ARC-Seal ve ARC-Message-Signature aynı alan adına ait olduğunda) ve mühürlediği sonuçlar iletinin, onu aldığında geçtiğini gösterdiğinde: From alan adı için DMARC ya da kayıt edilebilir alan adı aynı olan bir alan adının DKIM veya SPF'si. Böyle bir ileti (`authentication.arc.trusted`) `ARC_PASS` alır ve başarısız SPF, DKIM veya DMARC için puan almaz ve `SELF_SPOOF` sayılmaz (kendi alan adındaki bir listeye yazan bir liste üyesi); diğer ARC geçişleri hiçbir şey almaz, güvenilmeyen ya da başarısız bir mühür ise yine `SELF_SPOOF` alır. `authenticationResults` içinde verilen sonuçlar hiçbir ileticiye güvenmez.
 

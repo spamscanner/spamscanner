@@ -236,6 +236,14 @@ describe('authentication points of forwarded mail', () => {
 		assert.deepEqual(calculateAuthScore(failed('none')).tests, [{name: 'SPF_FAIL', score: 2}, {name: 'DMARC_FAIL', score: 1}]);
 		assert.deepEqual(calculateAuthScore(failed(' None ')).tests, [{name: 'SPF_FAIL', score: 2}, {name: 'DMARC_FAIL', score: 1}]);
 		assert.deepEqual(calculateAuthScore(failed('none'), {dmarcFailNone: 2}).tests, [{name: 'SPF_FAIL', score: 2}, {name: 'DMARC_FAIL', score: 2}]);
+	});
+
+	it('counts no SPF failure of a message that passes DMARC, forwarded with its signature whole', () => {
+		const forwarded = spf => ({spf: {status: {result: spf}}, dmarc: {status: {result: 'pass'}, alignment: {dkim: {result: 'bank.example'}}}});
+		assert.deepEqual(calculateAuthScore(forwarded('fail')).tests, [{name: 'DMARC_PASS', score: -1.5}]);
+		assert.deepEqual(calculateAuthScore(forwarded('softfail')).tests, [{name: 'DMARC_PASS', score: -1.5}]);
+		// (but of one whose pass rests on a signature of part of the body)
+		assert.deepEqual(calculateAuthScore({spf: {status: {result: 'fail'}}, dmarc: {status: {result: 'pass'}, alignment: {dkim: {result: 'bank.example', underSized: 10}}}}).tests, [{name: 'SPF_FAIL', score: 2}]);
 		assert.deepEqual(calculateAuthScore({spf: {status: {result: 'fail'}}, dmarc: {status: {result: 'none'}}}).tests, [{name: 'SPF_FAIL', score: 2}]);
 		// (an ARC seal anyone could add changes nothing, and earns nothing)
 		assert.deepEqual(calculateAuthScore(failed('reject', {arc: {status: {result: 'pass'}, sealer: 'attacker.example', trusted: false}})).tests, [{name: 'DMARC_FAIL', score: 3.5}]);

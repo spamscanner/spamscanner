@@ -1,4 +1,4 @@
-<!-- source: 929ac4bf99d9 -->
+<!-- source: e76abba4e876 -->
 
 # Testy i punkty
 
@@ -106,6 +106,8 @@ Rekord DMARC jest czytany tak, jak czyta go RFC 7489, bez względu na odstępy i
 Niepowodzenie DMARC jest punktowane według polityki domeny: w pełni, gdy domena prosi o kwarantannę lub odrzucanie niepowodzeń albo polityka nie jest znana, i wtedy niepowodzenie także SPF nic już nie dodaje (`SPF_FAIL` i `SPF_SOFTFAIL` są pomijane), bo DMARC już je uwzględnia. Gdy polityka to `none`, domena nie stoi za swoimi niepowodzeniami, więc `DMARC_FAIL` jest mały, ale punkty SPF liczą się dodatkowo: domena z polityką `none` nigdy nie jest łatwiejsza do podszycia się niż domena bez DMARC (niepowodzenie SPF z `-all`: 2 punkty bez DMARC, 3 z polityką `none`, 3,5 z quarantine lub reject). Wiadomość przekazana bez SRS, z dodaną stopką, która łamie jej podpis, dostaje najwyżej 3,5 punktu, a nie 5,5.
 
 Podpis DKIM obejmujący tylko początek treści (długość treści, `l=`, krótsza niż treść: każdy może dopisać za nią tekst) nie daje `DKIM_PASS`, a przejście DMARC oparte wyłącznie na takim podpisie, bez wyrównanego SPF, nie daje `DMARC_PASS`.
+
+Nadawca, który przechodzi DMARC i otrzymuje `DMARC_PASS`, jest tym, za kogo się podaje, więc testy szukające ukrytego nadawcy zostawiają go w spokoju. `INVISIBLE_CHARACTERS` i `STYLED_LETTERS` są pomijane, podobnie jak `BRAND_IN_DOMAIN` dla własnej marki nadawcy. `DECEPTIVE_LINK` liczy się tylko wtedy, gdy link pokazuje adres marki, którą nadawca nie jest: sklep pokazujący własny adres nad domeną śledzącą swojej usługi wysyłkowej nie dostaje nic, a wiadomość pokazująca `www.paypal.com` z jakiejkolwiek innej domeny nadal go dostaje. `SPF_FAIL` i `SPF_SOFTFAIL` również są pomijane: wiadomość została przekazana dalej, a jej podpis za nią ręczy.
 
 Przekazujący, taki jak lista mailingowa, może poręczyć za to, co otrzymał, pieczęcią ARC. Każdy może opieczętować wiadomość, więc pieczęć liczy się tylko od przekazującego, którego wskażesz w `authentication.trustedArcSealers` (domena obejmuje swoje subdomeny), i tylko wtedy, gdy najnowszy zestaw ARC jest opieczętowany przez tę domenę (jego ARC-Seal i ARC-Message-Signature pochodzą od tej samej domeny), a opieczętowane przez nią wyniki pokazują, że wiadomość przeszła, gdy ją otrzymała: DMARC dla domeny From albo DKIM lub SPF domeny o tej samej domenie rejestrowalnej. Taka wiadomość (`authentication.arc.trusted`) dostaje `ARC_PASS` i nie dostaje punktów za niepowodzenie SPF, DKIM ani DMARC i nie jest `SELF_SPOOF` (członek listy piszący na listę własnej domeny); każde inne przejście ARC nie daje nic, a niezaufana lub nieudana pieczęć nadal dostaje `SELF_SPOOF`. Wyniki przekazane w `authenticationResults` nie ufają żadnemu przekazującemu.
 

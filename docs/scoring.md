@@ -105,6 +105,8 @@ A DMARC failure scores by the domain's policy: in full when the domain asks for 
 
 A DKIM signature of only the start of the body (a body length, `l=`, shorter than the body: anyone can add text after it) earns no `DKIM_PASS`, and a DMARC pass that rests on one alone, without SPF aligned, no `DMARC_PASS`.
 
+A sender that passes DMARC and earns `DMARC_PASS` is who it says it is, so tests for a hidden sender leave it alone. `INVISIBLE_CHARACTERS` and `STYLED_LETTERS` are left out, and so is `BRAND_IN_DOMAIN` for the sender's own brand. `DECEPTIVE_LINK` counts only when the link shows the address of a brand the sender is not: a shop showing its own address over its mailing service's tracking domain gets nothing, and a message showing `www.paypal.com` from any other domain still gets it. `SPF_FAIL` and `SPF_SOFTFAIL` are left out as well: the message was forwarded, and its signature vouches for it.
+
 A forwarder, such as a mailing list, can vouch for what it received with an ARC seal. Anyone can seal a message, so a seal counts only from a forwarder you name in `authentication.trustedArcSealers` (a domain covers its subdomains), and only when the newest ARC set is sealed by that domain (its ARC-Seal and ARC-Message-Signature of the same domain) and the results it sealed show the message passed when it got it: DMARC for the From domain, or DKIM or SPF of a domain with the same registrable domain. Such a message (`authentication.arc.trusted`) gets `ARC_PASS` and no points for failing SPF, DKIM or DMARC, and is not `SELF_SPOOF` (a list member writing to a list of their own domain); any other ARC pass gets nothing, and an untrusted or failed seal still gets `SELF_SPOOF`. Results passed in `authenticationResults` trust no forwarder.
 
 ```js

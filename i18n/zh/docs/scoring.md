@@ -1,4 +1,4 @@
-<!-- source: 929ac4bf99d9 -->
+<!-- source: e76abba4e876 -->
 
 # 测试与分值
 
@@ -106,6 +106,8 @@ DMARC 记录按 RFC 7489 的方式读取，不论其空格和大小写（`p= Non
 DMARC 失败按域名的策略计分：域名要求隔离或拒绝失败的邮件，或策略未知时，计满分，此时 SPF 同时失败不再额外加分（不计 `SPF_FAIL` 和 `SPF_SOFTFAIL`），因为 DMARC 已经计入了它。策略为 `none` 时，域名并不为其失败负责，因此 `DMARC_FAIL` 分数很小，但 SPF 的分数会叠加在其上：策略为 `none` 的域名绝不会比没有 DMARC 的域名更容易被冒充（SPF 以 `-all` 失败：没有 DMARC 时 2 分，策略为 `none` 时 3 分，quarantine 或 reject 时 3.5 分）。一封未经 SRS 转发、又被添加了破坏签名的页脚的邮件，最多得 3.5 分，而不是 5.5 分。
 
 只签署正文开头部分的 DKIM 签名（正文长度 `l=` 短于正文：任何人都能在其后追加文字）不会得到 `DKIM_PASS`，仅依赖这种签名、没有对齐的 SPF 的 DMARC 通过也不会得到 `DMARC_PASS`。
+
+通过 DMARC 并获得 `DMARC_PASS` 的发件人就是其自称的身份，因此查找隐藏发件人的测试不会对其计分。`INVISIBLE_CHARACTERS` 和 `STYLED_LETTERS` 不计入，针对发件人自有品牌的 `BRAND_IN_DOMAIN` 也不计入。只有当链接显示的是发件人以外某个品牌的地址时，`DECEPTIVE_LINK` 才计入：商店在其邮件服务的跟踪域名上显示自己的地址不会得分，而从任何其他域名显示 `www.paypal.com` 的邮件仍会得分。`SPF_FAIL` 和 `SPF_SOFTFAIL` 同样不计入：邮件经过转发，其签名为它作保。
 
 转发方（例如邮件列表）可以用 ARC 封印为其收到的内容作担保。任何人都能封印邮件，因此只有来自你在 `authentication.trustedArcSealers` 中指定的转发方的封印才计入（域名涵盖其子域名），而且只有当最新的 ARC 组由该域名封印（其 ARC-Seal 和 ARC-Message-Signature 属于同一域名），且其封印的结果表明邮件在它收到时已通过时才计入：From 域名的 DMARC，或可注册域名相同的域名的 DKIM 或 SPF。这样的邮件（`authentication.arc.trusted`）会得到 `ARC_PASS`，且不会因 SPF、DKIM 或 DMARC 失败而得分，也不算 `SELF_SPOOF`（列表成员写信给自己域名的列表）；其他任何 ARC 通过都不得分，不受信任或失败的封印仍会得到 `SELF_SPOOF`。通过 `authenticationResults` 传入的结果不信任任何转发方。
 

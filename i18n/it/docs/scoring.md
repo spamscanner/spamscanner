@@ -1,4 +1,4 @@
-<!-- source: 929ac4bf99d9 -->
+<!-- source: e76abba4e876 -->
 
 # Test e punteggi
 
@@ -106,6 +106,8 @@ Il record DMARC viene letto come lo legge la RFC 7489, qualunque siano spaziatur
 Un fallimento DMARC conta secondo la policy del dominio: per intero quando il dominio chiede che i fallimenti siano messi in quarantena o rifiutati, o la policy non è nota, e anche un fallimento SPF non aggiunge altro (`SPF_FAIL` e `SPF_SOFTFAIL` vengono esclusi), perché DMARC lo conta già. Quando la policy è `none`, il dominio non garantisce per i propri fallimenti, quindi `DMARC_FAIL` è basso, ma i punti di SPF si sommano: un dominio con policy `none` non è mai più facile da falsificare di uno senza DMARC (SPF che fallisce con `-all`: 2 punti senza DMARC, 3 con policy `none`, 3,5 con quarantine o reject). Un messaggio inoltrato senza SRS, con un piè di pagina aggiunto che ne rompe la firma, riceve al massimo 3,5 punti, non 5,5.
 
 Una firma DKIM solo dell'inizio del corpo (una lunghezza del corpo, `l=`, più corta del corpo: chiunque può aggiungere testo dopo) non ottiene `DKIM_PASS`, e una verifica DMARC superata che si basa solo su di essa, senza SPF allineato, non ottiene `DMARC_PASS`.
+
+Un mittente che supera DMARC e ottiene `DMARC_PASS` è chi dice di essere, quindi i test che cercano un mittente nascosto lo lasciano stare. `INVISIBLE_CHARACTERS` e `STYLED_LETTERS` vengono omessi, e così `BRAND_IN_DOMAIN` per il marchio del mittente stesso. `DECEPTIVE_LINK` conta solo quando il link mostra l'indirizzo di un marchio che il mittente non è: un negozio che mostra il proprio indirizzo sopra il dominio di tracciamento del suo servizio di invio non riceve nulla, e un messaggio che mostra `www.paypal.com` da qualsiasi altro dominio lo riceve comunque. Anche `SPF_FAIL` e `SPF_SOFTFAIL` vengono omessi: il messaggio è stato inoltrato e la sua firma ne risponde.
 
 Un inoltratore, come una mailing list, può garantire per ciò che ha ricevuto con un sigillo ARC. Chiunque può sigillare un messaggio, quindi un sigillo conta solo se proviene da un inoltratore che indichi in `authentication.trustedArcSealers` (un dominio copre i suoi sottodomini), e solo quando il set ARC più recente è sigillato da quel dominio (il suo ARC-Seal e il suo ARC-Message-Signature dello stesso dominio) e i risultati che ha sigillato mostrano che il messaggio superava la verifica quando lo ha ricevuto: DMARC per il dominio From, o DKIM o SPF di un dominio con lo stesso dominio registrabile. Un messaggio simile (`authentication.arc.trusted`) riceve `ARC_PASS` e nessun punto per il fallimento di SPF, DKIM o DMARC, e non è `SELF_SPOOF` (un membro di una lista che scrive a una lista del proprio dominio); qualsiasi altra verifica ARC superata non riceve nulla, e un sigillo non attendibile o non valido riceve comunque `SELF_SPOOF`. I risultati passati in `authenticationResults` non si fidano di alcun inoltratore.
 

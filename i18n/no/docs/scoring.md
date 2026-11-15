@@ -1,4 +1,4 @@
-<!-- source: 929ac4bf99d9 -->
+<!-- source: e76abba4e876 -->
 
 # Tester og poeng
 
@@ -106,6 +106,8 @@ DMARC-posten leses slik RFC 7489 leser den, uansett mellomrom og store og små b
 En DMARC-feil gir poeng etter domenets policy: fullt når domenet ber om at feil settes i karantene eller avvises, eller policyen ikke er kjent, og at SPF i tillegg feiler, legger ikke til noe mer (`SPF_FAIL` og `SPF_SOFTFAIL` utelates), siden DMARC allerede teller den. Når policyen er `none`, står ikke domenet bak feilene sine, så `DMARC_FAIL` er lite, men SPF-poengene kommer i tillegg: et domene med policyen `none` er aldri lettere å forfalske enn et uten DMARC (SPF som feiler med `-all`: 2 poeng uten DMARC, 3 med policyen `none`, 3,5 med quarantine eller reject). En melding videresendt uten SRS, med en bunntekst lagt til som bryter signaturen, får høyst 3,5 poeng, ikke 5,5.
 
 En DKIM-signatur av bare begynnelsen av meldingsteksten (en tekstlengde, `l=`, kortere enn meldingsteksten: hvem som helst kan legge til tekst etter den) gir ingen `DKIM_PASS`, og en DMARC-godkjenning som bare bygger på en slik signatur, uten justert SPF, gir ingen `DMARC_PASS`.
+
+En avsender som består DMARC og får `DMARC_PASS`, er den den utgir seg for å være, så tester som leter etter en skjult avsender, lar den være. `INVISIBLE_CHARACTERS` og `STYLED_LETTERS` utelates, og det samme gjør `BRAND_IN_DOMAIN` for avsenderens eget merke. `DECEPTIVE_LINK` teller bare når lenken viser adressen til et merke avsenderen ikke er: en butikk som viser sin egen adresse over sporingsdomenet til utsendelsestjenesten sin, får ingenting, og en melding som viser `www.paypal.com` fra et hvilket som helst annet domene, får den fortsatt. `SPF_FAIL` og `SPF_SOFTFAIL` utelates også: meldingen ble videresendt, og signaturen går god for den.
 
 En videresender, som en e-postliste, kan gå god for det den mottok, med et ARC-segl. Hvem som helst kan forsegle en melding, så et segl teller bare fra en videresender du angir i `authentication.trustedArcSealers` (et domene dekker underdomenene sine), og bare når det nyeste ARC-settet er forseglet av det domenet (ARC-Seal og ARC-Message-Signature fra samme domene) og resultatene det forseglet, viser at meldingen besto da den mottok den: DMARC for From-domenet, eller DKIM eller SPF for et domene med samme registrerbare domene. En slik melding (`authentication.arc.trusted`) får `ARC_PASS` og ingen poeng for feilet SPF, DKIM eller DMARC, og er ikke `SELF_SPOOF` (et listemedlem som skriver til en liste på sitt eget domene); enhver annen ARC-godkjenning gir ingenting, og et segl som ikke er klarert eller som feilet, får fortsatt `SELF_SPOOF`. Resultater som gis i `authenticationResults`, stoler ikke på noen videresender.
 

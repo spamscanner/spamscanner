@@ -1,4 +1,4 @@
-<!-- source: 929ac4bf99d9 -->
+<!-- source: e76abba4e876 -->
 
 # Tests et scores
 
@@ -106,6 +106,8 @@ L’enregistrement DMARC est lu comme le lit la RFC 7489, quels qu’en soient l
 Un échec DMARC compte selon la politique du domaine : pleinement quand le domaine demande que les échecs soient mis en quarantaine ou rejetés, ou que la politique n’est pas connue, et un échec SPF en plus n’ajoute rien (`SPF_FAIL` et `SPF_SOFTFAIL` sont omis), car DMARC le compte déjà. Quand la politique est `none`, le domaine ne se porte pas garant de ses échecs, donc `DMARC_FAIL` est faible, mais les points de SPF s’y ajoutent : un domaine dont la politique est `none` n’est jamais plus facile à usurper qu’un domaine sans DMARC (SPF qui échoue avec `-all` : 2 points sans DMARC, 3 avec la politique `none`, 3,5 avec quarantine ou reject). Un message transféré sans SRS, auquel a été ajouté un pied de page qui casse sa signature, reçoit au plus 3,5 points, et non 5,5.
 
 Une signature DKIM du seul début du corps (une longueur de corps, `l=`, plus courte que le corps : n’importe qui peut ajouter du texte après) ne rapporte pas de `DKIM_PASS`, et une réussite DMARC qui repose sur une telle signature seule, sans SPF aligné, ne rapporte pas de `DMARC_PASS`.
+
+Un expéditeur qui réussit DMARC et obtient `DMARC_PASS` est bien celui qu'il prétend être : les tests qui cherchent un expéditeur caché le laissent donc tranquille. `INVISIBLE_CHARACTERS` et `STYLED_LETTERS` sont écartés, de même que `BRAND_IN_DOMAIN` pour la propre marque de l'expéditeur. `DECEPTIVE_LINK` ne compte que si le lien affiche l'adresse d'une marque que l'expéditeur n'est pas : une boutique qui affiche sa propre adresse sur le domaine de suivi de son service d'envoi n'obtient rien, et un message qui affiche `www.paypal.com` depuis tout autre domaine l'obtient toujours. `SPF_FAIL` et `SPF_SOFTFAIL` sont écartés eux aussi : le message a été transféré, et sa signature en répond.
 
 Un transféreur, comme une liste de diffusion, peut se porter garant de ce qu’il a reçu avec un sceau ARC. N’importe qui peut sceller un message, donc un sceau ne compte que s’il vient d’un transféreur que vous nommez dans `authentication.trustedArcSealers` (un domaine couvre ses sous-domaines), et seulement quand le jeu ARC le plus récent est scellé par ce domaine (son ARC-Seal et son ARC-Message-Signature du même domaine) et que les résultats qu’il a scellés montrent que le message réussissait quand il l’a reçu : DMARC pour le domaine From, ou DKIM ou SPF d’un domaine ayant le même domaine enregistrable. Un tel message (`authentication.arc.trusted`) obtient `ARC_PASS` et aucun point pour l’échec de SPF, DKIM ou DMARC, et n’est pas `SELF_SPOOF` (un membre d’une liste écrivant à une liste de son propre domaine) ; toute autre réussite ARC ne rapporte rien, et un sceau non fiable ou en échec obtient quand même `SELF_SPOOF`. Les résultats passés dans `authenticationResults` ne font confiance à aucun transféreur.
 

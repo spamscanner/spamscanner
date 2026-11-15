@@ -1,4 +1,4 @@
-<!-- source: 929ac4bf99d9 -->
+<!-- source: e76abba4e876 -->
 
 # Testy a skóre
 
@@ -106,6 +106,8 @@ Záznam DMARC se čte tak, jak ho čte RFC 7489, bez ohledu na mezery a velikost
 Selhání DMARC se hodnotí podle politiky domény: plně, když doména žádá, aby se selhání dávala do karantény nebo odmítala, nebo když politika není známa, a když navíc selže SPF, nepřidá to nic dalšího (`SPF_FAIL` a `SPF_SOFTFAIL` se vynechají), protože DMARC ho už započítává. Když je politika `none`, doména za svými selháními nestojí, takže `DMARC_FAIL` je malé, ale body SPF se připočítají navíc: doménu s politikou `none` nikdy nelze podvrhnout snáz než doménu bez DMARC (selhání SPF s `-all`: 2 body bez DMARC, 3 s politikou `none`, 3,5 s quarantine nebo reject). Zpráva přeposlaná bez SRS s přidanou patičkou, která porušila její podpis, dostane nejvýše 3,5 bodu, ne 5,5.
 
 Podpis DKIM jen začátku těla (délka těla, `l=`, kratší než tělo: kdokoli za něj může přidat text) nezíská `DKIM_PASS` a úspěch DMARC, který stojí jen na něm, bez zarovnaného SPF, nezíská `DMARC_PASS`.
+
+Odesílatel, který projde DMARC a získá `DMARC_PASS`, je tím, za koho se vydává, takže testy hledající skrytého odesílatele ho nechávají být. `INVISIBLE_CHARACTERS` a `STYLED_LETTERS` se vynechávají, stejně jako `BRAND_IN_DOMAIN` pro vlastní značku odesílatele. `DECEPTIVE_LINK` se počítá jen tehdy, když odkaz ukazuje adresu značky, kterou odesílatel není: obchod, který ukazuje vlastní adresu nad sledovací doménou své rozesílací služby, nedostane nic, a zpráva, která ukazuje `www.paypal.com` z jakékoli jiné domény, jej dostane dál. Vynechávají se také `SPF_FAIL` a `SPF_SOFTFAIL`: zpráva byla přeposlána a její podpis se za ni zaručuje.
 
 Přeposílatel, například e-mailová konference, se může za to, co přijal, zaručit pečetí ARC. Zprávu může zapečetit kdokoli, proto se pečeť počítá jen od přeposílatele, kterého uvedete v `authentication.trustedArcSealers` (doména pokrývá své subdomény), a jen když je nejnovější sada ARC zapečetěna touto doménou (její ARC-Seal i ARC-Message-Signature jsou od stejné domény) a výsledky, které zapečetila, ukazují, že zpráva při převzetí prošla: DMARC pro doménu From, nebo DKIM či SPF domény se stejnou registrovatelnou doménou. Taková zpráva (`authentication.arc.trusted`) dostane `ARC_PASS` a žádné body za selhání SPF, DKIM nebo DMARC a není `SELF_SPOOF` (člen konference píše do konference své vlastní domény); jakýkoli jiný úspěch ARC nedostane nic a nedůvěryhodná nebo neplatná pečeť `SELF_SPOOF` dostane i nadále. Výsledky předané v `authenticationResults` nedůvěřují žádnému přeposílateli.
 

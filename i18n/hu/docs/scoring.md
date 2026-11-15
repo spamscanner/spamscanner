@@ -1,4 +1,4 @@
-<!-- source: 929ac4bf99d9 -->
+<!-- source: e76abba4e876 -->
 
 # Tesztek és pontszámok
 
@@ -106,6 +106,8 @@ A DMARC-rekordot úgy olvassa, ahogy az RFC 7489, szóközöktől és kis- és n
 A DMARC-hiba a tartomány házirendje szerint kap pontot: teljes mértékben, ha a tartomány a hibák karanténba helyezését vagy elutasítását kéri, vagy a házirend nem ismert, és ekkor az SPF hibája sem ad hozzá semmit (a `SPF_FAIL` és a `SPF_SOFTFAIL` kimarad), mert a DMARC már beszámítja. Ha a házirend `none`, a tartomány nem áll ki a hibái mögött, ezért a `DMARC_FAIL` kicsi, de az SPF pontjai hozzáadódnak: egy `none` házirendű tartományt sosem könnyebb hamisítani, mint egy DMARC nélkülit (`-all` mellett sikertelen SPF: 2 pont DMARC nélkül, 3 `none` házirenddel, 3,5 quarantine vagy reject házirenddel). Egy SRS nélkül továbbított levél, amelyhez az aláírását megtörő láblécet fűztek, legfeljebb 3,5 pontot kap, nem 5,5-öt.
 
 Egy csak a levéltörzs elejére vonatkozó DKIM-aláírás (a törzshossz, `l=`, rövidebb a törzsnél: utána bárki hozzáírhat szöveget) nem kap `DKIM_PASS` pontot, és az egyedül ilyenre épülő sikeres DMARC, igazodó SPF nélkül, nem kap `DMARC_PASS` pontot.
+
+Az a feladó, amely átmegy a DMARC-ellenőrzésen és megkapja a `DMARC_PASS` tesztet, az, akinek mondja magát, ezért a rejtett feladót kereső tesztek békén hagyják. Az `INVISIBLE_CHARACTERS` és a `STYLED_LETTERS` kimarad, ahogy a `BRAND_IN_DOMAIN` is a feladó saját márkájára. A `DECEPTIVE_LINK` csak akkor számít, ha a hivatkozás olyan márka címét mutatja, amely nem a feladó: az a bolt, amely a saját címét mutatja a levélküldő szolgáltatása követő domainje fölött, nem kap semmit, az az üzenet pedig, amely bármely más domainről a `www.paypal.com` címet mutatja, továbbra is megkapja. Az `SPF_FAIL` és az `SPF_SOFTFAIL` szintén kimarad: az üzenetet továbbították, és az aláírása kezeskedik érte.
 
 Egy továbbító, például egy levelezőlista, ARC-pecséttel kezeskedhet azért, amit kapott. Bárki lepecsételhet egy levelet, ezért egy pecsét csak olyan továbbítótól számít, amelyet az `authentication.trustedArcSealers` beállításban megnevez (egy tartomány az altartományait is lefedi), és csak akkor, ha a legújabb ARC-készletet ez a tartomány pecsételte le (az ARC-Seal és az ARC-Message-Signature is ugyanettől a tartománytól származik), és az általa lepecsételt eredmények azt mutatják, hogy a levél sikeres volt, amikor megkapta: a DMARC a From tartományra, vagy a DKIM vagy az SPF egy ugyanolyan regisztrálható tartományú tartományra. Az ilyen levél (`authentication.arc.trusted`) `ARC_PASS` pontot kap, és nem kap pontot a sikertelen SPF-ért, DKIM-ért vagy DMARC-ért, és nem `SELF_SPOOF` (egy listatag, aki a saját tartományának listájára ír); minden más sikeres ARC semmit sem kap, egy nem megbízható vagy sikertelen pecsét pedig továbbra is `SELF_SPOOF` pontot kap. Az `authenticationResults` értékben átadott eredmények egyetlen továbbítóban sem bíznak.
 

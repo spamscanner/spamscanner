@@ -1,4 +1,4 @@
-<!-- source: 929ac4bf99d9 -->
+<!-- source: e76abba4e876 -->
 
 # Tester och poäng
 
@@ -106,6 +106,8 @@ DMARC-posten läses som RFC 7489 läser den, oavsett mellanrum och skiftläge (`
 Ett DMARC-fel ger poäng efter domänens policy: fullt när domänen ber att fel sätts i karantän eller avvisas, eller policyn inte är känd, och ett SPF-fel därtill lägger inte till något mer (`SPF_FAIL` och `SPF_SOFTFAIL` utelämnas), eftersom DMARC redan räknar det. När policyn är `none` står domänen inte bakom sina fel, så `DMARC_FAIL` är litet, men SPF:s poäng räknas ovanpå det: en domän med policyn `none` är aldrig lättare att förfalska än en utan DMARC (SPF som misslyckas med `-all`: 2 poäng utan DMARC, 3 med policyn `none`, 3,5 med quarantine eller reject). Ett meddelande som vidarebefordrats utan SRS, med en tillagd sidfot som bryter dess signatur, får högst 3,5 poäng, inte 5,5.
 
 En DKIM-signatur av bara början av meddelandetexten (en textlängd, `l=`, kortare än texten: vem som helst kan lägga till text efter den) ger ingen `DKIM_PASS`, och ett DMARC-godkännande som vilar enbart på en sådan, utan justerad SPF, ingen `DMARC_PASS`.
+
+En avsändare som klarar DMARC och får `DMARC_PASS` är den som den utger sig för att vara, så tester som letar efter en dold avsändare lämnar den i fred. `INVISIBLE_CHARACTERS` och `STYLED_LETTERS` utelämnas, liksom `BRAND_IN_DOMAIN` för avsändarens eget varumärke. `DECEPTIVE_LINK` räknas bara när länken visar adressen till ett varumärke som avsändaren inte är: en butik som visar sin egen adress över sin utskickstjänsts spårningsdomän får ingenting, och ett meddelande som visar `www.paypal.com` från vilken annan domän som helst får det fortfarande. Även `SPF_FAIL` och `SPF_SOFTFAIL` utelämnas: meddelandet vidarebefordrades, och dess signatur går i god för det.
 
 En vidarebefordrare, som en e-postlista, kan gå i god för det den tog emot med ett ARC-sigill. Vem som helst kan försegla ett meddelande, så ett sigill räknas bara från en vidarebefordrare du anger i `authentication.trustedArcSealers` (en domän omfattar sina underdomäner), och bara när den nyaste ARC-uppsättningen är förseglad av den domänen (dess ARC-Seal och ARC-Message-Signature från samma domän) och de resultat den förseglade visar att meddelandet godkändes när den tog emot det: DMARC för From-domänen, eller DKIM eller SPF för en domän med samma registrerbara domän. Ett sådant meddelande (`authentication.arc.trusted`) får `ARC_PASS` och inga poäng för misslyckad SPF, DKIM eller DMARC, och är inte `SELF_SPOOF` (en listmedlem som skriver till en lista på sin egen domän); alla andra ARC-godkännanden får ingenting, och ett sigill som inte är betrott eller som misslyckats får fortfarande `SELF_SPOOF`. Resultat som skickas i `authenticationResults` litar inte på någon vidarebefordrare.
 

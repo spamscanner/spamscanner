@@ -65,6 +65,17 @@ describe('scoreResults', () => {
 		assert.deepEqual(names(scoreResults({reputation: {isTruthSource: true, truthSourceValue: 'x'}})), ['TRUTH_SOURCE']);
 		assert.deepEqual(names(scoreResults({reputation: {}})), []);
 		assert.deepEqual(names(scoreResults({obfuscation: {invisible: 2, mixed: 1}})), []);
+		// (from a sender that passes DMARC, only what does not hide a sender; in
+		//  a message read whole, and by a pass that earns DMARC_PASS)
+		const disguised = {
+			phishing: [{type: 'deceptive_link', unlessAuthenticated: true, message: 'a'}, {type: 'homograph', riskScore: 0.6, message: 'b'}],
+			obfuscation: {invisible: 3, mixed: 2, styled: true},
+		};
+		const passed = {score: {tests: [{name: 'DMARC_PASS', score: -1.5}]}};
+		assert.deepEqual(names(scoreResults({...disguised, authentication: passed})), ['BRAND_IN_DOMAIN', 'MIXED_SCRIPT_WORDS', 'DMARC_PASS']);
+		assert.deepEqual(names(scoreResults({authentication: passed})), ['DMARC_PASS']);
+		assert.deepEqual(names(scoreResults({...disguised, authentication: passed, parseError: 'too many parts'})), ['DECEPTIVE_LINK', 'BRAND_IN_DOMAIN', 'MIME_TOO_COMPLEX', 'INVISIBLE_CHARACTERS', 'MIXED_SCRIPT_WORDS', 'STYLED_LETTERS']);
+		assert.deepEqual(names(scoreResults({...disguised, authentication: {score: {tests: [{name: 'SPF_PASS', score: -0.5}]}}})), ['DECEPTIVE_LINK', 'BRAND_IN_DOMAIN', 'INVISIBLE_CHARACTERS', 'MIXED_SCRIPT_WORDS', 'STYLED_LETTERS', 'SPF_PASS']);
 	});
 
 	it('adds or removes points for the language model\'s verdict, scaled by confidence', () => {

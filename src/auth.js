@@ -411,7 +411,9 @@ export const DEFAULT_AUTH_WEIGHTS = {
  *
  * A DMARC failure scores `dmarcFail` when the domain's policy is quarantine
  * or reject (or not known), and SPF failing as well adds nothing more: DMARC
- * already counts it. When the policy is none it scores `dmarcFailNone`, on
+ * already counts it. Nor does SPF failing count when DMARC passes: a
+ * signature of the From domain vouches for the message, and SPF fails
+ * because it was forwarded. When the policy is none it scores `dmarcFailNone`, on
  * top of SPF's points, so a domain with policy none is never easier to
  * spoof than one without DMARC. A DKIM signature of only part of the body
  * (l=) earns no DKIM_PASS, nor a DMARC pass that rests on one alone
@@ -433,15 +435,16 @@ export function calculateAuthScore(auth, weights = {}) {
 
 	const forwarded = auth?.arc?.trusted === true && auth?.arc?.status?.result === 'pass';
 	const policyNone = tagText(auth?.dmarc?.policy) === 'none';
-	const spfCounted = !(auth?.dmarc?.status?.result === 'fail' && !policyNone);
 	const failure = score => (forwarded ? 0 : score);
 	const passing = (Array.isArray(auth?.dkim?.results) ? auth.dkim.results : []).filter(entry => entry?.status?.result === 'pass');
 	const partOfBody = passing.length > 0 && passing.every(entry => entry.status.underSized > 0);
 	const dmarcOnPart = auth?.dmarc?.alignment?.dkim?.underSized > 0 && !auth?.dmarc?.alignment?.spf?.result;
+	const dmarc = auth?.dmarc?.status?.result;
+	const spfCounted = !(dmarc === 'fail' && !policyNone) && !(dmarc === 'pass' && !dmarcOnPart);
 	const rules = [
 		['DKIM', auth?.dkim?.status?.result, {pass: partOfBody ? 0 : w.dkimPass, fail: failure(w.dkimFail)}],
 		['SPF', auth?.spf?.status?.result, {pass: w.spfPass, fail: spfCounted ? failure(w.spfFail) : 0, softfail: spfCounted ? failure(w.spfSoftfail) : 0}],
-		['DMARC', auth?.dmarc?.status?.result, {pass: dmarcOnPart ? 0 : w.dmarcPass, fail: failure(policyNone ? w.dmarcFailNone : w.dmarcFail)}],
+		['DMARC', dmarc, {pass: dmarcOnPart ? 0 : w.dmarcPass, fail: failure(policyNone ? w.dmarcFailNone : w.dmarcFail)}],
 		['ARC', auth?.arc?.status?.result, {pass: forwarded ? w.arcPass : 0, fail: w.arcFail}],
 	];
 	for (const [name, value, scores] of rules) {

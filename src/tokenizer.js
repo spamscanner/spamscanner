@@ -1295,12 +1295,19 @@ const SENDING_DOMAINS = new Map([
  * sending "https://www.paypal.com" to a phishing page, not a newsletter's
  * links. A link through a security gateway is read as the address the
  * gateway goes on to, where the gateway's link holds it (see unwrapLink).
+ * A sender that passes DMARC (`authenticated`) shows its own address, or a
+ * shop's, over the tracking domain of the service that sends its mail, so
+ * its other links count only when they show an address of a brand's domain
+ * that is not its own domain, whatever the path (for a brand newsletters
+ * link to, no path or one that asks to sign in or pay). A sender is the
+ * brand there by its domain, not by its name: "paypal.top" is not PayPal.
  * @param {{host: string, text: string|null, url?: string}} link
  * @param {object} [options]
  * @param {string} [options.from] - the sender's domain
+ * @param {boolean} [options.authenticated] - whether the sender passes DMARC
  * @returns {boolean}
  */
-export function isDeceptiveLink(link, {from} = {}) {
+export function isDeceptiveLink(link, {from, authenticated} = {}) {
 	if (!link.text) {
 		return false;
 	}
@@ -1321,18 +1328,21 @@ export function isDeceptiveLink(link, {from} = {}) {
 		return false;
 	}
 
-	if (!isClickTracker(target ?? {hostname: host, pathname: ''})) {
+	const tracked = isClickTracker(target ?? {hostname: host, pathname: ''});
+	if (!tracked && !authenticated) {
 		return true;
 	}
 
 	const brand = parseDomain(shown).domainWithoutSuffix;
 	const sender = parseDomain(from ?? '').domainWithoutSuffix ?? '';
 	const path = `${shownUrl.pathname}${shownUrl.search}`;
+	const signIn = path === '/' || signInPath(path);
 	return typeof from === 'string'
-		&& /^https?:\/\//i.test(link.text)
-		&& BRAND_NAMES.has(brand) && !LINKED_BRANDS.has(brand)
-		&& (path === '/' || signInPath(path))
-		&& registrableDomain(from) !== shown && sender !== brand
+		&& BRAND_NAMES.has(brand)
+		&& (tracked
+			? !LINKED_BRANDS.has(brand) && /^https?:\/\//i.test(link.text) && signIn && sender !== brand
+			: !LINKED_BRANDS.has(brand) || signIn)
+		&& registrableDomain(from) !== shown
 		&& !SENDING_DOMAINS.get(brand)?.includes(registrableDomain(from));
 }
 

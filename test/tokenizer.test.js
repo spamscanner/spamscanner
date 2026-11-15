@@ -318,6 +318,21 @@ describe('links', () => {
 		assert.equal(isDeceptiveLink({host: 'www.paypal.com', text: 'paypal.com/signin'}), false);
 		assert.equal(isDeceptiveLink({host: 'evil.example', text: null}), false);
 		assert.equal(isDeceptiveLink({host: 'evil.example', text: 'localhost'}), false);
+		// (of a sender that passes DMARC, only the address of a brand it is not)
+		assert.equal(isDeceptiveLink({host: 'links.mailer-service.example', text: 'www.shop.example'}, {from: 'mail.shop.example', authenticated: true}), false);
+		assert.equal(isDeceptiveLink({host: 'evil.example', text: 'paypal.com/myaccount'}, {from: 'evil.example', authenticated: true}), true);
+		assert.equal(isDeceptiveLink({host: 'links.mailer-service.example', text: 'www.paypal.com'}, {from: 'mail.paypal.com', authenticated: true}), false);
+		assert.equal(isDeceptiveLink({host: 'evil.example', text: 'paypal.com'}, {authenticated: true}), false);
+		// (the brand by its domain, not its name on another one)
+		assert.equal(isDeceptiveLink({host: 'evil.example', text: 'https://www.paypal.com/signin'}, {from: 'paypal.top', authenticated: true}), true);
+		// (a brand newsletters link to: its sign-in address or its front page,
+		//  not a page of it)
+		assert.equal(isDeceptiveLink({host: 'evil.example', text: 'https://www.facebook.com/login'}, {from: 'evil.example', authenticated: true}), true);
+		assert.equal(isDeceptiveLink({host: 'evil.example', text: 'facebook.com'}, {from: 'evil.example', authenticated: true}), true);
+		assert.equal(isDeceptiveLink({host: 'links.mailer-service.example', text: 'www.facebook.com/shop.example'}, {from: 'shop.example', authenticated: true}), false);
+		// (through click tracking, as from any sender)
+		assert.equal(isDeceptiveLink({host: 'example.us1.list-manage.com', text: 'www.paypal.com'}, {from: 'shop.example', authenticated: true}), false);
+		assert.equal(isDeceptiveLink({host: 'example.us1.list-manage.com', text: 'https://www.paypal.com/signin'}, {from: 'shop.example', authenticated: true}), true);
 		assert.equal(isDeceptiveLink({host: 'evil.example', text: 'http://[bad'}), false);
 	});
 

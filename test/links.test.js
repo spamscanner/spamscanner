@@ -464,6 +464,45 @@ describe('carriedLinkHosts on every shape of input', () => {
 		assert.ok(!deceptive(await scanner.checkLinks(links, scanner.config, [], {from: 'paypal.com'})));
 		const none = await scanner.checkLinks(links, scanner.config, [], null);
 		assert.equal(none.uncheckedHosts, 0);
+		// (a brand's name in a link host is its own only by a sender's domain)
+		const named = [{url: 'https://paypal-secure.example/', host: 'paypal-secure.example', text: null}];
+		const own = async from => (await scanner.checkLinks(named, scanner.config, [], {from})).phishing.find(item => item.type === 'homograph').unlessAuthenticated;
+		assert.deepEqual([await own('mail.paypal.co.uk'), await own('notice-center.example'), await own(null)], [true, false, false]);
+		// (not an imitation of its name, nor a link when the sender is not known)
+		const imitation = await scanner.checkLinks([{url: 'https://paypa1.com/', host: 'paypa1.com', text: null}], scanner.config, [], {from: 'paypal.top'});
+		assert.equal(imitation.phishing.find(item => item.type === 'homograph').unlessAuthenticated, false);
+		const shown = [{url: 'https://links.mailer-service.example/c/1', host: 'links.mailer-service.example', text: 'www.shop.example'}];
+		const skipped = async from => (await scanner.checkLinks(shown, scanner.config, [], {from})).phishing.find(item => item.type === 'deceptive_link').unlessAuthenticated;
+		assert.deepEqual([await skipped('shop.example'), await skipped(null)], [true, false]);
+	});
+
+	it('takes no link or lettering of a sender that passes DMARC for a disguise, but a brand\'s address it shows', async () => {
+		const scanner = new SpamScanner({classifier: false, phishing: {cloudflare: false}});
+		const names = result => result.tests.map(test => test.name);
+		const passed = domain => ({authenticationResults: {dmarc: {status: {result: 'pass'}, domain}}});
+		const failed = domain => ({authenticationResults: {dmarc: {status: {result: 'fail'}, domain, policy: 'reject'}}});
+		// (a shop's own address over the tracking domain of its mailing service)
+		const newsletter = message({from: 'news@mail.shop.example', subject: 'New this week', html: '<p>See what is new at <a href="https://links.mailer-service.example/c/1">www.shop.example</a> and <a href="https://links.mailer-service.example/c/2">www.partner-store.example</a></p>'});
+		assert.ok(names(await scanner.scan(newsletter)).includes('DECEPTIVE_LINK'));
+		assert.ok(names(await scanner.scan(newsletter, failed('shop.example'))).includes('DECEPTIVE_LINK'));
+		assert.ok(!names(await scanner.scan(newsletter, passed('shop.example'))).includes('DECEPTIVE_LINK'));
+		// (a brand's address shown by another sender, with any path or none)
+		for (const text of ['https://www.paypal.com/signin', 'www.paypal.com', 'paypal.com/myaccount/summary']) {
+			const phishing = message({from: 'alerts@notice-center.example', subject: 'Account notice', html: `<p>Please sign in: <a href="https://notice-center.example/login">${text}</a></p>`});
+			assert.ok(names(await scanner.scan(phishing, passed('notice-center.example'))).includes('DECEPTIVE_LINK'), text);
+		}
+
+		// (a brand's name in its own other domain, and in someone else's)
+		const brand = from => message({from, subject: 'Your receipt', html: '<p><a href="https://paypal-secure.example/receipt">View your receipt</a></p>'});
+		assert.ok(names(await scanner.scan(brand('service@paypal.com'))).includes('BRAND_IN_DOMAIN'));
+		assert.ok(!names(await scanner.scan(brand('service@paypal.com'), passed('paypal.com'))).includes('BRAND_IN_DOMAIN'));
+		assert.ok(names(await scanner.scan(brand('alerts@notice-center.example'), passed('notice-center.example'))).includes('BRAND_IN_DOMAIN'));
+		// (the zero width spaces and styled letters of a shop's mail)
+		const lettering = message({from: 'news@mail.shop.example', subject: '\u{1D412}\u{1D41A}\u{1D425}\u{1D41E} now on', text: 'Hand\u200Bmade wood\u200Ben game\u200Bboard, back in stock this week.'});
+		const plain = names(await scanner.scan(lettering));
+		assert.ok(plain.includes('INVISIBLE_CHARACTERS') && plain.includes('STYLED_LETTERS'));
+		const authenticated = names(await scanner.scan(lettering, passed('shop.example')));
+		assert.ok(!authenticated.includes('INVISIBLE_CHARACTERS') && !authenticated.includes('STYLED_LETTERS'));
 	});
 
 	it('reads each document an iframe or data: URL holds once, so repeating one does not use up the documents read', () => {

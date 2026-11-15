@@ -1,4 +1,4 @@
-<!-- source: 929ac4bf99d9 -->
+<!-- source: e76abba4e876 -->
 
 # Các phép kiểm tra và điểm
 
@@ -106,6 +106,8 @@ Bản ghi DMARC được đọc như RFC 7489 đọc nó, bất kể khoảng tr
 Lỗi DMARC được chấm điểm theo chính sách của tên miền: đầy đủ khi tên miền yêu cầu cách ly hoặc từ chối các thư thất bại, hoặc không biết chính sách, và khi đó SPF cũng thất bại không cộng thêm gì nữa (`SPF_FAIL` và `SPF_SOFTFAIL` bị bỏ qua), vì DMARC đã tính nó rồi. Khi chính sách là `none`, tên miền không đứng ra chịu trách nhiệm cho các thất bại của mình, nên `DMARC_FAIL` nhỏ, nhưng điểm của SPF được cộng thêm vào: một tên miền có chính sách `none` không bao giờ dễ giả mạo hơn một tên miền không có DMARC (SPF thất bại với `-all`: 2 điểm khi không có DMARC, 3 với chính sách `none`, 3,5 với quarantine hoặc reject). Một thư được chuyển tiếp không có SRS, bị thêm phần chân trang làm hỏng chữ ký, nhận tối đa 3,5 điểm chứ không phải 5,5.
 
 Chữ ký DKIM chỉ ký phần đầu của thân thư (độ dài thân thư, `l=`, ngắn hơn thân thư: ai cũng có thể thêm văn bản vào sau đó) không nhận `DKIM_PASS`, và một lần đạt DMARC chỉ dựa trên chữ ký như vậy, không có SPF căn chỉnh, không nhận `DMARC_PASS`.
+
+Người gửi vượt qua DMARC và nhận `DMARC_PASS` đúng là người mà họ tự nhận, nên các kiểm tra tìm người gửi ẩn danh bỏ qua họ. `INVISIBLE_CHARACTERS` và `STYLED_LETTERS` không được tính, và `BRAND_IN_DOMAIN` cho chính thương hiệu của người gửi cũng vậy. `DECEPTIVE_LINK` chỉ được tính khi liên kết hiển thị địa chỉ của một thương hiệu không phải là người gửi: một cửa hàng hiển thị địa chỉ của chính mình trên tên miền theo dõi của dịch vụ gửi thư không nhận gì, còn một thư hiển thị `www.paypal.com` từ bất kỳ tên miền nào khác vẫn nhận nó. `SPF_FAIL` và `SPF_SOFTFAIL` cũng không được tính: thư đã được chuyển tiếp và chữ ký của nó bảo đảm cho nó.
 
 Bên chuyển tiếp, như một danh sách thư, có thể bảo đảm cho những gì nó nhận được bằng một dấu niêm phong ARC. Ai cũng có thể niêm phong thư, nên dấu niêm phong chỉ được tính khi đến từ bên chuyển tiếp mà bạn nêu trong `authentication.trustedArcSealers` (một tên miền bao gồm các tên miền con của nó), và chỉ khi bộ ARC mới nhất được niêm phong bởi tên miền đó (ARC-Seal và ARC-Message-Signature của bộ đó thuộc cùng tên miền) và các kết quả nó niêm phong cho thấy thư đã đạt khi nó nhận được: DMARC cho tên miền From, hoặc DKIM hay SPF của một tên miền có cùng tên miền đăng ký được. Thư như vậy (`authentication.arc.trusted`) nhận `ARC_PASS` và không nhận điểm vì SPF, DKIM hay DMARC thất bại, và không bị coi là `SELF_SPOOF` (một thành viên danh sách viết tới một danh sách thuộc chính tên miền của họ); mọi lần đạt ARC khác không nhận được gì, và một dấu niêm phong không được tin cậy hoặc thất bại vẫn nhận `SELF_SPOOF`. Kết quả truyền vào `authenticationResults` không tin cậy bên chuyển tiếp nào.
 

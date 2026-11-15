@@ -233,6 +233,7 @@ const NESTED = ['phishing', 'dnsbl', 'dns', 'session'];
  * @typedef {object} ScanFinding - a detection; converts to its message
  * @property {string} type
  * @property {string} message
+ * @property {boolean} [unlessAuthenticated] - not counted toward the score of a sender that passes DMARC
  */
 
 /**
@@ -648,6 +649,11 @@ export class SpamScanner {
 					riskScore: analysis.riskScore,
 					riskFactors: analysis.riskFactors,
 					mixedScripts: analysis.riskFactors.some(factor => factor.includes(' mixes ')),
+					// (a brand names itself in its own other domains: only what
+					//  scores BRAND_IN_DOMAIN, not an imitation of its name)
+					unlessAuthenticated: typeof from === 'string' && analysis.riskScore >= 0.6 && analysis.riskScore < 0.85
+						&& !analysis.riskFactors.some(factor => factor.includes(' mixes '))
+						&& registrableDomain(from).split('.')[0] === analysis.brand,
 					message: analysis.riskFactors.at(-1),
 				});
 				phishing.push(item);
@@ -665,7 +671,11 @@ export class SpamScanner {
 			if (deceptive < MAX_DECEPTIVE_LINKS && isDeceptiveLink(link, {from})) {
 				deceptive++;
 				phishing.push(finding({
-					type: 'deceptive_link', url: link.url, text: link.text, message: `A link shows "${link.text}" but goes to ${link.host}`,
+					type: 'deceptive_link',
+					url: link.url,
+					text: link.text,
+					unlessAuthenticated: typeof from === 'string' && !isDeceptiveLink(link, {from, authenticated: true}),
+					message: `A link shows "${link.text}" but goes to ${link.host}`,
 				}));
 			}
 

@@ -1,4 +1,4 @@
-<!-- source: 929ac4bf99d9 -->
+<!-- source: e76abba4e876 -->
 
 # Testes e pontuações
 
@@ -106,6 +106,8 @@ O registro DMARC é lido como a RFC 7489 o lê, quaisquer que sejam os espaços 
 Uma falha de DMARC pontua conforme a política do domínio: integralmente quando o domínio pede que as falhas sejam postas em quarentena ou rejeitadas, ou a política não é conhecida, e a falha também do SPF não acrescenta mais nada (`SPF_FAIL` e `SPF_SOFTFAIL` ficam de fora), já que o DMARC já a conta. Quando a política é `none`, o domínio não se responsabiliza pelas suas falhas, então `DMARC_FAIL` é pequeno, mas os pontos do SPF somam-se a ele: um domínio com política `none` nunca é mais fácil de falsificar do que um sem DMARC (SPF falhando com `-all`: 2 pontos sem DMARC, 3 com política `none`, 3,5 com quarantine ou reject). Uma mensagem encaminhada sem SRS, com um rodapé adicionado que quebra a sua assinatura, recebe no máximo 3,5 pontos, não 5,5.
 
 Uma assinatura DKIM só do início do corpo (um comprimento de corpo, `l=`, menor que o corpo: qualquer um pode acrescentar texto depois dele) não ganha `DKIM_PASS`, e um DMARC aprovado que se baseia só nela, sem SPF alinhado, não ganha `DMARC_PASS`.
+
+Um remetente que passa no DMARC e recebe `DMARC_PASS` é quem diz ser, por isso os testes que procuram um remetente oculto o deixam em paz. `INVISIBLE_CHARACTERS` e `STYLED_LETTERS` são omitidos, assim como `BRAND_IN_DOMAIN` para a própria marca do remetente. `DECEPTIVE_LINK` só conta quando o link mostra o endereço de uma marca que o remetente não é: uma loja que mostra o próprio endereço sobre o domínio de rastreamento do seu serviço de envio não recebe nada, e uma mensagem que mostra `www.paypal.com` a partir de qualquer outro domínio continua a recebê-lo. `SPF_FAIL` e `SPF_SOFTFAIL` também são omitidos: a mensagem foi encaminhada e a assinatura responde por ela.
 
 Um encaminhador, como uma lista de e-mail, pode garantir o que recebeu com um selo ARC. Qualquer um pode selar uma mensagem, então um selo só conta de um encaminhador que você indicar em `authentication.trustedArcSealers` (um domínio abrange os seus subdomínios), e só quando o conjunto ARC mais recente é selado por esse domínio (o seu ARC-Seal e o seu ARC-Message-Signature do mesmo domínio) e os resultados que ele selou mostram que a mensagem passou quando ele a recebeu: DMARC para o domínio From, ou DKIM ou SPF de um domínio com o mesmo domínio registrável. Uma mensagem assim (`authentication.arc.trusted`) recebe `ARC_PASS` e nenhum ponto por falhas de SPF, DKIM ou DMARC, e não é `SELF_SPOOF` (um membro de uma lista escrevendo para uma lista do seu próprio domínio); qualquer outro ARC aprovado não recebe nada, e um selo não confiável ou que falhou ainda recebe `SELF_SPOOF`. Os resultados passados em `authenticationResults` não confiam em nenhum encaminhador.
 

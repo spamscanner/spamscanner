@@ -1,4 +1,4 @@
-<!-- source: 929ac4bf99d9 -->
+<!-- source: e76abba4e876 -->
 
 # Tes dan skor
 
@@ -106,6 +106,8 @@ Catatan DMARC dibaca seperti RFC 7489 membacanya, apa pun spasi dan huruf besar-
 Kegagalan DMARC dinilai menurut kebijakan domain: penuh ketika domain meminta kegagalan dikarantina atau ditolak, atau kebijakannya tidak diketahui, dan kegagalan SPF juga tidak menambahkan apa pun lagi (`SPF_FAIL` dan `SPF_SOFTFAIL` diabaikan), karena DMARC sudah menghitungnya. Ketika kebijakannya `none`, domain itu tidak menjamin kegagalannya, jadi `DMARC_FAIL` kecil, tetapi poin SPF tetap dihitung di atasnya: domain dengan kebijakan `none` tidak pernah lebih mudah dipalsukan daripada domain tanpa DMARC (SPF gagal dengan `-all`: 2 poin tanpa DMARC, 3 dengan kebijakan `none`, 3,5 dengan quarantine atau reject). Pesan yang diteruskan tanpa SRS, dengan footer tambahan yang merusak tanda tangannya, mendapat paling banyak 3,5 poin, bukan 5,5.
 
 Tanda tangan DKIM yang hanya mencakup awal isi pesan (panjang isi, `l=`, lebih pendek daripada isi: siapa pun dapat menambahkan teks setelahnya) tidak mendapat `DKIM_PASS`, dan kelulusan DMARC yang hanya bergantung padanya, tanpa SPF yang selaras, tidak mendapat `DMARC_PASS`.
+
+Pengirim yang lolos DMARC dan mendapat `DMARC_PASS` memang pihak yang diakuinya, sehingga tes yang mencari pengirim tersembunyi membiarkannya. `INVISIBLE_CHARACTERS` dan `STYLED_LETTERS` tidak dihitung, begitu pula `BRAND_IN_DOMAIN` untuk merek milik pengirim sendiri. `DECEPTIVE_LINK` hanya dihitung bila tautan menampilkan alamat merek yang bukan pengirimnya: toko yang menampilkan alamatnya sendiri di atas domain pelacakan layanan pengirim emailnya tidak mendapat apa-apa, dan pesan yang menampilkan `www.paypal.com` dari domain lain mana pun tetap mendapatkannya. `SPF_FAIL` dan `SPF_SOFTFAIL` juga tidak dihitung: pesan itu diteruskan, dan tanda tangannya menjaminnya.
 
 Penerus, seperti milis, dapat menjamin apa yang diterimanya dengan segel ARC. Siapa pun dapat menyegel pesan, jadi segel hanya dihitung dari penerus yang Anda sebutkan di `authentication.trustedArcSealers` (sebuah domain mencakup subdomainnya), dan hanya ketika set ARC terbaru disegel oleh domain itu (ARC-Seal dan ARC-Message-Signature-nya dari domain yang sama) dan hasil yang disegelnya menunjukkan bahwa pesan lolos saat diterimanya: DMARC untuk domain From, atau DKIM atau SPF dari domain dengan domain terdaftar yang sama. Pesan seperti itu (`authentication.arc.trusted`) mendapat `ARC_PASS` dan tidak mendapat poin karena SPF, DKIM, atau DMARC yang gagal, serta bukan `SELF_SPOOF` (anggota milis yang menulis ke milis domainnya sendiri); kelulusan ARC lainnya tidak mendapat apa pun, dan segel yang tidak tepercaya atau gagal tetap mendapat `SELF_SPOOF`. Hasil yang diberikan dalam `authenticationResults` tidak memercayai penerus mana pun.
 

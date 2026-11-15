@@ -1,4 +1,4 @@
-<!-- source: 929ac4bf99d9 -->
+<!-- source: e76abba4e876 -->
 
 # Tests en scores
 
@@ -106,6 +106,8 @@ Het DMARC-record wordt gelezen zoals RFC 7489 het leest, ongeacht spaties en hoo
 Een DMARC-fout scoort naar het beleid van het domein: volledig wanneer het domein vraagt fouten in quarantaine te plaatsen of te weigeren, of het beleid niet bekend is, en een falende SPF daarnaast voegt niets meer toe (`SPF_FAIL` en `SPF_SOFTFAIL` vallen weg), omdat DMARC die al meetelt. Wanneer het beleid `none` is, staat het domein niet achter zijn fouten, dus is `DMARC_FAIL` klein, maar de punten van SPF tellen erbovenop: een domein met beleid `none` is nooit makkelijker te vervalsen dan een domein zonder DMARC (SPF die faalt met `-all`: 2 punten zonder DMARC, 3 met beleid `none`, 3,5 met quarantine of reject). Een bericht dat zonder SRS wordt doorgestuurd, met een toegevoegde voettekst die de handtekening breekt, krijgt hoogstens 3,5 punten, niet 5,5.
 
 Een DKIM-handtekening van alleen het begin van de body (een bodylengte, `l=`, korter dan de body: iedereen kan er tekst achter zetten) levert geen `DKIM_PASS` op, en een DMARC-pass die alleen op zo'n handtekening berust, zonder uitgelijnde SPF, geen `DMARC_PASS`.
+
+Een afzender die voor DMARC slaagt en `DMARC_PASS` krijgt, is wie hij zegt te zijn, dus tests die naar een verborgen afzender zoeken laten hem met rust. `INVISIBLE_CHARACTERS` en `STYLED_LETTERS` vervallen, en ook `BRAND_IN_DOMAIN` voor het eigen merk van de afzender. `DECEPTIVE_LINK` telt alleen wanneer de link het adres toont van een merk dat de afzender niet is: een winkel die zijn eigen adres toont boven het trackingdomein van zijn verzenddienst krijgt niets, en een bericht dat vanaf welk ander domein ook `www.paypal.com` toont, krijgt het nog steeds. Ook `SPF_FAIL` en `SPF_SOFTFAIL` vervallen: het bericht is doorgestuurd en de handtekening staat ervoor in.
 
 Een doorstuurder, zoals een mailinglijst, kan met een ARC-zegel instaan voor wat hij ontving. Iedereen kan een bericht verzegelen, dus een zegel telt alleen van een doorstuurder die je noemt in `authentication.trustedArcSealers` (een domein dekt ook zijn subdomeinen), en alleen wanneer de nieuwste ARC-set door dat domein is verzegeld (de ARC-Seal en ARC-Message-Signature ervan van hetzelfde domein) en de resultaten die het verzegelde laten zien dat het bericht slaagde toen het binnenkwam: DMARC voor het From-domein, of DKIM of SPF van een domein met hetzelfde registreerbare domein. Zo'n bericht (`authentication.arc.trusted`) krijgt `ARC_PASS` en geen punten voor falende SPF, DKIM of DMARC, en is geen `SELF_SPOOF` (een lijstlid dat naar een lijst van zijn eigen domein schrijft); elke andere ARC-pass levert niets op, en een niet-vertrouwd of mislukt zegel krijgt nog steeds `SELF_SPOOF`. Resultaten die in `authenticationResults` worden doorgegeven, vertrouwen geen enkele doorstuurder.
 
