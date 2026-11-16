@@ -1,4 +1,4 @@
-<!-- source: 4d7afeb36844 -->
+<!-- source: c4f8c2c7aa5a -->
 
 # Trénování
 
@@ -48,9 +48,9 @@ Přibalený model na zprávách SMS ve 21 jazycích, které nikdy neviděl, vět
 
 ```text
 Messages: 13028 spam, 92406 ham
-Precision: 89.72%   Recall: 11.18%   F1: 19.89%
-False positives: 167 (0.18% of ham)   False negatives: 132
-Unsure: 91247 (86.54%)
+Precision: 87.34%   Recall: 10.01%   F1: 17.96%
+False positives: 189 (0.20% of ham)   False negatives: 372
+Unsure: 87222 (82.73%)
 ```
 
 Přesnost (precision) udává, jaká část toho, co označí za spam, je skutečně spam; úplnost (recall), jakou část spamu zachytí. Nejisté zprávy se zde počítají jako nezachycený spam, i když při kontrole je ještě mohou zachytit ostatní kontroly a jazykový model. Sledovat je třeba falešně pozitivní výsledky: ham označený jako spam. Ve výše uvedeném běhu si model u většiny těchto zpráv není jistý, místo aby se v nich mýlil, což je zamýšlené chování u jazyků, ve kterých má málo pošty.
@@ -84,25 +84,32 @@ Zprávu nahlášenou jako chybně zařazenou je třeba, pokud už byla naučena,
 
 `model/classifier.json` sestavuje `npm run model:train` z těchto veřejných datových sad na Hugging Face, všech pod otevřenými licencemi:
 
-| Datová sada                                                                                                                                                                                                                                                                                                                | Licence                 | Obsah                           |
-| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- | ------------------------------- |
-| [FredZhang7/all-scam-spam](https://huggingface.co/datasets/FredZhang7/all-scam-spam)                                                                                                                                                                                                                                       | Apache-2.0              | Zprávy a e-maily ve 43 jazycích |
-| [SetFit/enron_spam](https://huggingface.co/datasets/SetFit/enron_spam)                                                                                                                                                                                                                                                     | Veřejný výzkumný korpus | Korpus Enron-Spam               |
-| [alt-gnome/telegram-spam](https://huggingface.co/datasets/alt-gnome/telegram-spam)                                                                                                                                                                                                                                         | CC0-1.0                 | Ruské zprávy z Telegramu        |
-| [tanaos/synthetic-spam-detection-dataset-german](https://huggingface.co/datasets/tanaos/synthetic-spam-detection-dataset-german), [-italian](https://huggingface.co/datasets/tanaos/synthetic-spam-detection-dataset-italian), [-spanish](https://huggingface.co/datasets/tanaos/synthetic-spam-detection-dataset-spanish) | MIT                     | Syntetické zprávy               |
+| Datová sada                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | Licence                    | Obsah                                                                     |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------- | ------------------------------------------------------------------------- |
+| [FredZhang7/all-scam-spam](https://huggingface.co/datasets/FredZhang7/all-scam-spam)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | Apache-2.0                 | Zprávy a e-maily ve 43 jazycích                                           |
+| [SetFit/enron_spam](https://huggingface.co/datasets/SetFit/enron_spam)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Veřejný výzkumný korpus    | Korpus Enron-Spam                                                         |
+| [alt-gnome/telegram-spam](https://huggingface.co/datasets/alt-gnome/telegram-spam)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | CC0-1.0                    | Ruské zprávy z Telegramu                                                  |
+| [tanaos/synthetic-spam-detection-dataset-german](https://huggingface.co/datasets/tanaos/synthetic-spam-detection-dataset-german), [-italian](https://huggingface.co/datasets/tanaos/synthetic-spam-detection-dataset-italian), [-spanish](https://huggingface.co/datasets/tanaos/synthetic-spam-detection-dataset-spanish)                                                                                                                                                                                                                                                                                                                                                                                   | MIT                        | Syntetické zprávy                                                         |
+| [kudzaiprichard/aura-phishing-email-corpus](https://huggingface.co/datasets/kudzaiprichard/aura-phishing-email-corpus) (SpamAssassin, Nazario, Nigerian fraud)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | CC-BY-4.0                  | E-mailové konference, zpravodaje, spam, phishing a podvodné e-maily       |
+| [anmolshrivastav/scam_ham_india_14_languages](https://huggingface.co/datasets/anmolshrivastav/scam_ham_india_14_languages)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | MIT                        | Zprávy ve 14 jazycích Indie                                               |
+| [chairulridjal/high-accuracy-email-classifier-indonesian](https://huggingface.co/datasets/chairulridjal/high-accuracy-email-classifier-indonesian)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Apache-2.0                 | Indonéské e-maily podle kategorie                                         |
+| [JeisonJimenez/emails_2025](https://huggingface.co/datasets/JeisonJimenez/emails_2025)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Apache-2.0                 | Pošta jedné firmy ve španělštině                                          |
+| [imnim/multiclass-email-classification](https://huggingface.co/datasets/imnim/multiclass-email-classification), [weijianzhg/email-triage-action-seed](https://huggingface.co/datasets/weijianzhg/email-triage-action-seed), [dedsec995/Email_Classification_Text](https://huggingface.co/datasets/dedsec995/Email_Classification_Text), [vpakarinen/open-wiki-email-templates](https://huggingface.co/datasets/vpakarinen/open-wiki-email-templates), [neurocheckout-ai/synthetic-abandoned-cart-email-examples](https://huggingface.co/datasets/neurocheckout-ai/synthetic-abandoned-cart-email-examples), [dhnanjay/MarketMail-AI-Dataset](https://huggingface.co/datasets/dhnanjay/MarketMail-AI-Dataset) | MIT, Apache-2.0, CC-BY-4.0 | Běžná pošta: účty, rezervace, zpravodaje, akční nabídky a oznámení o účtu |
 
-Učil se z 62 480 spamových a 76 489 hamových zpráv. Skript odloží každou desátou zprávu, natrénuje model na zbytku a změří samotný klasifikátor bez ostatních kontrol:
+Ham zahrnuje běžnou firemní a obchodní poštu (faktury, oznámení o objednávkách a účtech, zpravodaje, akční nabídky), takže taková pošta sama o sobě nevypadá jako spam.
+
+Učil se z 77 564 spamových a 112 586 hamových zpráv. Skript odloží každou desátou zprávu, natrénuje model na zbytku a změří samotný klasifikátor bez ostatních kontrol:
 
 | Odložený test | Zprávy | Přesnost | Úplnost | Falešně pozitivní | Nejisté |
 | ------------- | -----: | -------: | ------: | ----------------: | ------: |
-| Angličtina    |  6 564 |  100,0 % |  97,0 % |             0,0 % |   2,4 % |
-| Ruština       |  1 682 |  100,0 % |  97,4 % |             0,0 % |   2,2 % |
-| Italština     |  1 389 |   98,1 % |  85,3 % |             1,8 % |  10,9 % |
-| Němčina       |  1 309 |   97,7 % |  76,1 % |             2,2 % |  20,7 % |
-| Španělština   |  1 281 |   97,5 % |  82,5 % |             2,6 % |  16,8 % |
-| Enron-Spam    |  2 888 |  100,0 % |  93,1 % |             0,0 % |   4,5 % |
-| all-scam-spam |  4 236 |  100,0 % |  88,8 % |             0,0 % |  11,2 % |
-| Vše           | 13 840 |   99,2 % |  85,1 % |             0,5 % |  12,4 % |
+| Angličtina    |  8 515 |  100,0 % |  96,4 % |             0,0 % |   2,6 % |
+| Ruština       |  1 680 |  100,0 % |  97,4 % |             0,0 % |   2,3 % |
+| Italština     |  1 392 |   98,6 % |  81,0 % |             1,2 % |  12,5 % |
+| Němčina       |  1 314 |   97,8 % |  72,5 % |             2,1 % |  22,6 % |
+| Španělština   |  2 088 |   98,5 % |  56,1 % |             0,4 % |  15,7 % |
+| Enron-Spam    |  2 888 |  100,0 % |  92,4 % |             0,0 % |   4,4 % |
+| all-scam-spam |  4 236 |  100,0 % |  89,3 % |             0,0 % |  11,6 % |
+| Vše           | 18 967 |   99,6 % |  77,2 % |             0,2 % |  15,8 % |
 
 Spam zde znamená pravděpodobnost podle klasifikátoru 99 % nebo více, tedy bod, ve kterém samotný klasifikátor dosáhne prahu spamu. Při kontrole dostane body i spam, kterým si je méně jistý, a ostatní kontroly přidají své.
 
@@ -114,13 +121,13 @@ Výsledky pro němčinu, španělštinu a italštinu pocházejí ze syntetickýc
 
 | Jazyk         | Zprávy | Přesnost | Úplnost | Falešně pozitivní |
 | ------------- | -----: | -------: | ------: | ----------------: |
-| Čínština      |    430 |  100,0 % |  82,3 % |             0,0 % |
-| Arabština     |    430 |  100,0 % |  84,6 % |             0,0 % |
-| Korejština    |    412 |  100,0 % |  80,4 % |             0,0 % |
-| Japonština    |    486 |   96,0 % |  85,7 % |             0,5 % |
-| Hindština     |    412 |  100,0 % |  63,9 % |             0,0 % |
-| Francouzština |    480 |   98,6 % |  94,2 % |             0,6 % |
-| Turečtina     |    220 |  100,0 % |  73,1 % |             0,0 % |
+| Čínština      |    432 |  100,0 % |  86,1 % |             0,0 % |
+| Arabština     |    432 |  100,0 % |  83,1 % |             0,0 % |
+| Korejština    |    412 |  100,0 % |  78,3 % |             0,0 % |
+| Japonština    |    486 |   96,1 % |  87,5 % |             0,5 % |
+| Hindština     |    494 |  100,0 % |  76,2 % |             0,0 % |
+| Francouzština |    511 |   98,7 % |  88,6 % |             0,6 % |
+| Turečtina     |    222 |  100,0 % |  70,4 % |             0,0 % |
 
 ### Přetrénování
 

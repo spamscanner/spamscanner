@@ -308,6 +308,38 @@ describe('authentication points of forwarded mail', () => {
 		assert.ok(names(await scan(spoofed, ['lists.example'], {...member, remoteAddress: '198.51.100.7'})).includes('SELF_SPOOF'));
 	});
 
+	it('believes a trusted forwarder\'s ARC seal in results the server already has', async () => {
+		const raw = 'From: billing@sender.example\r\nTo: you@recipient.example\r\nSubject: Invoice\r\n\r\nPlease see the invoice.\r\n';
+		// (forwarded: SPF and DMARC fail here, and the forwarder sealed what it
+		//  got, as mailauth gives it, with only what is read of it)
+		const results = (sealed, sealer = 'forwarder.example') => ({
+			spf: {status: {result: 'softfail'}},
+			dkim: {results: [{status: {result: 'none'}}]},
+			dmarc: {status: {result: 'fail', header: {d: 'sender.example'}}, domain: 'sender.example'},
+			arc: {
+				status: {result: 'pass'}, signature: {signingDomain: sealer}, chain: [{'arc-seal': {parsed: {d: {value: sealer}}}}], authenticationResults: sealed,
+			},
+		});
+		const dmarcPass = {dmarc: {result: 'pass', header: {from: 'sender.example'}}};
+		const scan = (authenticationResults, trustedArcSealers) => new SpamScanner({...offline, classifier: false, authentication: {trustedArcSealers}}).scan(raw, {authenticationResults});
+		const trusted = await scan(results(dmarcPass), ['forwarder.example']);
+		assert.equal(trusted.results.authentication.arc.trusted, true);
+		assert.ok(names(trusted).includes('ARC_PASS'));
+		assert.ok(!names(trusted).some(name => ['DMARC_FAIL', 'SPF_SOFTFAIL'].includes(name)));
+		// (not a forwarder that is not named, a message that failed when the
+		//  forwarder got it, or a seal of another domain)
+		for (const [authenticationResults, sealers] of [
+			[results(dmarcPass), undefined],
+			[results(dmarcPass), ['other.example']],
+			[results({dmarc: {result: 'fail', header: {from: 'sender.example'}}}), ['forwarder.example']],
+			[results(dmarcPass, 'attacker.example'), ['forwarder.example']],
+		]) {
+			const result = await scan(authenticationResults, sealers);
+			assert.equal(result.results.authentication.arc.trusted, false);
+			assert.ok(names(result).includes('DMARC_FAIL'));
+		}
+	});
+
 	it('trusts an ARC set by its seal, of the same domain as its message signature, and the results it sealed', () => {
 		const output = (sealDomain, results, from = 'alice@trusted.example') => {
 			const arc = {
@@ -343,6 +375,35 @@ describe('authentication points of forwarded mail', () => {
 		assert.deepEqual(normalizeAuthOutput({arc: {status: {result: 'pass'}, signature: {signingDomain: 'lists.example'}}}, trust).arc, {status: {result: 'pass'}, sealer: null, trusted: false});
 		assert.equal(normalizeAuthOutput({...output('lists.example', dmarcPass), arc: {...output('lists.example', dmarcPass).arc, status: {result: 'fail'}}}, trust).arc.sealer, null);
 		assert.equal(normalizeAuthOutput(output('mx.lists.example', dmarcPass), trust).arc.sealer, null);
+	});
+});
+
+describe('mail from a host of its From domain', () => {
+	const failing = from => ({
+		dkim: {status: {result: 'none'}}, spf: {status: {result: 'none'}}, dmarc: {status: {result: 'fail'}, domain: from, policy: 'reject'}, arc: {status: {result: 'none'}},
+	});
+	const raw = (from, subject) => `From: ${from}\r\nTo: user@customer.example\r\nSubject: ${subject}\r\nDate: ${new Date().toUTCString()}\r\nMessage-ID: <1@mx1.provider.example>\r\n\r\nThe message could not be delivered.\r\n`;
+	const scan = (from, session, authenticationResults = failing('provider.example')) => new SpamScanner(offline).scan(raw(from, 'Undelivered Mail Returned to Sender'), {session: {remoteAddress: '192.0.2.25', envelope: {mailFrom: {address: ''}, rcptTo: [{address: 'user@customer.example'}]}, ...session}, authenticationResults});
+
+	it('counts no DMARC failure for a server writing as itself, by its verified name', async () => {
+		// (a server's bounce: nothing signs it, and its domain's policy is reject)
+		const bounce = await scan('MAILER-DAEMON@mx1.provider.example', {resolvedClientHostname: 'mx1.provider.example'});
+		assert.ok(!names(bounce).includes('DMARC_FAIL'), names(bounce).join(' '));
+		assert.equal(bounce.results.authentication.ownHost, true);
+		// (not from another host, one named alike, or with no verified name)
+		for (const resolvedClientHostname of ['mail.spoofer.example', 'mx1.provider.example.spoofer.example', undefined]) {
+			assert.ok(names(await scan('MAILER-DAEMON@mx1.provider.example', {resolvedClientHostname})).includes('DMARC_FAIL'), String(resolvedClientHostname));
+		}
+
+		// (nor a customer of the provider, from a host named under its domain,
+		//  writing as an address of the provider)
+		assert.ok(names(await scan('billing@provider.example', {resolvedClientHostname: 'host-203-0-113-9.dynamic.provider.example'})).includes('DMARC_FAIL'));
+		// (a company's mail server writing as another of its hosts, with SPF)
+		const company = {...failing('provider.example'), spf: {status: {result: 'pass'}, domain: 'provider-mail.example'}};
+		assert.ok(!names(await scan('notices@provider.example', {resolvedClientHostname: 'mx1.provider.example'}, company)).includes('DMARC_FAIL'));
+		// (and never because the results passed in say so)
+		const claimed = await scan('MAILER-DAEMON@mx1.provider.example', {resolvedClientHostname: 'mail.spoofer.example'}, {...failing('provider.example'), ownHost: true});
+		assert.ok(names(claimed).includes('DMARC_FAIL'));
 	});
 });
 

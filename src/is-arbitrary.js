@@ -277,7 +277,7 @@ function namesPlace(name, end) {
 const APPLE = {test: (name, written) => APPLE_ALONE.test(name) || [...written.matchAll(APPLE_BESIDE)].some(found => !namesPlace(written, found.index + found[0].length))};
 
 const DISPLAY_BRANDS = [
-	['paypal', ['paypal', 'paypal-communications.com', 'paypal-community.com', 'paypal-prepaid.com', 'paypalobjects.com']],
+	['paypal', ['paypal', 'paypal-communications.com', 'paypal-community.com', 'paypal-prepaid.com', 'paypalobjects.com', 'synchrony']],
 	['apple', ['apple', 'icloud', 'itunes', 'me.com'], APPLE],
 	['icloud', ['apple', 'icloud', 'itunes', 'me.com']],
 	['itunes', ['apple', 'icloud', 'itunes', 'me.com']],
@@ -287,7 +287,7 @@ const DISPLAY_BRANDS = [
 	['amazon', ['amazon', 'amazonaws', 'amazonses', 'amazonpay', 'amazonbusiness', 'aws', 'audible', 'primevideo']],
 	['netflix', ['netflix']],
 	['docusign', ['docusign']],
-	['dhl', ['dhl', 'dhlparcel', 'dhlecs', 'dhl-news', 'dpdhl', 'deutschepost']],
+	['dhl', ['dhl', 'dhlparcel', 'dhlecommerce', 'dhlecs', 'dhl-news', 'dpdhl', 'deutschepost']],
 	['fedex', ['fedex']],
 	['ups', ['ups', 'upsemail', 'upscapital', 'theupsstore'], null, null, true],
 	['usps', ['usps']],
@@ -298,9 +298,9 @@ const DISPLAY_BRANDS = [
 	['chase', ['chase', 'jpmchase', 'jpmorgan', 'jpmorganchase'], /\b(?:bank(?:ing)?|card|credit|online|alerts?|security|support|fraud|customer|service|team|jpmorgan)\b/],
 	['bank of america', ['bankofamerica', 'bofa']],
 	['american express', ['americanexpress', 'aexp', 'amex']],
-	['facebook', ['facebook', 'facebookmail', 'meta']],
-	['instagram', ['instagram', 'facebookmail', 'meta']],
-	['whatsapp', ['whatsapp', 'facebookmail', 'meta']],
+	['facebook', ['facebook', 'facebookmail', 'meta', 'metamail']],
+	['instagram', ['instagram', 'facebookmail', 'meta', 'metamail']],
+	['whatsapp', ['whatsapp', 'facebookmail', 'meta', 'metamail']],
 	['linkedin', ['linkedin']],
 	['dropbox', ['dropbox', 'dropboxmail', 'hellosign']],
 	['adobe', ['adobe', 'adobesystems', 'adobesign', 'echosign', 'adobelogin']],
@@ -340,7 +340,7 @@ const LIST_HOSTS = new Set(['freelists.org', 'googlegroups.com', 'groups.io', 's
 const VIA_LIST = /^\s*['"]?[^\s'"]+['"]?\s+via\s+\S/u;
 
 // Providers of mailboxes, where an address is anyone's, not the brand's
-const MAILBOXES = new Set(['aol', 'gmail', 'googlemail', 'hotmail', 'icloud', 'live', 'mac', 'me', 'msn', 'outlook', 'yahoo', 'ymail']);
+export const MAILBOXES = new Set(['aol', 'gmail', 'googlemail', 'hotmail', 'icloud', 'live', 'mac', 'me', 'msn', 'outlook', 'yahoo', 'ymail']);
 
 // Whether a display name is the address found in it and nothing else, but
 // for quotes, brackets, spaces and invisible characters around it and
@@ -461,6 +461,52 @@ export function buildSessionInfo(mail = {}, session = {}) {
 }
 
 /**
+ * Whether the client is a host of the message's From domain, by its verified
+ * name (`resolvedClientHostname`, which only the domain's owner can make
+ * resolve both ways), writing as itself: the From domain is the client's own
+ * name (a server's bounces and its cron jobs' mail), or SPF passes (a
+ * company's mail server writing as another of its domains). Not any client
+ * named under the domain: a provider's customers are too.
+ * @param {object} session - from buildSessionInfo
+ * @param {object} [authentication] - result of authenticate()
+ * @returns {boolean}
+ */
+export function isOwnHost(session, authentication) {
+	const host = session?.resolvedClientHostname;
+	const from = session?.originalFromAddressDomain;
+	if (!host || !from || session.resolvedRootClientHostname !== session.originalFromAddressRootDomain) {
+		return false;
+	}
+
+	return from === host || authentication?.spf?.status?.result === 'pass';
+}
+
+// Whether a message claims to come from the recipient's own domain without
+// authenticating.
+// (a message a trusted forwarder sealed as passing for its From domain, as a
+//  mailing list relays it, authenticated when the forwarder got it: see
+//  authenticate's trustedArcSealers)
+// (nor from a host of the domain itself, see isOwnHost: a server's own
+//  bounces and reports to its domain's postmaster)
+// (not counted again where the domain's DMARC check failed, which says the
+//  same, for mail with an envelope sender that the domain's SPF record does
+//  not refuse: a cron job, a NAS or a site's form writing as its owner's
+//  domain from a host the domain does not name; a bounce, which has no
+//  envelope sender, does not come from outside)
+function isSelfSpoof(session, authentication, fromRoot) {
+	if (!authentication || !session.envelope?.rcptTo?.length) {
+		return false;
+	}
+
+	const recipients = new Set(session.envelope.rcptTo.map(rcpt => registrableDomain(domainOf(rcpt.address))));
+	const spf = authentication.spf?.status?.result;
+	const aligned = authentication.dmarc?.status?.result === 'pass' || authentication.dkim?.aligned || (spf === 'pass' && registrableDomain(authentication.spf.domain || '') === fromRoot);
+	const forwarded = authentication.arc?.trusted === true && authentication.arc.status?.result === 'pass';
+	const counted = authentication.dmarc?.status?.result === 'fail' && spf !== 'fail' && Boolean(session.envelope.mailFrom?.address);
+	return recipients.has(fromRoot) && !aligned && !forwarded && !counted && !isOwnHost(session, authentication);
+}
+
+/**
  * Rules that recognise spam by structure rather than by words: the GTUBE test
  * string, sextortion subjects, text that tries to instruct an AI filter,
  * Microsoft's own spam verdict on mail it relayed, PayPal invoice and money
@@ -562,17 +608,8 @@ export function isArbitrary(mail, options) {
 			}
 		}
 
-		// Claims to come from the recipient's own domain, without authenticating.
-		// (a message a trusted forwarder sealed as passing for its From domain,
-		//  as a mailing list relays it, authenticated when the forwarder got it:
-		//  see authenticate's trustedArcSealers)
-		if (authentication && session.envelope?.rcptTo?.length) {
-			const recipients = new Set(session.envelope.rcptTo.map(rcpt => registrableDomain(domainOf(rcpt.address))));
-			const aligned = authentication.dmarc?.status?.result === 'pass' || authentication.dkim?.aligned || (authentication.spf?.status?.result === 'pass' && registrableDomain(authentication.spf.domain || '') === fromRoot);
-			const forwarded = authentication.arc?.trusted === true && authentication.arc.status?.result === 'pass';
-			if (recipients.has(fromRoot) && !aligned && !forwarded) {
-				hit('SELF_SPOOF', 3, `Claims to be from the recipient's own domain (${fromRoot}) but does not authenticate`, 'SPOOFING');
-			}
+		if (isSelfSpoof(session, authentication, fromRoot)) {
+			hit('SELF_SPOOF', 3, `Claims to be from the recipient's own domain (${fromRoot}) but does not authenticate`, 'SPOOFING');
 		}
 	}
 

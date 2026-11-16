@@ -94,9 +94,10 @@ export function bayesTestName(probability) {
  * The results that count toward the score. A sender that passes DMARC is who
  * it says it is, so what marks a message as hiding its sender says nothing
  * of it: the address a newsletter shows over its mailing service's tracking
- * domain, a brand's name in its own other domains (`unlessAuthenticated`,
- * see checkLinks), and the invisible characters and styled letters mail from
- * shops is full of. A brand's address shown by another sender still counts,
+ * domain, a brand's name in a link's domain
+ * (`unlessAuthenticated`, see checkLinks), and the invisible characters,
+ * styled letters and words of mixed alphabets that mail from shops and the
+ * names of a social network's members are full of. A brand's address shown by another sender still counts,
  * and so does everything else. (Not a pass that earns no DMARC_PASS, nor in
  * a message not read whole.)
  * @param {object} results
@@ -105,7 +106,13 @@ export function bayesTestName(probability) {
 function counted(results) {
 	const authenticated = !results.parseError && (results.authentication?.score?.tests || []).some(test => test.name === 'DMARC_PASS');
 	return authenticated
-		? {...results, phishing: (results.phishing || []).filter(item => !item.unlessAuthenticated), obfuscation: {...results.obfuscation, invisible: 0, styled: false}}
+		? {
+			...results,
+			phishing: (results.phishing || []).filter(item => !item.unlessAuthenticated),
+			obfuscation: {
+				...results.obfuscation, invisible: 0, mixed: 0, styled: false,
+			},
+		}
 		: results;
 }
 

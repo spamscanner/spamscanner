@@ -1,4 +1,4 @@
-<!-- source: 4d7afeb36844 -->
+<!-- source: c4f8c2c7aa5a -->
 
 # Training
 
@@ -48,9 +48,9 @@ Het meegeleverde model op sms-berichten in 21 talen die het nooit had gezien, de
 
 ```text
 Messages: 13028 spam, 92406 ham
-Precision: 89.72%   Recall: 11.18%   F1: 19.89%
-False positives: 167 (0.18% of ham)   False negatives: 132
-Unsure: 91247 (86.54%)
+Precision: 87.34%   Recall: 10.01%   F1: 17.96%
+False positives: 189 (0.20% of ham)   False negatives: 372
+Unsure: 87222 (82.73%)
 ```
 
 Precisie is hoeveel van wat het spam noemt ook spam is; recall is hoeveel van de spam het vangt. Onzekere berichten tellen hier als gemiste spam, al kunnen de andere controles en het taalmodel ze in een scan nog vangen. Het getal om in de gaten te houden is het aantal fout-positieven: ham die als spam is gemarkeerd. In de run hierboven is het model over de meeste van deze berichten onzeker in plaats van ernaast te zitten. Dat is het bedoelde gedrag voor talen waarin het weinig mail heeft gezien.
@@ -84,25 +84,32 @@ Een bericht dat als verkeerd geclassificeerd is gemeld, moet uit de verkeerde kl
 
 `model/classifier.json` wordt door `npm run model:train` gebouwd uit deze openbare datasets op Hugging Face, allemaal met een open licentie:
 
-| Dataset                                                                                                                                                                                                                                                                                                                    | Licentie                  | Inhoud                           |
-| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------- | -------------------------------- |
-| [FredZhang7/all-scam-spam](https://huggingface.co/datasets/FredZhang7/all-scam-spam)                                                                                                                                                                                                                                       | Apache-2.0                | Berichten en e-mails in 43 talen |
-| [SetFit/enron_spam](https://huggingface.co/datasets/SetFit/enron_spam)                                                                                                                                                                                                                                                     | Openbaar onderzoekscorpus | Het Enron-Spam-corpus            |
-| [alt-gnome/telegram-spam](https://huggingface.co/datasets/alt-gnome/telegram-spam)                                                                                                                                                                                                                                         | CC0-1.0                   | Russische Telegram-berichten     |
-| [tanaos/synthetic-spam-detection-dataset-german](https://huggingface.co/datasets/tanaos/synthetic-spam-detection-dataset-german), [-italian](https://huggingface.co/datasets/tanaos/synthetic-spam-detection-dataset-italian), [-spanish](https://huggingface.co/datasets/tanaos/synthetic-spam-detection-dataset-spanish) | MIT                       | Synthetische berichten           |
+| Dataset                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | Licentie                   | Inhoud                                                                              |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------- | ----------------------------------------------------------------------------------- |
+| [FredZhang7/all-scam-spam](https://huggingface.co/datasets/FredZhang7/all-scam-spam)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | Apache-2.0                 | Berichten en e-mails in 43 talen                                                    |
+| [SetFit/enron_spam](https://huggingface.co/datasets/SetFit/enron_spam)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Openbaar onderzoekscorpus  | Het Enron-Spam-corpus                                                               |
+| [alt-gnome/telegram-spam](https://huggingface.co/datasets/alt-gnome/telegram-spam)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | CC0-1.0                    | Russische Telegram-berichten                                                        |
+| [tanaos/synthetic-spam-detection-dataset-german](https://huggingface.co/datasets/tanaos/synthetic-spam-detection-dataset-german), [-italian](https://huggingface.co/datasets/tanaos/synthetic-spam-detection-dataset-italian), [-spanish](https://huggingface.co/datasets/tanaos/synthetic-spam-detection-dataset-spanish)                                                                                                                                                                                                                                                                                                                                                                                   | MIT                        | Synthetische berichten                                                              |
+| [kudzaiprichard/aura-phishing-email-corpus](https://huggingface.co/datasets/kudzaiprichard/aura-phishing-email-corpus) (SpamAssassin, Nazario, Nigerian fraud)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | CC-BY-4.0                  | Mailinglijsten, nieuwsbrieven, spam, phishing en fraudemails                        |
+| [anmolshrivastav/scam_ham_india_14_languages](https://huggingface.co/datasets/anmolshrivastav/scam_ham_india_14_languages)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | MIT                        | Berichten in 14 talen van India                                                     |
+| [chairulridjal/high-accuracy-email-classifier-indonesian](https://huggingface.co/datasets/chairulridjal/high-accuracy-email-classifier-indonesian)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Apache-2.0                 | Indonesische e-mails per categorie                                                  |
+| [JeisonJimenez/emails_2025](https://huggingface.co/datasets/JeisonJimenez/emails_2025)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Apache-2.0                 | De post van een bedrijf in het Spaans                                               |
+| [imnim/multiclass-email-classification](https://huggingface.co/datasets/imnim/multiclass-email-classification), [weijianzhg/email-triage-action-seed](https://huggingface.co/datasets/weijianzhg/email-triage-action-seed), [dedsec995/Email_Classification_Text](https://huggingface.co/datasets/dedsec995/Email_Classification_Text), [vpakarinen/open-wiki-email-templates](https://huggingface.co/datasets/vpakarinen/open-wiki-email-templates), [neurocheckout-ai/synthetic-abandoned-cart-email-examples](https://huggingface.co/datasets/neurocheckout-ai/synthetic-abandoned-cart-email-examples), [dhnanjay/MarketMail-AI-Dataset](https://huggingface.co/datasets/dhnanjay/MarketMail-AI-Dataset) | MIT, Apache-2.0, CC-BY-4.0 | Gewone post: rekeningen, boekingen, nieuwsbrieven, aanbiedingen en accountmeldingen |
 
-Het leerde van 62.480 spam- en 76.489 hamberichten. Het script houdt elk tiende bericht achter, traint op de rest en meet alleen de classifier, zonder de andere controles:
+De ham bevat gewone zakelijke en winkelpost (facturen, bestel- en accountmeldingen, nieuwsbrieven, aanbiedingen), zodat zulke post op zichzelf niet als spam wordt gelezen.
+
+Het leerde van 77.564 spam- en 112.586 hamberichten. Het script houdt elk tiende bericht achter, traint op de rest en meet alleen de classifier, zonder de andere controles:
 
 | Achtergehouden test | Berichten | Precisie | Recall | Fout-positieven | Onzeker |
 | ------------------- | --------: | -------: | -----: | --------------: | ------: |
-| Engels              |     6.564 |   100,0% |  97,0% |            0,0% |    2,4% |
-| Russisch            |     1.682 |   100,0% |  97,4% |            0,0% |    2,2% |
-| Italiaans           |     1.389 |    98,1% |  85,3% |            1,8% |   10,9% |
-| Duits               |     1.309 |    97,7% |  76,1% |            2,2% |   20,7% |
-| Spaans              |     1.281 |    97,5% |  82,5% |            2,6% |   16,8% |
-| Enron-Spam          |     2.888 |   100,0% |  93,1% |            0,0% |    4,5% |
-| all-scam-spam       |     4.236 |   100,0% |  88,8% |            0,0% |   11,2% |
-| Alle                |    13.840 |    99,2% |  85,1% |            0,5% |   12,4% |
+| Engels              |     8.515 |   100,0% |  96,4% |            0,0% |    2,6% |
+| Russisch            |     1.680 |   100,0% |  97,4% |            0,0% |    2,3% |
+| Italiaans           |     1.392 |    98,6% |  81,0% |            1,2% |   12,5% |
+| Duits               |     1.314 |    97,8% |  72,5% |            2,1% |   22,6% |
+| Spaans              |     2.088 |    98,5% |  56,1% |            0,4% |   15,7% |
+| Enron-Spam          |     2.888 |   100,0% |  92,4% |            0,0% |    4,4% |
+| all-scam-spam       |     4.236 |   100,0% |  89,3% |            0,0% |   11,6% |
+| Alle                |    18.967 |    99,6% |  77,2% |            0,2% |   15,8% |
 
 Spam betekent hier een classifierkans van 99% of meer, het punt waarop de classifier op zichzelf de spamdrempel haalt. In een scan krijgt spam waarover hij minder zeker is nog steeds punten, en de andere controles tellen de hunne erbij op.
 
@@ -114,13 +121,13 @@ De Duitse, Spaanse en Italiaanse resultaten komen uit synthetische datasets, die
 
 | Taal     | Berichten | Precisie | Recall | Fout-positieven |
 | -------- | --------: | -------: | -----: | --------------: |
-| Chinees  |       430 |   100,0% |  82,3% |            0,0% |
-| Arabisch |       430 |   100,0% |  84,6% |            0,0% |
-| Koreaans |       412 |   100,0% |  80,4% |            0,0% |
-| Japans   |       486 |    96,0% |  85,7% |            0,5% |
-| Hindi    |       412 |   100,0% |  63,9% |            0,0% |
-| Frans    |       480 |    98,6% |  94,2% |            0,6% |
-| Turks    |       220 |   100,0% |  73,1% |            0,0% |
+| Chinees  |       432 |   100,0% |  86,1% |            0,0% |
+| Arabisch |       432 |   100,0% |  83,1% |            0,0% |
+| Koreaans |       412 |   100,0% |  78,3% |            0,0% |
+| Japans   |       486 |    96,1% |  87,5% |            0,5% |
+| Hindi    |       494 |   100,0% |  76,2% |            0,0% |
+| Frans    |       511 |    98,7% |  88,6% |            0,6% |
+| Turks    |       222 |   100,0% |  70,4% |            0,0% |
 
 ### Opnieuw trainen
 

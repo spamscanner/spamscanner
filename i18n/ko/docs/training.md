@@ -1,4 +1,4 @@
-<!-- source: 4d7afeb36844 -->
+<!-- source: c4f8c2c7aa5a -->
 
 # 학습
 
@@ -48,9 +48,9 @@ spamscanner eval --model my-model.json --spam held-out/spam --ham held-out/ham
 
 ```text
 Messages: 13028 spam, 92406 ham
-Precision: 89.72%   Recall: 11.18%   F1: 19.89%
-False positives: 167 (0.18% of ham)   False negatives: 132
-Unsure: 91247 (86.54%)
+Precision: 87.34%   Recall: 10.01%   F1: 17.96%
+False positives: 189 (0.20% of ham)   False negatives: 372
+Unsure: 87222 (82.73%)
 ```
 
 정밀도는 스팸이라고 판정한 것 중 실제 스팸의 비율이고, 재현율은 스팸 중 잡아낸 비율입니다. 여기서는 unsure 메시지를 놓친 스팸으로 계산하지만, 실제 검사에서는 나머지 검사와 언어 모델이 여전히 잡아낼 수 있습니다. 주의해서 볼 숫자는 오탐, 즉 스팸으로 표시된 ham입니다. 위 결과에서 모델은 이 메시지 대부분에 대해 틀린 것이 아니라 확신하지 못했습니다. 메일을 거의 학습하지 못한 언어에 대해 의도한 동작입니다.
@@ -84,25 +84,32 @@ scanner.saveModel('/var/lib/spamscanner/model.json');
 
 `model/classifier.json`은 `npm run model:train`이 Hugging Face의 다음 공개 데이터 세트로 빌드하며, 모두 공개 라이선스입니다.
 
-| 데이터 세트                                                                                                                                                                                                                                                                                                                     | 라이선스       | 내용                |
-| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- | ----------------- |
-| [FredZhang7/all-scam-spam](https://huggingface.co/datasets/FredZhang7/all-scam-spam)                                                                                                                                                                                                                                       | Apache-2.0 | 43개 언어의 메시지와 이메일  |
-| [SetFit/enron_spam](https://huggingface.co/datasets/SetFit/enron_spam)                                                                                                                                                                                                                                                     | 공개 연구용 말뭉치 | Enron-Spam 말뭉치    |
-| [alt-gnome/telegram-spam](https://huggingface.co/datasets/alt-gnome/telegram-spam)                                                                                                                                                                                                                                         | CC0-1.0    | 러시아어 Telegram 메시지 |
-| [tanaos/synthetic-spam-detection-dataset-german](https://huggingface.co/datasets/tanaos/synthetic-spam-detection-dataset-german), [-italian](https://huggingface.co/datasets/tanaos/synthetic-spam-detection-dataset-italian), [-spanish](https://huggingface.co/datasets/tanaos/synthetic-spam-detection-dataset-spanish) | MIT        | 합성 메시지            |
+| 데이터 세트                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | 라이선스                       | 내용                                 |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------- | ---------------------------------- |
+| [FredZhang7/all-scam-spam](https://huggingface.co/datasets/FredZhang7/all-scam-spam)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | Apache-2.0                 | 43개 언어의 메시지와 이메일                   |
+| [SetFit/enron_spam](https://huggingface.co/datasets/SetFit/enron_spam)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | 공개 연구용 말뭉치                 | Enron-Spam 말뭉치                     |
+| [alt-gnome/telegram-spam](https://huggingface.co/datasets/alt-gnome/telegram-spam)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | CC0-1.0                    | 러시아어 Telegram 메시지                  |
+| [tanaos/synthetic-spam-detection-dataset-german](https://huggingface.co/datasets/tanaos/synthetic-spam-detection-dataset-german), [-italian](https://huggingface.co/datasets/tanaos/synthetic-spam-detection-dataset-italian), [-spanish](https://huggingface.co/datasets/tanaos/synthetic-spam-detection-dataset-spanish)                                                                                                                                                                                                                                                                                                                                                                                   | MIT                        | 합성 메시지                             |
+| [kudzaiprichard/aura-phishing-email-corpus](https://huggingface.co/datasets/kudzaiprichard/aura-phishing-email-corpus) (SpamAssassin, Nazario, Nigerian fraud)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | CC-BY-4.0                  | 메일링 리스트, 뉴스레터, 스팸, 피싱 및 사기 이메일     |
+| [anmolshrivastav/scam_ham_india_14_languages](https://huggingface.co/datasets/anmolshrivastav/scam_ham_india_14_languages)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | MIT                        | 인도의 14개 언어로 된 메시지                  |
+| [chairulridjal/high-accuracy-email-classifier-indonesian](https://huggingface.co/datasets/chairulridjal/high-accuracy-email-classifier-indonesian)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Apache-2.0                 | 범주별 인도네시아어 이메일                     |
+| [JeisonJimenez/emails_2025](https://huggingface.co/datasets/JeisonJimenez/emails_2025)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Apache-2.0                 | 한 회사의 스페인어 메일                      |
+| [imnim/multiclass-email-classification](https://huggingface.co/datasets/imnim/multiclass-email-classification), [weijianzhg/email-triage-action-seed](https://huggingface.co/datasets/weijianzhg/email-triage-action-seed), [dedsec995/Email_Classification_Text](https://huggingface.co/datasets/dedsec995/Email_Classification_Text), [vpakarinen/open-wiki-email-templates](https://huggingface.co/datasets/vpakarinen/open-wiki-email-templates), [neurocheckout-ai/synthetic-abandoned-cart-email-examples](https://huggingface.co/datasets/neurocheckout-ai/synthetic-abandoned-cart-email-examples), [dhnanjay/MarketMail-AI-Dataset](https://huggingface.co/datasets/dhnanjay/MarketMail-AI-Dataset) | MIT, Apache-2.0, CC-BY-4.0 | 일반 메일: 청구서, 예약, 뉴스레터, 프로모션 및 계정 알림 |
 
-스팸 메시지 62,480개와 ham 메시지 76,489개로 학습했습니다. 스크립트는 열 번째마다 메시지를 학습에서 제외하고, 나머지로 학습한 뒤, 다른 검사 없이 분류기만으로 성능을 측정합니다.
+햄에는 일반적인 업무 메일과 상점 메일(청구서, 주문 및 계정 알림, 뉴스레터, 프로모션)이 포함되므로, 그런 메일이 그것만으로 스팸으로 읽히지는 않습니다.
+
+스팸 메시지 77,564개와 ham 메시지 112,586개로 학습했습니다. 스크립트는 열 번째마다 메시지를 학습에서 제외하고, 나머지로 학습한 뒤, 다른 검사 없이 분류기만으로 성능을 측정합니다.
 
 | 제외한 테스트 세트    |    메시지 |    정밀도 |   재현율 |   오탐 | unsure |
 | ------------- | -----: | -----: | ----: | ---: | -----: |
-| 영어            |  6,564 | 100.0% | 97.0% | 0.0% |   2.4% |
-| 러시아어          |  1,682 | 100.0% | 97.4% | 0.0% |   2.2% |
-| 이탈리아어         |  1,389 |  98.1% | 85.3% | 1.8% |  10.9% |
-| 독일어           |  1,309 |  97.7% | 76.1% | 2.2% |  20.7% |
-| 스페인어          |  1,281 |  97.5% | 82.5% | 2.6% |  16.8% |
-| Enron-Spam    |  2,888 | 100.0% | 93.1% | 0.0% |   4.5% |
-| all-scam-spam |  4,236 | 100.0% | 88.8% | 0.0% |  11.2% |
-| 전체            | 13,840 |  99.2% | 85.1% | 0.5% |  12.4% |
+| 영어            |  8,515 | 100.0% | 96.4% | 0.0% |   2.6% |
+| 러시아어          |  1,680 | 100.0% | 97.4% | 0.0% |   2.3% |
+| 이탈리아어         |  1,392 |  98.6% | 81.0% | 1.2% |  12.5% |
+| 독일어           |  1,314 |  97.8% | 72.5% | 2.1% |  22.6% |
+| 스페인어          |  2,088 |  98.5% | 56.1% | 0.4% |  15.7% |
+| Enron-Spam    |  2,888 | 100.0% | 92.4% | 0.0% |   4.4% |
+| all-scam-spam |  4,236 | 100.0% | 89.3% | 0.0% |  11.6% |
+| 전체            | 18,967 |  99.6% | 77.2% | 0.2% |  15.8% |
 
 여기서 스팸은 분류기 확률이 99% 이상인 경우를 뜻합니다. 분류기 단독으로 스팸 임계값에 이르는 지점입니다. 실제 검사에서는 분류기가 덜 확신하는 스팸도 점수를 받으며, 나머지 검사도 점수를 더합니다.
 
@@ -114,13 +121,13 @@ scanner.saveModel('/var/lib/spamscanner/model.json');
 
 | 언어   | 메시지 |    정밀도 |   재현율 |   오탐 |
 | ---- | --: | -----: | ----: | ---: |
-| 중국어  | 430 | 100.0% | 82.3% | 0.0% |
-| 아랍어  | 430 | 100.0% | 84.6% | 0.0% |
-| 한국어  | 412 | 100.0% | 80.4% | 0.0% |
-| 일본어  | 486 |  96.0% | 85.7% | 0.5% |
-| 힌디어  | 412 | 100.0% | 63.9% | 0.0% |
-| 프랑스어 | 480 |  98.6% | 94.2% | 0.6% |
-| 터키어  | 220 | 100.0% | 73.1% | 0.0% |
+| 중국어  | 432 | 100.0% | 86.1% | 0.0% |
+| 아랍어  | 432 | 100.0% | 83.1% | 0.0% |
+| 한국어  | 412 | 100.0% | 78.3% | 0.0% |
+| 일본어  | 486 |  96.1% | 87.5% | 0.5% |
+| 힌디어  | 494 | 100.0% | 76.2% | 0.0% |
+| 프랑스어 | 511 |  98.7% | 88.6% | 0.6% |
+| 터키어  | 222 | 100.0% | 70.4% | 0.0% |
 
 ### 다시 학습
 

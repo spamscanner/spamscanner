@@ -1,4 +1,4 @@
-<!-- source: 4d7afeb36844 -->
+<!-- source: c4f8c2c7aa5a -->
 
 # การฝึกโมเดล
 
@@ -48,9 +48,9 @@ spamscanner eval --model my-model.json --spam held-out/spam --ham held-out/ham
 
 ```text
 Messages: 13028 spam, 92406 ham
-Precision: 89.72%   Recall: 11.18%   F1: 19.89%
-False positives: 167 (0.18% of ham)   False negatives: 132
-Unsure: 91247 (86.54%)
+Precision: 87.34%   Recall: 10.01%   F1: 17.96%
+False positives: 189 (0.20% of ham)   False negatives: 372
+Unsure: 87222 (82.73%)
 ```
 
 Precision คือสัดส่วนของสิ่งที่โมเดลเรียกว่าสแปมซึ่งเป็นสแปมจริง ส่วน recall คือสัดส่วนของสแปมที่โมเดลจับได้ ในที่นี้ข้อความที่ไม่แน่ใจนับเป็นสแปมที่พลาด แม้ว่าในการสแกนจริง การตรวจอื่นและโมเดลภาษายังจับได้อยู่ ตัวเลขที่ต้องจับตาคือผลบวกลวง: ham ที่ถูกตีว่าเป็นสแปม ในการรันข้างต้น โมเดลไม่แน่ใจเกี่ยวกับข้อความส่วนใหญ่ แทนที่จะตัดสินผิด ซึ่งเป็นพฤติกรรมที่ตั้งใจไว้สำหรับภาษาที่โมเดลมีอีเมลน้อย
@@ -84,25 +84,32 @@ scanner.saveModel('/var/lib/spamscanner/model.json');
 
 `model/classifier.json` สร้างโดย `npm run model:train` จากชุดข้อมูลสาธารณะเหล่านี้บน Hugging Face ซึ่งใช้สัญญาอนุญาตแบบเปิดทั้งหมด:
 
-| ชุดข้อมูล                                                                                                                                                                                                                                                                                                                  | สัญญาอนุญาต            | เนื้อหา                      |
-| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- | ---------------------------- |
-| [FredZhang7/all-scam-spam](https://huggingface.co/datasets/FredZhang7/all-scam-spam)                                                                                                                                                                                                                                       | Apache-2.0             | ข้อความและอีเมลใน 43 ภาษา    |
-| [SetFit/enron_spam](https://huggingface.co/datasets/SetFit/enron_spam)                                                                                                                                                                                                                                                     | คลังข้อมูลวิจัยสาธารณะ | คลังข้อมูล Enron-Spam        |
-| [alt-gnome/telegram-spam](https://huggingface.co/datasets/alt-gnome/telegram-spam)                                                                                                                                                                                                                                         | CC0-1.0                | ข้อความ Telegram ภาษารัสเซีย |
-| [tanaos/synthetic-spam-detection-dataset-german](https://huggingface.co/datasets/tanaos/synthetic-spam-detection-dataset-german), [-italian](https://huggingface.co/datasets/tanaos/synthetic-spam-detection-dataset-italian), [-spanish](https://huggingface.co/datasets/tanaos/synthetic-spam-detection-dataset-spanish) | MIT                    | ข้อความสังเคราะห์            |
+| ชุดข้อมูล                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | สัญญาอนุญาต                | เนื้อหา                                                                 |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------- | ----------------------------------------------------------------------- |
+| [FredZhang7/all-scam-spam](https://huggingface.co/datasets/FredZhang7/all-scam-spam)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | Apache-2.0                 | ข้อความและอีเมลใน 43 ภาษา                                               |
+| [SetFit/enron_spam](https://huggingface.co/datasets/SetFit/enron_spam)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | คลังข้อมูลวิจัยสาธารณะ     | คลังข้อมูล Enron-Spam                                                   |
+| [alt-gnome/telegram-spam](https://huggingface.co/datasets/alt-gnome/telegram-spam)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | CC0-1.0                    | ข้อความ Telegram ภาษารัสเซีย                                            |
+| [tanaos/synthetic-spam-detection-dataset-german](https://huggingface.co/datasets/tanaos/synthetic-spam-detection-dataset-german), [-italian](https://huggingface.co/datasets/tanaos/synthetic-spam-detection-dataset-italian), [-spanish](https://huggingface.co/datasets/tanaos/synthetic-spam-detection-dataset-spanish)                                                                                                                                                                                                                                                                                                                                                                                   | MIT                        | ข้อความสังเคราะห์                                                       |
+| [kudzaiprichard/aura-phishing-email-corpus](https://huggingface.co/datasets/kudzaiprichard/aura-phishing-email-corpus) (SpamAssassin, Nazario, Nigerian fraud)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | CC-BY-4.0                  | เมลลิงลิสต์ จดหมายข่าว สแปม ฟิชชิง และอีเมลหลอกลวง                      |
+| [anmolshrivastav/scam_ham_india_14_languages](https://huggingface.co/datasets/anmolshrivastav/scam_ham_india_14_languages)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | MIT                        | ข้อความใน 14 ภาษาของอินเดีย                                             |
+| [chairulridjal/high-accuracy-email-classifier-indonesian](https://huggingface.co/datasets/chairulridjal/high-accuracy-email-classifier-indonesian)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Apache-2.0                 | อีเมลภาษาอินโดนีเซียตามหมวดหมู่                                         |
+| [JeisonJimenez/emails_2025](https://huggingface.co/datasets/JeisonJimenez/emails_2025)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Apache-2.0                 | อีเมลของบริษัทแห่งหนึ่งในภาษาสเปน                                       |
+| [imnim/multiclass-email-classification](https://huggingface.co/datasets/imnim/multiclass-email-classification), [weijianzhg/email-triage-action-seed](https://huggingface.co/datasets/weijianzhg/email-triage-action-seed), [dedsec995/Email_Classification_Text](https://huggingface.co/datasets/dedsec995/Email_Classification_Text), [vpakarinen/open-wiki-email-templates](https://huggingface.co/datasets/vpakarinen/open-wiki-email-templates), [neurocheckout-ai/synthetic-abandoned-cart-email-examples](https://huggingface.co/datasets/neurocheckout-ai/synthetic-abandoned-cart-email-examples), [dhnanjay/MarketMail-AI-Dataset](https://huggingface.co/datasets/dhnanjay/MarketMail-AI-Dataset) | MIT, Apache-2.0, CC-BY-4.0 | อีเมลทั่วไป: ใบแจ้งหนี้ การจอง จดหมายข่าว โปรโมชัน และการแจ้งเตือนบัญชี |
 
-โมเดลเรียนรู้จากสแปม 62,480 ข้อความและ ham 76,489 ข้อความ สคริปต์กันทุกข้อความที่สิบไว้ ฝึกด้วยส่วนที่เหลือ และวัดผลตัวจำแนกอย่างเดียว โดยไม่มีการตรวจอื่น:
+แฮมรวมถึงอีเมลธุรกิจและร้านค้าทั่วไป (ใบแจ้งหนี้ การแจ้งเตือนคำสั่งซื้อและบัญชี จดหมายข่าว โปรโมชัน) ดังนั้นอีเมลเช่นนี้เพียงอย่างเดียวจะไม่ถูกอ่านว่าเป็นสแปม
+
+โมเดลเรียนรู้จากสแปม 77,564 ข้อความและ ham 112,586 ข้อความ สคริปต์กันทุกข้อความที่สิบไว้ ฝึกด้วยส่วนที่เหลือ และวัดผลตัวจำแนกอย่างเดียว โดยไม่มีการตรวจอื่น:
 
 | ชุดทดสอบที่กันไว้ | ข้อความ | Precision | Recall | ผลบวกลวง | ไม่แน่ใจ |
 | ----------------- | ------: | --------: | -----: | -------: | -------: |
-| ภาษาอังกฤษ        |   6,564 |    100.0% |  97.0% |     0.0% |     2.4% |
-| ภาษารัสเซีย       |   1,682 |    100.0% |  97.4% |     0.0% |     2.2% |
-| ภาษาอิตาลี        |   1,389 |     98.1% |  85.3% |     1.8% |    10.9% |
-| ภาษาเยอรมัน       |   1,309 |     97.7% |  76.1% |     2.2% |    20.7% |
-| ภาษาสเปน          |   1,281 |     97.5% |  82.5% |     2.6% |    16.8% |
-| Enron-Spam        |   2,888 |    100.0% |  93.1% |     0.0% |     4.5% |
-| all-scam-spam     |   4,236 |    100.0% |  88.8% |     0.0% |    11.2% |
-| ทั้งหมด           |  13,840 |     99.2% |  85.1% |     0.5% |    12.4% |
+| ภาษาอังกฤษ        |   8,515 |    100.0% |  96.4% |     0.0% |     2.6% |
+| ภาษารัสเซีย       |   1,680 |    100.0% |  97.4% |     0.0% |     2.3% |
+| ภาษาอิตาลี        |   1,392 |     98.6% |  81.0% |     1.2% |    12.5% |
+| ภาษาเยอรมัน       |   1,314 |     97.8% |  72.5% |     2.1% |    22.6% |
+| ภาษาสเปน          |   2,088 |     98.5% |  56.1% |     0.4% |    15.7% |
+| Enron-Spam        |   2,888 |    100.0% |  92.4% |     0.0% |     4.4% |
+| all-scam-spam     |   4,236 |    100.0% |  89.3% |     0.0% |    11.6% |
+| ทั้งหมด           |  18,967 |     99.6% |  77.2% |     0.2% |    15.8% |
 
 สแปมในที่นี้หมายถึงความน่าจะเป็นจากตัวจำแนกตั้งแต่ 99% ขึ้นไป ซึ่งเป็นจุดที่ตัวจำแนกอย่างเดียวถึงเกณฑ์สแปม ในการสแกนจริง สแปมที่ตัวจำแนกมั่นใจน้อยกว่านั้นยังได้คะแนน และการตรวจอื่นก็เพิ่มคะแนนของตัวเองเข้าไป
 
@@ -114,13 +121,13 @@ scanner.saveModel('/var/lib/spamscanner/model.json');
 
 | ภาษา         | ข้อความ | Precision | Recall | ผลบวกลวง |
 | ------------ | ------: | --------: | -----: | -------: |
-| ภาษาจีน      |     430 |    100.0% |  82.3% |     0.0% |
-| ภาษาอาหรับ   |     430 |    100.0% |  84.6% |     0.0% |
-| ภาษาเกาหลี   |     412 |    100.0% |  80.4% |     0.0% |
-| ภาษาญี่ปุ่น  |     486 |     96.0% |  85.7% |     0.5% |
-| ภาษาฮินดี    |     412 |    100.0% |  63.9% |     0.0% |
-| ภาษาฝรั่งเศส |     480 |     98.6% |  94.2% |     0.6% |
-| ภาษาตุรกี    |     220 |    100.0% |  73.1% |     0.0% |
+| ภาษาจีน      |     432 |    100.0% |  86.1% |     0.0% |
+| ภาษาอาหรับ   |     432 |    100.0% |  83.1% |     0.0% |
+| ภาษาเกาหลี   |     412 |    100.0% |  78.3% |     0.0% |
+| ภาษาญี่ปุ่น  |     486 |     96.1% |  87.5% |     0.5% |
+| ภาษาฮินดี    |     494 |    100.0% |  76.2% |     0.0% |
+| ภาษาฝรั่งเศส |     511 |     98.7% |  88.6% |     0.6% |
+| ภาษาตุรกี    |     222 |    100.0% |  70.4% |     0.0% |
 
 ### ฝึกใหม่
 

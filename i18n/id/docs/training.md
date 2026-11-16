@@ -1,4 +1,4 @@
-<!-- source: 4d7afeb36844 -->
+<!-- source: c4f8c2c7aa5a -->
 
 # Pelatihan
 
@@ -48,9 +48,9 @@ Model bawaan pada pesan SMS dalam 21 bahasa yang belum pernah dilihatnya, sebagi
 
 ```text
 Messages: 13028 spam, 92406 ham
-Precision: 89.72%   Recall: 11.18%   F1: 19.89%
-False positives: 167 (0.18% of ham)   False negatives: 132
-Unsure: 91247 (86.54%)
+Precision: 87.34%   Recall: 10.01%   F1: 17.96%
+False positives: 189 (0.20% of ham)   False negatives: 372
+Unsure: 87222 (82.73%)
 ```
 
 Presisi adalah seberapa banyak dari yang disebut spam memang spam; recall, seberapa banyak spam yang tertangkap. Di sini pesan yang ragu dihitung sebagai spam yang terlewat, meskipun dalam pemindaian pemeriksaan lain dan model bahasa masih dapat menangkapnya. Angka yang perlu diperhatikan adalah positif palsu: ham yang ditandai sebagai spam. Dalam hasil di atas, model ragu terhadap sebagian besar pesan ini alih-alih salah menilainya, dan itulah perilaku yang diharapkan untuk bahasa yang jarang muncul dalam emailnya.
@@ -84,25 +84,32 @@ Pesan yang dilaporkan salah klasifikasi sebaiknya dihapus pembelajarannya dari k
 
 `model/classifier.json` dibangun oleh `npm run model:train` dari dataset publik berikut di Hugging Face, semuanya berlisensi terbuka:
 
-| Dataset                                                                                                                                                                                                                                                                                                                    | Lisensi             | Isi                             |
-| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------- | ------------------------------- |
-| [FredZhang7/all-scam-spam](https://huggingface.co/datasets/FredZhang7/all-scam-spam)                                                                                                                                                                                                                                       | Apache-2.0          | Pesan dan email dalam 43 bahasa |
-| [SetFit/enron_spam](https://huggingface.co/datasets/SetFit/enron_spam)                                                                                                                                                                                                                                                     | Korpus riset publik | Korpus Enron-Spam               |
-| [alt-gnome/telegram-spam](https://huggingface.co/datasets/alt-gnome/telegram-spam)                                                                                                                                                                                                                                         | CC0-1.0             | Pesan Telegram berbahasa Rusia  |
-| [tanaos/synthetic-spam-detection-dataset-german](https://huggingface.co/datasets/tanaos/synthetic-spam-detection-dataset-german), [-italian](https://huggingface.co/datasets/tanaos/synthetic-spam-detection-dataset-italian), [-spanish](https://huggingface.co/datasets/tanaos/synthetic-spam-detection-dataset-spanish) | MIT                 | Pesan sintetis                  |
+| Dataset                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | Lisensi                    | Isi                                                                       |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------- | ------------------------------------------------------------------------- |
+| [FredZhang7/all-scam-spam](https://huggingface.co/datasets/FredZhang7/all-scam-spam)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | Apache-2.0                 | Pesan dan email dalam 43 bahasa                                           |
+| [SetFit/enron_spam](https://huggingface.co/datasets/SetFit/enron_spam)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Korpus riset publik        | Korpus Enron-Spam                                                         |
+| [alt-gnome/telegram-spam](https://huggingface.co/datasets/alt-gnome/telegram-spam)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | CC0-1.0                    | Pesan Telegram berbahasa Rusia                                            |
+| [tanaos/synthetic-spam-detection-dataset-german](https://huggingface.co/datasets/tanaos/synthetic-spam-detection-dataset-german), [-italian](https://huggingface.co/datasets/tanaos/synthetic-spam-detection-dataset-italian), [-spanish](https://huggingface.co/datasets/tanaos/synthetic-spam-detection-dataset-spanish)                                                                                                                                                                                                                                                                                                                                                                                   | MIT                        | Pesan sintetis                                                            |
+| [kudzaiprichard/aura-phishing-email-corpus](https://huggingface.co/datasets/kudzaiprichard/aura-phishing-email-corpus) (SpamAssassin, Nazario, Nigerian fraud)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | CC-BY-4.0                  | Milis, buletin, spam, phishing, dan email penipuan                        |
+| [anmolshrivastav/scam_ham_india_14_languages](https://huggingface.co/datasets/anmolshrivastav/scam_ham_india_14_languages)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | MIT                        | Pesan dalam 14 bahasa India                                               |
+| [chairulridjal/high-accuracy-email-classifier-indonesian](https://huggingface.co/datasets/chairulridjal/high-accuracy-email-classifier-indonesian)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Apache-2.0                 | Email berbahasa Indonesia menurut kategori                                |
+| [JeisonJimenez/emails_2025](https://huggingface.co/datasets/JeisonJimenez/emails_2025)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Apache-2.0                 | Surat sebuah perusahaan dalam bahasa Spanyol                              |
+| [imnim/multiclass-email-classification](https://huggingface.co/datasets/imnim/multiclass-email-classification), [weijianzhg/email-triage-action-seed](https://huggingface.co/datasets/weijianzhg/email-triage-action-seed), [dedsec995/Email_Classification_Text](https://huggingface.co/datasets/dedsec995/Email_Classification_Text), [vpakarinen/open-wiki-email-templates](https://huggingface.co/datasets/vpakarinen/open-wiki-email-templates), [neurocheckout-ai/synthetic-abandoned-cart-email-examples](https://huggingface.co/datasets/neurocheckout-ai/synthetic-abandoned-cart-email-examples), [dhnanjay/MarketMail-AI-Dataset](https://huggingface.co/datasets/dhnanjay/MarketMail-AI-Dataset) | MIT, Apache-2.0, CC-BY-4.0 | Surat biasa: tagihan, pemesanan, buletin, promosi, dan pemberitahuan akun |
 
-Model ini belajar dari 62.480 pesan spam dan 76.489 pesan ham. Skripnya menyisihkan setiap pesan kesepuluh, melatih dengan sisanya, dan mengukur pengklasifikasi saja, tanpa pemeriksaan lain:
+Ham mencakup surat bisnis dan toko yang biasa (faktur, pemberitahuan pesanan dan akun, buletin, promosi), sehingga surat seperti itu saja tidak terbaca sebagai spam.
+
+Model ini belajar dari 77.564 pesan spam dan 112.586 pesan ham. Skripnya menyisihkan setiap pesan kesepuluh, melatih dengan sisanya, dan mengukur pengklasifikasi saja, tanpa pemeriksaan lain:
 
 | Tes yang disisihkan |  Pesan | Presisi | Recall | Positif palsu |  Ragu |
 | ------------------- | -----: | ------: | -----: | ------------: | ----: |
-| Inggris             |  6.564 |  100,0% |  97,0% |          0,0% |  2,4% |
-| Rusia               |  1.682 |  100,0% |  97,4% |          0,0% |  2,2% |
-| Italia              |  1.389 |   98,1% |  85,3% |          1,8% | 10,9% |
-| Jerman              |  1.309 |   97,7% |  76,1% |          2,2% | 20,7% |
-| Spanyol             |  1.281 |   97,5% |  82,5% |          2,6% | 16,8% |
-| Enron-Spam          |  2.888 |  100,0% |  93,1% |          0,0% |  4,5% |
-| all-scam-spam       |  4.236 |  100,0% |  88,8% |          0,0% | 11,2% |
-| Semua               | 13.840 |   99,2% |  85,1% |          0,5% | 12,4% |
+| Inggris             |  8.515 |  100,0% |  96,4% |          0,0% |  2,6% |
+| Rusia               |  1.680 |  100,0% |  97,4% |          0,0% |  2,3% |
+| Italia              |  1.392 |   98,6% |  81,0% |          1,2% | 12,5% |
+| Jerman              |  1.314 |   97,8% |  72,5% |          2,1% | 22,6% |
+| Spanyol             |  2.088 |   98,5% |  56,1% |          0,4% | 15,7% |
+| Enron-Spam          |  2.888 |  100,0% |  92,4% |          0,0% |  4,4% |
+| all-scam-spam       |  4.236 |  100,0% |  89,3% |          0,0% | 11,6% |
+| Semua               | 18.967 |   99,6% |  77,2% |          0,2% | 15,8% |
 
 Spam di sini berarti probabilitas pengklasifikasi 99% atau lebih, titik saat pengklasifikasi seorang diri mencapai ambang spam. Dalam pemindaian, spam yang kurang diyakininya tetap mendapat poin, dan pemeriksaan lain menambahkan poinnya masing-masing.
 
@@ -114,13 +121,13 @@ Hasil bahasa Jerman, Spanyol, dan Italia berasal dari dataset sintetis, yang ber
 
 | Bahasa   | Pesan | Presisi | Recall | Positif palsu |
 | -------- | ----: | ------: | -----: | ------------: |
-| Tionghoa |   430 |  100,0% |  82,3% |          0,0% |
-| Arab     |   430 |  100,0% |  84,6% |          0,0% |
-| Korea    |   412 |  100,0% |  80,4% |          0,0% |
-| Jepang   |   486 |   96,0% |  85,7% |          0,5% |
-| Hindi    |   412 |  100,0% |  63,9% |          0,0% |
-| Prancis  |   480 |   98,6% |  94,2% |          0,6% |
-| Turki    |   220 |  100,0% |  73,1% |          0,0% |
+| Tionghoa |   432 |  100,0% |  86,1% |          0,0% |
+| Arab     |   432 |  100,0% |  83,1% |          0,0% |
+| Korea    |   412 |  100,0% |  78,3% |          0,0% |
+| Jepang   |   486 |   96,1% |  87,5% |          0,5% |
+| Hindi    |   494 |  100,0% |  76,2% |          0,0% |
+| Prancis  |   511 |   98,7% |  88,6% |          0,6% |
+| Turki    |   222 |  100,0% |  70,4% |          0,0% |
 
 ### Latih ulang
 

@@ -1,4 +1,4 @@
-<!-- source: 4d7afeb36844 -->
+<!-- source: c4f8c2c7aa5a -->
 
 # Training
 
@@ -48,9 +48,9 @@ Das mitgelieferte Modell auf SMS-Nachrichten in 21 Sprachen, die es nie gesehen 
 
 ```text
 Messages: 13028 spam, 92406 ham
-Precision: 89.72%   Recall: 11.18%   F1: 19.89%
-False positives: 167 (0.18% of ham)   False negatives: 132
-Unsure: 91247 (86.54%)
+Precision: 87.34%   Recall: 10.01%   F1: 17.96%
+False positives: 189 (0.20% of ham)   False negatives: 372
+Unsure: 87222 (82.73%)
 ```
 
 Die Präzision (Precision) gibt an, wie viel von dem, was es Spam nennt, tatsächlich Spam ist; die Trefferquote (Recall), wie viel des Spams es erkennt. Unsichere Nachrichten zählen hier als verfehlter Spam, obwohl bei einem Scan die anderen Prüfungen und das Sprachmodell sie noch erkennen können. Entscheidend sind die Fehlalarme (False Positives): als Spam markierter Ham. Im obigen Lauf ist das Modell bei den meisten dieser Nachrichten unsicher, statt falsch zu liegen. Das ist das beabsichtigte Verhalten bei Sprachen, in denen es wenige E-Mails gesehen hat.
@@ -84,25 +84,32 @@ Eine als falsch eingestuft gemeldete Nachricht sollte, falls sie zuvor gelernt w
 
 `model/classifier.json` wird von `npm run model:train` aus diesen öffentlichen Datensätzen auf Hugging Face erstellt, alle unter offenen Lizenzen:
 
-| Datensatz                                                                                                                                                                                                                                                                                                                  | Lizenz                        | Inhalt                                 |
-| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------- | -------------------------------------- |
-| [FredZhang7/all-scam-spam](https://huggingface.co/datasets/FredZhang7/all-scam-spam)                                                                                                                                                                                                                                       | Apache-2.0                    | Nachrichten und E-Mails in 43 Sprachen |
-| [SetFit/enron_spam](https://huggingface.co/datasets/SetFit/enron_spam)                                                                                                                                                                                                                                                     | Öffentliches Forschungskorpus | Das Enron-Spam-Korpus                  |
-| [alt-gnome/telegram-spam](https://huggingface.co/datasets/alt-gnome/telegram-spam)                                                                                                                                                                                                                                         | CC0-1.0                       | Russische Telegram-Nachrichten         |
-| [tanaos/synthetic-spam-detection-dataset-german](https://huggingface.co/datasets/tanaos/synthetic-spam-detection-dataset-german), [-italian](https://huggingface.co/datasets/tanaos/synthetic-spam-detection-dataset-italian), [-spanish](https://huggingface.co/datasets/tanaos/synthetic-spam-detection-dataset-spanish) | MIT                           | Synthetische Nachrichten               |
+| Datensatz                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | Lizenz                        | Inhalt                                                                                   |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------- | ---------------------------------------------------------------------------------------- |
+| [FredZhang7/all-scam-spam](https://huggingface.co/datasets/FredZhang7/all-scam-spam)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | Apache-2.0                    | Nachrichten und E-Mails in 43 Sprachen                                                   |
+| [SetFit/enron_spam](https://huggingface.co/datasets/SetFit/enron_spam)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Öffentliches Forschungskorpus | Das Enron-Spam-Korpus                                                                    |
+| [alt-gnome/telegram-spam](https://huggingface.co/datasets/alt-gnome/telegram-spam)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | CC0-1.0                       | Russische Telegram-Nachrichten                                                           |
+| [tanaos/synthetic-spam-detection-dataset-german](https://huggingface.co/datasets/tanaos/synthetic-spam-detection-dataset-german), [-italian](https://huggingface.co/datasets/tanaos/synthetic-spam-detection-dataset-italian), [-spanish](https://huggingface.co/datasets/tanaos/synthetic-spam-detection-dataset-spanish)                                                                                                                                                                                                                                                                                                                                                                                   | MIT                           | Synthetische Nachrichten                                                                 |
+| [kudzaiprichard/aura-phishing-email-corpus](https://huggingface.co/datasets/kudzaiprichard/aura-phishing-email-corpus) (SpamAssassin, Nazario, Nigerian fraud)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | CC-BY-4.0                     | Mailinglisten, Newsletter, Spam, Phishing- und Betrugs-E-Mails                           |
+| [anmolshrivastav/scam_ham_india_14_languages](https://huggingface.co/datasets/anmolshrivastav/scam_ham_india_14_languages)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | MIT                           | Nachrichten in 14 Sprachen Indiens                                                       |
+| [chairulridjal/high-accuracy-email-classifier-indonesian](https://huggingface.co/datasets/chairulridjal/high-accuracy-email-classifier-indonesian)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Apache-2.0                    | Indonesische E-Mails nach Kategorie                                                      |
+| [JeisonJimenez/emails_2025](https://huggingface.co/datasets/JeisonJimenez/emails_2025)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Apache-2.0                    | Die Post eines Unternehmens auf Spanisch                                                 |
+| [imnim/multiclass-email-classification](https://huggingface.co/datasets/imnim/multiclass-email-classification), [weijianzhg/email-triage-action-seed](https://huggingface.co/datasets/weijianzhg/email-triage-action-seed), [dedsec995/Email_Classification_Text](https://huggingface.co/datasets/dedsec995/Email_Classification_Text), [vpakarinen/open-wiki-email-templates](https://huggingface.co/datasets/vpakarinen/open-wiki-email-templates), [neurocheckout-ai/synthetic-abandoned-cart-email-examples](https://huggingface.co/datasets/neurocheckout-ai/synthetic-abandoned-cart-email-examples), [dhnanjay/MarketMail-AI-Dataset](https://huggingface.co/datasets/dhnanjay/MarketMail-AI-Dataset) | MIT, Apache-2.0, CC-BY-4.0    | Gewöhnliche Post: Rechnungen, Buchungen, Newsletter, Werbeaktionen und Kontomitteilungen |
 
-Es hat aus 62.480 Spam- und 76.489 Ham-Nachrichten gelernt. Das Skript hält jede zehnte Nachricht zurück, trainiert mit dem Rest und misst den Klassifikator allein, ohne die anderen Prüfungen:
+Zum Ham gehört gewöhnliche Geschäfts- und Shop-Post (Rechnungen, Bestell- und Kontomitteilungen, Newsletter, Werbeaktionen), sodass solche Post allein nicht als Spam gilt.
+
+Es hat aus 77.564 Spam- und 112.586 Ham-Nachrichten gelernt. Das Skript hält jede zehnte Nachricht zurück, trainiert mit dem Rest und misst den Klassifikator allein, ohne die anderen Prüfungen:
 
 | Zurückgehaltener Test | Nachrichten | Präzision | Trefferquote | Fehlalarme | Unsicher |
 | --------------------- | ----------: | --------: | -----------: | ---------: | -------: |
-| Englisch              |       6.564 |   100,0 % |       97,0 % |      0,0 % |    2,4 % |
-| Russisch              |       1.682 |   100,0 % |       97,4 % |      0,0 % |    2,2 % |
-| Italienisch           |       1.389 |    98,1 % |       85,3 % |      1,8 % |   10,9 % |
-| Deutsch               |       1.309 |    97,7 % |       76,1 % |      2,2 % |   20,7 % |
-| Spanisch              |       1.281 |    97,5 % |       82,5 % |      2,6 % |   16,8 % |
-| Enron-Spam            |       2.888 |   100,0 % |       93,1 % |      0,0 % |    4,5 % |
-| all-scam-spam         |       4.236 |   100,0 % |       88,8 % |      0,0 % |   11,2 % |
-| Alle                  |      13.840 |    99,2 % |       85,1 % |      0,5 % |   12,4 % |
+| Englisch              |       8.515 |   100,0 % |       96,4 % |      0,0 % |    2,6 % |
+| Russisch              |       1.680 |   100,0 % |       97,4 % |      0,0 % |    2,3 % |
+| Italienisch           |       1.392 |    98,6 % |       81,0 % |      1,2 % |   12,5 % |
+| Deutsch               |       1.314 |    97,8 % |       72,5 % |      2,1 % |   22,6 % |
+| Spanisch              |       2.088 |    98,5 % |       56,1 % |      0,4 % |   15,7 % |
+| Enron-Spam            |       2.888 |   100,0 % |       92,4 % |      0,0 % |    4,4 % |
+| all-scam-spam         |       4.236 |   100,0 % |       89,3 % |      0,0 % |   11,6 % |
+| Alle                  |      18.967 |    99,6 % |       77,2 % |      0,2 % |   15,8 % |
 
 Spam bedeutet hier eine Wahrscheinlichkeit des Klassifikators von 99 % oder mehr, der Punkt, an dem der Klassifikator allein den Spam-Schwellenwert erreicht. Bei einem Scan erhält Spam, bei dem er weniger sicher ist, trotzdem Punkte, und die anderen Prüfungen fügen ihre hinzu.
 
@@ -114,13 +121,13 @@ Die Ergebnisse für Deutsch, Spanisch und Italienisch stammen aus synthetischen 
 
 | Sprache     | Nachrichten | Präzision | Trefferquote | Fehlalarme |
 | ----------- | ----------: | --------: | -----------: | ---------: |
-| Chinesisch  |         430 |   100,0 % |       82,3 % |      0,0 % |
-| Arabisch    |         430 |   100,0 % |       84,6 % |      0,0 % |
-| Koreanisch  |         412 |   100,0 % |       80,4 % |      0,0 % |
-| Japanisch   |         486 |    96,0 % |       85,7 % |      0,5 % |
-| Hindi       |         412 |   100,0 % |       63,9 % |      0,0 % |
-| Französisch |         480 |    98,6 % |       94,2 % |      0,6 % |
-| Türkisch    |         220 |   100,0 % |       73,1 % |      0,0 % |
+| Chinesisch  |         432 |   100,0 % |       86,1 % |      0,0 % |
+| Arabisch    |         432 |   100,0 % |       83,1 % |      0,0 % |
+| Koreanisch  |         412 |   100,0 % |       78,3 % |      0,0 % |
+| Japanisch   |         486 |    96,1 % |       87,5 % |      0,5 % |
+| Hindi       |         494 |   100,0 % |       76,2 % |      0,0 % |
+| Französisch |         511 |    98,7 % |       88,6 % |      0,6 % |
+| Türkisch    |         222 |   100,0 % |       70,4 % |      0,0 % |
 
 ### Neu trainieren
 

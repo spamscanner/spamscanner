@@ -1,4 +1,4 @@
-<!-- source: e76abba4e876 -->
+<!-- source: fdcc3372d5ee -->
 
 # Testy a skóre
 
@@ -107,9 +107,13 @@ Selhání DMARC se hodnotí podle politiky domény: plně, když doména žádá
 
 Podpis DKIM jen začátku těla (délka těla, `l=`, kratší než tělo: kdokoli za něj může přidat text) nezíská `DKIM_PASS` a úspěch DMARC, který stojí jen na něm, bez zarovnaného SPF, nezíská `DMARC_PASS`.
 
-Odesílatel, který projde DMARC a získá `DMARC_PASS`, je tím, za koho se vydává, takže testy hledající skrytého odesílatele ho nechávají být. `INVISIBLE_CHARACTERS` a `STYLED_LETTERS` se vynechávají, stejně jako `BRAND_IN_DOMAIN` pro vlastní značku odesílatele. `DECEPTIVE_LINK` se počítá jen tehdy, když odkaz ukazuje adresu značky, kterou odesílatel není: obchod, který ukazuje vlastní adresu nad sledovací doménou své rozesílací služby, nedostane nic, a zpráva, která ukazuje `www.paypal.com` z jakékoli jiné domény, jej dostane dál. Vynechávají se také `SPF_FAIL` a `SPF_SOFTFAIL`: zpráva byla přeposlána a její podpis se za ni zaručuje.
+Odesílatel, který projde DMARC a získá `DMARC_PASS`, je tím, za koho se vydává, takže testy hledající skrytého odesílatele ho nechávají být. `INVISIBLE_CHARACTERS`, `MIXED_SCRIPT_WORDS`, `STYLED_LETTERS` a `BRAND_IN_DOMAIN` se vynechávají. `DECEPTIVE_LINK` se počítá jen tehdy, když odkaz ukazuje adresu značky, kterou odesílatel není: obchod, který ukazuje vlastní adresu nad sledovací doménou své rozesílací služby, nedostane nic, a zpráva, která ukazuje `www.paypal.com` z jakékoli jiné domény, jej dostane dál. Vynechávají se také `SPF_FAIL` a `SPF_SOFTFAIL`: zpráva byla přeposlána a její podpis se za ni zaručuje.
 
-Přeposílatel, například e-mailová konference, se může za to, co přijal, zaručit pečetí ARC. Zprávu může zapečetit kdokoli, proto se pečeť počítá jen od přeposílatele, kterého uvedete v `authentication.trustedArcSealers` (doména pokrývá své subdomény), a jen když je nejnovější sada ARC zapečetěna touto doménou (její ARC-Seal i ARC-Message-Signature jsou od stejné domény) a výsledky, které zapečetila, ukazují, že zpráva při převzetí prošla: DMARC pro doménu From, nebo DKIM či SPF domény se stejnou registrovatelnou doménou. Taková zpráva (`authentication.arc.trusted`) dostane `ARC_PASS` a žádné body za selhání SPF, DKIM nebo DMARC a není `SELF_SPOOF` (člen konference píše do konference své vlastní domény); jakýkoli jiný úspěch ARC nedostane nic a nedůvěryhodná nebo neplatná pečeť `SELF_SPOOF` dostane i nadále. Výsledky předané v `authenticationResults` nedůvěřují žádnému přeposílateli.
+Známý odesílatel, tedy doména, kterou uvedete v `phishing.knownSenders` (zahrnuje i své subdomény; například nejnavštěvovanější weby), smí také zobrazit adresu partnera nad odkazem na vlastní doménu, pokud projde DMARC: vlastní sledování kliknutí obchodu pod `www.apple.com`. Poskytovatel poštovních schránek, například `gmail.com`, jím není nikdy.
+
+Přeposílatel, například e-mailová konference, se může za to, co přijal, zaručit pečetí ARC. Zprávu může zapečetit kdokoli, proto se pečeť počítá jen od přeposílatele, kterého uvedete v `authentication.trustedArcSealers` (doména pokrývá své subdomény), a jen když je nejnovější sada ARC zapečetěna touto doménou (její ARC-Seal i ARC-Message-Signature jsou od stejné domény) a výsledky, které zapečetila, ukazují, že zpráva při převzetí prošla: DMARC pro doménu From, nebo DKIM či SPF domény se stejnou registrovatelnou doménou. Taková zpráva (`authentication.arc.trusted`) dostane `ARC_PASS` a žádné body za selhání SPF, DKIM nebo DMARC a není `SELF_SPOOF` (člen konference píše do konference své vlastní domény); jakýkoli jiný úspěch ARC nedostane nic a nedůvěryhodná nebo neplatná pečeť `SELF_SPOOF` dostane i nadále. Výsledky předané v `authenticationResults` důvěřují týmž přeposílatelům.
+
+`SELF_SPOOF` se nepřičítá, když kontrola DMARC domény selhala a zpráva má obálkového odesílatele, kterého SPF neodmítá: započítává to už `DMARC_FAIL` (nedoručenka, která obálkového odesílatele nemá, dostane obojí). Server, který píše sám za sebe, nedostane `SELF_SPOOF` ani `DMARC_FAIL`: klient, jehož ověřený název hostitele je doménou From (jeho nedoručenky a pošta jeho úloh cron), nebo pod ni spadá, když projde SPF. Verze AMP zprávy (`text/x-amp-html` bez názvu souboru) není `HTML_ATTACHMENT`.
 
 ```js
 new SpamScanner({authentication: {trustedArcSealers: ['lists.example.org']}});

@@ -1,4 +1,4 @@
-<!-- source: 4d7afeb36844 -->
+<!-- source: c4f8c2c7aa5a -->
 
 # 训练
 
@@ -48,9 +48,9 @@ spamscanner eval --model my-model.json --spam held-out/spam --ham held-out/ham
 
 ```text
 Messages: 13028 spam, 92406 ham
-Precision: 89.72%   Recall: 11.18%   F1: 19.89%
-False positives: 167 (0.18% of ham)   False negatives: 132
-Unsure: 91247 (86.54%)
+Precision: 87.34%   Recall: 10.01%   F1: 17.96%
+False positives: 189 (0.20% of ham)   False negatives: 372
+Unsure: 87222 (82.73%)
 ```
 
 精确率是指它判为垃圾邮件的邮件中有多少确实是垃圾邮件；召回率是指垃圾邮件中有多少被它识别出来。这里“不确定”的邮件计为漏判的垃圾邮件，尽管在实际扫描中，其他检查和语言模型仍可能识别出它们。需要关注的数字是误报：被判为垃圾邮件的正常邮件。在上面的运行中，模型对这些邮件中的大多数是不确定，而不是判错，这正是对于它见过邮件很少的语言所预期的行为。
@@ -84,25 +84,32 @@ scanner.saveModel('/var/lib/spamscanner/model.json');
 
 `model/classifier.json` 由 `npm run model:train` 从 Hugging Face 上的以下公开数据集构建，均采用开放许可证：
 
-| 数据集                                                                                                                                                                                                                                                                                                                      | 许可证        | 内容             |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------- | -------------- |
-| [FredZhang7/all-scam-spam](https://huggingface.co/datasets/FredZhang7/all-scam-spam)                                                                                                                                                                                                                                     | Apache-2.0 | 43 种语言的消息和电子邮件 |
-| [SetFit/enron_spam](https://huggingface.co/datasets/SetFit/enron_spam)                                                                                                                                                                                                                                                   | 公开研究语料库    | Enron-Spam 语料库 |
-| [alt-gnome/telegram-spam](https://huggingface.co/datasets/alt-gnome/telegram-spam)                                                                                                                                                                                                                                       | CC0-1.0    | 俄语 Telegram 消息 |
-| [tanaos/synthetic-spam-detection-dataset-german](https://huggingface.co/datasets/tanaos/synthetic-spam-detection-dataset-german)、[-italian](https://huggingface.co/datasets/tanaos/synthetic-spam-detection-dataset-italian)、[-spanish](https://huggingface.co/datasets/tanaos/synthetic-spam-detection-dataset-spanish) | MIT        | 合成邮件           |
+| 数据集                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | 许可证                        | 内容                       |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------- | ------------------------ |
+| [FredZhang7/all-scam-spam](https://huggingface.co/datasets/FredZhang7/all-scam-spam)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | Apache-2.0                 | 43 种语言的消息和电子邮件           |
+| [SetFit/enron_spam](https://huggingface.co/datasets/SetFit/enron_spam)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | 公开研究语料库                    | Enron-Spam 语料库           |
+| [alt-gnome/telegram-spam](https://huggingface.co/datasets/alt-gnome/telegram-spam)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | CC0-1.0                    | 俄语 Telegram 消息           |
+| [tanaos/synthetic-spam-detection-dataset-german](https://huggingface.co/datasets/tanaos/synthetic-spam-detection-dataset-german)、[-italian](https://huggingface.co/datasets/tanaos/synthetic-spam-detection-dataset-italian)、[-spanish](https://huggingface.co/datasets/tanaos/synthetic-spam-detection-dataset-spanish)                                                                                                                                                                                                                                                                                                                                                                                     | MIT                        | 合成邮件                     |
+| [kudzaiprichard/aura-phishing-email-corpus](https://huggingface.co/datasets/kudzaiprichard/aura-phishing-email-corpus) (SpamAssassin, Nazario, Nigerian fraud)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | CC-BY-4.0                  | 邮件列表、新闻通讯、垃圾邮件、钓鱼邮件和诈骗邮件 |
+| [anmolshrivastav/scam_ham_india_14_languages](https://huggingface.co/datasets/anmolshrivastav/scam_ham_india_14_languages)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | MIT                        | 印度 14 种语言的消息             |
+| [chairulridjal/high-accuracy-email-classifier-indonesian](https://huggingface.co/datasets/chairulridjal/high-accuracy-email-classifier-indonesian)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Apache-2.0                 | 按类别划分的印度尼西亚语邮件           |
+| [JeisonJimenez/emails_2025](https://huggingface.co/datasets/JeisonJimenez/emails_2025)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Apache-2.0                 | 一家公司的西班牙语邮件              |
+| [imnim/multiclass-email-classification](https://huggingface.co/datasets/imnim/multiclass-email-classification), [weijianzhg/email-triage-action-seed](https://huggingface.co/datasets/weijianzhg/email-triage-action-seed), [dedsec995/Email_Classification_Text](https://huggingface.co/datasets/dedsec995/Email_Classification_Text), [vpakarinen/open-wiki-email-templates](https://huggingface.co/datasets/vpakarinen/open-wiki-email-templates), [neurocheckout-ai/synthetic-abandoned-cart-email-examples](https://huggingface.co/datasets/neurocheckout-ai/synthetic-abandoned-cart-email-examples), [dhnanjay/MarketMail-AI-Dataset](https://huggingface.co/datasets/dhnanjay/MarketMail-AI-Dataset) | MIT, Apache-2.0, CC-BY-4.0 | 普通邮件：账单、预订、新闻通讯、促销和账户通知  |
 
-它从 62,480 封垃圾邮件和 76,489 封正常邮件中学习。脚本每十封留出一封，用其余邮件训练，并只测量分类器本身，不含其他检查：
+正常邮件包括普通的企业和商店邮件（发票、订单和账户通知、新闻通讯、促销），因此这类邮件本身不会被判为垃圾邮件。
+
+它从 77,564 封垃圾邮件和 112,586 封正常邮件中学习。脚本每十封留出一封，用其余邮件训练，并只测量分类器本身，不含其他检查：
 
 | 留出测试          |     邮件 |    精确率 |   召回率 |   误报 |   不确定 |
 | ------------- | -----: | -----: | ----: | ---: | ----: |
-| 英语            |  6,564 | 100.0% | 97.0% | 0.0% |  2.4% |
-| 俄语            |  1,682 | 100.0% | 97.4% | 0.0% |  2.2% |
-| 意大利语          |  1,389 |  98.1% | 85.3% | 1.8% | 10.9% |
-| 德语            |  1,309 |  97.7% | 76.1% | 2.2% | 20.7% |
-| 西班牙语          |  1,281 |  97.5% | 82.5% | 2.6% | 16.8% |
-| Enron-Spam    |  2,888 | 100.0% | 93.1% | 0.0% |  4.5% |
-| all-scam-spam |  4,236 | 100.0% | 88.8% | 0.0% | 11.2% |
-| 全部            | 13,840 |  99.2% | 85.1% | 0.5% | 12.4% |
+| 英语            |  8,515 | 100.0% | 96.4% | 0.0% |  2.6% |
+| 俄语            |  1,680 | 100.0% | 97.4% | 0.0% |  2.3% |
+| 意大利语          |  1,392 |  98.6% | 81.0% | 1.2% | 12.5% |
+| 德语            |  1,314 |  97.8% | 72.5% | 2.1% | 22.6% |
+| 西班牙语          |  2,088 |  98.5% | 56.1% | 0.4% | 15.7% |
+| Enron-Spam    |  2,888 | 100.0% | 92.4% | 0.0% |  4.4% |
+| all-scam-spam |  4,236 | 100.0% | 89.3% | 0.0% | 11.6% |
+| 全部            | 18,967 |  99.6% | 77.2% | 0.2% | 15.8% |
 
 这里的垃圾邮件是指分类器概率达到 99% 或以上，即分类器单独达到垃圾邮件阈值的那一点。在实际扫描中，它不那么确定的垃圾邮件仍会得到分值，其他检查也会加上各自的分值。
 
@@ -114,13 +121,13 @@ scanner.saveModel('/var/lib/spamscanner/model.json');
 
 | 语言   |  邮件 |    精确率 |   召回率 |   误报 |
 | ---- | --: | -----: | ----: | ---: |
-| 中文   | 430 | 100.0% | 82.3% | 0.0% |
-| 阿拉伯语 | 430 | 100.0% | 84.6% | 0.0% |
-| 韩语   | 412 | 100.0% | 80.4% | 0.0% |
-| 日语   | 486 |  96.0% | 85.7% | 0.5% |
-| 印地语  | 412 | 100.0% | 63.9% | 0.0% |
-| 法语   | 480 |  98.6% | 94.2% | 0.6% |
-| 土耳其语 | 220 | 100.0% | 73.1% | 0.0% |
+| 中文   | 432 | 100.0% | 86.1% | 0.0% |
+| 阿拉伯语 | 432 | 100.0% | 83.1% | 0.0% |
+| 韩语   | 412 | 100.0% | 78.3% | 0.0% |
+| 日语   | 486 |  96.1% | 87.5% | 0.5% |
+| 印地语  | 494 | 100.0% | 76.2% | 0.0% |
+| 法语   | 511 |  98.7% | 88.6% | 0.6% |
+| 土耳其语 | 222 | 100.0% | 70.4% | 0.0% |
 
 ### 重新训练
 

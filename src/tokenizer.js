@@ -169,7 +169,7 @@ const LINK_FILE_TLDS = new Set(['md', 'mov', 'pm', 'ps', 'py', 'rs', 'sh', 'so',
 // the original is read from where its form is known (see unwrapLink). A link
 // through them that shows another address is deceptive only as
 // isDeceptiveLink says.
-const CLICK_TRACKERS = ['sendgrid.net', 'list-manage.com', 'mandrillapp.com', 'awstrack.me', 'pstmrk.it', 'hubspotlinks.com', 'rs6.net', 'klclick.com', 'mjt.lu', 'exacttarget.com', 'convertkit-mail.com', 'convertkit-mail2.com', 'kit-mail3.com', 'sendibt2.com', 'sendibt3.com', 'createsend1.com', 'cmail20.com', 'clicks.mlsend.com', 'acemlnb.com', 'link.mail.beehiiv.com', 'bhclick.com', 'safelinks.protection.outlook.com', 'urldefense.com', 'urldefense.proofpoint.com', 'mimecast.com', 'mimecastprotect.com', 'cudasvc.com', 'secure-web.cisco.com'];
+const CLICK_TRACKERS = ['sendgrid.net', 'list-manage.com', 'mandrillapp.com', 'awstrack.me', 'pstmrk.it', 'hubspotlinks.com', 'rs6.net', 'klclick.com', 'mjt.lu', 'exacttarget.com', 'convertkit-mail.com', 'convertkit-mail2.com', 'kit-mail3.com', 'sendibt2.com', 'sendibt3.com', 'createsend1.com', 'cmail20.com', 'click.mlsend.com', 'clicks.mlsend.com', 'exponea.com', 'bloomreach.com', 'acemlnb.com', 'link.mail.beehiiv.com', 'bhclick.com', 'safelinks.protection.outlook.com', 'urldefense.com', 'urldefense.proofpoint.com', 'mimecast.com', 'mimecastprotect.com', 'cudasvc.com', 'secure-web.cisco.com'];
 
 // The most characters of a link's host read, past those the URL parser drops
 // (below) and its port: the parser's time grows with the square of the labels
@@ -1264,6 +1264,26 @@ export function extractHosts(text, known = new Set()) {
 // networks, media and marketplaces ("Follow us on https://www.facebook.com/").
 // Through click tracking, their addresses are no sign of a hijacked account.
 const LINKED_BRANDS = new Set(['airbnb', 'aliexpress', 'alibaba', 'bestbuy', 'booking', 'costco', 'discord', 'ebay', 'facebook', 'github', 'gitlab', 'instagram', 'linkedin', 'roblox', 'shopify', 'skype', 'spotify', 'steam', 'telegram', 'tiktok', 'twitter', 'uber', 'walmart', 'whatsapp', 'zoom']);
+// Domains of one company, each group its own: a link that shows one and goes
+// to another ("redeem.microsoft.com" to "www.xbox.com", "amazon.co.uk" to
+// "amazon.com") names the same site owner, so it is not deceptive. Only
+// domains whose pages are the company's: not those where anyone publishes
+// (forms.office.com, sharepoint.com, docs.google.com, paypal.me) or shortens
+// a link (bing.com, goo.gl).
+const SAME_OWNER = [
+	['microsoft.com', 'microsoftonline.com', 'xbox.com', 'windows.com', 'msn.com', 'skype.com', 'aka.ms'],
+	['amazon.com', 'amazon.co.uk', 'amazon.de', 'amazon.fr', 'amazon.it', 'amazon.es', 'amazon.nl', 'amazon.ca', 'amazon.com.mx', 'amazon.com.br', 'amazon.co.jp', 'amazon.in', 'amazon.com.au', 'amzn.com', 'a.co', 'primevideo.com', 'audible.com'],
+	['apple.com', 'icloud.com', 'apple.co'],
+	['facebook.com', 'fb.com', 'fb.me', 'messenger.com', 'instagram.com', 'whatsapp.com', 'meta.com'],
+	['ebay.com', 'ebay.co.uk', 'ebay.de', 'ebay.fr', 'ebay.it', 'ebay.es', 'ebay.ca', 'ebay.com.au'],
+	['comcast.com', 'comcast.net', 'xfinity.com'],
+	['paypal.com', 'paypal.de', 'paypal.co.uk', 'paypal.fr', 'paypal.it', 'paypal.es', 'paypal.me'],
+	['americanexpress.com', 'americanexpress.co.uk', 'americanexpress.de', 'americanexpress.es', 'americanexpress.fr', 'americanexpress.it', 'aexp.com', 'go.amex'],
+	['zoom.us', 'zoom.com'],
+	['citi.com', 'citibank.com', 'citicards.com'],
+];
+const OWNER_OF = new Map(SAME_OWNER.flatMap((domains, owner) => domains.map(domain => [domain, owner])));
+const sameOwner = (one, other) => OWNER_OF.has(one) && OWNER_OF.get(one) === OWNER_OF.get(other);
 // A part of the path of an address that asks to sign in or pay ("signin",
 // "ServiceLogin", "YourAccount", "oauth2", "accountverification",
 // "updatepayment", "LoginHelp"), between "/", "?", "&", "=", ".", "_" or
@@ -1284,7 +1304,8 @@ const SENDING_DOMAINS = new Map([
 
 /**
  * Whether the visible text of a link names a different site than the link
- * goes to ("https://paypal.com" linking to another domain). A link through an
+ * goes to ("https://paypal.com" linking to another domain; not another
+ * domain of the same company, see SAME_OWNER). A link through an
  * email service's click tracking (see CLICK_TRACKERS) goes elsewhere by
  * design, so it counts only when the sender is known (`from`, the domain of
  * the From address, or "" for none), the text shows a whole address with
@@ -1299,15 +1320,19 @@ const SENDING_DOMAINS = new Map([
  * shop's, over the tracking domain of the service that sends its mail, so
  * its other links count only when they show an address of a brand's domain
  * that is not its own domain, whatever the path (for a brand newsletters
- * link to, no path or one that asks to sign in or pay). A sender is the
+ * link to, no path or one that asks to sign in or pay), and none that goes
+ * to its own domain when it is a known sender (`known`, see
+ * phishing.knownSenders): a shop showing a partner's address over its own
+ * click tracking. A sender is the
  * brand there by its domain, not by its name: "paypal.top" is not PayPal.
  * @param {{host: string, text: string|null, url?: string}} link
  * @param {object} [options]
  * @param {string} [options.from] - the sender's domain
  * @param {boolean} [options.authenticated] - whether the sender passes DMARC
+ * @param {boolean} [options.known] - whether the sender is a known sender
  * @returns {boolean}
  */
-export function isDeceptiveLink(link, {from, authenticated} = {}) {
+export function isDeceptiveLink(link, {from, authenticated, known} = {}) {
 	if (!link.text) {
 		return false;
 	}
@@ -1324,13 +1349,21 @@ export function isDeceptiveLink(link, {from, authenticated} = {}) {
 	const host = target ? target.hostname.toLowerCase().replace(/\.$/, '').replace(/^\[(.*)]$/, '$1') : (typeof link.host === 'string' ? link.host : '');
 	const shownHost = shownUrl.hostname.toLowerCase();
 	const shown = registrableDomain(shownHost);
-	if (!shownHost.includes('.') || shown === registrableDomain(host)) {
+	const reached = registrableDomain(host);
+	// (the same site, or another domain of the company that owns it)
+	if (!shownHost.includes('.') || shown === reached || sameOwner(shown, reached)) {
 		return false;
 	}
 
 	const tracked = isClickTracker(target ?? {hostname: host, pathname: ''});
 	if (!tracked && !authenticated) {
 		return true;
+	}
+
+	// (a known sender that passes DMARC, linking to its own domain: its own
+	//  click tracking under the address of a partner it writes about)
+	if (authenticated && known && typeof from === 'string' && registrableDomain(from) === reached) {
+		return false;
 	}
 
 	const brand = parseDomain(shown).domainWithoutSuffix;

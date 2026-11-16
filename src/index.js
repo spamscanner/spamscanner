@@ -11,7 +11,9 @@ import {DnsChecker, lookupName} from './dnsbl.js';
 import {visibleText} from './html.js';
 import {carriedLinkHosts} from './links.js';
 import HomographDetector from './homograph.js';
-import {isArbitrary} from './is-arbitrary.js';
+import {
+	MAILBOXES, buildSessionInfo, isArbitrary, isOwnHost,
+} from './is-arbitrary.js';
 import {normalizeLanguageCode} from './language.js';
 import {LLMClassifier} from './llm.js';
 import {loadDefaultModel, loadModel, saveModel} from './model.js';
@@ -19,7 +21,7 @@ import {
 	expandAttachments, isAttachedMessage, namedTextParts, parseWithin,
 } from './parse.js';
 import {
-	ReputationChecker, reputationValues, trustReputation, trustedReputationValues,
+	ReputationChecker, matchList, reputationValues, trustReputation, trustedReputationValues,
 } from './reputation.js';
 import {scoreResults} from './score.js';
 import {
@@ -125,6 +127,12 @@ export const DEFAULTS = {
 		maxLength: 1_000_000,
 		// Options for the lookalike domain detector: brands, extraBrands, allowlist, strictMode.
 		homograph: {},
+		// Domains of established senders (each covers its subdomains), such as
+		// the most visited sites: when one passes DMARC, a link that shows a
+		// partner's address and goes to the sender's own domain is its click
+		// tracking, not a disguise. Not a provider of mailboxes, whose domain
+		// is anyone's.
+		knownSenders: [],
 	},
 	// DNS blocklists: { ip: ['zen.spamhaus.org'], domain: ['dbl.spamhaus.org'] }.
 	dnsbl: {ip: [], domain: []},
@@ -419,6 +427,18 @@ function fromDomain(mail) {
 	return at === -1 ? '' : address.slice(at + 1).toLowerCase();
 }
 
+// Whether a sender's domain is one of the known senders (see
+// phishing.knownSenders): under one of the domains, and not a provider of
+// mailboxes, whose domain is anyone's.
+function isKnownSender(domain, knownSenders) {
+	if (typeof domain !== 'string' || !Array.isArray(knownSenders) || knownSenders.length === 0) {
+		return false;
+	}
+
+	const list = new Set(knownSenders.filter(entry => typeof entry === 'string' && !entry.includes('@')).map(entry => entry.trim().toLowerCase().replace(/\.$/, '')));
+	return Boolean(matchList(domain, list, {hostnamesOnly: true})) && !MAILBOXES.has(registrableDomain(domain).split('.')[0]);
+}
+
 // A message to parse from raw input: text whose first line is not a header
 // field ("Name: value", or an mbox "From " line) as the body of a message
 // with no header, so its text is the input, as parse(), learn() and scan()
@@ -618,6 +638,7 @@ export class SpamScanner {
 	//  message and of what it carries, see carriedLinkHosts)
 	async checkLinks(links, config, hosts = [], options = {}) {
 		const {from = '', carried = null} = typeof options === 'string' ? {from: options} : (options ?? {});
+		const known = isKnownSender(from, config.phishing?.knownSenders);
 		const phishing = [];
 		const homographs = [];
 		const seenHosts = new Set();
@@ -649,11 +670,11 @@ export class SpamScanner {
 					riskScore: analysis.riskScore,
 					riskFactors: analysis.riskFactors,
 					mixedScripts: analysis.riskFactors.some(factor => factor.includes(' mixes ')),
-					// (a brand names itself in its own other domains: only what
-					//  scores BRAND_IN_DOMAIN, not an imitation of its name)
+					// (a brand names itself in its own other domains, and a sender
+					//  links to the brands it sells or works with: only what scores
+					//  BRAND_IN_DOMAIN, not an imitation of a brand's name)
 					unlessAuthenticated: typeof from === 'string' && analysis.riskScore >= 0.6 && analysis.riskScore < 0.85
-						&& !analysis.riskFactors.some(factor => factor.includes(' mixes '))
-						&& registrableDomain(from).split('.')[0] === analysis.brand,
+						&& !analysis.riskFactors.some(factor => factor.includes(' mixes ')),
 					message: analysis.riskFactors.at(-1),
 				});
 				phishing.push(item);
@@ -674,7 +695,7 @@ export class SpamScanner {
 					type: 'deceptive_link',
 					url: link.url,
 					text: link.text,
-					unlessAuthenticated: typeof from === 'string' && !isDeceptiveLink(link, {from, authenticated: true}),
+					unlessAuthenticated: typeof from === 'string' && !isDeceptiveLink(link, {from, authenticated: true, known}),
 					message: `A link shows "${link.text}" but goes to ${link.host}`,
 				}));
 			}
@@ -934,7 +955,8 @@ export class SpamScanner {
 	 * @param {object} [options.authenticationResults] - SPF, DKIM, DMARC and
 	 *   ARC results the receiving server already has, as mailauth's
 	 *   authenticate() gives them ({spf, dkim: {results}, dmarc, arc}): scored
-	 *   as if checked here, without checking again
+	 *   as if checked here, without checking again (a forwarder's ARC seal is
+	 *   believed as `authentication.trustedArcSealers` says)
 	 * @returns {Promise<ScanResult>} isSpam, score, threshold, action
 	 *   ("accept", "tag" or "reject"), message, tests, results (per detector),
 	 *   links, language, tokens, mail and metrics
@@ -1002,7 +1024,9 @@ export class SpamScanner {
 		const [links, authentication, checkedReputation, dnsbl, virusScan, toxicity, nsfw] = await Promise.all([
 			this.checkLinks(checkedLinks, config, extracted.hosts, {from: fromDomain(mail), carried}),
 			config.authenticationResults && typeof config.authenticationResults === 'object'
-				? normalizeAuthOutput(config.authenticationResults)
+				// (with the forwarders whose ARC seal is believed, as when the
+				//  message is checked here)
+				? normalizeAuthOutput(config.authenticationResults, {trustedArcSealers: config.authentication?.trustedArcSealers})
 				: (config.authentication && session.remoteAddress
 					// (the client is always the scan's: settings never name it)
 					? withTimeout(authenticate(raw, {
@@ -1023,6 +1047,8 @@ export class SpamScanner {
 		const reputation = checkedReputation && trustReputation(checkedReputation, trustedReputationValues(mail, session, authentication));
 
 		if (authentication) {
+			// (never as a caller says: by the client's verified name)
+			authentication.ownHost = isOwnHost(buildSessionInfo(mail, session), authentication);
 			authentication.score = calculateAuthScore(authentication, typeof config.authentication === 'object' ? config.authentication.weights : undefined);
 		}
 

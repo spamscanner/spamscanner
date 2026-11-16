@@ -463,7 +463,10 @@ export function inspectAttachments(attachments = []) {
 			add(script ? 'script_in_archive' : 'executable_in_archive', `Archive "${name}" contains ${script ? 'a script' : 'a program'} (${shorten(uncompressedName(filename).split(/[/\\]/).pop())})`, {extension: held, extensions: [held]});
 		}
 
-		const webPage = detected?.type === 'html' || detected?.type === 'svg' || ['htm', 'html', 'mht', 'mhtml', 'shtml', 'xht', 'xhtml', 'svg'].includes(extension);
+		// (the AMP version of a message's own text, which a mail program shows
+		//  in place of its HTML or not at all: no file to open)
+		const ampText = attachment.contentType === 'text/x-amp-html' && !filename && attachment.contentDisposition !== 'attachment';
+		const webPage = ampText ? false : detected?.type === 'html' || detected?.type === 'svg' || ['htm', 'html', 'mht', 'mhtml', 'shtml', 'xht', 'xhtml', 'svg'].includes(extension);
 		const addWebPage = () => {
 			const active = content !== null && /<script\b|<form\b|\bon(?:load|error|click)\s*=|javascript:|window\.location|document\.location|atob\(/i.test(content.subarray(0, 200_000).toString('utf8'));
 			add('html_attachment', `Attachment "${name}" is ${detected?.type === 'svg' || extension === 'svg' ? 'an SVG image' : 'a web page'}${active ? ' with scripts or forms' : ''}`, {extension: extension || detected?.type, active});

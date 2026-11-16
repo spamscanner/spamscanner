@@ -72,7 +72,7 @@ describe('scoreResults', () => {
 			obfuscation: {invisible: 3, mixed: 2, styled: true},
 		};
 		const passed = {score: {tests: [{name: 'DMARC_PASS', score: -1.5}]}};
-		assert.deepEqual(names(scoreResults({...disguised, authentication: passed})), ['BRAND_IN_DOMAIN', 'MIXED_SCRIPT_WORDS', 'DMARC_PASS']);
+		assert.deepEqual(names(scoreResults({...disguised, authentication: passed})), ['BRAND_IN_DOMAIN', 'DMARC_PASS']);
 		assert.deepEqual(names(scoreResults({authentication: passed})), ['DMARC_PASS']);
 		assert.deepEqual(names(scoreResults({...disguised, authentication: passed, parseError: 'too many parts'})), ['DECEPTIVE_LINK', 'BRAND_IN_DOMAIN', 'MIME_TOO_COMPLEX', 'INVISIBLE_CHARACTERS', 'MIXED_SCRIPT_WORDS', 'STYLED_LETTERS']);
 		assert.deepEqual(names(scoreResults({...disguised, authentication: {score: {tests: [{name: 'SPF_PASS', score: -0.5}]}}})), ['DECEPTIVE_LINK', 'BRAND_IN_DOMAIN', 'INVISIBLE_CHARACTERS', 'MIXED_SCRIPT_WORDS', 'STYLED_LETTERS', 'SPF_PASS']);

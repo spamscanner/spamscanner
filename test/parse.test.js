@@ -110,6 +110,17 @@ describe('what a message is read in part for', () => {
 });
 
 describe('parts and names mail programs show as attachments', () => {
+	it('takes the AMP version of a message\'s text for no attachment, unless it is one', async () => {
+		const scanner = new SpamScanner({...offline, classifier: false});
+		const amp = '<!doctype html><html amp4email><head><script async src="https://cdn.ampproject.org/v0.js"></script></head><body><form method="post" action-xhr="https://shop.example/vote"><input name="choice"></form></body></html>';
+		const found = async headers => (await scanner.scan(`From: news@shop.example\r\nTo: b@example.org\r\nSubject: This week\r\nMIME-Version: 1.0\r\nContent-Type: multipart/alternative; boundary=b\r\n\r\n--b\r\nContent-Type: text/plain\r\n\r\nThis week at the shop.\r\n--b\r\n${headers}\r\n\r\n${amp}\r\n--b\r\nContent-Type: text/html\r\n\r\n<p>This week at the shop.</p>\r\n--b--\r\n`)).results.attachments.map(item => [item.type, item.active]);
+		assert.deepEqual(await found('Content-Type: text/x-amp-html'), []);
+		// (a file to open: named, marked as an attachment, or of another type)
+		for (const headers of ['Content-Type: text/x-amp-html; name="page.html"', 'Content-Type: text/x-amp-html\r\nContent-Disposition: attachment', 'Content-Type: text/x-amp-html\r\nContent-Disposition: attachment; filename="page.html"', 'Content-Type: application/octet-stream']) {
+			assert.deepEqual(await found(headers), [['html_attachment', true]], headers);
+		}
+	});
+
 	it('inspects text parts named as files, and the other names attachments give, by name', async () => {
 		const scanner = new SpamScanner({...offline, classifier: false});
 		const head = 'From: a@example.org\r\nSubject: s\r\nMIME-Version: 1.0\r\nContent-Type: multipart/mixed; boundary=m\r\n\r\n--m\r\nContent-Type: text/plain\r\n\r\nsee attached\r\n';

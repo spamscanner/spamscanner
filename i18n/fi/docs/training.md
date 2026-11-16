@@ -1,4 +1,4 @@
-<!-- source: 4d7afeb36844 -->
+<!-- source: c4f8c2c7aa5a -->
 
 # Koulutus
 
@@ -48,9 +48,9 @@ Mukana tuleva malli 21 kielen tekstiviesteillä, joita se ei koskaan nähnyt, us
 
 ```text
 Messages: 13028 spam, 92406 ham
-Precision: 89.72%   Recall: 11.18%   F1: 19.89%
-False positives: 167 (0.18% of ham)   False negatives: 132
-Unsure: 91247 (86.54%)
+Precision: 87.34%   Recall: 10.01%   F1: 17.96%
+False positives: 189 (0.20% of ham)   False negatives: 372
+Unsure: 87222 (82.73%)
 ```
 
 Tarkkuus (precision) kertoo, kuinka suuri osa siitä, mitä malli kutsuu roskapostiksi, on roskapostia; saanti (recall), kuinka suuren osan roskapostista se tunnistaa. Epävarmat viestit lasketaan tässä ohi menneeksi roskapostiksi, vaikka tarkistuksessa muut tarkistukset ja kielimalli voivat silti tunnistaa ne. Tärkein seurattava luku on väärät positiiviset: roskapostiksi merkitty ham. Yllä olevassa ajossa malli on useimmista näistä viesteistä epävarma eikä väärässä, mikä on tarkoitettu toiminta kielille, joilla sillä on vähän postia.
@@ -84,25 +84,32 @@ Väärin luokitelluksi ilmoitettu viesti pitää poistaa opitusta väärästä l
 
 `model/classifier.json` koostetaan komennolla `npm run model:train` näistä Hugging Facen julkisista aineistoista, jotka ovat kaikki avoimien lisenssien alaisia:
 
-| Aineisto                                                                                                                                                                                                                                                                                                                   | Lisenssi                | Sisältö                              |
-| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- | ------------------------------------ |
-| [FredZhang7/all-scam-spam](https://huggingface.co/datasets/FredZhang7/all-scam-spam)                                                                                                                                                                                                                                       | Apache-2.0              | Viestejä ja sähköposteja 43 kielellä |
-| [SetFit/enron_spam](https://huggingface.co/datasets/SetFit/enron_spam)                                                                                                                                                                                                                                                     | Julkinen tutkimuskorpus | Enron-Spam-korpus                    |
-| [alt-gnome/telegram-spam](https://huggingface.co/datasets/alt-gnome/telegram-spam)                                                                                                                                                                                                                                         | CC0-1.0                 | Venäjänkielisiä Telegram-viestejä    |
-| [tanaos/synthetic-spam-detection-dataset-german](https://huggingface.co/datasets/tanaos/synthetic-spam-detection-dataset-german), [-italian](https://huggingface.co/datasets/tanaos/synthetic-spam-detection-dataset-italian), [-spanish](https://huggingface.co/datasets/tanaos/synthetic-spam-detection-dataset-spanish) | MIT                     | Synteettisiä viestejä                |
+| Aineisto                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | Lisenssi                   | Sisältö                                                                              |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------- | ------------------------------------------------------------------------------------ |
+| [FredZhang7/all-scam-spam](https://huggingface.co/datasets/FredZhang7/all-scam-spam)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | Apache-2.0                 | Viestejä ja sähköposteja 43 kielellä                                                 |
+| [SetFit/enron_spam](https://huggingface.co/datasets/SetFit/enron_spam)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Julkinen tutkimuskorpus    | Enron-Spam-korpus                                                                    |
+| [alt-gnome/telegram-spam](https://huggingface.co/datasets/alt-gnome/telegram-spam)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | CC0-1.0                    | Venäjänkielisiä Telegram-viestejä                                                    |
+| [tanaos/synthetic-spam-detection-dataset-german](https://huggingface.co/datasets/tanaos/synthetic-spam-detection-dataset-german), [-italian](https://huggingface.co/datasets/tanaos/synthetic-spam-detection-dataset-italian), [-spanish](https://huggingface.co/datasets/tanaos/synthetic-spam-detection-dataset-spanish)                                                                                                                                                                                                                                                                                                                                                                                   | MIT                        | Synteettisiä viestejä                                                                |
+| [kudzaiprichard/aura-phishing-email-corpus](https://huggingface.co/datasets/kudzaiprichard/aura-phishing-email-corpus) (SpamAssassin, Nazario, Nigerian fraud)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | CC-BY-4.0                  | Postituslistoja, uutiskirjeitä, roskapostia, tietojenkalastelua ja huijausviestejä   |
+| [anmolshrivastav/scam_ham_india_14_languages](https://huggingface.co/datasets/anmolshrivastav/scam_ham_india_14_languages)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | MIT                        | Viestejä 14:llä Intian kielellä                                                      |
+| [chairulridjal/high-accuracy-email-classifier-indonesian](https://huggingface.co/datasets/chairulridjal/high-accuracy-email-classifier-indonesian)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Apache-2.0                 | Indonesiankielisiä sähköposteja luokittain                                           |
+| [JeisonJimenez/emails_2025](https://huggingface.co/datasets/JeisonJimenez/emails_2025)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Apache-2.0                 | Yhden yrityksen posti espanjaksi                                                     |
+| [imnim/multiclass-email-classification](https://huggingface.co/datasets/imnim/multiclass-email-classification), [weijianzhg/email-triage-action-seed](https://huggingface.co/datasets/weijianzhg/email-triage-action-seed), [dedsec995/Email_Classification_Text](https://huggingface.co/datasets/dedsec995/Email_Classification_Text), [vpakarinen/open-wiki-email-templates](https://huggingface.co/datasets/vpakarinen/open-wiki-email-templates), [neurocheckout-ai/synthetic-abandoned-cart-email-examples](https://huggingface.co/datasets/neurocheckout-ai/synthetic-abandoned-cart-email-examples), [dhnanjay/MarketMail-AI-Dataset](https://huggingface.co/datasets/dhnanjay/MarketMail-AI-Dataset) | MIT, Apache-2.0, CC-BY-4.0 | Tavallista postia: laskuja, varauksia, uutiskirjeitä, tarjouksia ja tili-ilmoituksia |
 
-Se oppi 62 480 roskapostiviestistä ja 76 489 ham-viestistä. Skripti jättää erilleen joka kymmenennen viestin, kouluttaa loput ja mittaa pelkän luokittimen ilman muita tarkistuksia:
+Ham sisältää tavallista yritys- ja kauppapostia (laskuja, tilaus- ja tili-ilmoituksia, uutiskirjeitä, tarjouksia), joten sellainen posti ei yksinään näytä roskapostilta.
+
+Se oppi 77 564 roskapostiviestistä ja 112 586 ham-viestistä. Skripti jättää erilleen joka kymmenennen viestin, kouluttaa loput ja mittaa pelkän luokittimen ilman muita tarkistuksia:
 
 | Erilleen jätetty testi | Viestit | Tarkkuus | Saanti | Väärät positiiviset | Epävarmat |
 | ---------------------- | ------: | -------: | -----: | ------------------: | --------: |
-| Englanti               |   6 564 |  100,0 % | 97,0 % |               0,0 % |     2,4 % |
-| Venäjä                 |   1 682 |  100,0 % | 97,4 % |               0,0 % |     2,2 % |
-| Italia                 |   1 389 |   98,1 % | 85,3 % |               1,8 % |    10,9 % |
-| Saksa                  |   1 309 |   97,7 % | 76,1 % |               2,2 % |    20,7 % |
-| Espanja                |   1 281 |   97,5 % | 82,5 % |               2,6 % |    16,8 % |
-| Enron-Spam             |   2 888 |  100,0 % | 93,1 % |               0,0 % |     4,5 % |
-| all-scam-spam          |   4 236 |  100,0 % | 88,8 % |               0,0 % |    11,2 % |
-| Kaikki                 |  13 840 |   99,2 % | 85,1 % |               0,5 % |    12,4 % |
+| Englanti               |   8 515 |  100,0 % | 96,4 % |               0,0 % |     2,6 % |
+| Venäjä                 |   1 680 |  100,0 % | 97,4 % |               0,0 % |     2,3 % |
+| Italia                 |   1 392 |   98,6 % | 81,0 % |               1,2 % |    12,5 % |
+| Saksa                  |   1 314 |   97,8 % | 72,5 % |               2,1 % |    22,6 % |
+| Espanja                |   2 088 |   98,5 % | 56,1 % |               0,4 % |    15,7 % |
+| Enron-Spam             |   2 888 |  100,0 % | 92,4 % |               0,0 % |     4,4 % |
+| all-scam-spam          |   4 236 |  100,0 % | 89,3 % |               0,0 % |    11,6 % |
+| Kaikki                 |  18 967 |   99,6 % | 77,2 % |               0,2 % |    15,8 % |
 
 Roskaposti tarkoittaa tässä luokittimen todennäköisyyttä 99 % tai enemmän, eli kohtaa, jossa pelkkä luokitin saavuttaa roskapostirajan. Tarkistuksessa roskaposti, josta luokitin on vähemmän varma, saa silti pisteitä, ja muut tarkistukset lisäävät omansa.
 
@@ -114,13 +121,13 @@ Saksan, espanjan ja italian tulokset tulevat synteettisistä aineistoista, joiss
 
 | Kieli  | Viestit | Tarkkuus | Saanti | Väärät positiiviset |
 | ------ | ------: | -------: | -----: | ------------------: |
-| Kiina  |     430 |  100,0 % | 82,3 % |               0,0 % |
-| Arabia |     430 |  100,0 % | 84,6 % |               0,0 % |
-| Korea  |     412 |  100,0 % | 80,4 % |               0,0 % |
-| Japani |     486 |   96,0 % | 85,7 % |               0,5 % |
-| Hindi  |     412 |  100,0 % | 63,9 % |               0,0 % |
-| Ranska |     480 |   98,6 % | 94,2 % |               0,6 % |
-| Turkki |     220 |  100,0 % | 73,1 % |               0,0 % |
+| Kiina  |     432 |  100,0 % | 86,1 % |               0,0 % |
+| Arabia |     432 |  100,0 % | 83,1 % |               0,0 % |
+| Korea  |     412 |  100,0 % | 78,3 % |               0,0 % |
+| Japani |     486 |   96,1 % | 87,5 % |               0,5 % |
+| Hindi  |     494 |  100,0 % | 76,2 % |               0,0 % |
+| Ranska |     511 |   98,7 % | 88,6 % |               0,6 % |
+| Turkki |     222 |  100,0 % | 70,4 % |               0,0 % |
 
 ### Uudelleenkoulutus
 

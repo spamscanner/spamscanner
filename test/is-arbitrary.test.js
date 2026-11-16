@@ -205,7 +205,7 @@ describe('isArbitrary', () => {
 	});
 
 	it('takes the brands\' sending domains for theirs', async () => {
-		for (const from of ['Microsoft Store <x@microsoftstoreemail.com>', 'Microsoft <x@email.microsoftemail.com>', 'Microsoft 365 <x@email.microsoftemail.com>', 'Microsoft <x@email.microsoftrewards.com>', 'Barclays <x@email.barclaysus.com>', 'Santander <x@santanderconsumerusa.com>', 'Amazon <x@amazonbusiness.com>', 'McAfee <x@mcafeemail.com>', 'Adobe <x@adobesystems.com>', '\'Jane\' via Google Cloud Developers <x@googlegroups.com>', 'PayPal <x@paypal-communications.com>', 'PayPal <x@paypal-prepaid.com>', 'Facebook <x@facebookmail.com>', 'Dropbox <x@dropboxmail.com>', 'UPS <x@upsemail.com>', 'Yahoo <x@yahoonews.com>', 'Yahoo <no-reply@cc.yahoo-inc.com>', 'UPS Capital <x@upscapital.com>', 'DHL eCommerce <x@dhlecs.com>', 'DHL <x@dhl-news.com>', 'Barclays <x@barclaycardus.com>', 'Dropbox Sign <x@hellosign.com>', 'Google <x@withgoogle.com>', 'Microsoft <x@sharepointonline.com>', 'La Poste <x@colissimo.fr>', 'The UPS Store <x@theupsstore.com>']) {
+		for (const from of ['Microsoft Store <x@microsoftstoreemail.com>', 'Microsoft <x@email.microsoftemail.com>', 'Microsoft 365 <x@email.microsoftemail.com>', 'Microsoft <x@email.microsoftrewards.com>', 'Barclays <x@email.barclaysus.com>', 'Santander <x@santanderconsumerusa.com>', 'Amazon <x@amazonbusiness.com>', 'McAfee <x@mcafeemail.com>', 'Adobe <x@adobesystems.com>', '\'Jane\' via Google Cloud Developers <x@googlegroups.com>', 'PayPal <x@paypal-communications.com>', 'PayPal <x@paypal-prepaid.com>', 'Facebook <x@facebookmail.com>', 'Dropbox <x@dropboxmail.com>', 'UPS <x@upsemail.com>', 'Yahoo <x@yahoonews.com>', 'Yahoo <no-reply@cc.yahoo-inc.com>', 'UPS Capital <x@upscapital.com>', 'DHL eCommerce <x@dhlecs.com>', 'DHL <x@dhl-news.com>', 'Barclays <x@barclaycardus.com>', 'Dropbox Sign <x@hellosign.com>', 'DHL eCommerce <x@dhlecommerce.nl>', 'PayPal Cashback Mastercard <x@servicing.synchrony.com>', 'Meta for Business <x@global.metamail.com>', 'Instagram for Business <x@global.metamail.com>', 'Google <x@withgoogle.com>', 'Microsoft <x@sharepointonline.com>', 'La Poste <x@colissimo.fr>', 'The UPS Store <x@theupsstore.com>']) {
 			assert.deepEqual(names(isArbitrary(await parse(message({from})))), [], from);
 		}
 
@@ -239,7 +239,7 @@ describe('isArbitrary', () => {
 	it('catches mail claiming to be from the recipient\'s own domain without authenticating', async () => {
 		const mail = await parse(message({from: 'ceo@example.net', to: 'bob@example.net'}));
 		const session = {envelope: {mailFrom: {address: 'x@spoofer.example'}, rcptTo: [{address: 'bob@example.net'}]}};
-		const failing = {dmarc: {status: {result: 'fail'}}, dkim: {aligned: null}, spf: {status: {result: 'softfail'}, domain: 'spoofer.example'}};
+		const failing = {dmarc: {status: {result: 'none'}}, dkim: {aligned: null}, spf: {status: {result: 'softfail'}, domain: 'spoofer.example'}};
 		assert.deepEqual(names(isArbitrary(mail, {session, authentication: failing})), ['SELF_SPOOF']);
 		for (const passing of [{dmarc: {status: {result: 'pass'}}}, {dkim: {aligned: 'example.net'}}, {spf: {status: {result: 'pass'}, domain: 'example.net'}}, {spf: {status: {result: 'pass'}}}]) {
 			const result = names(isArbitrary(mail, {session, authentication: passing}));
@@ -250,10 +250,47 @@ describe('isArbitrary', () => {
 		assert.deepEqual(names(isArbitrary(mail, {authentication: failing})), []);
 	});
 
+	it('counts a failed DMARC check of the recipient\'s own domain once, unless the message is a bounce', async () => {
+		// (a cron job writing as its owner's domain from a host the domain does
+		//  not name: DMARC_FAIL says it, see calculateAuthScore)
+		const mail = await parse(message({from: 'root@example.net', to: 'admin@example.net', subject: 'Cron <root@host> backup'}));
+		const failing = {dmarc: {status: {result: 'fail'}}, dkim: {aligned: null}, spf: {status: {result: 'none'}, domain: 'example.net'}};
+		const rcptTo = [{address: 'admin@example.net'}];
+		const check = (envelope, authentication = failing) => names(isArbitrary(mail, {session: {envelope}, authentication}));
+		assert.deepEqual(check({mailFrom: {address: 'root@example.net'}, rcptTo}), []);
+		assert.deepEqual(check({mailFrom: {address: 'www@host.hosting.example'}, rcptTo}), []);
+		// (a bounce has no envelope sender, nor does a caller that gives none)
+		for (const mailFrom of [{address: ''}, {address: false}, {}, undefined]) {
+			assert.deepEqual(check({mailFrom, rcptTo}), ['SELF_SPOOF'], JSON.stringify(mailFrom));
+		}
+
+		// (a server's own bounce to its domain, by its verified name; not from
+		//  a host of another domain, or one whose name only ends alike)
+		const bounce = await parse(message({from: 'MAILER-DAEMON@server1.example.net', to: 'postmaster@example.net', subject: 'Undelivered Mail Returned to Sender'}));
+		const unsigned = {dmarc: {status: {result: 'none'}}, dkim: {aligned: null}, spf: {status: {result: 'none'}}};
+		const from = resolvedClientHostname => names(isArbitrary(bounce, {session: {resolvedClientHostname, envelope: {mailFrom: {address: ''}, rcptTo: [{address: 'postmaster@example.net'}]}}, authentication: unsigned}));
+		assert.deepEqual(from('server1.example.net'), []);
+		assert.deepEqual(from('Server1.Example.NET.'), []);
+		for (const host of ['mail.spoofer.example', 'example.net.spoofer.example', 'notexample.net', undefined]) {
+			assert.deepEqual(from(host), ['SELF_SPOOF'], String(host));
+		}
+
+		// (nor is it counted once for a host the domain's SPF record refuses)
+		assert.deepEqual(check({mailFrom: {address: 'root@example.net'}, rcptTo}, {...failing, spf: {status: {result: 'fail'}, domain: 'example.net'}}), ['SELF_SPOOF']);
+		for (const result of ['softfail', 'neutral', 'permerror', 'pass']) {
+			assert.deepEqual(check({mailFrom: {address: 'www@host.hosting.example'}, rcptTo}, {...failing, spf: {status: {result}, domain: 'host.hosting.example'}}), [], result);
+		}
+
+		// (a domain with no DMARC record has no failed check to count)
+		for (const result of ['none', 'temperror', 'permerror']) {
+			assert.deepEqual(check({mailFrom: {address: 'root@example.net'}, rcptTo}, {...failing, dmarc: {status: {result}}}), ['SELF_SPOOF'], result);
+		}
+	});
+
 	it('takes a trusted forwarder\'s ARC seal as authentication, and no other seal', async () => {
 		const mail = await parse(message({from: 'ceo@example.net', to: 'team@example.net'}));
 		const session = {envelope: {mailFrom: {address: 'bounce@lists.example'}, rcptTo: [{address: 'team@example.net'}]}};
-		const failing = {dmarc: {status: {result: 'fail'}}, dkim: {aligned: null}, spf: {status: {result: 'pass'}, domain: 'lists.example'}};
+		const failing = {dmarc: {status: {result: 'none'}}, dkim: {aligned: null}, spf: {status: {result: 'pass'}, domain: 'lists.example'}};
 		assert.deepEqual(names(isArbitrary(mail, {session, authentication: {...failing, arc: {status: {result: 'pass'}, sealer: 'lists.example', trusted: true}}})), []);
 		for (const arc of [
 			{status: {result: 'pass'}, sealer: 'attacker.example', trusted: false},

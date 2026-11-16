@@ -1,4 +1,4 @@
-<!-- source: e76abba4e876 -->
+<!-- source: fdcc3372d5ee -->
 
 # 테스트와 점수
 
@@ -107,9 +107,13 @@ DMARC 실패의 점수는 도메인의 정책에 따라 정해집니다. 도메�
 
 본문의 앞부분만 서명한 DKIM 서명(본문 길이 `l=`이 본문보다 짧은 서명: 그 뒤에는 누구나 텍스트를 덧붙일 수 있습니다)은 `DKIM_PASS`를 받지 못하며, 정렬된 SPF 없이 그런 서명에만 기댄 DMARC 통과는 `DMARC_PASS`를 받지 못합니다.
 
-DMARC를 통과하고 `DMARC_PASS`를 받은 발신자는 자신이 밝힌 그 발신자이므로, 숨은 발신자를 찾는 테스트는 이 발신자를 건드리지 않습니다. `INVISIBLE_CHARACTERS`와 `STYLED_LETTERS`는 제외되고, 발신자 자신의 브랜드에 대한 `BRAND_IN_DOMAIN`도 제외됩니다. `DECEPTIVE_LINK`는 링크가 발신자가 아닌 브랜드의 주소를 보여 줄 때만 계산됩니다. 메일 발송 서비스의 추적 도메인 위에 자기 주소를 보여 주는 쇼핑몰은 아무것도 받지 않고, 다른 도메인에서 `www.paypal.com`을 보여 주는 메시지는 여전히 받습니다. `SPF_FAIL`과 `SPF_SOFTFAIL`도 제외됩니다. 메시지가 전달된 것이고 서명이 이를 보증하기 때문입니다.
+DMARC를 통과하고 `DMARC_PASS`를 받은 발신자는 자신이 밝힌 그 발신자이므로, 숨은 발신자를 찾는 테스트는 이 발신자를 건드리지 않습니다. `INVISIBLE_CHARACTERS`, `MIXED_SCRIPT_WORDS`, `STYLED_LETTERS`, `BRAND_IN_DOMAIN`은 제외됩니다. `DECEPTIVE_LINK`는 링크가 발신자가 아닌 브랜드의 주소를 보여 줄 때만 계산됩니다. 메일 발송 서비스의 추적 도메인 위에 자기 주소를 보여 주는 쇼핑몰은 아무것도 받지 않고, 다른 도메인에서 `www.paypal.com`을 보여 주는 메시지는 여전히 받습니다. `SPF_FAIL`과 `SPF_SOFTFAIL`도 제외됩니다. 메시지가 전달된 것이고 서명이 이를 보증하기 때문입니다.
 
-메일링 리스트 같은 전달자는 ARC 봉인으로 자신이 받은 내용을 보증할 수 있습니다. 누구나 메시지를 봉인할 수 있으므로, 봉인은 `authentication.trustedArcSealers`에 지정한 전달자의 것만 반영되며(도메인은 그 하위 도메인도 포함합니다), 그것도 가장 최근 ARC 세트가 그 도메인으로 봉인되어 있고(ARC-Seal과 ARC-Message-Signature가 같은 도메인의 것) 봉인된 결과가 전달자가 메시지를 받았을 때 통과했음을 보여 줄 때만입니다. 즉 From 도메인에 대한 DMARC, 또는 등록 가능 도메인이 같은 도메인의 DKIM이나 SPF가 통과한 경우입니다. 그런 메시지(`authentication.arc.trusted`)는 `ARC_PASS`를 받고 SPF, DKIM, DMARC 실패로 점수를 받지 않으며 `SELF_SPOOF`도 받지 않습니다(자기 도메인의 리스트에 글을 쓰는 리스트 회원). 그 밖의 ARC 통과는 아무것도 받지 않으며, 신뢰하지 않는 봉인이나 실패한 봉인은 여전히 `SELF_SPOOF`를 받습니다. `authenticationResults`로 전달한 결과는 어떤 전달자도 신뢰하지 않습니다.
+알려진 발신자, 즉 `phishing.knownSenders`에 지정한 도메인(하위 도메인도 포함합니다. 예를 들어 방문자가 가장 많은 사이트)은 DMARC를 통과하면 자기 도메인으로 가는 링크에 제휴사의 주소를 표시할 수도 있습니다. 상점 자체의 클릭 추적 링크에 `www.apple.com`을 표시하는 경우입니다. `gmail.com` 같은 메일함 제공업체는 결코 알려진 발신자가 아닙니다.
+
+메일링 리스트 같은 전달자는 ARC 봉인으로 자신이 받은 내용을 보증할 수 있습니다. 누구나 메시지를 봉인할 수 있으므로, 봉인은 `authentication.trustedArcSealers`에 지정한 전달자의 것만 반영되며(도메인은 그 하위 도메인도 포함합니다), 그것도 가장 최근 ARC 세트가 그 도메인으로 봉인되어 있고(ARC-Seal과 ARC-Message-Signature가 같은 도메인의 것) 봉인된 결과가 전달자가 메시지를 받았을 때 통과했음을 보여 줄 때만입니다. 즉 From 도메인에 대한 DMARC, 또는 등록 가능 도메인이 같은 도메인의 DKIM이나 SPF가 통과한 경우입니다. 그런 메시지(`authentication.arc.trusted`)는 `ARC_PASS`를 받고 SPF, DKIM, DMARC 실패로 점수를 받지 않으며 `SELF_SPOOF`도 받지 않습니다(자기 도메인의 리스트에 글을 쓰는 리스트 회원). 그 밖의 ARC 통과는 아무것도 받지 않으며, 신뢰하지 않는 봉인이나 실패한 봉인은 여전히 `SELF_SPOOF`를 받습니다. `authenticationResults`로 전달한 결과도 같은 전달자를 신뢰합니다.
+
+도메인의 DMARC 검사가 실패했고 메시지에 SPF가 거부하지 않는 봉투 발신자가 있으면 `SELF_SPOOF`는 더해지지 않습니다. `DMARC_FAIL`이 이미 그것을 계산하기 때문입니다(봉투 발신자가 없는 반송 메시지는 둘 다 받습니다). 자기 자신의 이름으로 보내는 서버는 `SELF_SPOOF`도 `DMARC_FAIL`도 받지 않습니다. 확인된 호스트 이름이 From 도메인 자체인 클라이언트(그 서버의 반송 메시지와 cron 작업 메일), 또는 SPF를 통과하고 호스트 이름이 그 도메인 아래에 있는 클라이언트입니다. 메시지의 AMP 버전(파일 이름이 없는 `text/x-amp-html`)은 `HTML_ATTACHMENT`가 아닙니다.
 
 ```js
 new SpamScanner({authentication: {trustedArcSealers: ['lists.example.org']}});

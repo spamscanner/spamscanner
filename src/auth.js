@@ -420,6 +420,9 @@ export const DEFAULT_AUTH_WEIGHTS = {
  * DMARC_PASS. An ARC seal counts only from a trusted forwarder (`arc.trusted`,
  * see authenticate's trustedArcSealers): its pass gets ARC_PASS, and no
  * points for failing SPF, DKIM or DMARC, as forwarding is what broke them.
+ * A host of the From domain writing as itself (`ownHost`, see isOwnHost)
+ * gets none for failing DMARC: a server's bounce is from its domain, though
+ * nothing signs it.
  * @param {object} auth - from authenticate
  * @param {object} [weights] - overrides for DEFAULT_AUTH_WEIGHTS
  * @returns {{score: number, tests: Array<{name: string, score: number}>}}
@@ -444,7 +447,7 @@ export function calculateAuthScore(auth, weights = {}) {
 	const rules = [
 		['DKIM', auth?.dkim?.status?.result, {pass: partOfBody ? 0 : w.dkimPass, fail: failure(w.dkimFail)}],
 		['SPF', auth?.spf?.status?.result, {pass: w.spfPass, fail: spfCounted ? failure(w.spfFail) : 0, softfail: spfCounted ? failure(w.spfSoftfail) : 0}],
-		['DMARC', dmarc, {pass: dmarcOnPart ? 0 : w.dmarcPass, fail: failure(policyNone ? w.dmarcFailNone : w.dmarcFail)}],
+		['DMARC', dmarc, {pass: dmarcOnPart ? 0 : w.dmarcPass, fail: auth?.ownHost === true ? 0 : failure(policyNone ? w.dmarcFailNone : w.dmarcFail)}],
 		['ARC', auth?.arc?.status?.result, {pass: forwarded ? w.arcPass : 0, fail: w.arcFail}],
 	];
 	for (const [name, value, scores] of rules) {

@@ -323,8 +323,34 @@ describe('links', () => {
 		assert.equal(isDeceptiveLink({host: 'evil.example', text: 'paypal.com/myaccount'}, {from: 'evil.example', authenticated: true}), true);
 		assert.equal(isDeceptiveLink({host: 'links.mailer-service.example', text: 'www.paypal.com'}, {from: 'mail.paypal.com', authenticated: true}), false);
 		assert.equal(isDeceptiveLink({host: 'evil.example', text: 'paypal.com'}, {authenticated: true}), false);
+		// (nor of a known sender, one that goes to its own domain)
+		assert.equal(isDeceptiveLink({host: 'click.mail.bigstore.example', text: 'www.apple.com'}, {from: 'mail.bigstore.example', authenticated: true}), true);
+		assert.equal(isDeceptiveLink({host: 'click.mail.bigstore.example', text: 'www.apple.com'}, {from: 'mail.bigstore.example', authenticated: true, known: true}), false);
+		assert.equal(isDeceptiveLink({host: 'click.mail.bigstore.example', text: 'www.apple.com'}, {from: 'mail.bigstore.example', known: true}), true);
+		assert.equal(isDeceptiveLink({host: 'evil.example', text: 'www.apple.com'}, {from: 'mail.bigstore.example', authenticated: true, known: true}), true);
 		// (the brand by its domain, not its name on another one)
 		assert.equal(isDeceptiveLink({host: 'evil.example', text: 'https://www.paypal.com/signin'}, {from: 'paypal.top', authenticated: true}), true);
+		// (another domain of the company whose address is shown is its own
+		//  site, whoever sends it)
+		for (const [text, host] of [['redeem.microsoft.com', 'www.xbox.com'], ['www.amazon.co.uk', 'www.amazon.com'], ['xfinity.com', 'customer.comcast.com'], ['https://www.icloud.com/', 'support.apple.com'], ['www.paypal.de', 'data.news.paypal.com'], ['zoom.com', 'click.e.zoom.us'], ['www.americanexpress.es', 'go.amex'], ['citibank.com', 'click.info.citi.com']]) {
+			assert.equal(isDeceptiveLink({host, text}), false, text);
+			assert.equal(isDeceptiveLink({host, text}, {from: 'mail.shop.example', authenticated: true}), false, text);
+		}
+
+		// (a payment service's address in a shop's footer, over the click
+		//  tracking of the shop's mailing service; a sign-in address still counts)
+		for (const host of ['cdn.uk.exponea.com', 'uk1-cdn.eng.bloomreach.com', 'click.mlsend.com']) {
+			assert.equal(isDeceptiveLink({host, text: 'klarna.com'}, {from: 'mail.shop.example', authenticated: true}), false, host);
+			assert.equal(isDeceptiveLink({host, text: 'https://www.paypal.com/signin'}, {from: 'mail.shop.example', authenticated: true}), true, host);
+		}
+
+		// (not where anyone publishes under the company's name, a domain of
+		//  another company, or a look-alike)
+		for (const [text, host] of [['www.microsoft.com', 'forms.office.com'], ['microsoft.com', 'contoso.sharepoint.com'], ['redeem.microsoft.com', 'www.amazon.com'], ['redeem.microsoft.com', 'xbox.com.evil.example']]) {
+			assert.equal(isDeceptiveLink({host, text}), true, text);
+			assert.equal(isDeceptiveLink({host, text: `https://${text}/`}, {from: 'mail.shop.example', authenticated: true}), true, text);
+		}
+
 		// (a brand newsletters link to: its sign-in address or its front page,
 		//  not a page of it)
 		assert.equal(isDeceptiveLink({host: 'evil.example', text: 'https://www.facebook.com/login'}, {from: 'evil.example', authenticated: true}), true);
