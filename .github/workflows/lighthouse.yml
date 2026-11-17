@@ -32,6 +32,14 @@ jobs:
           node-version: 22
       - run: npm install
       - run: npm run site:build
+      # The pages in Chinese, Japanese and Korean are audited with the fonts the
+      # site names for them (see :lang() in site/style.css), as their readers
+      # have one: without it Chrome looks for a font for every character.
+      - name: Install Chinese, Japanese and Korean fonts
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends fonts-noto-cjk
+          fc-list "Noto Sans CJK JP" | head -n 1
       - name: Serve the site
         run: |
           node scripts/serve.js > serve.log 2>&1 &

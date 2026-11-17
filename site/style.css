@@ -33,8 +33,9 @@
   --t-k: #8c3f22;
   --t-n: #7a5410;
   --t-p: #245083;
-  --heading: system-ui, -apple-system, 'Segoe UI', roboto, 'Helvetica Neue', arial, sans-serif;
-  --sans: system-ui, -apple-system, 'Segoe UI', roboto, 'Helvetica Neue', arial, sans-serif;
+  /* (--script: fonts for the page's own script, see :lang() below) */
+  --heading: system-ui, -apple-system, 'Segoe UI', roboto, 'Helvetica Neue', arial, var(--script, sans-serif);
+  --sans: system-ui, -apple-system, 'Segoe UI', roboto, 'Helvetica Neue', arial, var(--script, sans-serif);
   --mono: ui-monospace, sfmono-regular, 'SF Mono', menlo, consolas, 'Liberation Mono', monospace;
   --header: 60px;
   --gutter: 24px;
@@ -120,6 +121,21 @@ html {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
   scroll-padding-top: calc(var(--header) + 16px);
+}
+
+/* Chinese, Japanese and Korean fonts by name. Without one the browser finds a
+   font for each character it has not met yet, thousands of them on a long
+   page, which took as long again as laying the page out. */
+:lang(ja) {
+  --script: 'Noto Sans CJK JP', 'Noto Sans JP', 'Hiragino Sans', 'Yu Gothic', sans-serif;
+}
+
+:lang(zh) {
+  --script: 'Noto Sans CJK SC', 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+}
+
+:lang(ko) {
+  --script: 'Noto Sans CJK KR', 'Noto Sans KR', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
 }
 
 body {
