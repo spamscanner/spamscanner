@@ -60,6 +60,14 @@ describe('scoreResults', () => {
 		assert.equal(result.action, 'reject');
 	});
 
+	it('scores a script developers send as it is for less than a program', () => {
+		const attachment = extra => scoreResults({attachments: [{type: 'executable', message: 'x', ...extra}]}).tests.map(test => [test.name, test.score]);
+		assert.deepEqual(attachment({script: true}), [['EXECUTABLE_ATTACHMENT', DEFAULT_SCORES.scriptAttachment]]);
+		assert.deepEqual(attachment({}), [['EXECUTABLE_ATTACHMENT', DEFAULT_SCORES.executable]]);
+		assert.ok(DEFAULT_SCORES.scriptAttachment < 5 && DEFAULT_SCORES.executable >= 5);
+		assert.deepEqual(scoreResults({attachments: [{type: 'executable', message: 'x', script: true}]}, {scores: {scriptAttachment: 0}}).tests, []);
+	});
+
 	it('takes points off for allowlisted and truth-source senders', () => {
 		assert.deepEqual(names(scoreResults({reputation: {isAllowlisted: true, allowlistValue: 'x'}})), ['ALLOWLISTED']);
 		assert.deepEqual(names(scoreResults({reputation: {isTruthSource: true, truthSourceValue: 'x'}})), ['TRUTH_SOURCE']);

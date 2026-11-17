@@ -1,4 +1,4 @@
-<!-- source: fdcc3372d5ee -->
+<!-- source: 49731126fae8 -->
 
 # 测试与分值
 
@@ -12,6 +12,8 @@
 | 测试                       | 分值           | 含义                                                                                                                                                                                                              |
 | ------------------------ | ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `BAYES_00` 到 `BAYES_999` | -2.5 到 +6.25 | 分类器的垃圾邮件概率，按对数几率换算：90% 时为 2.4 分，99% 时为 5 分，99.9% 时为 6.25 分，因此分类器只有在至少 99% 确定时才会单独判定为垃圾邮件。名称表示所在区间：`BAYES_999` 为 99.9% 或以上，`BAYES_99` 为 99% 到 99.9%，`BAYES_50` 为 40% 到 60%。设置键 `bayesHam` 和 `bayesSpam` 设定两端的分值。 |
+
+投递状态通知（退信：带有 `report-type=delivery-status` 的 `multipart/report`）是其邮件服务器的标准文本，无论它退回的是哪封邮件。因此分类器改为读取随通知退回的邮件，没有附带邮件时不加分。其他所有测试仍像读取任何邮件一样读取该通知。如果通知自身的正文带有链接，分类器会像读取任何邮件一样读取它。
 
 
 ## 钓鱼和链接
@@ -32,22 +34,22 @@
 
 ## 附件
 
-| 测试                      |    分值 | 设置键                                     | 含义                                                                          |
-| ----------------------- | ----: | --------------------------------------- | --------------------------------------------------------------------------- |
-| `EXECUTABLE_ATTACHMENT` |    10 | `executable`                            | 程序或脚本                                                                       |
-| `DISGUISED_EXECUTABLE`  |    12 | `disguisedExecutable`                   | 名称伪装成文档或图片的程序                                                               |
-| `DOUBLE_EXTENSION`      |     6 | `doubleExtension`                       | 例如 `invoice.pdf.exe` 这样的名称                                                  |
-| `RTL_OVERRIDE_FILENAME` |     6 | `rtlOverride`                           | 从右到左覆盖字符隐藏了真实扩展名                                                            |
-| `EXECUTABLE_IN_ARCHIVE` |     8 | `executableInArchive`                   | ZIP 文件中的程序；也包括单独压缩并以程序命名的文件 (`invoice.exe.gz`)                              |
-| `SCRIPT_IN_ARCHIVE`     |     3 | `scriptInArchive`                       | ZIP 文件中只有脚本（JavaScript、Python、shell、Perl），没有其他程序；也包括单独压缩的脚本 (`build.sh.xz`) |
-| `RISKY_ATTACHMENT_TYPE` |     2 | `riskyAttachment`                       | Outlook 会阻止的证书、Internet 快捷方式、主题或数据文件（`.cer`、`.url`、`.tmp`）                  |
-| `ENCRYPTED_ARCHIVE`     |     2 | `encryptedArchive`                      | 扫描程序无法打开的压缩包                                                                |
-| `MACRO_ATTACHMENT`      |     4 | `macro`                                 | 带宏的 Office 文件                                                               |
-| `PDF_ACTIVE_CONTENT`    |     3 | `pdfActive`                             | 含有 JavaScript 或启动操作的 PDF                                                    |
-| `RTF_EMBEDDED_OBJECT`   |     4 | `rtfObject`                             | 带嵌入对象的 RTF 文件                                                               |
-| `HTML_ATTACHMENT`       | 1 或 3 | `htmlAttachment`、`activeHtmlAttachment` | HTML 文件；含脚本或表单时为 3；也包括以此命名的部分                                               |
-| `VIRUS`                 |   100 | `virus`                                 | ClamAV 发现了病毒                                                                |
-| `MIME_TOO_COMPLEX`      |     6 | `mimeTooComplex`                        | 超过 1000 个 MIME 部分，或某个部分的头超过 1 MB，附带的邮件中也算，或附带的邮件无法读取；之后的部分不读取               |
+| 测试                      |     分值 | 设置键                                     | 含义                                                                          |
+| ----------------------- | -----: | --------------------------------------- | --------------------------------------------------------------------------- |
+| `EXECUTABLE_ATTACHMENT` | 10 或 3 | `executable`、`scriptAttachment`         | 程序或脚本；shell、Python 或 Perl 脚本，或以 `#!` 开头的文本文件为 3                             |
+| `DISGUISED_EXECUTABLE`  |     12 | `disguisedExecutable`                   | 名称伪装成文档或图片的程序                                                               |
+| `DOUBLE_EXTENSION`      |      6 | `doubleExtension`                       | 例如 `invoice.pdf.exe` 这样的名称                                                  |
+| `RTL_OVERRIDE_FILENAME` |      6 | `rtlOverride`                           | 从右到左覆盖字符隐藏了真实扩展名                                                            |
+| `EXECUTABLE_IN_ARCHIVE` |      8 | `executableInArchive`                   | ZIP 文件中的程序；也包括单独压缩并以程序命名的文件 (`invoice.exe.gz`)                              |
+| `SCRIPT_IN_ARCHIVE`     |      3 | `scriptInArchive`                       | ZIP 文件中只有脚本（JavaScript、Python、shell、Perl），没有其他程序；也包括单独压缩的脚本 (`build.sh.xz`) |
+| `RISKY_ATTACHMENT_TYPE` |      2 | `riskyAttachment`                       | Outlook 会阻止的证书、Internet 快捷方式、主题或数据文件（`.cer`、`.url`、`.tmp`）                  |
+| `ENCRYPTED_ARCHIVE`     |      2 | `encryptedArchive`                      | 扫描程序无法打开的压缩包                                                                |
+| `MACRO_ATTACHMENT`      |      4 | `macro`                                 | 带宏的 Office 文件                                                               |
+| `PDF_ACTIVE_CONTENT`    |      3 | `pdfActive`                             | 含有 JavaScript 或启动操作的 PDF                                                    |
+| `RTF_EMBEDDED_OBJECT`   |      4 | `rtfObject`                             | 带嵌入对象的 RTF 文件                                                               |
+| `HTML_ATTACHMENT`       |  1 或 3 | `htmlAttachment`、`activeHtmlAttachment` | HTML 文件；含脚本或表单时为 3；也包括以此命名的部分                                               |
+| `VIRUS`                 |    100 | `virus`                                 | ClamAV 发现了病毒                                                                |
+| `MIME_TOO_COMPLEX`      |      6 | `mimeTooComplex`                        | 超过 1000 个 MIME 部分，或某个部分的头超过 1 MB，附带的邮件中也算，或附带的邮件无法读取；之后的部分不读取               |
 
 只有 MIME 解析器的这两项限制会给出 `MIME_TOO_COMPLEX`，解析器无法解析的附带邮件也会；其他任何解析器错误都会导致扫描失败，服务器会像以前的版本一样推迟处理该邮件。部分过多的邮件读取到第 990 个可能开始一个部分的行（`--`）为止；如果这些部分是内联的附带邮件，则先读取前一半，再读取前四分之一，直到可以读取为止。自身头过大的邮件会在裁减头之后读取（每行最多 998 个字符，每个字段最多 8 KB，地址字段截断到完整的地址，如果仍超过 512 KB，则只保留说明由谁、如何发送的字段），因此发件人仍然计入；后面某个部分的头过大时，读取其前 1 MB。ClamAV 则读取整封邮件。只有 `ALLOWLISTED` 和 `TRUTH_SOURCE` 能抵消它：其他减分（贝叶斯 ham、SPF、DKIM、DMARC、ARC、语言模型的 ham）对它不起作用，因为没有读取的内容无法担保。
 
@@ -107,9 +109,9 @@ DMARC 失败按域名的策略计分：域名要求隔离或拒绝失败的邮�
 
 只签署正文开头部分的 DKIM 签名（正文长度 `l=` 短于正文：任何人都能在其后追加文字）不会得到 `DKIM_PASS`，仅依赖这种签名、没有对齐的 SPF 的 DMARC 通过也不会得到 `DMARC_PASS`。
 
-通过 DMARC 并获得 `DMARC_PASS` 的发件人就是其自称的身份，因此查找隐藏发件人的测试不会对其计分。`INVISIBLE_CHARACTERS`、`MIXED_SCRIPT_WORDS`、`STYLED_LETTERS` 和 `BRAND_IN_DOMAIN` 不计入。只有当链接显示的是发件人以外某个品牌的地址时，`DECEPTIVE_LINK` 才计入：商店在其邮件服务的跟踪域名上显示自己的地址不会得分，而从任何其他域名显示 `www.paypal.com` 的邮件仍会得分。`SPF_FAIL` 和 `SPF_SOFTFAIL` 同样不计入：邮件经过转发，其签名为它作保。
+通过 DMARC 并获得 `DMARC_PASS` 的发件人就是其自称的身份，因此查找隐藏发件人的测试不会对其计分。`INVISIBLE_CHARACTERS`、`MIXED_SCRIPT_WORDS`、`STYLED_LETTERS` 和 `BRAND_IN_DOMAIN` 不计入。只有当链接显示的是发件人以外某个品牌的地址时，`DECEPTIVE_LINK` 才计入：商店在其邮件服务的跟踪域名上显示自己的地址不会得分，而从任何其他域名显示 `www.paypal.com` 的邮件仍会得分。`SPF_FAIL` 和 `SPF_SOFTFAIL` 同样不计入：邮件经过转发，其签名为它作保。 指向发件人自有域名的链接是其自己的点击跟踪：显示在其上的合作伙伴名称（`amazon.co.uk`）不计分，除非显示的地址或链接打开的页面要求登录（`paypal.com/signin`）。邮箱提供商（如 `gmail.com`）在这个意义上没有自己的域名。
 
-已知发件人，即您在 `phishing.knownSenders` 中指定的域名（涵盖其子域名；例如访问量最大的网站），在通过 DMARC 时还可以在指向自身域名的链接上显示合作伙伴的地址：商店自己的点击跟踪显示为 `www.apple.com`。邮箱提供商（如 `gmail.com`）永远不算已知发件人。
+已知发件人，即您在 `phishing.knownSenders` 中指定的域名（涵盖其子域名；例如访问量最大的网站），在通过 DMARC 时还可以在指向自身域名的链接上显示合作伙伴的地址：商店自己的点击跟踪显示为 `www.apple.com`。邮箱提供商（如 `gmail.com`）永远不算已知发件人。 此时其自有域名也不计为 `MALICIOUS_DOMAIN`。
 
 转发方（例如邮件列表）可以用 ARC 封印为其收到的内容作担保。任何人都能封印邮件，因此只有来自你在 `authentication.trustedArcSealers` 中指定的转发方的封印才计入（域名涵盖其子域名），而且只有当最新的 ARC 组由该域名封印（其 ARC-Seal 和 ARC-Message-Signature 属于同一域名），且其封印的结果表明邮件在它收到时已通过时才计入：From 域名的 DMARC，或可注册域名相同的域名的 DKIM 或 SPF。这样的邮件（`authentication.arc.trusted`）会得到 `ARC_PASS`，且不会因 SPF、DKIM 或 DMARC 失败而得分，也不算 `SELF_SPOOF`（列表成员写信给自己域名的列表）；其他任何 ARC 通过都不得分，不受信任或失败的封印仍会得到 `SELF_SPOOF`。通过 `authenticationResults` 传入的结果信任同样的转发方。
 

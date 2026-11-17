@@ -16,6 +16,7 @@ import {
 	CLOUDFLARE_FAMILY, DnsChecker, KNOWN_LISTS, isListedAnswer, isLookupName, lookupName, normalizeIp, reverseName,
 } from '../src/dnsbl.js';
 import {requestJson} from '../src/http.js';
+import SpamScanner from '../src/index.js';
 import {boundedForAuth} from '../src/parse.js';
 import {ReputationChecker, matchList} from '../src/reputation.js';
 import {
@@ -631,6 +632,83 @@ describe('deadlines', () => {
 			const started = Date.now();
 			await assert.rejects(requestJson('GET', `http://127.0.0.1:${server.address().port}/`, null, {timeout: 5000}), /aborted|ECONNRESET/);
 			assert.ok(Date.now() - started < 2000);
+		} finally {
+			server.close();
+		}
+	});
+});
+
+describe('the addresses a message links to', () => {
+	it('are never requested or connected to: only their host names are looked up', async () => {
+		// (a link may unsubscribe, confirm or pay with one request)
+		const connections = [];
+		const server = net.createServer(socket => {
+			socket.on('data', data => connections.push(data.toString('latin1').split('\r\n')[0]));
+			connections.push('connected');
+			socket.destroy();
+		});
+		server.listen(0, '127.0.0.1');
+		await once(server, 'listening');
+		const {port} = server.address();
+		const address = name => `http://127.0.0.1:${port}/${name}?token=1`;
+		const named = name => `http://${name}.links.example:${port}/${name}?token=1`;
+		// Every way a message or what it carries can name an address
+		const page = kind => `<html><head><meta http-equiv="refresh" content="0; url=${address(`${kind}-refresh`)}"><link rel="stylesheet" href="${address(`${kind}-style`)}"><script src="${address(`${kind}-script`)}"></script><base href="${address(`${kind}-base`)}"></head><body background="${address(`${kind}-background`)}" style="background: url(${address(`${kind}-css`)})"><a href="${address(`${kind}-link`)}">https://www.paypal.com/signin</a><a href="${named(`${kind}-named`)}">Unsubscribe</a><a href="https://urldefense.com/v3/__${address(`${kind}-gateway`)}__;!!x">Open</a><a href="https://bit.ly/${kind}">Short</a><img src="${address(`${kind}-image`)}" srcset="${address(`${kind}-srcset`)} 2x"><iframe src="${address(`${kind}-frame`)}"></iframe><form action="${address(`${kind}-form`)}" method="post"><button>Confirm</button></form><video poster="${address(`${kind}-poster`)}" src="${address(`${kind}-video`)}"></video><object data="${address(`${kind}-object`)}"></object></body></html>`;
+		const inner = message({
+			from: 'list@news.example', subject: 'Attached', text: `See ${address('inner-text')} and ${named('inner-named')}`, html: page('inner'),
+		});
+		const raw = message({
+			from: 'News <list@news.example>',
+			subject: `Confirm at ${address('subject')}`,
+			headers: {
+				'List-Unsubscribe': `<${address('unsubscribe')}>, <mailto:leave@news.example>`,
+				'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+				'List-Help': `<${address('help')}>`,
+				'Disposition-Notification-To': 'read@news.example',
+				'BIMI-Location': `v=BIMI1; l=${address('bimi')}`,
+			},
+			text: `Confirm your address: ${address('text')} or ${named('text-named')} or www.bare.links.example`,
+			html: page('body'),
+			attachments: [
+				{filename: 'page.html', contentType: 'text/html', content: Buffer.from(page('attached'))},
+				{filename: 'image.svg', contentType: 'image/svg+xml', content: Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><a xlink:href="${address('svg-link')}"><image href="${address('svg-image')}"/></a></svg>`)},
+				{filename: 'invite.ics', contentType: 'text/calendar', content: Buffer.from(`BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nURL:${address('calendar')}\r\nATTACH:${address('calendar-attach')}\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n`)},
+				{filename: 'contact.vcf', contentType: 'text/vcard', content: Buffer.from(`BEGIN:VCARD\r\nVERSION:3.0\r\nFN:News\r\nURL:${address('card')}\r\nPHOTO;VALUE=URI:${address('card-photo')}\r\nEND:VCARD\r\n`)},
+				{filename: 'notes.txt', contentType: 'text/plain', content: Buffer.from(`Read ${address('notes')}`)},
+				{filename: 'doc.pdf', contentType: 'application/pdf', content: Buffer.from(`%PDF-1.7\n1 0 obj\n<</S/URI/URI(${address('pdf')})>>\nendobj\n%%EOF`)},
+				{filename: 'forwarded.eml', contentType: 'message/rfc822', content: Buffer.from(inner)},
+			],
+		});
+		const asked = [];
+		const resolve4 = async name => {
+			asked.push(name);
+			return ['192.0.2.1'];
+		};
+
+		try {
+			const scanner = new SpamScanner({
+				phishing: {
+					cloudflare: true, adult: true, attachments: true, hostsInText: true, maxHosts: 250,
+				},
+				dnsbl: {ip: [], domain: ['dbl.blocklist.example']},
+				dns: {resolve4},
+			});
+			const session = {remoteAddress: '192.0.2.25', resolvedClientHostname: 'mail.news.example', envelope: {mailFrom: {address: 'bounce@news.example'}, rcptTo: [{address: 'user@customer.example'}]}};
+			const result = await scanner.scan(raw, {session, authenticationResults: {dmarc: {status: {result: 'pass'}, domain: 'news.example'}}});
+			// (it read them: the links are found, and their names looked up)
+			assert.ok(result.links.some(link => link.includes('/body-link?')));
+			assert.ok(asked.some(name => name.startsWith('body-named.links.example')), asked.join(' '));
+			assert.ok(asked.some(name => name.startsWith('attached-named.links.example')), asked.join(' '));
+			await scanner.scan(raw, {session});
+			await scanner.learn(raw, 'spam');
+			await scanner.unlearn(raw, 'spam');
+			await scanner.parse(raw);
+			// (none of the connections a request would open came in, also not
+			//  a moment later)
+			await new Promise(resolve => {
+				setTimeout(resolve, 300);
+			});
+			assert.deepEqual(connections, []);
 		} finally {
 			server.close();
 		}

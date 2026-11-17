@@ -31,6 +31,8 @@ export const DEFAULT_SCORES = {
 
 	// Attachments
 	executable: 10,
+	// A shell, Python or Perl script, or a text file that starts with "#!"
+	scriptAttachment: 3,
 	disguisedExecutable: 12,
 	doubleExtension: 6,
 	rtlOverride: 6,
@@ -114,6 +116,17 @@ function counted(results) {
 			},
 		}
 		: results;
+}
+
+// The points of an attachment finding: its type's, but an HTML file with
+// scripts or forms, and a script developers send as it is (see
+// inspectAttachments), have their own.
+function attachmentPoints(item, scores, key) {
+	if (item.type === 'html_attachment' && item.active) {
+		return scores.activeHtmlAttachment;
+	}
+
+	return item.type === 'executable' && item.script ? scores.scriptAttachment : scores[key];
 }
 
 function round(value) {
@@ -208,8 +221,7 @@ export function scoreResults(results, options) {
 	for (const item of results.attachments || []) {
 		const [name, key] = ATTACHMENT_TESTS[item.type] || [];
 		if (name) {
-			const points = item.type === 'html_attachment' && item.active ? scores.activeHtmlAttachment : scores[key];
-			add(name, points, item.message);
+			add(name, attachmentPoints(item, scores, key), item.message);
 		}
 	}
 

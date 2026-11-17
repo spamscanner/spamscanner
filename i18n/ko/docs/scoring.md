@@ -1,4 +1,4 @@
-<!-- source: fdcc3372d5ee -->
+<!-- source: 49731126fae8 -->
 
 # 테스트와 점수
 
@@ -12,6 +12,8 @@
 | 테스트                      | 점수         | 의미                                                                                                                                                                                                                                          |
 | ------------------------ | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `BAYES_00` ~ `BAYES_999` | -2.5~+6.25 | 로그 오즈 척도로 나타낸 분류기의 스팸 확률입니다. 90%에서 2.4점, 99%에서 5점, 99.9%에서 6.25점이므로, 분류기 단독으로는 99% 이상 확신할 때만 스팸으로 표시합니다. 이름은 구간을 나타냅니다. `BAYES_999`는 99.9% 이상, `BAYES_99`는 99%~99.9%, `BAYES_50`은 40%~60%입니다. 설정 키 `bayesHam`과 `bayesSpam`으로 양 끝의 점수를 정합니다. |
+
+배달 상태 알림(반송 메시지: `report-type=delivery-status`인 `multipart/report`)은 어떤 메시지를 돌려보내든 해당 메일 서버의 표준 문구입니다. 그래서 분류기는 알림 대신 함께 반송된 메시지를 읽으며, 첨부된 메시지가 없으면 점수를 더하지 않습니다. 다른 모든 테스트는 알림을 여느 메시지처럼 읽습니다. 알림 자체의 본문에 링크가 있으면 분류기는 그 알림을 여느 메시지처럼 읽습니다.
 
 
 ## 피싱과 링크
@@ -32,22 +34,22 @@
 
 ## 첨부 파일
 
-| 테스트                     |     점수 | 설정 키                                     | 의미                                                                                           |
-| ----------------------- | -----: | ---------------------------------------- | -------------------------------------------------------------------------------------------- |
-| `EXECUTABLE_ATTACHMENT` |     10 | `executable`                             | 프로그램 또는 스크립트                                                                                 |
-| `DISGUISED_EXECUTABLE`  |     12 | `disguisedExecutable`                    | 문서나 이미지처럼 이름을 붙인 프로그램                                                                        |
-| `DOUBLE_EXTENSION`      |      6 | `doubleExtension`                        | `invoice.pdf.exe` 같은 이름                                                                      |
-| `RTL_OVERRIDE_FILENAME` |      6 | `rtlOverride`                            | 오른쪽에서 왼쪽 쓰기 재정의 문자가 실제 확장자를 숨깁니다                                                             |
-| `EXECUTABLE_IN_ARCHIVE` |      8 | `executableInArchive`                    | ZIP 파일 안의 프로그램; 단독으로 압축되고 프로그램 이름이 붙은 파일도 포함 (`invoice.exe.gz`)                              |
-| `SCRIPT_IN_ARCHIVE`     |      3 | `scriptInArchive`                        | ZIP 파일 안의 스크립트(JavaScript, Python, 셸, Perl)이며 다른 프로그램은 없음; 단독으로 압축된 스크립트도 포함 (`build.sh.xz`) |
-| `RISKY_ATTACHMENT_TYPE` |      2 | `riskyAttachment`                        | Outlook이 차단하는 인증서, 인터넷 바로 가기, 테마, 데이터 파일(`.cer`, `.url`, `.tmp`)                             |
-| `ENCRYPTED_ARCHIVE`     |      2 | `encryptedArchive`                       | 검사기가 열 수 없는 압축 파일                                                                            |
-| `MACRO_ATTACHMENT`      |      4 | `macro`                                  | 매크로가 있는 Office 파일                                                                            |
-| `PDF_ACTIVE_CONTENT`    |      3 | `pdfActive`                              | JavaScript나 실행 동작이 있는 PDF                                                                    |
-| `RTF_EMBEDDED_OBJECT`   |      4 | `rtfObject`                              | 개체가 포함된 RTF 파일                                                                               |
-| `HTML_ATTACHMENT`       | 1 또는 3 | `htmlAttachment`, `activeHtmlAttachment` | HTML 파일. 스크립트나 폼이 있으면 3점; 그런 이름이 붙은 파트도 포함                                                   |
-| `VIRUS`                 |    100 | `virus`                                  | ClamAV가 바이러스를 발견했습니다                                                                         |
-| `MIME_TOO_COMPLEX`      |      6 | `mimeTooComplex`                         | MIME 파트가 1000개를 넘거나 한 파트의 헤더가 1 MB를 넘습니다(첨부된 메시지 포함). 또는 첨부된 메시지를 읽을 수 없습니다. 이후 파트는 읽지 않습니다  |
+| 테스트                     |      점수 | 설정 키                                     | 의미                                                                                           |
+| ----------------------- | ------: | ---------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `EXECUTABLE_ATTACHMENT` | 10 또는 3 | `executable`, `scriptAttachment`         | 프로그램 또는 스크립트; 셸, Python 또는 Perl 스크립트이거나 `#!`로 시작하는 텍스트 파일이면 3                                |
+| `DISGUISED_EXECUTABLE`  |      12 | `disguisedExecutable`                    | 문서나 이미지처럼 이름을 붙인 프로그램                                                                        |
+| `DOUBLE_EXTENSION`      |       6 | `doubleExtension`                        | `invoice.pdf.exe` 같은 이름                                                                      |
+| `RTL_OVERRIDE_FILENAME` |       6 | `rtlOverride`                            | 오른쪽에서 왼쪽 쓰기 재정의 문자가 실제 확장자를 숨깁니다                                                             |
+| `EXECUTABLE_IN_ARCHIVE` |       8 | `executableInArchive`                    | ZIP 파일 안의 프로그램; 단독으로 압축되고 프로그램 이름이 붙은 파일도 포함 (`invoice.exe.gz`)                              |
+| `SCRIPT_IN_ARCHIVE`     |       3 | `scriptInArchive`                        | ZIP 파일 안의 스크립트(JavaScript, Python, 셸, Perl)이며 다른 프로그램은 없음; 단독으로 압축된 스크립트도 포함 (`build.sh.xz`) |
+| `RISKY_ATTACHMENT_TYPE` |       2 | `riskyAttachment`                        | Outlook이 차단하는 인증서, 인터넷 바로 가기, 테마, 데이터 파일(`.cer`, `.url`, `.tmp`)                             |
+| `ENCRYPTED_ARCHIVE`     |       2 | `encryptedArchive`                       | 검사기가 열 수 없는 압축 파일                                                                            |
+| `MACRO_ATTACHMENT`      |       4 | `macro`                                  | 매크로가 있는 Office 파일                                                                            |
+| `PDF_ACTIVE_CONTENT`    |       3 | `pdfActive`                              | JavaScript나 실행 동작이 있는 PDF                                                                    |
+| `RTF_EMBEDDED_OBJECT`   |       4 | `rtfObject`                              | 개체가 포함된 RTF 파일                                                                               |
+| `HTML_ATTACHMENT`       |  1 또는 3 | `htmlAttachment`, `activeHtmlAttachment` | HTML 파일. 스크립트나 폼이 있으면 3점; 그런 이름이 붙은 파트도 포함                                                   |
+| `VIRUS`                 |     100 | `virus`                                  | ClamAV가 바이러스를 발견했습니다                                                                         |
+| `MIME_TOO_COMPLEX`      |       6 | `mimeTooComplex`                         | MIME 파트가 1000개를 넘거나 한 파트의 헤더가 1 MB를 넘습니다(첨부된 메시지 포함). 또는 첨부된 메시지를 읽을 수 없습니다. 이후 파트는 읽지 않습니다  |
 
 MIME 파서의 한도 중 이 두 가지만 `MIME_TOO_COMPLEX`를 주며, 파서가 읽지 못한 첨부된 메시지도 마찬가지입니다. 그 밖의 파서 오류는 검사를 실패시키며, 이전 버전과 마찬가지로 서버는 메시지를 일시적으로 거부합니다. 파트가 너무 많은 메시지는 파트를 시작할 수 있는 990번째 줄(`--`)까지 읽으며, 인라인으로 첨부된 메시지가 파트를 이루는 경우에는 읽을 수 있을 때까지 앞쪽 절반, 그다음 4분의 1을 읽습니다. 메시지 자체의 헤더가 너무 크면 그 헤더를 줄여서 읽으므로(줄은 최대 998자, 필드는 최대 8 KB, 주소 필드는 온전한 주소 단위로 자르고, 그래도 512 KB를 넘으면 누가 어떻게 보냈는지 알려 주는 필드만) 발신자는 계속 반영됩니다. 뒤쪽 파트의 헤더가 너무 크면 그 첫 1메가바이트를 읽습니다. ClamAV는 메시지 전체를 읽습니다. 이를 상쇄할 수 있는 것은 `ALLOWLISTED`와 `TRUTH_SOURCE`뿐입니다. 다른 감점(Bayes 햄, SPF, DKIM, DMARC, ARC, 언어 모델의 햄)은 이 메시지에 아무 효과가 없습니다. 읽지 않은 내용은 보증할 수 없기 때문입니다.
 
@@ -107,9 +109,9 @@ DMARC 실패의 점수는 도메인의 정책에 따라 정해집니다. 도메�
 
 본문의 앞부분만 서명한 DKIM 서명(본문 길이 `l=`이 본문보다 짧은 서명: 그 뒤에는 누구나 텍스트를 덧붙일 수 있습니다)은 `DKIM_PASS`를 받지 못하며, 정렬된 SPF 없이 그런 서명에만 기댄 DMARC 통과는 `DMARC_PASS`를 받지 못합니다.
 
-DMARC를 통과하고 `DMARC_PASS`를 받은 발신자는 자신이 밝힌 그 발신자이므로, 숨은 발신자를 찾는 테스트는 이 발신자를 건드리지 않습니다. `INVISIBLE_CHARACTERS`, `MIXED_SCRIPT_WORDS`, `STYLED_LETTERS`, `BRAND_IN_DOMAIN`은 제외됩니다. `DECEPTIVE_LINK`는 링크가 발신자가 아닌 브랜드의 주소를 보여 줄 때만 계산됩니다. 메일 발송 서비스의 추적 도메인 위에 자기 주소를 보여 주는 쇼핑몰은 아무것도 받지 않고, 다른 도메인에서 `www.paypal.com`을 보여 주는 메시지는 여전히 받습니다. `SPF_FAIL`과 `SPF_SOFTFAIL`도 제외됩니다. 메시지가 전달된 것이고 서명이 이를 보증하기 때문입니다.
+DMARC를 통과하고 `DMARC_PASS`를 받은 발신자는 자신이 밝힌 그 발신자이므로, 숨은 발신자를 찾는 테스트는 이 발신자를 건드리지 않습니다. `INVISIBLE_CHARACTERS`, `MIXED_SCRIPT_WORDS`, `STYLED_LETTERS`, `BRAND_IN_DOMAIN`은 제외됩니다. `DECEPTIVE_LINK`는 링크가 발신자가 아닌 브랜드의 주소를 보여 줄 때만 계산됩니다. 메일 발송 서비스의 추적 도메인 위에 자기 주소를 보여 주는 쇼핑몰은 아무것도 받지 않고, 다른 도메인에서 `www.paypal.com`을 보여 주는 메시지는 여전히 받습니다. `SPF_FAIL`과 `SPF_SOFTFAIL`도 제외됩니다. 메시지가 전달된 것이고 서명이 이를 보증하기 때문입니다. 발신자 자신의 도메인으로 가는 링크는 발신자 자신의 클릭 추적입니다. 그 위에 표시된 파트너의 이름(`amazon.co.uk`)은 아무 점수도 받지 않습니다. 다만 표시된 주소나 링크가 여는 페이지가 로그인을 요구하는 경우(`paypal.com/signin`)는 예외입니다. `gmail.com` 같은 메일함 제공자에게는 이런 의미의 자기 도메인이 없습니다.
 
-알려진 발신자, 즉 `phishing.knownSenders`에 지정한 도메인(하위 도메인도 포함합니다. 예를 들어 방문자가 가장 많은 사이트)은 DMARC를 통과하면 자기 도메인으로 가는 링크에 제휴사의 주소를 표시할 수도 있습니다. 상점 자체의 클릭 추적 링크에 `www.apple.com`을 표시하는 경우입니다. `gmail.com` 같은 메일함 제공업체는 결코 알려진 발신자가 아닙니다.
+알려진 발신자, 즉 `phishing.knownSenders`에 지정한 도메인(하위 도메인도 포함합니다. 예를 들어 방문자가 가장 많은 사이트)은 DMARC를 통과하면 자기 도메인으로 가는 링크에 제휴사의 주소를 표시할 수도 있습니다. 상점 자체의 클릭 추적 링크에 `www.apple.com`을 표시하는 경우입니다. `gmail.com` 같은 메일함 제공업체는 결코 알려진 발신자가 아닙니다. 그때는 발신자 자신의 도메인도 `MALICIOUS_DOMAIN`으로 계산되지 않습니다.
 
 메일링 리스트 같은 전달자는 ARC 봉인으로 자신이 받은 내용을 보증할 수 있습니다. 누구나 메시지를 봉인할 수 있으므로, 봉인은 `authentication.trustedArcSealers`에 지정한 전달자의 것만 반영되며(도메인은 그 하위 도메인도 포함합니다), 그것도 가장 최근 ARC 세트가 그 도메인으로 봉인되어 있고(ARC-Seal과 ARC-Message-Signature가 같은 도메인의 것) 봉인된 결과가 전달자가 메시지를 받았을 때 통과했음을 보여 줄 때만입니다. 즉 From 도메인에 대한 DMARC, 또는 등록 가능 도메인이 같은 도메인의 DKIM이나 SPF가 통과한 경우입니다. 그런 메시지(`authentication.arc.trusted`)는 `ARC_PASS`를 받고 SPF, DKIM, DMARC 실패로 점수를 받지 않으며 `SELF_SPOOF`도 받지 않습니다(자기 도메인의 리스트에 글을 쓰는 리스트 회원). 그 밖의 ARC 통과는 아무것도 받지 않으며, 신뢰하지 않는 봉인이나 실패한 봉인은 여전히 `SELF_SPOOF`를 받습니다. `authenticationResults`로 전달한 결과도 같은 전달자를 신뢰합니다.
 

@@ -283,6 +283,18 @@ export function isAttachedMessage(attachment) {
 	return type === 'message/rfc822' || type === 'message/global' || /\.(?:eml|u8msg)$/i.test(String(attachment.filename));
 }
 
+/**
+ * Whether a message is a delivery status notification (RFC 3464), a mail
+ * server's report that a message was not delivered or is delayed, by its
+ * type: multipart/report with report-type=delivery-status.
+ * @param {{headers?: Map<string, any>}} mail - as mailparser gives it
+ * @returns {boolean}
+ */
+export function isDeliveryReport(mail) {
+	const type = mail?.headers?.get?.('content-type');
+	return String(type?.value).toLowerCase() === 'multipart/report' && String(type?.params?.['report-type']).toLowerCase() === 'delivery-status';
+}
+
 // Attached messages (see isAttachedMessage) are opened this many levels deep,
 // for at most this many attachments of theirs and this many bytes of attached
 // messages (the message's own attachments are always all read).

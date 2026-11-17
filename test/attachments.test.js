@@ -265,7 +265,23 @@ describe('inspectAttachments', () => {
 		assert.deepEqual([program.type, program.extension], ['executable', 'exe']);
 		assert.match(program.message, /contains a program \(exe\) but is named \.py/);
 		const [script] = inspectAttachments([{filename: 'run.sh', content: Buffer.from('#!/bin/sh\necho hi\n')}]);
-		assert.deepEqual([script.type, script.extension], ['executable', 'sh']);
+		assert.deepEqual([script.type, script.extension, script.script], ['executable', 'sh', true]);
+		// (a script developers send as it is, by its name or its first line
+		//  under a name nothing runs: marked as one, for fewer points; not
+		//  one Windows runs when opened, or a program named as one)
+		const marked = attachment => inspectAttachments([attachment]).map(item => [item.type, Boolean(item.script)]);
+		for (const filename of ['repro.py', 'bench.pl', 'setup.csh', 'test.ksh', 'reproduce.txt', 'steps.sql.txt', 'runtest']) {
+			assert.deepEqual(marked({filename, content: Buffer.from('#!/usr/bin/env bash\nset -e\nmake check\n')}), [['executable', true]], filename);
+		}
+
+		assert.deepEqual(marked({filename: 'repro.py', content: Buffer.from('import sys\n')}), [['executable', true]]);
+		assert.deepEqual(marked({filename: 'notes.txt', content: Buffer.from('# not a script\n')}), []);
+		for (const filename of ['invoice.js', 'invoice.vbs', 'invoice.ps1', 'invoice.bat', 'invoice.pyw']) {
+			assert.deepEqual(marked({filename, content: Buffer.from('#!/usr/bin/env node\n')}), [['executable', false]], filename);
+		}
+
+		assert.deepEqual(marked({filename: 'run.py', content: pe()}), [['executable', false]]);
+		assert.deepEqual(marked({filename: 'notes.txt', content: pe()}), [['disguised_executable', false]]);
 		assert.deepEqual(types([{filename: 'countries.csv', content: Buffer.from('MZ,Mozambique\n'.repeat(8))}]), []);
 		assert.ok(EXECUTABLE_EXTENSIONS.has('scr'));
 		assert.ok(!EXECUTABLE_EXTENSIONS.has('dat'));
@@ -357,6 +373,17 @@ describe('inspectAttachments', () => {
 	it('flags active PDF and RTF content', () => {
 		assert.deepEqual(types([{filename: 'form.pdf', content: pad('%PDF-1.7 /OpenAction << /JS (app.alert(1)) >>')}]), ['pdf_active']);
 		assert.deepEqual(types([{filename: 'form.pdf', content: Buffer.from('not quite a pdf /JavaScript')}]), ['pdf_active']);
+		// ("/JS" as the key it is, before its script however that is written;
+		//  not three bytes of a compressed image that read as it)
+		const pdf = body => types([{filename: 'scan.pdf', content: Buffer.concat([Buffer.from('%PDF-1.7\n1 0 obj\n'), Buffer.from(body, 'latin1'), Buffer.from('\nendobj\n%%EOF')])}]);
+		for (const script of ['/JS(app.alert(1))', '/JS (app.alert(1))', '/JS\r\n\t<6170702e616c657274283129>', '/JS 12 0 R', '/JS\0\f12\n0\nR', '/JS%note\n(app.alert(1))', '/J#53 (app.alert(1))', '/#4a#53 7 0 R']) {
+			assert.deepEqual(pdf(`<</S/JavaScrip/X 1${script}>>`), ['pdf_active'], JSON.stringify(script));
+		}
+
+		for (const data of ['/JS\u00FF\u0001', '/JS\0\u009C', '\u00FF/JS', '/JS/\u0090', '/JS 12 0', '/JS]', 'x/JSx', '/J#53\u00FE']) {
+			assert.deepEqual(pdf(`<</Filter/FlateDecode/Length 9>>\nstream\n\u0080\u00FE${data}\u00A0\nendstream`), [], JSON.stringify(data));
+		}
+
 		assert.deepEqual(types([{filename: 'plain.pdf', content: pad('%PDF-1.7 just text')}]), []);
 		assert.deepEqual(types([{filename: 'letter.rtf', content: pad(String.raw`{\rtf1 {\object\objemb {\objdata 0102}}}`)}]), ['rtf_object']);
 		assert.deepEqual(types([{filename: 'letter.rtf', content: pad(String.raw`{\rtf1 hello}`)}]), []);

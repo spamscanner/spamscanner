@@ -492,10 +492,21 @@ describe('carriedLinkHosts on every shape of input', () => {
 			assert.ok(names(await scanner.scan(phishing, passed('notice-center.example'))).includes('DECEPTIVE_LINK'), text);
 		}
 
-		// (a known sender's link to its own click tracking under a partner's
-		//  address: only one that is known, passes DMARC, and links to its own
-		//  domain, and no provider of mailboxes)
-		const partner = (from, host, shown = 'www.apple.com') => message({from, subject: 'Included with your order', html: `<p>Start your free trial at <a href="https://${host}/c/1">${shown}</a></p>`});
+		// (a partner's name over the sender's own click tracking, on its own
+		//  domain: no disguise when it passes DMARC, whoever it is)
+		const partner = (from, host, shown = 'www.apple.com/account') => message({from, subject: 'Included with your order', html: `<p>Start your free trial at <a href="https://${host}/c/1">${shown}</a></p>`});
+		for (const shown of ['www.apple.com', 'amazon.co.uk', 'paypal.com']) {
+			const named = partner('orders@mail.bigstore.example', 'click.mail.bigstore.example', shown);
+			assert.ok(!names(await scanner.scan(named, passed('bigstore.example'))).includes('DECEPTIVE_LINK'), shown);
+			assert.ok(names(await scanner.scan(named, failed('bigstore.example'))).includes('DECEPTIVE_LINK'), shown);
+			assert.ok(names(await scanner.scan(named)).includes('DECEPTIVE_LINK'), shown);
+			assert.ok(names(await scanner.scan(partner('orders@mail.bigstore.example', 'perks.example', shown), passed('bigstore.example'))).includes('DECEPTIVE_LINK'), shown);
+		}
+
+		// (a known sender's link to its own click tracking under any address
+		//  of a partner, also one that asks to sign in: only one that is
+		//  known, passes DMARC, and links to its own domain, and no provider
+		//  of mailboxes)
 		const store = partner('orders@mail.bigstore.example', 'click.mail.bigstore.example');
 		const known = (domain, ...senders) => ({...passed(domain), phishing: {knownSenders: senders}});
 		assert.ok(names(await scanner.scan(store, passed('bigstore.example'))).includes('DECEPTIVE_LINK'));
@@ -530,6 +541,23 @@ describe('carriedLinkHosts on every shape of input', () => {
 		const authenticated = names(await scanner.scan(lettering, passed('shop.example')));
 		assert.ok(!authenticated.includes('INVISIBLE_CHARACTERS') && !authenticated.includes('STYLED_LETTERS') && !authenticated.includes('MIXED_SCRIPT_WORDS'));
 		assert.ok(names(await scanner.scan(lettering, failed('shop.example'))).includes('MIXED_SCRIPT_WORDS'));
+	});
+
+	it('does not count a known sender\'s own domain as a malicious one when it passes DMARC', async () => {
+		const names = result => result.tests.map(test => test.name);
+		const scanner = new SpamScanner({classifier: false, dns: {resolve4: async name => (name.startsWith('clicks.') ? ['0.0.0.0'] : ['192.0.2.1'])}});
+		const raw = (host = 'clicks.exchange.example') => message({from: 'news@mail.exchange.example', subject: 'This week', html: `<p><a href="https://${host}/c/1">Read more</a></p>`});
+		const passed = {authenticationResults: {dmarc: {status: {result: 'pass'}, domain: 'exchange.example'}}};
+		const known = {phishing: {knownSenders: ['exchange.example']}};
+		assert.ok(!names(await scanner.scan(raw(), {...passed, ...known})).includes('MALICIOUS_DOMAIN'));
+		// (found all the same)
+		assert.deepEqual((await scanner.scan(raw(), {...passed, ...known})).results.phishing.map(item => item.type), ['malicious_domain']);
+		// (not without DMARC, when it is not known, or anyone else's domain)
+		assert.ok(names(await scanner.scan(raw(), known)).includes('MALICIOUS_DOMAIN'));
+		assert.ok(names(await scanner.scan(raw(), {authenticationResults: {dmarc: {status: {result: 'fail'}, domain: 'exchange.example', policy: 'reject'}}, ...known})).includes('MALICIOUS_DOMAIN'));
+		assert.ok(names(await scanner.scan(raw(), passed)).includes('MALICIOUS_DOMAIN'));
+		assert.ok(names(await scanner.scan(raw(), {...passed, phishing: {knownSenders: ['other.example']}})).includes('MALICIOUS_DOMAIN'));
+		assert.ok(names(await scanner.scan(raw('clicks.tracker.example'), {...passed, ...known})).includes('MALICIOUS_DOMAIN'));
 	});
 
 	it('reads each document an iframe or data: URL holds once, so repeating one does not use up the documents read', () => {

@@ -12,20 +12,20 @@ import {visibleText} from './html.js';
 import {carriedLinkHosts} from './links.js';
 import HomographDetector from './homograph.js';
 import {
-	MAILBOXES, buildSessionInfo, isArbitrary, isOwnHost,
+	buildSessionInfo, isArbitrary, isOwnHost,
 } from './is-arbitrary.js';
 import {normalizeLanguageCode} from './language.js';
 import {LLMClassifier} from './llm.js';
 import {loadDefaultModel, loadModel, saveModel} from './model.js';
 import {
-	expandAttachments, isAttachedMessage, namedTextParts, parseWithin,
+	expandAttachments, isAttachedMessage, isDeliveryReport, namedTextParts, parseWithin,
 } from './parse.js';
 import {
 	ReputationChecker, matchList, reputationValues, trustReputation, trustedReputationValues,
 } from './reputation.js';
 import {scoreResults} from './score.js';
 import {
-	extractLinks, getFeatures, isDeceptiveLink, obfuscationOf, registrableDomain, segmentWords, unwrapLink,
+	MAILBOXES, extractLinks, getFeatures, isDeceptiveLink, obfuscationOf, registrableDomain, segmentWords, unwrapLink,
 } from './tokenizer.js';
 import {VERSION} from './version.js';
 
@@ -130,8 +130,8 @@ export const DEFAULTS = {
 		// Domains of established senders (each covers its subdomains), such as
 		// the most visited sites: when one passes DMARC, a link that shows a
 		// partner's address and goes to the sender's own domain is its click
-		// tracking, not a disguise. Not a provider of mailboxes, whose domain
-		// is anyone's.
+		// tracking, not a disguise, and its own domain is not counted as a
+		// malicious one. Not a provider of mailboxes, whose domain is anyone's.
 		knownSenders: [],
 	},
 	// DNS blocklists: { ip: ['zen.spamhaus.org'], domain: ['dbl.spamhaus.org'] }.
@@ -785,7 +785,15 @@ export class SpamScanner {
 		]);
 		for (const {host, category} of cloudflareResult.found) {
 			phishing.push(finding(category === 'malware'
-				? {type: 'malicious_domain', domain: host, message: `Link hostname ${host} is blocked by Cloudflare's malware filtering as phishing or malware`}
+				? {
+					type: 'malicious_domain',
+					domain: host,
+					// (a known sender's own domain, when it passes DMARC: one of the
+					//  most visited sites, which a filter that blocks its click
+					//  tracking has wrong, "clicks.exchange.example")
+					unlessAuthenticated: known && registrableDomain(host) === registrableDomain(from),
+					message: `Link hostname ${host} is blocked by Cloudflare's malware filtering as phishing or malware`,
+				}
 				: {type: 'adult_domain', domain: host, message: `Link hostname ${host} was detected by Cloudflare's family filtering to contain adult-related content`}));
 		}
 
@@ -984,7 +992,6 @@ export class SpamScanner {
 		const {mail} = parsed;
 		const parseErrors = parsed.error ? [parsed.error] : [];
 		const extracted = getFeatures(mail, {maxLength: config.maxLength});
-		const classification = this.getClassification(extracted.features);
 		// (the links checked: those of the whole message, up to
 		//  phishing.maxLength, not only of what the classifier reads)
 		const linkLength = Number.isFinite(config.phishing.maxLength) && config.phishing.maxLength > 0 ? config.phishing.maxLength : 1_000_000;
@@ -1012,6 +1019,17 @@ export class SpamScanner {
 		const opened = [];
 		const named = [];
 		const attached = await expandAttachments(mail.attachments, parseErrors, undefined, {unopened, mails: opened, named});
+		// A delivery status notification is its mail server's own words, the
+		// same for any message it returns, and the classifier knows them from
+		// the bounces of spam: it reads the message returned (the first one
+		// attached) in their place, and has no say when none is. Everything
+		// else is checked as in any message. (Not one whose own text links
+		// anywhere, which a mail server's does not: it is read as any message,
+		// so the type is no way around the classifier for a message that asks
+		// to follow a link.)
+		const classification = this.getClassification(isDeliveryReport(mail) && extracted.links.length === 0
+			? (opened[0] ? getFeatures(opened[0], {maxLength: config.maxLength}).features : [])
+			: extracted.features);
 		// (every link host of the message and of what it carries, when link
 		//  hosts are looked up: see carriedLinkHosts)
 		const carried = config.phishing.attachments === true && (config.phishing.cloudflare || config.dnsbl.domain?.length > 0)

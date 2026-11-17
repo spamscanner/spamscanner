@@ -3,8 +3,9 @@ import {Buffer} from 'node:buffer';
 import {describe, it} from 'node:test';
 import SpamScanner, {unwrapLink} from '../src/index.js';
 import {
-	expandAttachments, isAttachedMessage, namedTextParts, parseMessage, parseWithin,
+	expandAttachments, isAttachedMessage, isDeliveryReport, namedTextParts, parseMessage, parseWithin,
 } from '../src/parse.js';
+import {message, SPAM} from './helpers/index.js';
 
 const offline = {phishing: {cloudflare: false}};
 const names = result => result.tests.map(test => test.name);
@@ -343,5 +344,78 @@ describe('parseWithin', () => {
 		assert.equal(error, tooLarge.message);
 		assert.equal(mail.from.value[0].address, 'a@example.org');
 		assert.ok(sizes.every((size, i) => i === 0 || size < sizes[i - 1]));
+	});
+});
+
+describe('delivery status notifications', () => {
+	// A mail server's report that `returned` (a message, or only its header)
+	// was not delivered, in each server's own words.
+	const NOTICES = {
+		postfix: ['Undelivered Mail Returned to Sender', 'This is the mail system at host mx.far.example.\r\n\r\nI\'m sorry to have to inform you that your message could not\r\nbe delivered to one or more recipients. It\'s attached below.\r\n\r\nFor further assistance, please send mail to postmaster.\r\n\r\nIf you do so, please include this problem report. You can\r\ndelete your own text from the attached returned message.\r\n\r\n                   The mail system\r\n\r\n<dana@far.example>: host mail.far.example[198.51.100.7] said: 550 5.1.1\r\n    <dana@far.example>: Recipient address rejected: User unknown in virtual\r\n    mailbox table (in reply to RCPT TO command)\r\n'],
+		exim: ['Mail delivery failed: returning message to sender', 'This message was created automatically by mail delivery software.\r\n\r\nA message that you sent could not be delivered to one or more of its\r\nrecipients. This is a permanent error. The following address(es) failed:\r\n\r\n  dana@far.example\r\n    host mail.far.example [198.51.100.7]\r\n    SMTP error from remote mail server after RCPT TO:<dana@far.example>:\r\n    550 5.1.1 User unknown\r\n'],
+		sendmail: ['Returned mail: see transcript for details', 'The original message was received at Tue, 17 Nov 2026 10:00:01 GMT\r\nfrom mail.customer.example [192.0.2.10]\r\n\r\n   ----- The following addresses had permanent fatal errors -----\r\n<dana@far.example>\r\n    (reason: 550 5.1.1 User unknown)\r\n\r\n   ----- Transcript of session follows -----\r\n... while talking to mail.far.example.:\r\n>>> DATA\r\n<<< 550 5.1.1 User unknown\r\n550 5.1.1 <dana@far.example>... User unknown\r\n'],
+	};
+	const report = (server, returned, type = 'message/rfc822') => {
+		const [subject, notice] = NOTICES[server];
+		return `Return-Path: <>\r\nFrom: Mail Delivery System <MAILER-DAEMON@mx.far.example>\r\nTo: sam@customer.example\r\nSubject: ${subject}\r\nDate: ${new Date().toUTCString()}\r\nMessage-ID: <b1@mx.far.example>\r\nAuto-Submitted: auto-replied\r\nMIME-Version: 1.0\r\nContent-Type: multipart/report; report-type=delivery-status; boundary="b"\r\n\r\n--b\r\nContent-Type: text/plain; charset=us-ascii\r\n\r\n${notice}\r\n--b\r\nContent-Type: message/delivery-status\r\n\r\nReporting-MTA: dns; mx.far.example\r\n\r\nFinal-Recipient: rfc822; dana@far.example\r\nAction: failed\r\nStatus: 5.1.1\r\nDiagnostic-Code: smtp; 550 5.1.1 User unknown\r\n\r\n--b\r\nContent-Type: ${type}\r\n\r\n${returned}\r\n--b--\r\n`;
+	};
+
+	const ordinary = message({from: 'Sam <sam@customer.example>', subject: 'Notes from Tuesday', text: 'Hi Dana,\n\nAttached are the notes from Tuesday\'s planning meeting. Could you look over section two before Friday and tell me whether the timeline still works for your team?\n\nThanks,\nSam\n'});
+	const [, spamSubject, spamText] = SPAM.find(([language]) => language === 'en') ?? SPAM[0];
+	const spam = message({from: 'Offers <win@promo-deals.example>', subject: spamSubject, text: spamText});
+
+	it('tells a delivery status notification by its type', async () => {
+		const scanner = new SpamScanner({...offline, classifier: false});
+		const is = async raw => isDeliveryReport((await scanner.parse(raw)).mail);
+		assert.equal(await is(report('postfix', ordinary)), true);
+		assert.equal(await is(report('postfix', ordinary).replace('multipart/report; report-type=delivery-status', 'Multipart/Report; Report-Type="Delivery-Status"')), true);
+		for (const type of ['multipart/report; report-type=disposition-notification', 'multipart/report; report-type=feedback-report', 'multipart/report', 'multipart/mixed']) {
+			assert.equal(await is(report('postfix', ordinary).replace('multipart/report; report-type=delivery-status', type)), false, type);
+		}
+
+		assert.equal(await is(ordinary), false);
+		assert.equal(isDeliveryReport({}), false);
+		assert.equal(isDeliveryReport(), false);
+	});
+
+	it('reads the message a bounce returns, not the mail server\'s words about it', async () => {
+		const scanner = new SpamScanner(offline);
+		assert.ok((await scanner.scan(spam)).isSpam);
+		for (const server of Object.keys(NOTICES)) {
+			// (the bounce of an ordinary message is no spam)
+			const bounce = await scanner.scan(report(server, ordinary));
+			assert.equal(bounce.isSpam, false, `${server}: ${names(bounce).join(' ')}`);
+			assert.ok(bounce.results.classification.probability < 0.5, server);
+			// (the bounce of spam, sent in the recipient's name, is)
+			const backscatter = await scanner.scan(report(server, spam));
+			assert.equal(backscatter.isSpam, true, server);
+			assert.equal(backscatter.results.classification.probability, (await scanner.scan(spam)).results.classification.probability, server);
+			// (and with only the header returned, or nothing, the classifier
+			//  has no say)
+			for (const partial of [report(server, 'From: Sam <sam@customer.example>\r\nSubject: Notes from Tuesday\r\n', 'text/rfc822-headers'), report(server, '').replace(/--b\r\nContent-Type: message\/rfc822[\s\S]*$/, '--b--\r\n')]) {
+				const result = await scanner.scan(partial);
+				assert.equal(result.results.classification.category, 'unsure', server);
+				assert.equal(result.isSpam, false, server);
+			}
+		}
+	});
+
+	it('still checks everything else in a bounce, and reads any other message as it is', async () => {
+		const exe = Buffer.concat([Buffer.from('MZ'), Buffer.alloc(0x3A), Buffer.from([0x40, 0, 0, 0]), Buffer.from('PE\0\0')]);
+		const scanner = new SpamScanner(offline);
+		// (a program in the message returned)
+		const carried = await scanner.scan(report('postfix', message({subject: 'Notes', text: 'See the attachment.', attachments: [{filename: 'notes.exe', content: exe}]})));
+		assert.ok(names(carried).includes('EXECUTABLE_ATTACHMENT'));
+		// (a message that only says it is a bounce is read whole: the same
+		//  words in a message of another type, and as one forwarded)
+		const [subject, notice] = NOTICES.postfix;
+		const plain = await scanner.scan(message({from: 'MAILER-DAEMON@mx.far.example', subject, text: `${notice}\n${spamText}`}));
+		assert.ok(plain.results.classification.probability > 0.9);
+		const forwarded = await scanner.scan(report('postfix', ordinary).replace('multipart/report; report-type=delivery-status;', 'multipart/mixed;').replace(notice, spamText));
+		assert.ok(forwarded.results.classification.probability > 0.9);
+		// (and so is a notification whose own text links somewhere, which a
+		//  mail server's does not: its type is no way around the classifier)
+		const linked = report('postfix', ordinary).replace(notice, `${spamText}\r\nhttps://promo-deals.example/claim\r\n`);
+		assert.ok((await scanner.scan(linked)).results.classification.probability > 0.9);
 	});
 });

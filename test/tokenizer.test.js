@@ -323,8 +323,26 @@ describe('links', () => {
 		assert.equal(isDeceptiveLink({host: 'evil.example', text: 'paypal.com/myaccount'}, {from: 'evil.example', authenticated: true}), true);
 		assert.equal(isDeceptiveLink({host: 'links.mailer-service.example', text: 'www.paypal.com'}, {from: 'mail.paypal.com', authenticated: true}), false);
 		assert.equal(isDeceptiveLink({host: 'evil.example', text: 'paypal.com'}, {authenticated: true}), false);
-		// (nor of a known sender, one that goes to its own domain)
-		assert.equal(isDeceptiveLink({host: 'click.mail.bigstore.example', text: 'www.apple.com'}, {from: 'mail.bigstore.example', authenticated: true}), true);
+		// (nor a partner's name over its own click tracking, which is on its
+		//  own domain: only a brand's address that asks to sign in or pay)
+		for (const text of ['www.apple.com', 'amazon.co.uk', 'https://www.paypal.com/', 'www.visa.com', 'facebook.com']) {
+			assert.equal(isDeceptiveLink({host: 'click.mail.bigstore.example', text}, {from: 'mail.bigstore.example', authenticated: true}), false, text);
+			assert.equal(isDeceptiveLink({host: 'click.mail.bigstore.example', text}, {from: 'mail.bigstore.example'}), true, text);
+			assert.equal(isDeceptiveLink({host: 'click.other.example', text}, {from: 'mail.bigstore.example', authenticated: true}), true, text);
+		}
+
+		for (const text of ['paypal.com/signin', 'https://www.apple.com/account/billing', 'www.facebook.com/login']) {
+			assert.equal(isDeceptiveLink({host: 'click.mail.bigstore.example', text}, {from: 'mail.bigstore.example', authenticated: true}), true, text);
+		}
+
+		// (or the page it goes to does, not its click tracking)
+		const page = url => isDeceptiveLink({host: 'click.mail.bigstore.example', url, text: 'www.paypal.com'}, {from: 'mail.bigstore.example', authenticated: true});
+		assert.deepEqual(['https://click.mail.bigstore.example/login', 'https://click.mail.bigstore.example/secure/verify?id=1', 'https://click.mail.bigstore.example/c/eyJ1IjoiMSJ9', 'https://click.mail.bigstore.example/?qs=5f1a', 'not an address'].map(url => page(url)), [true, true, false, false, false]);
+
+		// (a provider of mailboxes holds anyone's pages on its domain)
+		assert.equal(isDeceptiveLink({host: 'sites.gmail.com', text: 'www.paypal.com'}, {from: 'gmail.com', authenticated: true}), true);
+		// (nor any of a known sender that goes to its own domain)
+		assert.equal(isDeceptiveLink({host: 'click.mail.bigstore.example', text: 'paypal.com/signin'}, {from: 'mail.bigstore.example', authenticated: true, known: true}), false);
 		assert.equal(isDeceptiveLink({host: 'click.mail.bigstore.example', text: 'www.apple.com'}, {from: 'mail.bigstore.example', authenticated: true, known: true}), false);
 		assert.equal(isDeceptiveLink({host: 'click.mail.bigstore.example', text: 'www.apple.com'}, {from: 'mail.bigstore.example', known: true}), true);
 		assert.equal(isDeceptiveLink({host: 'evil.example', text: 'www.apple.com'}, {from: 'mail.bigstore.example', authenticated: true, known: true}), true);
@@ -354,7 +372,7 @@ describe('links', () => {
 		// (a brand newsletters link to: its sign-in address or its front page,
 		//  not a page of it)
 		assert.equal(isDeceptiveLink({host: 'evil.example', text: 'https://www.facebook.com/login'}, {from: 'evil.example', authenticated: true}), true);
-		assert.equal(isDeceptiveLink({host: 'evil.example', text: 'facebook.com'}, {from: 'evil.example', authenticated: true}), true);
+		assert.equal(isDeceptiveLink({host: 'evil.example', text: 'facebook.com'}, {from: 'other.example', authenticated: true}), true);
 		assert.equal(isDeceptiveLink({host: 'links.mailer-service.example', text: 'www.facebook.com/shop.example'}, {from: 'shop.example', authenticated: true}), false);
 		// (through click tracking, as from any sender)
 		assert.equal(isDeceptiveLink({host: 'example.us1.list-manage.com', text: 'www.paypal.com'}, {from: 'shop.example', authenticated: true}), false);

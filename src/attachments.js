@@ -26,6 +26,11 @@ export const RISKY_EXTENSIONS = new Set(['cer', 'der', 'mat', 'pst', 'theme', 't
 // in an archive they count for fewer points than native programs.
 const SCRIPT_EXTENSIONS = new Set(['asp', 'aspx', 'csh', 'js', 'ksh', 'pl', 'py', 'pyc', 'pyo', 'pyw', 'pyz', 'pyzw', 'sh']);
 
+// Scripts developers send as they are (a test script with a patch on a
+// mailing list), which opening does not run on Windows: fewer points than a
+// program, and so for a text file that starts with "#!" under any other name.
+const SHARED_SCRIPT_EXTENSIONS = new Set(['csh', 'ksh', 'pl', 'py', 'sh']);
+
 // Office formats whose file name says they may contain macros.
 const MACRO_EXTENSIONS = new Set(['docm', 'dotm', 'xlsm', 'xltm', 'xlam', 'pptm', 'potm', 'ppsm', 'ppam', 'sldm']);
 
@@ -382,7 +387,14 @@ function oleHasMacros(buffer) {
 // action itself is not looked for: "<<[^>]*" would read the rest of the file
 // again from every /OpenAction.) Embedded files are not active content: every
 // ZUGFeRD or Factur-X e-invoice carries one.
-const PDF_ACTIVE = linear(String.raw`\/(?:JavaScript|JS|Launch)\b`);
+// ("/JS" only as the key it is, before its script: a string, "(" or "<", or
+//  a reference to one, "12 0 R", after any white space, or a comment. Three
+//  bytes of a compressed image or font read as "/JS" by chance, about once
+//  in every 20 MB of them, so a scanned contract of a few megabytes would
+//  count as active every so often.)
+const PDF_SPACE = String.raw`[\x00\t\n\f\r ]`;
+const JS_VALUE = String.raw`${PDF_SPACE}*(?:[(<%]|\d+${PDF_SPACE}+\d+${PDF_SPACE}+R)`;
+const PDF_ACTIVE = linear(String.raw`\/(?:(?:JavaScript|Launch)\b|JS${JS_VALUE})`);
 
 // A PDF name with a character written as #xx ("/J#61vaScript" is
 // "/JavaScript") is the same name: each character of the active names is
@@ -395,14 +407,32 @@ const escaped = character => {
 };
 
 const WORD_ESCAPE = String.raw`#(?:3\d|4[1-9a-fA-F]|5[\daA]|5[fF]|6[1-9a-fA-F]|7[\daA])`;
-const PDF_ACTIVE_ESCAPED = new RegExp(`/(?:${['JavaScript', 'JS', 'Launch'].map(name => [...name].map(character => escaped(character)).join('')).join('|')})(?![\\w]|${WORD_ESCAPE})`);
+const escapedName = name => [...name].map(character => escaped(character)).join('');
+const PDF_ACTIVE_ESCAPED = new RegExp(`/(?:(?:${escapedName('JavaScript')}|${escapedName('Launch')})(?![\\w]|${WORD_ESCAPE})|${escapedName('JS')}${JS_VALUE})`);
 const pdfActive = text => PDF_ACTIVE.test(text) || PDF_ACTIVE_ESCAPED.test(text);
+
+// What an attachment is as a program, as add() takes it, or null: a program
+// by its content, whatever it is named; a script by its name, else by its
+// content, a text file that starts with "#!" under a name nothing runs.
+function programFinding(name, extension, detected, byName) {
+	if (detected?.type === 'script' && !byName) {
+		return ['executable', `Attachment "${name}" is a script`, {extension: detected.type, script: true}];
+	}
+
+	if (detected?.executable && detected.type !== 'script') {
+		return [extension && !EXECUTABLE_EXTENSIONS.has(extension) ? 'disguised_executable' : 'executable', `Attachment "${name}" contains a program (${detected.type})${extension && extension !== detected.type ? ` but is named .${extension}` : ''}`, {extension: detected.type}];
+	}
+
+	return byName ? ['executable', `Attachment "${name}" is a file type that runs code (.${extension})`, {extension, ...(SHARED_SCRIPT_EXTENSIONS.has(extension) ? {script: true} : {})}] : null;
+}
 
 /**
  * Inspect a message's attachments.
  *
  * Reports each finding as { type, filename, message, score }:
  * - executable: a program, script, installer or shortcut (by extension or content)
+ *   (script: a shell, Python or Perl script by its name, or a text file that
+ *   starts with "#!", see SHARED_SCRIPT_EXTENSIONS)
  * - disguised_executable: content is a program but the name says otherwise
  * - double_extension: "invoice.pdf.exe"
  * - rtl_override: a right-to-left override hides the real extension (a file named "invoice", U+202E, "fdp.exe" shows as "invoiceexe.pdf")
@@ -444,14 +474,11 @@ export function inspectAttachments(attachments = []) {
 			add('double_extension', `Attachment "${name}" has a document extension followed by a program extension`, {extension});
 		}
 
-		// A program by its content, whatever it is named (also as a script, a
-		// file type that runs code too, but is often allowed); a script by its
-		// name, else by its content.
+		// (a program or a script, see programFinding)
 		const byName = EXECUTABLE_EXTENSIONS.has(extension) && !MACRO_EXTENSIONS.has(extension);
-		if (detected?.executable && (detected.type !== 'script' || !byName)) {
-			add(extension && !EXECUTABLE_EXTENSIONS.has(extension) ? 'disguised_executable' : 'executable', `Attachment "${name}" contains a program (${detected.type})${extension && extension !== detected.type ? ` but is named .${extension}` : ''}`, {extension: detected.type});
-		} else if (byName) {
-			add('executable', `Attachment "${name}" is a file type that runs code (.${extension})`, {extension});
+		const program = programFinding(name, extension, detected, byName);
+		if (program) {
+			add(...program);
 		} else if (RISKY_EXTENSIONS.has(extension)) {
 			add('risky_attachment', `Attachment "${name}" is a risky file type (.${extension})`, {extension});
 		}

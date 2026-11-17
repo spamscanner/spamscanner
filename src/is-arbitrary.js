@@ -5,7 +5,7 @@ import {
 } from './html.js';
 import {linear} from './linear.js';
 import {
-	ADDRESS_SOURCE, NAMED_ADDRESS, readableText, registrableDomain,
+	ADDRESS_SOURCE, MAILBOXES, NAMED_ADDRESS, readableText, registrableDomain,
 } from './tokenizer.js';
 
 // The GTUBE test string: any message containing it must be treated as spam.
@@ -277,7 +277,7 @@ function namesPlace(name, end) {
 const APPLE = {test: (name, written) => APPLE_ALONE.test(name) || [...written.matchAll(APPLE_BESIDE)].some(found => !namesPlace(written, found.index + found[0].length))};
 
 const DISPLAY_BRANDS = [
-	['paypal', ['paypal', 'paypal-communications.com', 'paypal-community.com', 'paypal-prepaid.com', 'paypalobjects.com', 'synchrony']],
+	['paypal', ['paypal', 'paypal-communications.com', 'paypal-community.com', 'paypal-prepaid.com', 'paypalobjects.com', 'synchrony', 'synchronybank', 'xoom']],
 	['apple', ['apple', 'icloud', 'itunes', 'me.com'], APPLE],
 	['icloud', ['apple', 'icloud', 'itunes', 'me.com']],
 	['itunes', ['apple', 'icloud', 'itunes', 'me.com']],
@@ -338,9 +338,6 @@ const ADDRESSES = linear(ADDRESS_SOURCE, 'gu');
 // display name, often by address ("'jane@gmail.com' via Friends")
 const LIST_HOSTS = new Set(['freelists.org', 'googlegroups.com', 'groups.io', 'simplelists.com']);
 const VIA_LIST = /^\s*['"]?[^\s'"]+['"]?\s+via\s+\S/u;
-
-// Providers of mailboxes, where an address is anyone's, not the brand's
-export const MAILBOXES = new Set(['aol', 'gmail', 'googlemail', 'hotmail', 'icloud', 'live', 'mac', 'me', 'msn', 'outlook', 'yahoo', 'ymail']);
 
 // Whether a display name is the address found in it and nothing else, but
 // for quotes, brackets, spaces and invisible characters around it and

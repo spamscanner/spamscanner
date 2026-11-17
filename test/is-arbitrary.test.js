@@ -150,7 +150,7 @@ describe('isArbitrary', () => {
 		assert.deepEqual(names(isArbitrary(other)), ['FROM_NAME_OTHER_ADDRESS']);
 		const brand = await parse(message({from: 'PayPal Service <service@paypa1.example>'}));
 		assert.deepEqual(names(isArbitrary(brand)), ['FROM_NAME_BRAND']);
-		for (const from of ['PayPal <service@paypal.com>', 'Amazon Web Services <no-reply@sns.amazonaws.com>', 'Startups Weekly <news@example.org>', 'Applebee Fan Club <fans@example.org>']) {
+		for (const from of ['PayPal <service@paypal.com>', 'Amazon Web Services <no-reply@sns.amazonaws.com>', 'Startups Weekly <news@example.org>', 'Applebee Fan Club <fans@example.org>', 'Xoom, a PayPal service <service@xoom.com>', 'PayPal Credit <card@mail.synchronybank.com>']) {
 			assert.deepEqual(names(isArbitrary(await parse(message({from})))), [], from);
 		}
 

@@ -1278,7 +1278,7 @@ const SAME_OWNER = [
 	['ebay.com', 'ebay.co.uk', 'ebay.de', 'ebay.fr', 'ebay.it', 'ebay.es', 'ebay.ca', 'ebay.com.au'],
 	['comcast.com', 'comcast.net', 'xfinity.com'],
 	['paypal.com', 'paypal.de', 'paypal.co.uk', 'paypal.fr', 'paypal.it', 'paypal.es', 'paypal.me'],
-	['americanexpress.com', 'americanexpress.co.uk', 'americanexpress.de', 'americanexpress.es', 'americanexpress.fr', 'americanexpress.it', 'aexp.com', 'go.amex'],
+	['americanexpress.com', 'americanexpress.co.uk', 'americanexpress.de', 'americanexpress.es', 'americanexpress.fr', 'americanexpress.it', 'aexp.com', 'amex.co', 'go.amex'],
 	['zoom.us', 'zoom.com'],
 	['citi.com', 'citibank.com', 'citicards.com'],
 ];
@@ -1302,6 +1302,19 @@ const SENDING_DOMAINS = new Map([
 	['yahoo', ['yahoonews.com']],
 ]);
 
+// Providers of mailboxes, where an address is anyone's, not the brand's
+export const MAILBOXES = new Set(['aol', 'gmail', 'googlemail', 'hotmail', 'icloud', 'live', 'mac', 'me', 'msn', 'outlook', 'yahoo', 'ymail']);
+
+// The path and query of the address a link goes to ("" for none that reads)
+function reachedPath(target, link) {
+	try {
+		const url = target ?? boundedUrl(link.url);
+		return `${url.pathname}${url.search}`;
+	} catch {
+		return '';
+	}
+}
+
 /**
  * Whether the visible text of a link names a different site than the link
  * goes to ("https://paypal.com" linking to another domain; not another
@@ -1320,10 +1333,13 @@ const SENDING_DOMAINS = new Map([
  * shop's, over the tracking domain of the service that sends its mail, so
  * its other links count only when they show an address of a brand's domain
  * that is not its own domain, whatever the path (for a brand newsletters
- * link to, no path or one that asks to sign in or pay), and none that goes
- * to its own domain when it is a known sender (`known`, see
- * phishing.knownSenders): a shop showing a partner's address over its own
- * click tracking. A sender is the
+ * link to, no path or one that asks to sign in or pay). Its links to its own
+ * domain are its own click tracking: a shop naming a partner
+ * ("amazon.co.uk") over it is no disguise, so a brand's address counts
+ * there only when it, or the address the link goes to, asks to sign in or
+ * pay ("paypal.com/signin", or "www.paypal.com" over ".../login"), and none
+ * when it is a known sender (`known`, see phishing.knownSenders); a provider
+ * of mailboxes has no domain of its own that way ("gmail.com"). A sender is the
  * brand there by its domain, not by its name: "paypal.top" is not PayPal.
  * @param {{host: string, text: string|null, url?: string}} link
  * @param {object} [options]
@@ -1360,9 +1376,11 @@ export function isDeceptiveLink(link, {from, authenticated, known} = {}) {
 		return true;
 	}
 
-	// (a known sender that passes DMARC, linking to its own domain: its own
-	//  click tracking under the address of a partner it writes about)
-	if (authenticated && known && typeof from === 'string' && registrableDomain(from) === reached) {
+	// (a sender that passes DMARC, linking to its own domain: its own click
+	//  tracking; a known sender's under any address of a partner it writes
+	//  about; not a provider of mailboxes, whose domain holds anyone's pages)
+	const own = Boolean(authenticated) && typeof from === 'string' && registrableDomain(from) === reached && !MAILBOXES.has(parseDomain(from).domainWithoutSuffix);
+	if (own && known) {
 		return false;
 	}
 
@@ -1372,11 +1390,13 @@ export function isDeceptiveLink(link, {from, authenticated, known} = {}) {
 	const signIn = path === '/' || signInPath(path);
 	return typeof from === 'string'
 		&& BRAND_NAMES.has(brand)
-		&& (tracked
-			? !LINKED_BRANDS.has(brand) && /^https?:\/\//i.test(link.text) && signIn && sender !== brand
-			: !LINKED_BRANDS.has(brand) || signIn)
-		&& registrableDomain(from) !== shown
-		&& !SENDING_DOMAINS.get(brand)?.includes(registrableDomain(from));
+		&& (own
+			? signInPath(path) || signInPath(reachedPath(target, link))
+			: (tracked
+				? !LINKED_BRANDS.has(brand) && /^https?:\/\//i.test(link.text) && signIn && sender !== brand
+				: !LINKED_BRANDS.has(brand) || signIn))
+			&& registrableDomain(from) !== shown
+			&& !SENDING_DOMAINS.get(brand)?.includes(registrableDomain(from));
 }
 
 function addressDomain(address) {
