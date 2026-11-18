@@ -1,4 +1,4 @@
-<!-- source: c4f8c2c7aa5a -->
+<!-- source: 6f344039ec5d -->
 
 # Träning
 
@@ -95,21 +95,28 @@ Ett meddelande som rapporterats som felklassificerat bör avläras från fel kla
 | [chairulridjal/high-accuracy-email-classifier-indonesian](https://huggingface.co/datasets/chairulridjal/high-accuracy-email-classifier-indonesian)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Apache-2.0                 | Indonesiska mejl efter kategori                                                 |
 | [JeisonJimenez/emails_2025](https://huggingface.co/datasets/JeisonJimenez/emails_2025)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Apache-2.0                 | Ett företags post på spanska                                                    |
 | [imnim/multiclass-email-classification](https://huggingface.co/datasets/imnim/multiclass-email-classification), [weijianzhg/email-triage-action-seed](https://huggingface.co/datasets/weijianzhg/email-triage-action-seed), [dedsec995/Email_Classification_Text](https://huggingface.co/datasets/dedsec995/Email_Classification_Text), [vpakarinen/open-wiki-email-templates](https://huggingface.co/datasets/vpakarinen/open-wiki-email-templates), [neurocheckout-ai/synthetic-abandoned-cart-email-examples](https://huggingface.co/datasets/neurocheckout-ai/synthetic-abandoned-cart-email-examples), [dhnanjay/MarketMail-AI-Dataset](https://huggingface.co/datasets/dhnanjay/MarketMail-AI-Dataset) | MIT, Apache-2.0, CC-BY-4.0 | Vanlig post: räkningar, bokningar, nyhetsbrev, erbjudanden och kontomeddelanden |
+| [AmazonScience/massive](https://huggingface.co/datasets/AmazonScience/massive)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | CC-BY-4.0                  | Vad människor ber en assistent om, på 20 språk                                  |
+| [sinabis-group/sinabis-100k-synthetic-emails](https://huggingface.co/datasets/sinabis-group/sinabis-100k-synthetic-emails)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | CC-BY-4.0                  | Ett påhittat företags post på franska                                           |
+| [scripts/everyday-mail](https://github.com/spamscanner/spamscanner/tree/master/scripts/everyday-mail)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | Med det här projektet      | Vardagspost och bedrägerier på 23 språk, skrivna för det här projektet          |
 
 Ham omfattar vanlig företags- och butikspost (fakturor, order- och kontomeddelanden, nyhetsbrev, erbjudanden), så att sådan post inte i sig läses som skräppost.
 
-Den lärde sig av 77 564 spam- och 112 586 hammeddelanden. Skriptet håller undan vart tionde meddelande, tränar på resten och mäter enbart klassificeraren, utan de andra kontrollerna:
+Studsmeddelanden i datamängderna utelämnas: de finns bara bland skräpposten, vilket skulle lära klassificeraren att varje studsmeddelande är skräppost.
+
+De tre sista raderna är vanlig text på de språk som de andra dataseten mest har skräppost på (franska, portugisiska, nederländska, de nordiska språken, polska, turkiska, arabiska, japanska, koreanska, kinesiska med flera), där varje vanligt ord annars skulle läsas som skräppost. Av 10 000 vanliga texter på 20 språk som modellen inte har tränats på får 1,4 % en sannolikhet på 80 % eller mer (4,8 % utan dessa rader) och 0,1 % en på 99 % eller mer. Den här texten är inte riktig post, och bedrägerierna som skrivits för varje språk är få: klassificeraren blir säkrare på vanlig post på dessa språk och fångar bara lite mer av deras skräppost.
+
+Den lärde sig av 81 254 spam- och 133 317 hammeddelanden. Skriptet håller undan vart tionde meddelande, tränar på resten och mäter enbart klassificeraren, utan de andra kontrollerna:
 
 | Undanhållet test | Meddelanden | Precision | Täckning | Falska positiva | Osäkra |
 | ---------------- | ----------: | --------: | -------: | --------------: | -----: |
-| Engelska         |       8 515 |   100,0 % |   96,4 % |           0,0 % |  2,6 % |
-| Ryska            |       1 680 |   100,0 % |   97,4 % |           0,0 % |  2,3 % |
-| Italienska       |       1 392 |    98,6 % |   81,0 % |           1,2 % | 12,5 % |
-| Tyska            |       1 314 |    97,8 % |   72,5 % |           2,1 % | 22,6 % |
-| Spanska          |       2 088 |    98,5 % |   56,1 % |           0,4 % | 15,7 % |
-| Enron-Spam       |       2 888 |   100,0 % |   92,4 % |           0,0 % |  4,4 % |
-| all-scam-spam    |       4 236 |   100,0 % |   89,3 % |           0,0 % | 11,6 % |
-| Alla             |      18 967 |    99,6 % |   77,2 % |           0,2 % | 15,8 % |
+| Engelska         |       8 481 |   100,0 % |   96,3 % |           0,0 % |  2,6 % |
+| Ryska            |       1 680 |   100,0 % |   97,4 % |           0,0 % |  2,2 % |
+| Italienska       |       1 392 |    99,0 % |   81,0 % |           0,9 % | 12,6 % |
+| Tyska            |       1 314 |    97,9 % |   71,4 % |           1,9 % | 22,3 % |
+| Spanska          |       2 088 |    98,7 % |   53,3 % |           0,4 % | 16,2 % |
+| Enron-Spam       |       2 870 |   100,0 % |   95,2 % |           0,0 % |  2,6 % |
+| all-scam-spam    |       4 222 |    99,9 % |   92,2 % |           0,0 % |  9,1 % |
+| Alla             |      21 329 |    99,6 % |   76,6 % |           0,2 % | 14,2 % |
 
 Spam betyder här en sannolikhet från klassificeraren på 99 % eller mer, den punkt där klassificeraren ensam når spamgränsen. I en skanning får spam som den är mindre säker på ändå poäng, och de andra kontrollerna lägger till sina.
 
@@ -132,7 +139,7 @@ Resultaten för tyska, spanska och italienska kommer från syntetiska dataset, s
 ### Träna om den
 
 ```sh
-npm run model:train                       # downloads the datasets into data/ the first time
+npm run model:train                       # downloads the datasets into data/ the first time; needs 4 GB of memory
 npm run model:train -- --no-download      # reuse data/
 npm run model:train -- --out /tmp/model.json --max-features 200000
 ```

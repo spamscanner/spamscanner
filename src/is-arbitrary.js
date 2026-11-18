@@ -5,7 +5,7 @@ import {
 } from './html.js';
 import {linear} from './linear.js';
 import {
-	ADDRESS_SOURCE, MAILBOXES, NAMED_ADDRESS, readableText, registrableDomain,
+	ADDRESS_SOURCE, NAMED_ADDRESS, isMailbox, readableText, registrableDomain,
 } from './tokenizer.js';
 
 // The GTUBE test string: any message containing it must be treated as spam.
@@ -276,15 +276,18 @@ function namesPlace(name, end) {
 
 const APPLE = {test: (name, written) => APPLE_ALONE.test(name) || [...written.matchAll(APPLE_BESIDE)].some(found => !namesPlace(written, found.index + found[0].length))};
 
+// (a name that says the brand's word of something else names no brand: the
+//  department of Santander and its universities, the Amazon rainforest, an
+//  economic outlook, an adobe house)
 const DISPLAY_BRANDS = [
-	['paypal', ['paypal', 'paypal-communications.com', 'paypal-community.com', 'paypal-prepaid.com', 'paypalobjects.com', 'synchrony', 'synchronybank', 'xoom']],
+	['paypal', ['paypal', 'paypal-communication.com', 'paypal-communications.com', 'paypal-community.com', 'paypal-prepaid.com', 'paypalobjects.com', 'synchrony', 'synchronybank', 'xoom']],
 	['apple', ['apple', 'icloud', 'itunes', 'me.com'], APPLE],
 	['icloud', ['apple', 'icloud', 'itunes', 'me.com']],
 	['itunes', ['apple', 'icloud', 'itunes', 'me.com']],
 	['microsoft', ['microsoft', 'microsoftonline', 'microsoft365', 'microsoftstore', 'microsoftemail', 'microsoftstoreemail', 'microsoftrewards', 'office', 'office365', 'outlook', 'live', 'hotmail', 'msn', 'skype', 'xbox', 'sharepoint', 'sharepointonline', 'onmicrosoft', 'azure', 'bing']],
-	['outlook', ['microsoft', 'microsoftonline', 'microsoft365', 'office', 'office365', 'outlook', 'live', 'hotmail', 'msn']],
+	['outlook', ['microsoft', 'microsoftonline', 'microsoft365', 'office', 'office365', 'outlook', 'live', 'hotmail', 'msn'], null, /\b(?:economic|market|business|industry|energy|global|investment|weekly|monthly|annual|the)\s+outlook\b|\boutlook\s+(?:magazine|india|money|report|traveller|business)\b/],
 	['office 365', ['microsoft', 'microsoftonline', 'microsoft365', 'office', 'office365', 'outlook', 'onmicrosoft', 'sharepoint']],
-	['amazon', ['amazon', 'amazonaws', 'amazonses', 'amazonpay', 'amazonbusiness', 'aws', 'audible', 'primevideo']],
+	['amazon', ['amazon', 'amazonaws', 'amazonses', 'amazonpay', 'amazonbusiness', 'aws', 'audible', 'primevideo'], null, /\bamazon\s+(?:rainforest|river|basin|conservation|watch|frontlines|jungle|region)\b/],
 	['netflix', ['netflix']],
 	['docusign', ['docusign']],
 	['dhl', ['dhl', 'dhlparcel', 'dhlecommerce', 'dhlecs', 'dhl-news', 'dpdhl', 'deutschepost']],
@@ -294,16 +297,16 @@ const DISPLAY_BRANDS = [
 	['coinbase', ['coinbase']],
 	['binance', ['binance']],
 	['metamask', ['metamask', 'consensys']],
-	['wells fargo', ['wellsfargo', 'wellsfargoadvisors']],
-	['chase', ['chase', 'jpmchase', 'jpmorgan', 'jpmorganchase'], /\b(?:bank(?:ing)?|card|credit|online|alerts?|security|support|fraud|customer|service|team|jpmorgan)\b/],
-	['bank of america', ['bankofamerica', 'bofa']],
+	['wells fargo', ['wellsfargo', 'wellsfargoadvisors', 'wellsfargoemail']],
+	['chase', ['chase', 'jpmchase', 'jpmorgan', 'jpmorganchase', 'jpmorgansecurities'], /\b(?:bank(?:ing)?|card|credit|online|alerts?|security|support|fraud|customer|service|team|jpmorgan)\b/],
+	['bank of america', ['bankofamerica', 'bofa', 'bofaml', 'bofasecurities', 'merrill', 'merrilledge', 'merrilllynch', 'ml.com']],
 	['american express', ['americanexpress', 'aexp', 'amex']],
 	['facebook', ['facebook', 'facebookmail', 'meta', 'metamail']],
 	['instagram', ['instagram', 'facebookmail', 'meta', 'metamail']],
 	['whatsapp', ['whatsapp', 'facebookmail', 'meta', 'metamail']],
 	['linkedin', ['linkedin']],
 	['dropbox', ['dropbox', 'dropboxmail', 'hellosign']],
-	['adobe', ['adobe', 'adobesystems', 'adobesign', 'echosign', 'adobelogin']],
+	['adobe', ['adobe', 'adobesystems', 'adobesign', 'echosign', 'adobelogin'], null, /\badobe\s+(?:animal|veterinary|creek|house|homes?|realty|ranch|inn|books?|gallery|cafe|grill|hacienda|springs|walls)\b/],
 	['google', ['google', 'googlegroups', 'googlemail', 'gmail', 'withgoogle', 'youtube'], null, /\bgoogle developers? groups?\b/],
 	['gmail', ['google', 'googlemail', 'gmail']],
 	['yahoo', ['yahoo', 'yahooinc', 'yahoo-inc', 'yahoonews', 'yahoo-corp.jp', 'aol']],
@@ -315,9 +318,9 @@ const DISPLAY_BRANDS = [
 	['royal mail', ['royalmail', 'royalmailgroup', 'parcelforce']],
 	['la poste', ['laposte', 'colissimo']],
 	['sparkasse', ['sparkasse', /^(?:sparkasse|kreissparkasse|stadtsparkasse|ksk)-[a-z\d-]+\.(?:de|at)$/]],
-	['santander', ['santander', 'santanderbank', 'santanderconsumer', 'santanderconsumerusa']],
+	['santander', ['santander', 'bancosantander', 'santanderbank', 'santanderconsumer', 'santanderconsumerusa'], null, /\b(?:universi|escuela|general|gobernaci|alcald|ayuntamiento|departamento|puerto|norte de|de paula|racing)/],
 	['hsbc', ['hsbc', 'hsbcnet']],
-	['barclays', ['barclays', 'barclaycard', 'barclaycardus', 'barclaysus']],
+	['barclays', ['barclays', 'barclaycard', 'barclaycardus', 'barclayspartnerfinance', 'barclaysus']],
 ].map(([brand, official, qualifier = null, not = null, capitals = false]) => ({
 	brand,
 	official,
@@ -599,7 +602,7 @@ export function isArbitrary(mail, options) {
 			//  provider of mailboxes, which anyone may have, as a form shows
 			//  who filled it in: "jane@gmail.com" from a form's service)
 			const domain = claimed[1];
-			const brand = MAILBOXES.has(parseDomain(domain).domainWithoutSuffix) ? null : DISPLAY_BRANDS.find(entry => isOfficial(entry, domain, '', false) && !isOfficial(entry, session.originalFromAddressDomain, ''));
+			const brand = isMailbox(domain) ? null : DISPLAY_BRANDS.find(entry => isOfficial(entry, domain, '', false) && !isOfficial(entry, session.originalFromAddressDomain, ''));
 			if (brand) {
 				hit('FROM_NAME_BRAND', 2, `Display name is an address of "${brand.brand}" but the message is from ${fromRoot}`, 'PHISHING');
 			}

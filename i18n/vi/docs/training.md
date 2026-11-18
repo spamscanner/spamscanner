@@ -1,4 +1,4 @@
-<!-- source: c4f8c2c7aa5a -->
+<!-- source: 6f344039ec5d -->
 
 # Huấn luyện
 
@@ -95,21 +95,28 @@ Một thư được báo cáo là phân loại sai nên được gỡ học kh�
 | [chairulridjal/high-accuracy-email-classifier-indonesian](https://huggingface.co/datasets/chairulridjal/high-accuracy-email-classifier-indonesian)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Apache-2.0                        | Email tiếng Indonesia theo danh mục                                            |
 | [JeisonJimenez/emails_2025](https://huggingface.co/datasets/JeisonJimenez/emails_2025)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Apache-2.0                        | Thư của một công ty bằng tiếng Tây Ban Nha                                     |
 | [imnim/multiclass-email-classification](https://huggingface.co/datasets/imnim/multiclass-email-classification), [weijianzhg/email-triage-action-seed](https://huggingface.co/datasets/weijianzhg/email-triage-action-seed), [dedsec995/Email_Classification_Text](https://huggingface.co/datasets/dedsec995/Email_Classification_Text), [vpakarinen/open-wiki-email-templates](https://huggingface.co/datasets/vpakarinen/open-wiki-email-templates), [neurocheckout-ai/synthetic-abandoned-cart-email-examples](https://huggingface.co/datasets/neurocheckout-ai/synthetic-abandoned-cart-email-examples), [dhnanjay/MarketMail-AI-Dataset](https://huggingface.co/datasets/dhnanjay/MarketMail-AI-Dataset) | MIT, Apache-2.0, CC-BY-4.0        | Thư thông thường: hóa đơn, đặt chỗ, bản tin, khuyến mãi và thông báo tài khoản |
+| [AmazonScience/massive](https://huggingface.co/datasets/AmazonScience/massive)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | CC-BY-4.0                         | Những điều mọi người yêu cầu trợ lý, bằng 20 ngôn ngữ                          |
+| [sinabis-group/sinabis-100k-synthetic-emails](https://huggingface.co/datasets/sinabis-group/sinabis-100k-synthetic-emails)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | CC-BY-4.0                         | Thư của một công ty hư cấu bằng tiếng Pháp                                     |
+| [scripts/everyday-mail](https://github.com/spamscanner/spamscanner/tree/master/scripts/everyday-mail)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | Cùng với dự án này                | Thư thường ngày và thư lừa đảo bằng 23 ngôn ngữ, được viết cho dự án này       |
 
 Ham bao gồm thư thông thường của doanh nghiệp và cửa hàng (hóa đơn, thông báo đơn hàng và tài khoản, bản tin, khuyến mãi), nên chỉ riêng loại thư đó không bị coi là thư rác.
 
-Nó học từ 77.564 thư spam và 112.586 thư ham. Script giữ lại mỗi thư thứ mười, huấn luyện trên phần còn lại và đo lường riêng bộ phân loại, không có các phép kiểm tra khác:
+Thư trả lại (bounce) trong các bộ dữ liệu bị loại ra: chúng chỉ nằm trong số thư spam, điều này sẽ dạy bộ phân loại rằng mọi thư trả lại đều là spam.
+
+Ba hàng cuối là văn bản thông thường bằng những ngôn ngữ mà các bộ dữ liệu khác chủ yếu chỉ có spam (tiếng Pháp, Bồ Đào Nha, Hà Lan, các ngôn ngữ Bắc Âu, Ba Lan, Thổ Nhĩ Kỳ, Ả Rập, Nhật, Hàn, Trung và các ngôn ngữ khác), nơi nếu không có chúng thì mọi từ thông thường đều bị đọc là spam. Trong 10.000 văn bản thông thường bằng 20 ngôn ngữ mà mô hình không được huấn luyện, 1,4% nhận xác suất từ 80% trở lên (4,8% nếu không có các hàng này) và 0,1% nhận xác suất từ 99% trở lên. Văn bản này không phải thư thật, và số thư lừa đảo được viết cho mỗi ngôn ngữ còn ít: bộ phân loại chắc chắn hơn về thư thông thường bằng các ngôn ngữ này và chỉ bắt thêm được một ít spam của chúng.
+
+Nó học từ 81.254 thư spam và 133.317 thư ham. Script giữ lại mỗi thư thứ mười, huấn luyện trên phần còn lại và đo lường riêng bộ phân loại, không có các phép kiểm tra khác:
 
 | Tập kiểm tra giữ lại | Số thư | Precision | Recall | Dương tính giả | Không chắc |
 | -------------------- | -----: | --------: | -----: | -------------: | ---------: |
-| Tiếng Anh            |  8.515 |    100,0% |  96,4% |           0,0% |       2,6% |
-| Tiếng Nga            |  1.680 |    100,0% |  97,4% |           0,0% |       2,3% |
-| Tiếng Ý              |  1.392 |     98,6% |  81,0% |           1,2% |      12,5% |
-| Tiếng Đức            |  1.314 |     97,8% |  72,5% |           2,1% |      22,6% |
-| Tiếng Tây Ban Nha    |  2.088 |     98,5% |  56,1% |           0,4% |      15,7% |
-| Enron-Spam           |  2.888 |    100,0% |  92,4% |           0,0% |       4,4% |
-| all-scam-spam        |  4.236 |    100,0% |  89,3% |           0,0% |      11,6% |
-| Tất cả               | 18.967 |     99,6% |  77,2% |           0,2% |      15,8% |
+| Tiếng Anh            |  8.481 |    100,0% |  96,3% |           0,0% |       2,6% |
+| Tiếng Nga            |  1.680 |    100,0% |  97,4% |           0,0% |       2,2% |
+| Tiếng Ý              |  1.392 |     99,0% |  81,0% |           0,9% |      12,6% |
+| Tiếng Đức            |  1.314 |     97,9% |  71,4% |           1,9% |      22,3% |
+| Tiếng Tây Ban Nha    |  2.088 |     98,7% |  53,3% |           0,4% |      16,2% |
+| Enron-Spam           |  2.870 |    100,0% |  95,2% |           0,0% |       2,6% |
+| all-scam-spam        |  4.222 |     99,9% |  92,2% |           0,0% |       9,1% |
+| Tất cả               | 21.329 |     99,6% |  76,6% |           0,2% |      14,2% |
 
 Ở đây spam nghĩa là bộ phân loại cho xác suất từ 99% trở lên, mức mà riêng bộ phân loại đạt ngưỡng spam. Khi quét thật, spam mà nó kém chắc chắn hơn vẫn nhận điểm, và các phép kiểm tra khác cộng thêm điểm của chúng.
 
@@ -132,7 +139,7 @@ Kết quả tiếng Đức, tiếng Tây Ban Nha và tiếng Ý đến từ các
 ### Huấn luyện lại
 
 ```sh
-npm run model:train                       # downloads the datasets into data/ the first time
+npm run model:train                       # downloads the datasets into data/ the first time; needs 4 GB of memory
 npm run model:train -- --no-download      # reuse data/
 npm run model:train -- --out /tmp/model.json --max-features 200000
 ```

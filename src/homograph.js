@@ -26,7 +26,7 @@ export const PHISHING_WORDS = ['account', 'accounts', 'alert', 'alerts', 'auth',
 
 // Brands that are also words: joined to a phishing word ("securebooking",
 // "officesecurity") they name something else as often as the brand.
-const WORD_BRANDS = new Set(['apple', 'blockchain', 'booking', 'chase', 'discord', 'kraken', 'ledger', 'office', 'proton', 'slack', 'steam', 'stripe']);
+const WORD_BRANDS = new Set(['apple', 'blockchain', 'booking', 'chase', 'discord', 'kraken', 'ledger', 'norton', 'office', 'postbank', 'proton', 'santander', 'slack', 'steam', 'stripe', 'telegram']);
 
 // Words phishing domains put beside a brand that is a word, offering help,
 // a gift or the brand's own wallet, bank or files ("apple-support",
@@ -61,8 +61,11 @@ const SIGN_IN_LABELS = new Set(['account', 'accounts', 'login', 'logon', 'signin
 // only two swapped neighbouring letters count as a typo of these ("gmial"),
 // and, but for the brands that are words, a letter left out inside the name
 // ("twiter", "samsng": not the first or the last, as "cloud", "mobile" and
-// "samsun" are) or one doubled ("twittter", "samssung").
-const TYPO_WORDS = new Set([...WORD_BRANDS, 'adobe', 'binance', 'fedex', 'gmail', 'icloud', 'norton', 'samsung', 'tiktok', 'tmobile', 'trezor', 'twitter', 'venmo', 'zelle']);
+// "samsun" are) or one doubled ("twittter", "samssung"). So are the brands
+// that many other companies' names are a letter from, in other countries
+// ("ncbank" and "nurbank" for nubank, "allpay" and "alipan" for alipay,
+// "rechat" for wechat, "sterbank" for sberbank).
+const TYPO_WORDS = new Set([...WORD_BRANDS, 'adobe', 'alipay', 'binance', 'citibank', 'fedex', 'gmail', 'icloud', 'nubank', 'samsung', 'sberbank', 'tiktok', 'tmobile', 'trezor', 'twitter', 'venmo', 'wechat', 'zelle']);
 // (and not words that are such a typo: "titter")
 const TYPO_EXCEPTIONS = new Set(['titter']);
 
@@ -101,19 +104,37 @@ const isTypo = (name, brand) => !TYPO_WORDS.has(brand) || isSwap(name, brand) ||
 
 // Words one letter or two swapped letters away from a brand ("applied",
 // "appleid"; "raketen", "rakuten"), in the dictionaries of English, German,
-// French, Spanish, Italian, Dutch, Portuguese and the Scandinavian languages.
+// French, Spanish, Italian, Dutch, Portuguese and the Scandinavian languages,
+// and the names of other companies and sites that are ("paypay" of Japan and
+// "paypak" of Pakistan for paypal, "amaron", "cosco", "citicbank", "lithub").
 const SWAPPED_WORDS = new Set([
-	'akuten', 'alzada', 'appel', 'applied', 'auslost', 'azada', 'coupant', 'gechat', 'klara', 'lanada', 'lanzada', 'lapada', 'latada', 'lavada', 'mazada', 'mercar', 'mercati', 'pazada', 'phoneme', 'postbak', 'raketen', 'rauten', 'razada', 'stirpe', 'vazada', 'venom', 'webchat',
+	'akuten', 'alzada', 'amaron', 'amazona', 'amazone', 'appel', 'applied', 'auslost', 'ausport', 'azada', 'barclay', 'bebit', 'bibit', 'citicbank', 'civibank', 'comcash', 'cosco', 'coupant', 'feedx', 'gechat', 'giftlab', 'hostmail', 'intui', 'intuis', 'inuit', 'klara', 'klarta', 'lanada', 'lanzada', 'lapada', 'latada', 'lavada', 'lithub', 'mazada', 'mercar', 'mercati', 'mercuri', 'nbank', 'paypak', 'paypay', 'pazada', 'phoneme', 'postbak', 'quirkbooks', 'raketen', 'rauten', 'razada', 'rejolut', 'revolt', 'salesforge', 'setam', 'stema', 'stirpe', 'swissmom', 'swype', 'treezor', 'vazada', 'venom', 'verion', 'wallart', 'webchat', 'weechat', 'yande',
 ]);
 
 // Official domains of the brands above whose names also hold a brand
-// ("deutsche-bank.de"), never flagged.
+// ("deutsche-bank.de"), never flagged: each registered to the brand, by
+// its registry, and none that holds its customers' pages under their own
+// names ("salesforce-sites.com", "sharepoint-df.com").
 const OFFICIAL_DOMAINS = [
-	'adobelogin.com', 'amazon-adsystem.com', 'apple-cloudkit.com', 'apple-dns.net', 'bnpparibas-am.com', 'canadapost-postescanada.ca', 'cdn-apple.com', 'cloudflare-dns.com', 'cloudflare-ipfs.com', 'credit-agricole.com', 'credit-agricole.fr', 'deutsche-bank.de', 'ebay-kleinanzeigen.de', 'google-analytics.com', 'icloud-content.com', 'images-amazon.com', 'instagram-engineering.com', 'media-amazon.com', 'okta-emea.com', 'paypal-communication.com', 'paypal-community.com', 'paypal-objects.com', 'paypal-prepaid.com', 'paypal-status.com', 'rakuten-bank.co.jp', 'rakuten-card.co.jp', 'rakuten-sec.co.jp', 'sberbank-ast.ru', 'slack-edge.com', 'slack-msgs.com', 'ssl-images-amazon.com', 't-mobile.com', 'tiktokcdn.com', 'tiktokv.com', 'yahoo-corp.jp', 'yandex-team.ru',
+	'adobe-addons.com', 'adobe-ap.com', 'adobe-campaign.com', 'adobe-campaign.net', 'adobe-identity.com', 'adobelogin.com', 'ads-twitter.com', 'alibaba-inc.com', 'aliexpress-media.com', 'aliexpress-tech-open.com', 'alipay-eco.com', 'amazon-ads-attestation.com', 'amazon-adsystem.com', 'amazon-corp.com', 'amazon-dss.com', 'amazon-value-service.com', 'apple-cloudkit.com', 'apple-dns.net', 'assoc-amazon.com', 'associates-amazon.com', 'bnpparibas-am.com', 'bnpparibas-pf.com', 'business-tiktok.com', 'canadapost-postescanada.ca', 'cc-costco.com', 'cdn-apple.com', 'cloudflare-dns.com', 'cloudflare-ech.com', 'cloudflare-email.net', 'cloudflare-eth.com', 'cloudflare-gateway.com', 'cloudflare-internal.com', 'cloudflare-ipfs.com', 'cloudflare-quic.com', 'cloudflare-terms-of-service-abuse.com', 'coinbase-corp.com', 'costco-static.com', 'credit-agricole.com', 'credit-agricole.fr', 'deutsche-bank.de', 'deutschebank-dbdirect.com', 'dropbox-dns.com', 'ebay-kleinanzeigen.de', 'facebook-hardware.com', 'facebook-studio.com', 'gitlab-static.net', 'google-analytics.com', 'google-melange.com', 'icloud-content.com', 'icloud-mpp.com', 'icloud-sandbox.com', 'images-amazon.com', 'instagram-brand.com', 'instagram-engineering.com', 'instagram-press.com', 'linkedin-ei.com', 'mcafeesecure.com', 'media-amazon.com', 'mercari-ops.com', 'mercari-shops-static.com', 'microsoft-falcon.net', 'microsoft-int.com', 'microsoft-ppe.com', 'microsoftonline-p.com', 'microsoftonline-p.net', 'okta-emea.com', 'payments-amazon.com', 'paypal-ads.com', 'paypal-communication.com', 'paypal-community.com', 'paypal-corp.com', 'paypal-mktg.com', 'paypal-objects.com', 'paypal-prepaid.com', 'paypal-status.com', 'quip-amazon.com', 'rakuten-bank.co.jp', 'rakuten-bank.net', 'rakuten-card.co.jp', 'rakuten-it.com', 'rakuten-sec.co.jp', 'rakuten-sec.net', 'rakuten-static.com', 's-microsoft.com', 'salesforce-ccaas.com', 'salesforce-dns.com', 'salesforce-hub.com', 'samsung-dict.com', 'samsung-news.com', 'samsung-svoice.com', 'sberbank-ast.ru', 'siege-amazon.com', 'slack-edge.com', 'slack-msgs.com', 'ssl-images-amazon.com', 't-mobile.com', 'thehub-amazon.com', 'tiktok-row.net', 'tiktok-row.org', 'tiktokcdn.com', 'tiktokv.com', 'tmobile-digital.com', 'verizon-gni.net', 'verizon-services.com', 'vodafone-ip.de', 'yahoo-corp.jp', 'yahoo-net.jp', 'yandex-bank.net', 'yandex-team.ru',
 ];
-// (and each Sparkasse's own, "sparkasse-koelnbonn.de", unless a part of it is
-// a phishing word)
-const SPARKASSE = /^sparkasse-[a-z\d-]+\.(?:de|at)$/;
+// (and each Sparkasse's own, "sparkasse-koelnbonn.de" and
+// "berliner-sparkasse.de", unless a part of it is a phishing word; and a
+// company of the Rakuten group's, "rakuten-edy.co.jp": a co.jp domain is
+// registered to a company in Japan, one each)
+const SPARKASSE = /^(?:sparkasse-[a-z\d-]+|[a-z\d-]+-sparkasse)\.(?:de|at)$|^rakuten-[a-z\d]+\.co\.jp$/;
+// Domains of the networks that deliver a brand's own site under a name that
+// starts with its address ("apple.com.edgekey.net" at Akamai,
+// "instagram.fabc1-1.fna.fbcdn.net" at Meta, "sharepoint.com.dual-spo-0005.spo-msedge.net"
+// at Microsoft), and of the proxies companies read the web through, which
+// put the address they fetch before their own ("paypal.com.mcas.ms" is
+// paypal.com through Microsoft Defender): each registered to its operator, and
+// none where anyone may choose the name ("paypal.com.s3.amazonaws.com")
+const CARRIERS = ['aaplimg.com', 'adobedc.net', 'akadns.net', 'akahost.net', 'akamaitech.net', 'akamaized.net', 'alibabadns.com', 'alikunlun.com', 'alikunlun.net', 'cdngslb.com', 'cloud.microsoft', 'ebaycdn.net', 'edgekey.net', 'edgesuite.net', 'fbcdn.net', 'goskope.com', 'kunlunsl.com', 'mcas-gov.ms', 'mcas-gov.us', 'mcas.ms', 'myshn.net', 'omtrdc.net', 'pv-cdn.net', 'trafficmanager.net'];
+const CARRIER_NAME = /(?:^|-)msedge\.net$/;
+// The brands that write their name with a hyphen in their own domains, in
+// any country ("credit-agricole.pl", "deutsche-bank.es", "sber-bank.by")
+const OWN_SPELLINGS = new Set(['credit-agricole', 'deutsche-bank', 'sber-bank', 'wal-mart']);
 
 // Suffixes put after a brand inside another domain ("paypal.com-verify.example"):
 // the generic ones, which no ordinary name starts with, and country codes and
@@ -337,7 +358,7 @@ export default class HomographDetector {
 		options ??= {};
 		this.options = options;
 		this.brands = new Set([...(options.brands || BRANDS), ...(options.extraBrands || [])].map(brand => brand.toLowerCase()));
-		this.allowlist = new Set([...OFFICIAL_DOMAINS, ...(options.allowlist || [])].map(domain => domain.toLowerCase()));
+		this.allowlist = new Set([...OFFICIAL_DOMAINS, ...CARRIERS, ...(options.allowlist || [])].map(domain => domain.toLowerCase()));
 		this.cache = new Map();
 	}
 
@@ -378,7 +399,7 @@ export default class HomographDetector {
 		};
 		const parsed = parseDomain(unicode);
 		const name = parsed.domainWithoutSuffix;
-		if (!name || parsed.isIp || this.allowlist.has(parsed.domain)) {
+		if (!name || parsed.isIp || this.allowlist.has(parsed.domain) || CARRIER_NAME.test(parsed.domain)) {
 			return result;
 		}
 
@@ -390,7 +411,7 @@ export default class HomographDetector {
 			}
 		};
 
-		if (this.brands.has(name)) {
+		if (this.brands.has(name) || OWN_SPELLINGS.has(name)) {
 			// The brand's own domain, under any suffix.
 			return result;
 		}
@@ -427,12 +448,18 @@ export default class HomographDetector {
 		if (viaConfusable) {
 			flag(0.95, `"${unicode}" imitates ${viaConfusable} with lookalike letters`, viaConfusable);
 		} else if (/^[a-z\d-]+$/.test(folded)) {
-			const variants = trickVariants(folded);
+			// (a name of digits alone is a number, not letters written as digits:
+			//  "477.jp" is no "att")
+			const variants = /[a-z]/.test(folded) ? trickVariants(folded) : new Set();
 			const trick = [...variants].find(variant => this.brands.has(variant));
 			if (trick) {
 				flag(trickScore(trick, folded), `"${unicode}" imitates ${trick} by swapping characters`, trick);
 			} else if (folded.length >= 5 && !SWAPPED_WORDS.has(folded)) {
-				const near = [...this.brands].find(brand => brand.length >= 5 && editDistance(folded, brand, 1) === 1 && isTypo(folded, brand));
+				// (with the brand's first letter: another one makes another name,
+				//  "ubank" and "eubank" for nubank, "lithub" for github,
+				//  "oberbank" for sberbank, "zetflix", as a slip of the hand
+				//  seldom does)
+				const near = [...this.brands].find(brand => brand.length >= 5 && brand[0] === folded[0] && editDistance(folded, brand, 1) === 1 && isTypo(folded, brand));
 				if (near) {
 					flag(0.5, `"${unicode}" is one letter away from ${near}`, near);
 				}
@@ -492,8 +519,12 @@ export default class HomographDetector {
 		//  "login.apple.example.com", "secure.apple.verify-account.com")
 		const phishyHost = phishy || labels.some(label => PHISHING_WORDS.includes(label));
 		const signInHost = labels.some(label => SIGN_IN_LABELS.has(label));
-		const asBrand = label => (COMMON_WORD_BRANDS.has(label) ? signInHost && COMMON_WORD_BRANDS.get(label).length > 0 : phishyHost);
-		const brandLabel = labels.find((label, index) => label.length >= 4 && this.brands.has(label) && (this.options.strictMode || (label.length >= 5 && (!WORD_BRANDS.has(label) || asBrand(label))) || SUFFIX_LABEL.test(labels[index + 1] ?? '')));
+		const asBrand = label => signInHost && COMMON_WORD_BRANDS.get(label).length > 0;
+		// (a brand alone before another service's name is that service's
+		//  customer, "walmart.wd5.myworkdayjobs.com", "tiktok.en.softonic.com":
+		//  it counts as the start of an address, or beside a phishing word)
+		const phishyLabel = labels.some(label => label.split('-').some(piece => PHISHING_WORDS.includes(piece)));
+		const brandLabel = labels.find((label, index) => label.length >= 4 && this.brands.has(label) && (this.options.strictMode || (label.length >= 5 && (COMMON_WORD_BRANDS.has(label) ? asBrand(label) : phishyHost || phishyLabel)) || SUFFIX_LABEL.test(labels[index + 1] ?? '')));
 		if (brandLabel && (this.options.strictMode || subdomain.length >= 2)) {
 			flag(0.6, `"${unicode}" puts ${brandLabel} in front of another domain`, brandLabel);
 		}

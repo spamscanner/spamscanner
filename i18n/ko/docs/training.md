@@ -1,4 +1,4 @@
-<!-- source: c4f8c2c7aa5a -->
+<!-- source: 6f344039ec5d -->
 
 # 학습
 
@@ -95,21 +95,28 @@ scanner.saveModel('/var/lib/spamscanner/model.json');
 | [chairulridjal/high-accuracy-email-classifier-indonesian](https://huggingface.co/datasets/chairulridjal/high-accuracy-email-classifier-indonesian)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Apache-2.0                 | 범주별 인도네시아어 이메일                     |
 | [JeisonJimenez/emails_2025](https://huggingface.co/datasets/JeisonJimenez/emails_2025)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Apache-2.0                 | 한 회사의 스페인어 메일                      |
 | [imnim/multiclass-email-classification](https://huggingface.co/datasets/imnim/multiclass-email-classification), [weijianzhg/email-triage-action-seed](https://huggingface.co/datasets/weijianzhg/email-triage-action-seed), [dedsec995/Email_Classification_Text](https://huggingface.co/datasets/dedsec995/Email_Classification_Text), [vpakarinen/open-wiki-email-templates](https://huggingface.co/datasets/vpakarinen/open-wiki-email-templates), [neurocheckout-ai/synthetic-abandoned-cart-email-examples](https://huggingface.co/datasets/neurocheckout-ai/synthetic-abandoned-cart-email-examples), [dhnanjay/MarketMail-AI-Dataset](https://huggingface.co/datasets/dhnanjay/MarketMail-AI-Dataset) | MIT, Apache-2.0, CC-BY-4.0 | 일반 메일: 청구서, 예약, 뉴스레터, 프로모션 및 계정 알림 |
+| [AmazonScience/massive](https://huggingface.co/datasets/AmazonScience/massive)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | CC-BY-4.0                  | 사람들이 어시스턴트에게 요청하는 말(20개 언어)        |
+| [sinabis-group/sinabis-100k-synthetic-emails](https://huggingface.co/datasets/sinabis-group/sinabis-100k-synthetic-emails)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | CC-BY-4.0                  | 가상 회사의 프랑스어 메일                     |
+| [scripts/everyday-mail](https://github.com/spamscanner/spamscanner/tree/master/scripts/everyday-mail)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | 이 프로젝트와 동일                 | 이 프로젝트를 위해 쓴 23개 언어의 일상 메일과 사기 메일  |
 
 햄에는 일반적인 업무 메일과 상점 메일(청구서, 주문 및 계정 알림, 뉴스레터, 프로모션)이 포함되므로, 그런 메일이 그것만으로 스팸으로 읽히지는 않습니다.
 
-스팸 메시지 77,564개와 ham 메시지 112,586개로 학습했습니다. 스크립트는 열 번째마다 메시지를 학습에서 제외하고, 나머지로 학습한 뒤, 다른 검사 없이 분류기만으로 성능을 측정합니다.
+데이터셋에 있는 반송 메일(바운스)은 제외합니다. 스팸에만 들어 있어, 모든 반송 메일이 스팸이라고 분류기가 학습하게 되기 때문입니다.
+
+마지막 세 행은 다른 데이터셋에 스팸이 대부분인 언어(프랑스어, 포르투갈어, 네덜란드어, 북유럽 언어, 폴란드어, 터키어, 아랍어, 일본어, 한국어, 중국어 등)의 평범한 글입니다. 이것이 없으면 이런 언어에서는 평범한 단어가 모두 스팸으로 읽힙니다. 모델이 학습하지 않은 20개 언어의 평범한 글 10,000개 가운데 1.4%가 80% 이상의 확률을 받고(이 행들이 없으면 4.8%), 0.1%가 99% 이상의 확률을 받습니다. 이 글은 실제 메일이 아니며 언어마다 쓴 사기 메일도 적습니다. 분류기는 이들 언어의 평범한 메일을 더 확실히 알아보게 되지만, 스팸은 조금 더 잡아낼 뿐입니다.
+
+스팸 메시지 81,254개와 ham 메시지 133,317개로 학습했습니다. 스크립트는 열 번째마다 메시지를 학습에서 제외하고, 나머지로 학습한 뒤, 다른 검사 없이 분류기만으로 성능을 측정합니다.
 
 | 제외한 테스트 세트    |    메시지 |    정밀도 |   재현율 |   오탐 | unsure |
 | ------------- | -----: | -----: | ----: | ---: | -----: |
-| 영어            |  8,515 | 100.0% | 96.4% | 0.0% |   2.6% |
-| 러시아어          |  1,680 | 100.0% | 97.4% | 0.0% |   2.3% |
-| 이탈리아어         |  1,392 |  98.6% | 81.0% | 1.2% |  12.5% |
-| 독일어           |  1,314 |  97.8% | 72.5% | 2.1% |  22.6% |
-| 스페인어          |  2,088 |  98.5% | 56.1% | 0.4% |  15.7% |
-| Enron-Spam    |  2,888 | 100.0% | 92.4% | 0.0% |   4.4% |
-| all-scam-spam |  4,236 | 100.0% | 89.3% | 0.0% |  11.6% |
-| 전체            | 18,967 |  99.6% | 77.2% | 0.2% |  15.8% |
+| 영어            |  8,481 | 100.0% | 96.3% | 0.0% |   2.6% |
+| 러시아어          |  1,680 | 100.0% | 97.4% | 0.0% |   2.2% |
+| 이탈리아어         |  1,392 |  99.0% | 81.0% | 0.9% |  12.6% |
+| 독일어           |  1,314 |  97.9% | 71.4% | 1.9% |  22.3% |
+| 스페인어          |  2,088 |  98.7% | 53.3% | 0.4% |  16.2% |
+| Enron-Spam    |  2,870 | 100.0% | 95.2% | 0.0% |   2.6% |
+| all-scam-spam |  4,222 |  99.9% | 92.2% | 0.0% |   9.1% |
+| 전체            | 21,329 |  99.6% | 76.6% | 0.2% |  14.2% |
 
 여기서 스팸은 분류기 확률이 99% 이상인 경우를 뜻합니다. 분류기 단독으로 스팸 임계값에 이르는 지점입니다. 실제 검사에서는 분류기가 덜 확신하는 스팸도 점수를 받으며, 나머지 검사도 점수를 더합니다.
 
@@ -132,7 +139,7 @@ scanner.saveModel('/var/lib/spamscanner/model.json');
 ### 다시 학습
 
 ```sh
-npm run model:train                       # downloads the datasets into data/ the first time
+npm run model:train                       # downloads the datasets into data/ the first time; needs 4 GB of memory
 npm run model:train -- --no-download      # reuse data/
 npm run model:train -- --out /tmp/model.json --max-features 200000
 ```

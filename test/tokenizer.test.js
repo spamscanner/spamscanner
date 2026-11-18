@@ -350,7 +350,7 @@ describe('links', () => {
 		assert.equal(isDeceptiveLink({host: 'evil.example', text: 'https://www.paypal.com/signin'}, {from: 'paypal.top', authenticated: true}), true);
 		// (another domain of the company whose address is shown is its own
 		//  site, whoever sends it)
-		for (const [text, host] of [['redeem.microsoft.com', 'www.xbox.com'], ['www.amazon.co.uk', 'www.amazon.com'], ['xfinity.com', 'customer.comcast.com'], ['https://www.icloud.com/', 'support.apple.com'], ['www.paypal.de', 'data.news.paypal.com'], ['zoom.com', 'click.e.zoom.us'], ['www.americanexpress.es', 'go.amex'], ['citibank.com', 'click.info.citi.com']]) {
+		for (const [text, host] of [['www.tangocard.com', 'www.rewardlink.com'], ['redeem.microsoft.com', 'www.xbox.com'], ['www.amazon.co.uk', 'www.amazon.com'], ['xfinity.com', 'customer.comcast.com'], ['https://www.icloud.com/', 'support.apple.com'], ['www.paypal.de', 'data.news.paypal.com'], ['zoom.com', 'click.e.zoom.us'], ['www.americanexpress.es', 'go.amex'], ['citibank.com', 'click.info.citi.com']]) {
 			assert.equal(isDeceptiveLink({host, text}), false, text);
 			assert.equal(isDeceptiveLink({host, text}, {from: 'mail.shop.example', authenticated: true}), false, text);
 		}
@@ -639,6 +639,15 @@ describe('getFeatures', () => {
 		}
 
 		assert.ok(!features.some(feature => feature.startsWith('from:tld')));
+	});
+
+	it('makes no feature of a country\'s top-level domain', () => {
+		const {features} = getFeatures({
+			html: '<p><a href="https://www.example.at/a">Wien</a> <a href="https://shop.example.co.in/b">Delhi</a> <a href="https://www.example.shop/c">Shop</a></p>', from: {value: [{address: 'news@example.at'}]},
+		});
+		assert.deepEqual(features.filter(feature => feature.startsWith('url:tld:') || feature.startsWith('from:tld:')), ['url:tld:shop']);
+		assert.ok(getFeatures({from: {value: [{address: 'news@example.online'}]}}).features.includes('from:tld:online'));
+		assert.ok(features.includes('url:example.at'));
 	});
 
 	it('limits the words read and the word pairs made', () => {
@@ -1117,8 +1126,20 @@ describe('links through security gateways and mailing services', () => {
 
 	it('takes the click tracking of more mailing services for no deception', () => {
 		const link = (url, text = 'www.janewriter.example') => ({host: new URL(url).hostname, url, text});
-		for (const url of ['https://click.convertkit-mail2.com/abc123/def456', 'https://click.convertkit-mail.com/abc/def', 'https://844e968a.click.kit-mail3.com/abc', 'https://abcd.r.bh.d.sendibt3.com/tr/cl/abc', 'https://abc.r.sendibt2.com/tr/cl/abc', 'https://janewriter.createsend1.com/t/r-l-abc-def', 'https://cmail20.com/t/r-l-abc', 'https://abcd.clicks.mlsend.com/tj/c/abc', 'https://janewriter.lt.acemlnb.com/Prod/link-tracker?redirectUrl=abc', 'https://link.mail.beehiiv.com/ss/c/abc', 'https://elink.bhclick.com/ss/c/abc', 'https://substack.com/redirect/2/eyJlIjoi?j=abc']) {
+		for (const url of ['https://click.convertkit-mail2.com/abc123/def456', 'https://click.convertkit-mail.com/abc/def', 'https://844e968a.click.kit-mail3.com/abc', 'https://abcd.r.bh.d.sendibt3.com/tr/cl/abc', 'https://abc.r.sendibt2.com/tr/cl/abc', 'https://janewriter.createsend1.com/t/r-l-abc-def', 'https://cmail20.com/t/r-l-abc', 'https://abcd.clicks.mlsend.com/tj/c/abc', 'https://janewriter.lt.acemlnb.com/Prod/link-tracker?redirectUrl=abc', 'https://link.mail.beehiiv.com/ss/c/abc', 'https://elink.bhclick.com/ss/c/abc', 'https://substack.com/redirect/2/eyJlIjoi?j=abc', 'https://example-mid-prod1-t.adobe-campaign.com/r/?id=abc', 'https://app.mirabelsmarketingmanager.com/r/abc']) {
 			assert.equal(isDeceptiveLink(link(url)), false, url);
+		}
+
+		// (the numbered domains of a service, the gateways that rewrite links,
+		//  and the links of affiliate networks and of apps)
+		for (const url of ['https://trk.klclick1.com/ls/click?upn=abc', 'https://click.convertkit-mail4.com/abc', 'https://abc.r.a.d.sendibm1.com/mk/cl/f/abc', 'https://janewriter.cmail19.com/t/y-l-abc', 'https://janewriter.createsend27.com/t/abc', 'https://janewriter.lt.acemlna.com/Prod/link-tracker?abc', 'https://janewriter.lt.emlnk1.com/Prod/link-tracker?abc', 'https://links.mkt41.net/ctt?abc', 'https://t.sidekickopen01.com/abc', 'https://ab123.keap-link004.com/v2/click/abc', 'https://t.sidekickopen90.com/abc', 'https://click.eomail3.com/abc', 'https://www.anrdoezrs.net/click-abc', 'https://track.mdrctr.com/track/click/abc', 'https://a1b2c.musvc2.net/e/t?q=abc', 'https://www.anpdm.com/redirect/abc', 'https://mag.cuenote.jp/c/abc', 'https://janewriter.us5.list-manage1.com/track/click?u=abc', 'https://s123.t.en25.com/e/er?abc', 'https://email.r1.dmtrk.net/abc', 'https://go.spgo.io/f/a/abc', 'https://eu.spgo.io/f/a/abc', 'https://www.imiclk.com/abc', 'https://cl.exct.net/?qs=abc', 'https://janewriter.intercom-clicks.com/via/e?abc', 'https://nam12.safelinks.protection.office365.us/?id=abc', 'https://us-west-2.protection.sophos.com?d=abc', 'https://clicktime.symantec.com/abc', 'https://url.avanan.click/v2/abc', 'https://urlsand.esvalabs.com/?u=abc', 'https://url.emailprotection.link/?abc', 'https://click.linksynergy.com/deeplink?id=abc', 'https://janewriter.onelink.me/abc', 'https://janewriter.app.link/abc']) {
+			assert.equal(isDeceptiveLink(link(url)), false, url);
+		}
+
+		// (not a number the service has not registered, which is anyone's, nor
+		//  a name that only starts or ends as one of them)
+		for (const url of ['https://cmail.com/t/abc', 'https://cmail31.com/t/abc', 'https://klclick6.com/abc', 'https://kit-mail.com/abc', 'https://dripemail4.com/abc', 'https://sendibt5.com/abc', 'https://mkt4.net/abc', 'https://notklclick1.com/abc', 'https://klclick1.com.example/abc', 'https://spgo.io.example/abc']) {
+			assert.equal(isDeceptiveLink(link(url)), true, url);
 		}
 
 		// (but other pages of Substack, and beehiiv's newsletters, are sites)

@@ -517,6 +517,9 @@ describe('carriedLinkHosts on every shape of input', () => {
 		assert.ok(names(await scanner.scan(store, {phishing: {knownSenders: ['bigstore.example']}})).includes('DECEPTIVE_LINK'));
 		assert.ok(names(await scanner.scan(partner('orders@mail.bigstore.example', 'perks.example'), known('bigstore.example', 'bigstore.example'))).includes('DECEPTIVE_LINK'));
 		assert.ok(names(await scanner.scan(partner('someone@icloud.com', 'www.icloud.com', 'www.paypal.com'), known('icloud.com', 'icloud.com'))).includes('DECEPTIVE_LINK'));
+		for (const domain of ['gmx.de', 'gmx.at', 't-online.de', 'btinternet.com', 'yandex.kz']) {
+			assert.ok(names(await scanner.scan(partner(`someone@${domain}`, `www.${domain}`, 'www.paypal.com'), known(domain, domain))).includes('DECEPTIVE_LINK'), domain);
+		}
 
 		// (a shop's offer from a company, shown at one of the company's domains
 		//  and leading to another of them; not to anyone else's)

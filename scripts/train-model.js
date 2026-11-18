@@ -16,7 +16,15 @@
 // labels are not "spam" and "ham", or whose text is spread over fields, gives
 // a row function: what one of its rows is as {text, subject, label}, or null
 // to leave it out. A dataset of ordinary mail only (invoices, notifications,
-// newsletters, a company's correspondence) is all ham.
+// newsletters, a company's correspondence) is all ham. A dataset may name the
+// columns read of a large Parquet file (columns), or be made here instead of
+// downloaded (make: its rows).
+//
+// The languages the public datasets have little ordinary mail of get three
+// more: what people say every day (the utterances of MASSIVE, twenty to a
+// message), a company's correspondence in French, and the mail and spam
+// written for this project (scripts/everyday-mail.js). Without them a
+// language known mostly by its spam takes every ordinary word for spam.
 //
 // Each download is pinned to a dataset revision and checked against its
 // SHA-256, files already in data/ are checked against it too, and every file
@@ -27,6 +35,7 @@ import {
 	createReadStream, createWriteStream, existsSync, mkdirSync, readFileSync, writeFileSync,
 } from 'node:fs';
 import {createInterface} from 'node:readline';
+import zlib from 'node:zlib';
 import path from 'node:path';
 import process from 'node:process';
 import {parseArgs} from 'node:util';
@@ -34,6 +43,7 @@ import {Classifier} from '../src/classifier.js';
 import {parseCsvLine} from '../src/sources.js';
 import {evaluate, readExamples} from '../src/train.js';
 import {download as downloadPinned, writeAtomically} from './download.js';
+import {everydayMail} from './everyday-mail.js';
 
 const DATASETS = [
 	{
@@ -199,6 +209,83 @@ const DATASETS = [
 			return {subject: match ? match[1] : '', text: match ? match[2] : row.marketing_email, label: 'ham'};
 		},
 	},
+	// (twenty utterances to a message, which is then as long as a mail: a
+	//  word is counted by the messages it is in, so in shorter ones every
+	//  word would be rarer than in the spam, and so a sign of spam)
+	...[
+		['ar', '00248b42a1b0d80eff39ed80363f54021bbb13dd6ac3212fcdda2b8e2c11f43b'],
+		['da', 'adc01b3bb986d54134abbdf0003ee00be8a2c70a6ffaf0080c4da662d15b033e'],
+		['el', 'b4b789777234e2d6f15ca870ab0f9d7a9c7b9a34e47f8e57f7bfaf8ae6f59a42'],
+		['fi', 'd1e10c8c5b9b2d24d960eea60cb14d1a3b9c6961a4d250d9dc20354bbba64e43'],
+		['fr', '358225d1825d0c0477922bae317994efe3a173059c26aa4dd3aa5ff8e4d3a646'],
+		['he', '68ba726d46a6935db7af0ba5527d6b37aeb4eceeeb5c1cf78e668ab7c3515e3e'],
+		['hi', '12fc80cca23c13b9b950af39db31b00b7f067d9d0f2e351432e59b6bac430dbd'],
+		['hu', '8253765228081a4ad3e20faf459c6ae0aa052fb7bf50874ff84ccd1c65f9aa81'],
+		['ja', '13a28465d617bf74f7e3146e907f7de85b955bf11758bb42a8f4f70aeab7dccb'],
+		['ko', '12f2c0b57f1e1c6fa8bda5b2c4ffc4b28dbcfde8b9bfb3df3f20c103a3829151'],
+		['nb', 'f5aa67d82d4cf8356b8f0c0345867974b4f5f90a8b3ba0de1cfa7f3a07b5db09'],
+		['nl', '292f0feb3af88ffe6ff6e6991e56a37fd0e5b09a939d6719e44dc755252e2cf1'],
+		['pl', '74a794de72f560ec26b96d45b13c70bc091c078ba17848c8ee17bd2737e4e291'],
+		['pt', '36589d77185b98e1d497a560c47a761fcee8a99bd8a2a1004d1a4ff244aaeb67'],
+		['ro', 'd4ad48100a094d26beb2d3fb474250b20a575fb64ad9bdb7ad534cc0f999ecc8'],
+		['sv', '6103e260ea03278be0583ade5304598cb08926df44b07bfb73662e55dc9f7007'],
+		['th', '395e4570efbe08fc3f9f8a3f97e01692a53af5fd1330f15444529263acc25482'],
+		['tr', '6922a0a63cf7fe2d1af8355e612ba355e572d4f58807bc06c7f4134b5bd9233b'],
+		['vi', 'afbc319eb5ebef51e86cee0b0b2e47a653670d86d62329f9b84af98fa8ddccd1'],
+		['zh-CN', '8339f3f6c65fbdb6471642cf1854972aa6f084251e0151cbd3403ebe85a4a0dc'],
+		['zh-TW', 'bdfe6da9ff6c64b7c8efdf99711dde797f75730044a525e7d2853f86221d53d7'],
+	].map(([language, sha256]) => {
+		let said = [];
+		return {
+			name: `everyday-speech-${language}`,
+			description: `What people ask and tell an assistant, in ${language} (MASSIVE)`,
+			url: `https://huggingface.co/datasets/mteb/amazon_massive_intent/resolve/940fd47a81eaa7f2cc7b129674d945d618ac38c2/train/${language}.json.gz`,
+			sha256,
+			page: 'https://huggingface.co/datasets/AmazonScience/massive',
+			license: 'CC-BY-4.0',
+			file: `everyday-speech-${language}.json.gz`,
+			row(row) {
+				said.push(row.text);
+				if (said.length < 20) {
+					return null;
+				}
+
+				const text = said.join('. ');
+				said = [];
+				return {text, label: 'ham'};
+			},
+		};
+	}),
+	(() => {
+		let french = 0;
+		return {
+			name: 'business-mail-fr',
+			description: 'The mail of a made-up company, written by language models: every sixth of its French messages',
+			url: 'https://huggingface.co/datasets/sinabis-group/sinabis-100k-synthetic-emails/resolve/c2bfc90f30da0ea99491a07938830882e07c31fe/data/train-00000-of-00001.parquet',
+			sha256: 'c94b685510d725776080b276e5fc91bd9f6cefc574d0ff03c8ab3a981d7a1654',
+			page: 'https://huggingface.co/datasets/sinabis-group/sinabis-100k-synthetic-emails',
+			license: 'CC-BY-4.0',
+			file: 'business-mail-fr.parquet',
+			columns: ['lang', 'subject', 'body'],
+			row: row => (row.lang === 'fr' && french++ % 6 === 0 ? {subject: row.subject, text: row.body, label: 'ham'} : null),
+		};
+	})(),
+	{
+		name: 'everyday-mail',
+		description: 'Everyday mail and spam in 23 languages, written for this project (scripts/everyday-mail.js)',
+		page: 'https://github.com/spamscanner/spamscanner/tree/master/scripts/everyday-mail',
+		license: 'BUSL-1.1, with this project',
+		file: 'everyday-mail.jsonl',
+		// (no spam where the language has no other ordinary text to weigh
+		//  its words against)
+		* make() {
+			for (const message of everydayMail()) {
+				if (message.label === 'ham' || !['bg', 'cs', 'uk'].includes(message.language)) {
+					yield message;
+				}
+			}
+		},
+	},
 	{
 		name: 'enron-spam-test',
 		description: 'The Enron-Spam corpus, test split',
@@ -253,23 +340,59 @@ async function download(dataset, directory) {
 	const target = path.join(directory, dataset.file);
 	return downloadPinned(dataset, directory, {
 		offline: values['no-download'],
-		derived: [target.replace(/\.parquet$/, '.jsonl'), target.replace(/\.csv$/, '.wide.jsonl'), rowsFile(target.replace(/\.parquet$/, '.jsonl'))],
+		derived: [target.replace(/\.parquet$|\.json\.gz$/, '.jsonl'), target.replace(/\.csv$/, '.wide.jsonl'), rowsFile(target.replace(/\.parquet$|\.json\.gz$/, '.jsonl'))],
 	});
 }
 
-// Parquet files are converted to JSON Lines once, next to the download.
-async function toJsonl(file) {
+// Parquet files and gzipped JSON Lines are converted to JSON Lines once, next
+// to the download: a Parquet file in parts, of the columns named, so a large
+// one is not held whole.
+async function toJsonl(file, {columns} = {}) {
+	if (file.endsWith('.json.gz')) {
+		const target = file.replace(/\.json\.gz$/, '.jsonl');
+		if (!existsSync(target)) {
+			await writeAtomically(target, async part => writeFileSync(part, zlib.gunzipSync(readFileSync(file))));
+		}
+
+		return target;
+	}
+
 	if (!file.endsWith('.parquet')) {
 		return file;
 	}
 
 	const target = file.replace(/\.parquet$/, '.jsonl');
 	if (!existsSync(target)) {
-		const {asyncBufferFromFile, parquetReadObjects} = await import('hyparquet');
-		const rows = await parquetReadObjects({file: await asyncBufferFromFile(file)});
-		await writeAtomically(target, async part => writeFileSync(part, rows.map(row => JSON.stringify(row, (key, value) => (typeof value === 'bigint' ? Number(value) : value))).join('\n') + '\n'));
+		const {asyncBufferFromFile, parquetMetadataAsync, parquetReadObjects} = await import('hyparquet');
+		const buffer = await asyncBufferFromFile(file);
+		const metadata = await parquetMetadataAsync(buffer);
+		const rows = Number(metadata.num_rows);
+		// (Zstandard, with Node.js 22.15 or later)
+		const compressors = zlib.zstdDecompressSync ? {ZSTD: input => new Uint8Array(zlib.zstdDecompressSync(input))} : undefined;
+		await writeAtomically(target, async part => {
+			const out = createWriteStream(part);
+			for (let start = 0; start < rows; start += 5000) {
+				const read = await parquetReadObjects({
+					file: buffer, rowStart: start, rowEnd: Math.min(start + 5000, rows), columns, compressors,
+				});
+				out.write(read.map(row => JSON.stringify(row, (key, value) => (typeof value === 'bigint' ? Number(value) : value))).join('\n') + '\n');
+			}
+
+			await new Promise((resolve, reject) => {
+				out.on('error', reject);
+				out.end(resolve);
+			});
+		});
 	}
 
+	return target;
+}
+
+// The rows a dataset makes itself, written as JSON Lines of {text, subject,
+// label} each time.
+async function made(dataset, directory) {
+	const target = path.join(directory, dataset.file);
+	await writeAtomically(target, async part => writeFileSync(part, [...dataset.make()].map(row => JSON.stringify({text: row.text, subject: row.subject || '', label: row.label})).join('\n') + '\n'));
 	return target;
 }
 
@@ -380,6 +503,31 @@ async function labelled(dataset, file) {
 	return target;
 }
 
+// A mail server's bounce is its standard text, the same for any message it
+// returns, and says nothing of spam. The corpora have bounces only among their
+// spam (those of spam sent in the mailbox's name), which taught the model
+// that the words of every bounce are spam: an ordinary bounce that returned
+// only the header of its message scored 99%. They are left out, by words
+// each mail server has together: qmail and those that write like it,
+// sendmail, Exim, Postfix, Domino, iPlanet, and a delivery status
+// notification by its name.
+const BOUNCE_WORDS = [
+	['qmail send', 'send program'],
+	['deliver your', 'following addresses'],
+	['addresses had', 'session follows'],
+	['created automatically', 'delivery software'],
+	['problem report', 'own text'],
+	['delivery failure', 'domino directory'],
+	['delivery has', 'report relates'],
+	['delivery status', 'status notification'],
+	['s:delivery', 's:status', 's:notification'],
+];
+
+function isBounce(features) {
+	const words = new Set(features);
+	return BOUNCE_WORDS.some(group => group.every(word => words.has(word)));
+}
+
 function isHeldOut(example) {
 	return Number.parseInt(example.id.slice(0, 8), 16) % 10 === 0;
 }
@@ -428,8 +576,9 @@ mkdirSync(values.data, {recursive: true});
 console.error('Reading and tokenizing examples');
 const examples = [];
 const seen = new Set();
+const bounces = {spam: 0, ham: 0};
 for (const dataset of selected) {
-	let file = await toJsonl(await download(dataset, values.data));
+	let file = dataset.make ? await made(dataset, values.data) : await toJsonl(await download(dataset, values.data), dataset);
 	if (dataset.wide) {
 		file = await unwiden(file);
 	}
@@ -439,7 +588,7 @@ for (const dataset of selected) {
 	}
 
 	const sources = {
-		datasets: [dataset.row
+		datasets: [dataset.row || dataset.make
 			? {
 				file, textColumn: 'text', labelColumn: 'label', subjectColumn: 'subject',
 			}
@@ -450,37 +599,48 @@ for (const dataset of selected) {
 	for await (const example of readExamples(sources, {onProgress: n => process.stderr.write(`\r${dataset.name}: ${n} examples`)})) {
 		if (!seen.has(example.id)) {
 			seen.add(example.id);
-			examples.push({...example, source: dataset.name});
+			if (isBounce(example.features)) {
+				bounces[example.label]++;
+			} else {
+				examples.push({...example, source: dataset.name});
+			}
 		}
 	}
 
 	process.stderr.write('\n');
 }
 
-const holdout = new Classifier();
-const test = [];
-for (const example of examples) {
-	if (isHeldOut(example)) {
-		test.push(example);
-	} else {
-		holdout.learn(example.features, example.label);
+console.error(`Left out ${bounces.spam} bounces labelled spam and ${bounces.ham} labelled ham`);
+// (in a function, so the classifier measured with is let go before the one
+//  kept is trained: the two do not fit in memory together)
+async function measured() {
+	const holdout = new Classifier();
+	const test = [];
+	for (const example of examples) {
+		if (isHeldOut(example)) {
+			test.push(example);
+		} else {
+			holdout.learn(example.features, example.label);
+		}
 	}
+
+	const overall = await evaluate(holdout, test);
+	return {
+		test: 'Every tenth message (by content hash) held out; trained on the rest',
+		messages: test.length,
+		precision: round(overall.precision),
+		recall: round(overall.recall),
+		f1: round(overall.f1),
+		accuracy: round(overall.accuracy),
+		falsePositiveRate: round(overall.falsePositiveRate),
+		falseNegativeRate: round(overall.falseNegativeRate),
+		unsureRate: round(overall.unsureRate),
+		bySource: await grouped(holdout, test, example => example.source),
+		byLanguage: await grouped(holdout, test, example => languageOf(example.features)),
+	};
 }
 
-const overall = await evaluate(holdout, test);
-const metrics = {
-	test: 'Every tenth message (by content hash) held out; trained on the rest',
-	messages: test.length,
-	precision: round(overall.precision),
-	recall: round(overall.recall),
-	f1: round(overall.f1),
-	accuracy: round(overall.accuracy),
-	falsePositiveRate: round(overall.falsePositiveRate),
-	falseNegativeRate: round(overall.falseNegativeRate),
-	unsureRate: round(overall.unsureRate),
-	bySource: await grouped(holdout, test, example => example.source),
-	byLanguage: await grouped(holdout, test, example => languageOf(example.features)),
-};
+const metrics = await measured();
 console.error(JSON.stringify(metrics, null, 2));
 
 const classifier = new Classifier();

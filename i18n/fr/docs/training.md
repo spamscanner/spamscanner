@@ -1,4 +1,4 @@
-<!-- source: c4f8c2c7aa5a -->
+<!-- source: 6f344039ec5d -->
 
 # Entraînement
 
@@ -95,21 +95,28 @@ Un message signalé comme mal classé doit être désappris de la mauvaise class
 | [chairulridjal/high-accuracy-email-classifier-indonesian](https://huggingface.co/datasets/chairulridjal/high-accuracy-email-classifier-indonesian)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Apache-2.0                 | Courriels indonésiens par catégorie                                                    |
 | [JeisonJimenez/emails_2025](https://huggingface.co/datasets/JeisonJimenez/emails_2025)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Apache-2.0                 | Le courrier d'une entreprise en espagnol                                               |
 | [imnim/multiclass-email-classification](https://huggingface.co/datasets/imnim/multiclass-email-classification), [weijianzhg/email-triage-action-seed](https://huggingface.co/datasets/weijianzhg/email-triage-action-seed), [dedsec995/Email_Classification_Text](https://huggingface.co/datasets/dedsec995/Email_Classification_Text), [vpakarinen/open-wiki-email-templates](https://huggingface.co/datasets/vpakarinen/open-wiki-email-templates), [neurocheckout-ai/synthetic-abandoned-cart-email-examples](https://huggingface.co/datasets/neurocheckout-ai/synthetic-abandoned-cart-email-examples), [dhnanjay/MarketMail-AI-Dataset](https://huggingface.co/datasets/dhnanjay/MarketMail-AI-Dataset) | MIT, Apache-2.0, CC-BY-4.0 | Courrier ordinaire : factures, réservations, newsletters, promotions et avis de compte |
+| [AmazonScience/massive](https://huggingface.co/datasets/AmazonScience/massive)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | CC-BY-4.0                  | Ce que les gens demandent à un assistant, en 20 langues                                |
+| [sinabis-group/sinabis-100k-synthetic-emails](https://huggingface.co/datasets/sinabis-group/sinabis-100k-synthetic-emails)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | CC-BY-4.0                  | Le courrier d'une entreprise fictive en français                                       |
+| [scripts/everyday-mail](https://github.com/spamscanner/spamscanner/tree/master/scripts/everyday-mail)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | Avec ce projet             | Courrier du quotidien et fraudes en 23 langues, écrits pour ce projet                  |
 
 Le ham comprend le courrier ordinaire des entreprises et des boutiques (factures, avis de commande et de compte, newsletters, promotions), de sorte qu'un tel courrier ne passe pas à lui seul pour du spam.
 
-Il a appris à partir de 77 564 messages de spam et 112 586 messages de ham. Le script met de côté un message sur dix, entraîne sur le reste et mesure le classifieur seul, sans les autres vérifications :
+Les messages de non-distribution (bounces) des jeux de données sont écartés : ils ne figurent que parmi le spam, ce qui apprendrait au classifieur que tout message de non-distribution est du spam.
+
+Les trois dernières lignes sont du texte ordinaire dans les langues dont les autres jeux de données contiennent surtout du spam (français, portugais, néerlandais, langues nordiques, polonais, turc, arabe, japonais, coréen, chinois et d'autres), où chaque mot ordinaire se lirait sinon comme du spam. Sur 10 000 textes ordinaires en 20 langues sur lesquels le modèle n'a pas été entraîné, 1,4 % obtiennent une probabilité de 80 % ou plus (4,8 % sans ces lignes) et 0,1 % une probabilité de 99 % ou plus. Ce texte n'est pas du vrai courrier, et les fraudes écrites pour chaque langue sont peu nombreuses : le classifieur devient plus sûr du courrier ordinaire dans ces langues et n'attrape guère plus de leur spam.
+
+Il a appris à partir de 81 254 messages de spam et 133 317 messages de ham. Le script met de côté un message sur dix, entraîne sur le reste et mesure le classifieur seul, sans les autres vérifications :
 
 | Test sur messages mis de côté | Messages | Précision | Rappel | Faux positifs | Incertains |
 | ----------------------------- | -------: | --------: | -----: | ------------: | ---------: |
-| Anglais                       |    8 515 |   100,0 % | 96,4 % |         0,0 % |      2,6 % |
-| Russe                         |    1 680 |   100,0 % | 97,4 % |         0,0 % |      2,3 % |
-| Italien                       |    1 392 |    98,6 % | 81,0 % |         1,2 % |     12,5 % |
-| Allemand                      |    1 314 |    97,8 % | 72,5 % |         2,1 % |     22,6 % |
-| Espagnol                      |    2 088 |    98,5 % | 56,1 % |         0,4 % |     15,7 % |
-| Enron-Spam                    |    2 888 |   100,0 % | 92,4 % |         0,0 % |      4,4 % |
-| all-scam-spam                 |    4 236 |   100,0 % | 89,3 % |         0,0 % |     11,6 % |
-| Tout                          |   18 967 |    99,6 % | 77,2 % |         0,2 % |     15,8 % |
+| Anglais                       |    8 481 |   100,0 % | 96,3 % |         0,0 % |      2,6 % |
+| Russe                         |    1 680 |   100,0 % | 97,4 % |         0,0 % |      2,2 % |
+| Italien                       |    1 392 |    99,0 % | 81,0 % |         0,9 % |     12,6 % |
+| Allemand                      |    1 314 |    97,9 % | 71,4 % |         1,9 % |     22,3 % |
+| Espagnol                      |    2 088 |    98,7 % | 53,3 % |         0,4 % |     16,2 % |
+| Enron-Spam                    |    2 870 |   100,0 % | 95,2 % |         0,0 % |      2,6 % |
+| all-scam-spam                 |    4 222 |    99,9 % | 92,2 % |         0,0 % |      9,1 % |
+| Tout                          |   21 329 |    99,6 % | 76,6 % |         0,2 % |     14,2 % |
 
 Le spam correspond ici à une probabilité du classifieur de 99 % ou plus, le point à partir duquel le classifieur atteint seul le seuil de spam. Dans une analyse, le spam dont il est moins sûr obtient tout de même des points, et les autres vérifications ajoutent les leurs.
 
@@ -132,7 +139,7 @@ Les résultats en allemand, en espagnol et en italien proviennent de jeux de don
 ### Le réentraîner
 
 ```sh
-npm run model:train                       # downloads the datasets into data/ the first time
+npm run model:train                       # downloads the datasets into data/ the first time; needs 4 GB of memory
 npm run model:train -- --no-download      # reuse data/
 npm run model:train -- --out /tmp/model.json --max-features 200000
 ```

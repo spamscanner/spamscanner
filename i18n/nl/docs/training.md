@@ -1,4 +1,4 @@
-<!-- source: c4f8c2c7aa5a -->
+<!-- source: 6f344039ec5d -->
 
 # Training
 
@@ -95,21 +95,28 @@ Een bericht dat als verkeerd geclassificeerd is gemeld, moet uit de verkeerde kl
 | [chairulridjal/high-accuracy-email-classifier-indonesian](https://huggingface.co/datasets/chairulridjal/high-accuracy-email-classifier-indonesian)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Apache-2.0                 | Indonesische e-mails per categorie                                                  |
 | [JeisonJimenez/emails_2025](https://huggingface.co/datasets/JeisonJimenez/emails_2025)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Apache-2.0                 | De post van een bedrijf in het Spaans                                               |
 | [imnim/multiclass-email-classification](https://huggingface.co/datasets/imnim/multiclass-email-classification), [weijianzhg/email-triage-action-seed](https://huggingface.co/datasets/weijianzhg/email-triage-action-seed), [dedsec995/Email_Classification_Text](https://huggingface.co/datasets/dedsec995/Email_Classification_Text), [vpakarinen/open-wiki-email-templates](https://huggingface.co/datasets/vpakarinen/open-wiki-email-templates), [neurocheckout-ai/synthetic-abandoned-cart-email-examples](https://huggingface.co/datasets/neurocheckout-ai/synthetic-abandoned-cart-email-examples), [dhnanjay/MarketMail-AI-Dataset](https://huggingface.co/datasets/dhnanjay/MarketMail-AI-Dataset) | MIT, Apache-2.0, CC-BY-4.0 | Gewone post: rekeningen, boekingen, nieuwsbrieven, aanbiedingen en accountmeldingen |
+| [AmazonScience/massive](https://huggingface.co/datasets/AmazonScience/massive)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | CC-BY-4.0                  | Wat mensen aan een assistent vragen, in 20 talen                                    |
+| [sinabis-group/sinabis-100k-synthetic-emails](https://huggingface.co/datasets/sinabis-group/sinabis-100k-synthetic-emails)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | CC-BY-4.0                  | De post van een verzonnen bedrijf in het Frans                                      |
+| [scripts/everyday-mail](https://github.com/spamscanner/spamscanner/tree/master/scripts/everyday-mail)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | Met dit project            | Alledaagse post en fraude in 23 talen, geschreven voor dit project                  |
 
 De ham bevat gewone zakelijke en winkelpost (facturen, bestel- en accountmeldingen, nieuwsbrieven, aanbiedingen), zodat zulke post op zichzelf niet als spam wordt gelezen.
 
-Het leerde van 77.564 spam- en 112.586 hamberichten. Het script houdt elk tiende bericht achter, traint op de rest en meet alleen de classifier, zonder de andere controles:
+Bounceberichten in de datasets worden weggelaten: ze staan alleen tussen de spam, wat de classifier zou leren dat elke bounce spam is.
+
+De laatste drie rijen zijn gewone tekst in de talen waarvan de andere datasets vooral spam bevatten (Frans, Portugees, Nederlands, de Scandinavische talen, Pools, Turks, Arabisch, Japans, Koreaans, Chinees en meer), waar elk gewoon woord anders als spam zou worden gelezen. Van 10.000 gewone teksten in 20 talen waarop het model niet is getraind, krijgt 1,4% een kans van 80% of meer (4,8% zonder deze rijen) en 0,1% een kans van 99% of meer. Deze tekst is geen echte post, en de fraude die voor elke taal is geschreven is schaars: de classifier wordt zekerder van gewone post in deze talen en vangt maar weinig meer van hun spam.
+
+Het leerde van 81.254 spam- en 133.317 hamberichten. Het script houdt elk tiende bericht achter, traint op de rest en meet alleen de classifier, zonder de andere controles:
 
 | Achtergehouden test | Berichten | Precisie | Recall | Fout-positieven | Onzeker |
 | ------------------- | --------: | -------: | -----: | --------------: | ------: |
-| Engels              |     8.515 |   100,0% |  96,4% |            0,0% |    2,6% |
-| Russisch            |     1.680 |   100,0% |  97,4% |            0,0% |    2,3% |
-| Italiaans           |     1.392 |    98,6% |  81,0% |            1,2% |   12,5% |
-| Duits               |     1.314 |    97,8% |  72,5% |            2,1% |   22,6% |
-| Spaans              |     2.088 |    98,5% |  56,1% |            0,4% |   15,7% |
-| Enron-Spam          |     2.888 |   100,0% |  92,4% |            0,0% |    4,4% |
-| all-scam-spam       |     4.236 |   100,0% |  89,3% |            0,0% |   11,6% |
-| Alle                |    18.967 |    99,6% |  77,2% |            0,2% |   15,8% |
+| Engels              |     8.481 |   100,0% |  96,3% |            0,0% |    2,6% |
+| Russisch            |     1.680 |   100,0% |  97,4% |            0,0% |    2,2% |
+| Italiaans           |     1.392 |    99,0% |  81,0% |            0,9% |   12,6% |
+| Duits               |     1.314 |    97,9% |  71,4% |            1,9% |   22,3% |
+| Spaans              |     2.088 |    98,7% |  53,3% |            0,4% |   16,2% |
+| Enron-Spam          |     2.870 |   100,0% |  95,2% |            0,0% |    2,6% |
+| all-scam-spam       |     4.222 |    99,9% |  92,2% |            0,0% |    9,1% |
+| Alle                |    21.329 |    99,6% |  76,6% |            0,2% |   14,2% |
 
 Spam betekent hier een classifierkans van 99% of meer, het punt waarop de classifier op zichzelf de spamdrempel haalt. In een scan krijgt spam waarover hij minder zeker is nog steeds punten, en de andere controles tellen de hunne erbij op.
 
@@ -132,7 +139,7 @@ De Duitse, Spaanse en Italiaanse resultaten komen uit synthetische datasets, die
 ### Opnieuw trainen
 
 ```sh
-npm run model:train                       # downloads the datasets into data/ the first time
+npm run model:train                       # downloads the datasets into data/ the first time; needs 4 GB of memory
 npm run model:train -- --no-download      # reuse data/
 npm run model:train -- --out /tmp/model.json --max-features 200000
 ```

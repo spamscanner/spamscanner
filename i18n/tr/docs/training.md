@@ -1,4 +1,4 @@
-<!-- source: c4f8c2c7aa5a -->
+<!-- source: 6f344039ec5d -->
 
 # Eğitim
 
@@ -95,21 +95,28 @@ Yanlış sınıflandırıldığı bildirilen bir ileti daha önce öğrenildiyse
 | [chairulridjal/high-accuracy-email-classifier-indonesian](https://huggingface.co/datasets/chairulridjal/high-accuracy-email-classifier-indonesian)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Apache-2.0                     | Kategoriye göre Endonezce e-postalar                                                   |
 | [JeisonJimenez/emails_2025](https://huggingface.co/datasets/JeisonJimenez/emails_2025)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Apache-2.0                     | Bir şirketin İspanyolca postası                                                        |
 | [imnim/multiclass-email-classification](https://huggingface.co/datasets/imnim/multiclass-email-classification), [weijianzhg/email-triage-action-seed](https://huggingface.co/datasets/weijianzhg/email-triage-action-seed), [dedsec995/Email_Classification_Text](https://huggingface.co/datasets/dedsec995/Email_Classification_Text), [vpakarinen/open-wiki-email-templates](https://huggingface.co/datasets/vpakarinen/open-wiki-email-templates), [neurocheckout-ai/synthetic-abandoned-cart-email-examples](https://huggingface.co/datasets/neurocheckout-ai/synthetic-abandoned-cart-email-examples), [dhnanjay/MarketMail-AI-Dataset](https://huggingface.co/datasets/dhnanjay/MarketMail-AI-Dataset) | MIT, Apache-2.0, CC-BY-4.0     | Olağan posta: faturalar, rezervasyonlar, bültenler, promosyonlar ve hesap bildirimleri |
+| [AmazonScience/massive](https://huggingface.co/datasets/AmazonScience/massive)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | CC-BY-4.0                      | İnsanların bir asistandan istedikleri, 20 dilde                                        |
+| [sinabis-group/sinabis-100k-synthetic-emails](https://huggingface.co/datasets/sinabis-group/sinabis-100k-synthetic-emails)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | CC-BY-4.0                      | Uydurma bir şirketin Fransızca postası                                                 |
+| [scripts/everyday-mail](https://github.com/spamscanner/spamscanner/tree/master/scripts/everyday-mail)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | Bu projeyle birlikte           | Bu proje için yazılmış, 23 dilde gündelik posta ve dolandırıcılık iletileri            |
 
 Ham, olağan iş ve mağaza postasını (faturalar, sipariş ve hesap bildirimleri, bültenler, promosyonlar) içerir; böylece bu tür posta tek başına spam olarak okunmaz.
 
-Model 77.564 spam ve 112.586 ham iletiden öğrendi. Betik her onuncu iletiyi ayırır, geri kalanıyla eğitir ve diğer denetimler olmadan yalnızca sınıflandırıcıyı ölçer:
+Veri kümelerindeki geri dönen iletiler (bounce) dışarıda bırakılır: yalnızca spam arasında bulunurlar ve bu, sınıflandırıcıya her geri dönen iletinin spam olduğunu öğretirdi.
+
+Son üç satır, diğer veri kümelerinde çoğunlukla spam'i bulunan dillerde (Fransızca, Portekizce, Felemenkçe, İskandinav dilleri, Lehçe, Türkçe, Arapça, Japonca, Korece, Çince ve başkaları) olağan metindir; bunlar olmasa bu dillerde her olağan sözcük spam olarak okunurdu. Modelin eğitilmediği 20 dildeki 10.000 olağan metnin %1,4'ü %80 veya daha yüksek bir olasılık alır (bu satırlar olmadan %4,8), %0,1'i ise %99 veya daha yüksek. Bu metin gerçek posta değildir ve her dil için yazılan dolandırıcılık iletileri azdır: sınıflandırıcı bu dillerdeki olağan postadan daha emin olur ve spam'lerinin ancak biraz daha fazlasını yakalar.
+
+Model 81.254 spam ve 133.317 ham iletiden öğrendi. Betik her onuncu iletiyi ayırır, geri kalanıyla eğitir ve diğer denetimler olmadan yalnızca sınıflandırıcıyı ölçer:
 
 | Ayrılmış test |  İleti | Kesinlik | Duyarlılık | Yanlış pozitif | Emin değil |
 | ------------- | -----: | -------: | ---------: | -------------: | ---------: |
-| İngilizce     |  8.515 |   %100,0 |      %96,4 |           %0,0 |       %2,6 |
-| Rusça         |  1.680 |   %100,0 |      %97,4 |           %0,0 |       %2,3 |
-| İtalyanca     |  1.392 |    %98,6 |      %81,0 |           %1,2 |      %12,5 |
-| Almanca       |  1.314 |    %97,8 |      %72,5 |           %2,1 |      %22,6 |
-| İspanyolca    |  2.088 |    %98,5 |      %56,1 |           %0,4 |      %15,7 |
-| Enron-Spam    |  2.888 |   %100,0 |      %92,4 |           %0,0 |       %4,4 |
-| all-scam-spam |  4.236 |   %100,0 |      %89,3 |           %0,0 |      %11,6 |
-| Tümü          | 18.967 |    %99,6 |      %77,2 |           %0,2 |      %15,8 |
+| İngilizce     |  8.481 |   %100,0 |      %96,3 |           %0,0 |       %2,6 |
+| Rusça         |  1.680 |   %100,0 |      %97,4 |           %0,0 |       %2,2 |
+| İtalyanca     |  1.392 |    %99,0 |      %81,0 |           %0,9 |      %12,6 |
+| Almanca       |  1.314 |    %97,9 |      %71,4 |           %1,9 |      %22,3 |
+| İspanyolca    |  2.088 |    %98,7 |      %53,3 |           %0,4 |      %16,2 |
+| Enron-Spam    |  2.870 |   %100,0 |      %95,2 |           %0,0 |       %2,6 |
+| all-scam-spam |  4.222 |    %99,9 |      %92,2 |           %0,0 |       %9,1 |
+| Tümü          | 21.329 |    %99,6 |      %76,6 |           %0,2 |      %14,2 |
 
 Burada spam, sınıflandırıcı olasılığının %99 veya üzeri olması anlamına gelir; bu, sınıflandırıcının tek başına spam eşiğine ulaştığı noktadır. Bir taramada sınıflandırıcının daha az emin olduğu spam yine de puan alır ve diğer denetimler kendi puanlarını ekler.
 
@@ -132,7 +139,7 @@ Almanca, İspanyolca ve İtalyanca sonuçlar, hem spam hem ham olarak etiketlenm
 ### Yeniden eğitin
 
 ```sh
-npm run model:train                       # downloads the datasets into data/ the first time
+npm run model:train                       # downloads the datasets into data/ the first time; needs 4 GB of memory
 npm run model:train -- --no-download      # reuse data/
 npm run model:train -- --out /tmp/model.json --max-features 200000
 ```

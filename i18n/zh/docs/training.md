@@ -1,4 +1,4 @@
-<!-- source: c4f8c2c7aa5a -->
+<!-- source: 6f344039ec5d -->
 
 # 训练
 
@@ -95,21 +95,28 @@ scanner.saveModel('/var/lib/spamscanner/model.json');
 | [chairulridjal/high-accuracy-email-classifier-indonesian](https://huggingface.co/datasets/chairulridjal/high-accuracy-email-classifier-indonesian)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Apache-2.0                 | 按类别划分的印度尼西亚语邮件           |
 | [JeisonJimenez/emails_2025](https://huggingface.co/datasets/JeisonJimenez/emails_2025)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Apache-2.0                 | 一家公司的西班牙语邮件              |
 | [imnim/multiclass-email-classification](https://huggingface.co/datasets/imnim/multiclass-email-classification), [weijianzhg/email-triage-action-seed](https://huggingface.co/datasets/weijianzhg/email-triage-action-seed), [dedsec995/Email_Classification_Text](https://huggingface.co/datasets/dedsec995/Email_Classification_Text), [vpakarinen/open-wiki-email-templates](https://huggingface.co/datasets/vpakarinen/open-wiki-email-templates), [neurocheckout-ai/synthetic-abandoned-cart-email-examples](https://huggingface.co/datasets/neurocheckout-ai/synthetic-abandoned-cart-email-examples), [dhnanjay/MarketMail-AI-Dataset](https://huggingface.co/datasets/dhnanjay/MarketMail-AI-Dataset) | MIT, Apache-2.0, CC-BY-4.0 | 普通邮件：账单、预订、新闻通讯、促销和账户通知  |
+| [AmazonScience/massive](https://huggingface.co/datasets/AmazonScience/massive)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | CC-BY-4.0                  | 人们对语音助手说的话，共 20 种语言      |
+| [sinabis-group/sinabis-100k-synthetic-emails](https://huggingface.co/datasets/sinabis-group/sinabis-100k-synthetic-emails)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | CC-BY-4.0                  | 一家虚构公司的法语邮件              |
+| [scripts/everyday-mail](https://github.com/spamscanner/spamscanner/tree/master/scripts/everyday-mail)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | 随本项目                       | 为本项目编写的 23 种语言的日常邮件和诈骗邮件 |
 
 正常邮件包括普通的企业和商店邮件（发票、订单和账户通知、新闻通讯、促销），因此这类邮件本身不会被判为垃圾邮件。
 
-它从 77,564 封垃圾邮件和 112,586 封正常邮件中学习。脚本每十封留出一封，用其余邮件训练，并只测量分类器本身，不含其他检查：
+数据集中的退信会被剔除：它们只出现在垃圾邮件中，会让分类器学到所有退信都是垃圾邮件。
+
+最后三行是其他数据集里大多只有垃圾邮件的语言（法语、葡萄牙语、荷兰语、北欧语言、波兰语、土耳其语、阿拉伯语、日语、韩语、中文等）的普通文本；没有它们，这些语言里的每个普通词都会被当作垃圾邮件。在模型没有训练过的 20 种语言的 10,000 篇普通文本中，1.4% 得到 80% 或更高的概率（没有这三行时为 4.8%），0.1% 得到 99% 或更高的概率。这些文本不是真实邮件，为每种语言编写的诈骗邮件也很少：分类器对这些语言的普通邮件更有把握，而多拦截的垃圾邮件很有限。
+
+它从 81,254 封垃圾邮件和 133,317 封正常邮件中学习。脚本每十封留出一封，用其余邮件训练，并只测量分类器本身，不含其他检查：
 
 | 留出测试          |     邮件 |    精确率 |   召回率 |   误报 |   不确定 |
 | ------------- | -----: | -----: | ----: | ---: | ----: |
-| 英语            |  8,515 | 100.0% | 96.4% | 0.0% |  2.6% |
-| 俄语            |  1,680 | 100.0% | 97.4% | 0.0% |  2.3% |
-| 意大利语          |  1,392 |  98.6% | 81.0% | 1.2% | 12.5% |
-| 德语            |  1,314 |  97.8% | 72.5% | 2.1% | 22.6% |
-| 西班牙语          |  2,088 |  98.5% | 56.1% | 0.4% | 15.7% |
-| Enron-Spam    |  2,888 | 100.0% | 92.4% | 0.0% |  4.4% |
-| all-scam-spam |  4,236 | 100.0% | 89.3% | 0.0% | 11.6% |
-| 全部            | 18,967 |  99.6% | 77.2% | 0.2% | 15.8% |
+| 英语            |  8,481 | 100.0% | 96.3% | 0.0% |  2.6% |
+| 俄语            |  1,680 | 100.0% | 97.4% | 0.0% |  2.2% |
+| 意大利语          |  1,392 |  99.0% | 81.0% | 0.9% | 12.6% |
+| 德语            |  1,314 |  97.9% | 71.4% | 1.9% | 22.3% |
+| 西班牙语          |  2,088 |  98.7% | 53.3% | 0.4% | 16.2% |
+| Enron-Spam    |  2,870 | 100.0% | 95.2% | 0.0% |  2.6% |
+| all-scam-spam |  4,222 |  99.9% | 92.2% | 0.0% |  9.1% |
+| 全部            | 21,329 |  99.6% | 76.6% | 0.2% | 14.2% |
 
 这里的垃圾邮件是指分类器概率达到 99% 或以上，即分类器单独达到垃圾邮件阈值的那一点。在实际扫描中，它不那么确定的垃圾邮件仍会得到分值，其他检查也会加上各自的分值。
 
@@ -132,7 +139,7 @@ scanner.saveModel('/var/lib/spamscanner/model.json');
 ### 重新训练
 
 ```sh
-npm run model:train                       # downloads the datasets into data/ the first time
+npm run model:train                       # downloads the datasets into data/ the first time; needs 4 GB of memory
 npm run model:train -- --no-download      # reuse data/
 npm run model:train -- --out /tmp/model.json --max-features 200000
 ```

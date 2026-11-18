@@ -1,4 +1,4 @@
-<!-- source: c4f8c2c7aa5a -->
+<!-- source: 6f344039ec5d -->
 
 # Trénování
 
@@ -95,21 +95,28 @@ Zprávu nahlášenou jako chybně zařazenou je třeba, pokud už byla naučena,
 | [chairulridjal/high-accuracy-email-classifier-indonesian](https://huggingface.co/datasets/chairulridjal/high-accuracy-email-classifier-indonesian)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Apache-2.0                 | Indonéské e-maily podle kategorie                                         |
 | [JeisonJimenez/emails_2025](https://huggingface.co/datasets/JeisonJimenez/emails_2025)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Apache-2.0                 | Pošta jedné firmy ve španělštině                                          |
 | [imnim/multiclass-email-classification](https://huggingface.co/datasets/imnim/multiclass-email-classification), [weijianzhg/email-triage-action-seed](https://huggingface.co/datasets/weijianzhg/email-triage-action-seed), [dedsec995/Email_Classification_Text](https://huggingface.co/datasets/dedsec995/Email_Classification_Text), [vpakarinen/open-wiki-email-templates](https://huggingface.co/datasets/vpakarinen/open-wiki-email-templates), [neurocheckout-ai/synthetic-abandoned-cart-email-examples](https://huggingface.co/datasets/neurocheckout-ai/synthetic-abandoned-cart-email-examples), [dhnanjay/MarketMail-AI-Dataset](https://huggingface.co/datasets/dhnanjay/MarketMail-AI-Dataset) | MIT, Apache-2.0, CC-BY-4.0 | Běžná pošta: účty, rezervace, zpravodaje, akční nabídky a oznámení o účtu |
+| [AmazonScience/massive](https://huggingface.co/datasets/AmazonScience/massive)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | CC-BY-4.0                  | Co lidé žádají po hlasovém asistentovi, ve 20 jazycích                    |
+| [sinabis-group/sinabis-100k-synthetic-emails](https://huggingface.co/datasets/sinabis-group/sinabis-100k-synthetic-emails)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | CC-BY-4.0                  | Pošta smyšlené firmy ve francouzštině                                     |
+| [scripts/everyday-mail](https://github.com/spamscanner/spamscanner/tree/master/scripts/everyday-mail)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | S tímto projektem          | Každodenní pošta a podvody ve 23 jazycích, napsané pro tento projekt      |
 
 Ham zahrnuje běžnou firemní a obchodní poštu (faktury, oznámení o objednávkách a účtech, zpravodaje, akční nabídky), takže taková pošta sama o sobě nevypadá jako spam.
 
-Učil se z 77 564 spamových a 112 586 hamových zpráv. Skript odloží každou desátou zprávu, natrénuje model na zbytku a změří samotný klasifikátor bez ostatních kontrol:
+Nedoručenky v datových sadách se vynechávají: jsou jen mezi spamem, což by klasifikátor naučilo, že každá nedoručenka je spam.
+
+Poslední tři řádky jsou běžný text v jazycích, z nichž ostatní datové sady obsahují hlavně spam (francouzština, portugalština, nizozemština, severské jazyky, polština, turečtina, arabština, japonština, korejština, čínština a další) a v nichž by se jinak každé běžné slovo četlo jako spam. Z 10 000 běžných textů ve 20 jazycích, na kterých se model neučil, dostane 1,4 % pravděpodobnost 80 % nebo vyšší (4,8 % bez těchto řádků) a 0,1 % pravděpodobnost 99 % nebo vyšší. Tento text není skutečná pošta a podvodů napsaných pro jeden jazyk je málo: klasifikátor si je v těchto jazycích jistější běžnou poštou a jejich spamu zachytí jen o málo víc.
+
+Učil se z 81 254 spamových a 133 317 hamových zpráv. Skript odloží každou desátou zprávu, natrénuje model na zbytku a změří samotný klasifikátor bez ostatních kontrol:
 
 | Odložený test | Zprávy | Přesnost | Úplnost | Falešně pozitivní | Nejisté |
 | ------------- | -----: | -------: | ------: | ----------------: | ------: |
-| Angličtina    |  8 515 |  100,0 % |  96,4 % |             0,0 % |   2,6 % |
-| Ruština       |  1 680 |  100,0 % |  97,4 % |             0,0 % |   2,3 % |
-| Italština     |  1 392 |   98,6 % |  81,0 % |             1,2 % |  12,5 % |
-| Němčina       |  1 314 |   97,8 % |  72,5 % |             2,1 % |  22,6 % |
-| Španělština   |  2 088 |   98,5 % |  56,1 % |             0,4 % |  15,7 % |
-| Enron-Spam    |  2 888 |  100,0 % |  92,4 % |             0,0 % |   4,4 % |
-| all-scam-spam |  4 236 |  100,0 % |  89,3 % |             0,0 % |  11,6 % |
-| Vše           | 18 967 |   99,6 % |  77,2 % |             0,2 % |  15,8 % |
+| Angličtina    |  8 481 |  100,0 % |  96,3 % |             0,0 % |   2,6 % |
+| Ruština       |  1 680 |  100,0 % |  97,4 % |             0,0 % |   2,2 % |
+| Italština     |  1 392 |   99,0 % |  81,0 % |             0,9 % |  12,6 % |
+| Němčina       |  1 314 |   97,9 % |  71,4 % |             1,9 % |  22,3 % |
+| Španělština   |  2 088 |   98,7 % |  53,3 % |             0,4 % |  16,2 % |
+| Enron-Spam    |  2 870 |  100,0 % |  95,2 % |             0,0 % |   2,6 % |
+| all-scam-spam |  4 222 |   99,9 % |  92,2 % |             0,0 % |   9,1 % |
+| Vše           | 21 329 |   99,6 % |  76,6 % |             0,2 % |  14,2 % |
 
 Spam zde znamená pravděpodobnost podle klasifikátoru 99 % nebo více, tedy bod, ve kterém samotný klasifikátor dosáhne prahu spamu. Při kontrole dostane body i spam, kterým si je méně jistý, a ostatní kontroly přidají své.
 
@@ -132,7 +139,7 @@ Výsledky pro němčinu, španělštinu a italštinu pocházejí ze syntetickýc
 ### Přetrénování
 
 ```sh
-npm run model:train                       # downloads the datasets into data/ the first time
+npm run model:train                       # downloads the datasets into data/ the first time; needs 4 GB of memory
 npm run model:train -- --no-download      # reuse data/
 npm run model:train -- --out /tmp/model.json --max-features 200000
 ```

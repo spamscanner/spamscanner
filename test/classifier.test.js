@@ -193,6 +193,32 @@ describe('Classifier', () => {
 		assert.equal(small.classify(['lang:fr', 'gratuit']).coverage.confidence, 1);
 		assert.equal(Classifier.fromJSON(classifier.toJSON()).options.minLanguageExamples, 10);
 	});
+
+	it('weighs a word of another language against all the messages', () => {
+		const classifier = new Classifier({minLanguageExamples: 10});
+		for (let i = 0; i < 300; i++) {
+			classifier.learn(['lang:en', ...(i < 60 ? ['please'] : []), `spam${i}`], 'spam');
+		}
+
+		for (let i = 0; i < 100; i++) {
+			classifier.learn(['lang:en', ...(i < 60 ? ['please'] : []), `ham${i}`], 'ham');
+		}
+
+		for (let i = 0; i < 80; i++) {
+			classifier.learn(['lang:da', ...(i < 5 ? ['tak'] : []), `brev${i}`], 'ham');
+			if (i < 40) {
+				classifier.learn(['lang:da', ...(i < 5 ? ['tak'] : []), `svindel${i}`], 'spam');
+			}
+		}
+
+		// English read as Danish: "please" is in more messages than there are
+		// Danish ones, so it is as much ham as it is among all the messages.
+		// "tak" is Danish, and twice as common in the Danish spam.
+		const {clues} = classifier.classify(['lang:da', 'please', 'tak']);
+		const probability = word => clues.find(clue => clue.feature === word).probability;
+		assert.ok(probability('please') < 0.4, String(probability('please')));
+		assert.ok(probability('tak') > 0.6, String(probability('tak')));
+	});
 });
 
 describe('model data', () => {

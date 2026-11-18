@@ -93,21 +93,28 @@ A message reported as misclassified should be unlearned from the wrong class bef
 | [chairulridjal/high-accuracy-email-classifier-indonesian](https://huggingface.co/datasets/chairulridjal/high-accuracy-email-classifier-indonesian)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Apache-2.0                 | Indonesian emails by category                                               |
 | [JeisonJimenez/emails_2025](https://huggingface.co/datasets/JeisonJimenez/emails_2025)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Apache-2.0                 | A company's mail in Spanish                                                 |
 | [imnim/multiclass-email-classification](https://huggingface.co/datasets/imnim/multiclass-email-classification), [weijianzhg/email-triage-action-seed](https://huggingface.co/datasets/weijianzhg/email-triage-action-seed), [dedsec995/Email_Classification_Text](https://huggingface.co/datasets/dedsec995/Email_Classification_Text), [vpakarinen/open-wiki-email-templates](https://huggingface.co/datasets/vpakarinen/open-wiki-email-templates), [neurocheckout-ai/synthetic-abandoned-cart-email-examples](https://huggingface.co/datasets/neurocheckout-ai/synthetic-abandoned-cart-email-examples), [dhnanjay/MarketMail-AI-Dataset](https://huggingface.co/datasets/dhnanjay/MarketMail-AI-Dataset) | MIT, Apache-2.0, CC-BY-4.0 | Ordinary mail: bills, bookings, newsletters, promotions and account notices |
+| [AmazonScience/massive](https://huggingface.co/datasets/AmazonScience/massive)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | CC-BY-4.0                  | What people ask of an assistant, in 20 languages                            |
+| [sinabis-group/sinabis-100k-synthetic-emails](https://huggingface.co/datasets/sinabis-group/sinabis-100k-synthetic-emails)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | CC-BY-4.0                  | A made-up company's mail in French                                          |
+| [scripts/everyday-mail](https://github.com/spamscanner/spamscanner/tree/master/scripts/everyday-mail)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | With this project          | Everyday mail and frauds in 23 languages, written for this project          |
 
 The ham includes ordinary business and shop mail (invoices, order and account notices, newsletters, promotions), so such mail alone does not read as spam.
 
-It learned from 77,564 spam and 112,586 ham messages. The script holds out every tenth message, trains on the rest and measures the classifier alone, without the other checks:
+Bounces in the datasets are left out: they are only among the spam, which would teach the classifier that every bounce is spam.
+
+The last three rows are ordinary text in the languages the other datasets have mostly spam of (French, Portuguese, Dutch, the Nordic languages, Polish, Turkish, Arabic, Japanese, Korean, Chinese and more), where every ordinary word would otherwise read as spam. Of 10,000 ordinary texts in 20 languages that the model was not trained on, 1.4% get a probability of 80% or more (4.8% without these rows) and 0.1% one of 99% or more. This text is not real mail, and the frauds written for a language are few: the classifier is made surer of ordinary mail in these languages, and catches little more of their spam.
+
+It learned from 81,254 spam and 133,317 ham messages. The script holds out every tenth message, trains on the rest and measures the classifier alone, without the other checks:
 
 | Held-out test | Messages | Precision | Recall | False positives | Unsure |
 | ------------- | -------: | --------: | -----: | --------------: | -----: |
-| English       |    8,515 |    100.0% |  96.4% |            0.0% |   2.6% |
-| Russian       |    1,680 |    100.0% |  97.4% |            0.0% |   2.3% |
-| Italian       |    1,392 |     98.6% |  81.0% |            1.2% |  12.5% |
-| German        |    1,314 |     97.8% |  72.5% |            2.1% |  22.6% |
-| Spanish       |    2,088 |     98.5% |  56.1% |            0.4% |  15.7% |
-| Enron-Spam    |    2,888 |    100.0% |  92.4% |            0.0% |   4.4% |
-| all-scam-spam |    4,236 |    100.0% |  89.3% |            0.0% |  11.6% |
-| All           |   18,967 |     99.6% |  77.2% |            0.2% |  15.8% |
+| English       |    8,481 |    100.0% |  96.3% |            0.0% |   2.6% |
+| Russian       |    1,680 |    100.0% |  97.4% |            0.0% |   2.2% |
+| Italian       |    1,392 |     99.0% |  81.0% |            0.9% |  12.6% |
+| German        |    1,314 |     97.9% |  71.4% |            1.9% |  22.3% |
+| Spanish       |    2,088 |     98.7% |  53.3% |            0.4% |  16.2% |
+| Enron-Spam    |    2,870 |    100.0% |  95.2% |            0.0% |   2.6% |
+| all-scam-spam |    4,222 |     99.9% |  92.2% |            0.0% |   9.1% |
+| All           |   21,329 |     99.6% |  76.6% |            0.2% |  14.2% |
 
 Spam here means a classifier probability of 99% or more, the point at which the classifier alone reaches the spam threshold. In a scan, spam it is less sure of still gets points, and the other checks add theirs.
 
@@ -130,7 +137,7 @@ The German, Spanish and Italian results come from synthetic datasets, which cont
 ### Retrain it
 
 ```sh
-npm run model:train                       # downloads the datasets into data/ the first time
+npm run model:train                       # downloads the datasets into data/ the first time; needs 4 GB of memory
 npm run model:train -- --no-download      # reuse data/
 npm run model:train -- --out /tmp/model.json --max-features 200000
 ```

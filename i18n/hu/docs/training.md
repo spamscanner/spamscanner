@@ -1,4 +1,4 @@
-<!-- source: c4f8c2c7aa5a -->
+<!-- source: 6f344039ec5d -->
 
 # Tanítás
 
@@ -95,21 +95,28 @@ A `model/classifier.json` fájlt az `npm run model:train` készíti el ezekből 
 | [chairulridjal/high-accuracy-email-classifier-indonesian](https://huggingface.co/datasets/chairulridjal/high-accuracy-email-classifier-indonesian)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Apache-2.0                 | Indonéz e-mailek kategóriánként                                                |
 | [JeisonJimenez/emails_2025](https://huggingface.co/datasets/JeisonJimenez/emails_2025)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Apache-2.0                 | Egy vállalat levelezése spanyolul                                              |
 | [imnim/multiclass-email-classification](https://huggingface.co/datasets/imnim/multiclass-email-classification), [weijianzhg/email-triage-action-seed](https://huggingface.co/datasets/weijianzhg/email-triage-action-seed), [dedsec995/Email_Classification_Text](https://huggingface.co/datasets/dedsec995/Email_Classification_Text), [vpakarinen/open-wiki-email-templates](https://huggingface.co/datasets/vpakarinen/open-wiki-email-templates), [neurocheckout-ai/synthetic-abandoned-cart-email-examples](https://huggingface.co/datasets/neurocheckout-ai/synthetic-abandoned-cart-email-examples), [dhnanjay/MarketMail-AI-Dataset](https://huggingface.co/datasets/dhnanjay/MarketMail-AI-Dataset) | MIT, Apache-2.0, CC-BY-4.0 | Hétköznapi levelek: számlák, foglalások, hírlevelek, akciók és fiókértesítések |
+| [AmazonScience/massive](https://huggingface.co/datasets/AmazonScience/massive)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | CC-BY-4.0                  | Amit az emberek egy asszisztenstől kérnek, 20 nyelven                          |
+| [sinabis-group/sinabis-100k-synthetic-emails](https://huggingface.co/datasets/sinabis-group/sinabis-100k-synthetic-emails)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | CC-BY-4.0                  | Egy kitalált vállalat levelezése franciául                                     |
+| [scripts/everyday-mail](https://github.com/spamscanner/spamscanner/tree/master/scripts/everyday-mail)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | Ezzel a projekttel         | Hétköznapi levelek és csalások 23 nyelven, ehhez a projekthez írva             |
 
 A ham hétköznapi üzleti és bolti leveleket is tartalmaz (számlák, rendelési és fiókértesítések, hírlevelek, akciók), így az ilyen levél önmagában nem számít spamnek.
 
-77 564 spam- és 112 586 hamlevélből tanult. A szkript minden tizedik levelet félretesz, a többin tanít, és csak az osztályozót méri, a többi ellenőrzés nélkül:
+Az adatkészletekben lévő visszapattanó üzenetek (bounce) kimaradnak: csak a spam között fordulnak elő, ami azt tanítaná az osztályozónak, hogy minden visszapattanó üzenet spam.
+
+Az utolsó három sor hétköznapi szöveg azokon a nyelveken, amelyekből a többi adatkészletben főleg spam van (francia, portugál, holland, az északi nyelvek, lengyel, török, arab, japán, koreai, kínai és mások), és amelyeken különben minden hétköznapi szó spamnek számítana. A 20 nyelven írt 10 000 hétköznapi szöveg közül, amelyeken a modell nem tanult, 1,4% kap 80%-os vagy nagyobb valószínűséget (e sorok nélkül 4,8%), és 0,1% 99%-osat vagy nagyobbat. Ez a szöveg nem valódi levél, és az egy-egy nyelvre írt csalás kevés: az osztályozó biztosabb lesz e nyelvek hétköznapi leveleiben, a spamjükből pedig csak kevéssel többet fog meg.
+
+81 254 spam- és 133 317 hamlevélből tanult. A szkript minden tizedik levelet félretesz, a többin tanít, és csak az osztályozót méri, a többi ellenőrzés nélkül:
 
 | Félretett teszt | Levelek | Precizitás | Felidézés | Téves pozitívok | Bizonytalan |
 | --------------- | ------: | ---------: | --------: | --------------: | ----------: |
-| Angol           |   8 515 |     100,0% |     96,4% |            0,0% |        2,6% |
-| Orosz           |   1 680 |     100,0% |     97,4% |            0,0% |        2,3% |
-| Olasz           |   1 392 |      98,6% |     81,0% |            1,2% |       12,5% |
-| Német           |   1 314 |      97,8% |     72,5% |            2,1% |       22,6% |
-| Spanyol         |   2 088 |      98,5% |     56,1% |            0,4% |       15,7% |
-| Enron-Spam      |   2 888 |     100,0% |     92,4% |            0,0% |        4,4% |
-| all-scam-spam   |   4 236 |     100,0% |     89,3% |            0,0% |       11,6% |
-| Összes          |  18 967 |      99,6% |     77,2% |            0,2% |       15,8% |
+| Angol           |   8 481 |     100,0% |     96,3% |            0,0% |        2,6% |
+| Orosz           |   1 680 |     100,0% |     97,4% |            0,0% |        2,2% |
+| Olasz           |   1 392 |      99,0% |     81,0% |            0,9% |       12,6% |
+| Német           |   1 314 |      97,9% |     71,4% |            1,9% |       22,3% |
+| Spanyol         |   2 088 |      98,7% |     53,3% |            0,4% |       16,2% |
+| Enron-Spam      |   2 870 |     100,0% |     95,2% |            0,0% |        2,6% |
+| all-scam-spam   |   4 222 |      99,9% |     92,2% |            0,0% |        9,1% |
+| Összes          |  21 329 |      99,6% |     76,6% |            0,2% |       14,2% |
 
 A spam itt legalább 99%-os osztályozói valószínűséget jelent, azt a pontot, ahol az osztályozó önmagában eléri a spamküszöböt. Egy vizsgálatban a kevésbé biztos spam is kap pontokat, és a többi ellenőrzés is hozzáadja a sajátját.
 
@@ -132,7 +139,7 @@ Az `npm run model:train -- --with multilingual-sms` hozzáadja az [SMS Spam Mult
 ### Újratanítás
 
 ```sh
-npm run model:train                       # downloads the datasets into data/ the first time
+npm run model:train                       # downloads the datasets into data/ the first time; needs 4 GB of memory
 npm run model:train -- --no-download      # reuse data/
 npm run model:train -- --out /tmp/model.json --max-features 200000
 ```

@@ -248,7 +248,12 @@ export class Classifier {
 				continue;
 			}
 
-			const p = this.probabilityOf(this.countsFor(hashFeature(feature)), isWord(feature) ? totals : undefined);
+			// (a word in more messages than its language has is not that
+			//  language's, the language having been misread: it is weighed
+			//  against all the messages)
+			const counts = this.countsFor(hashFeature(feature));
+			const own = totals && isWord(feature) && counts[0] <= totals[0] && counts[1] <= totals[1];
+			const p = this.probabilityOf(counts, own ? totals : undefined);
 			const distance = Math.abs(p - 0.5);
 			if (distance >= minDistance) {
 				candidates.push({feature, probability: p, distance});

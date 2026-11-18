@@ -1,4 +1,4 @@
-<!-- source: c4f8c2c7aa5a -->
+<!-- source: 6f344039ec5d -->
 
 # Trenowanie
 
@@ -95,21 +95,28 @@ Wiadomość zgłoszoną jako źle sklasyfikowana, jeśli była wcześniej wyuczo
 | [chairulridjal/high-accuracy-email-classifier-indonesian](https://huggingface.co/datasets/chairulridjal/high-accuracy-email-classifier-indonesian)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Apache-2.0                 | Indonezyjskie e-maile według kategorii                                              |
 | [JeisonJimenez/emails_2025](https://huggingface.co/datasets/JeisonJimenez/emails_2025)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Apache-2.0                 | Poczta jednej firmy po hiszpańsku                                                   |
 | [imnim/multiclass-email-classification](https://huggingface.co/datasets/imnim/multiclass-email-classification), [weijianzhg/email-triage-action-seed](https://huggingface.co/datasets/weijianzhg/email-triage-action-seed), [dedsec995/Email_Classification_Text](https://huggingface.co/datasets/dedsec995/Email_Classification_Text), [vpakarinen/open-wiki-email-templates](https://huggingface.co/datasets/vpakarinen/open-wiki-email-templates), [neurocheckout-ai/synthetic-abandoned-cart-email-examples](https://huggingface.co/datasets/neurocheckout-ai/synthetic-abandoned-cart-email-examples), [dhnanjay/MarketMail-AI-Dataset](https://huggingface.co/datasets/dhnanjay/MarketMail-AI-Dataset) | MIT, Apache-2.0, CC-BY-4.0 | Zwykła poczta: rachunki, rezerwacje, newslettery, promocje i powiadomienia o koncie |
+| [AmazonScience/massive](https://huggingface.co/datasets/AmazonScience/massive)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | CC-BY-4.0                  | O co ludzie proszą asystenta, w 20 językach                                         |
+| [sinabis-group/sinabis-100k-synthetic-emails](https://huggingface.co/datasets/sinabis-group/sinabis-100k-synthetic-emails)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | CC-BY-4.0                  | Poczta zmyślonej firmy po francusku                                                 |
+| [scripts/everyday-mail](https://github.com/spamscanner/spamscanner/tree/master/scripts/everyday-mail)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | Z tym projektem            | Codzienna poczta i oszustwa w 23 językach, napisane dla tego projektu               |
 
 Ham obejmuje zwykłą pocztę firmową i sklepową (faktury, powiadomienia o zamówieniach i koncie, newslettery, promocje), więc taka poczta sama w sobie nie jest odczytywana jako spam.
 
-Uczył się na 77 564 wiadomościach spamu i 112 586 wiadomościach hamu. Skrypt odkłada co dziesiątą wiadomość, trenuje na pozostałych i mierzy sam klasyfikator, bez innych kontroli:
+Zwrotki (bounce) w zbiorach danych są pomijane: występują tylko wśród spamu, co nauczyłoby klasyfikator, że każda zwrotka to spam.
+
+Trzy ostatnie wiersze to zwykły tekst w językach, z których pozostałe zbiory danych zawierają głównie spam (francuski, portugalski, niderlandzki, języki nordyckie, polski, turecki, arabski, japoński, koreański, chiński i inne) i w których każde zwykłe słowo byłoby inaczej odczytywane jako spam. Spośród 10 000 zwykłych tekstów w 20 językach, na których model się nie uczył, 1,4% otrzymuje prawdopodobieństwo 80% lub wyższe (4,8% bez tych wierszy), a 0,1% prawdopodobieństwo 99% lub wyższe. Ten tekst nie jest prawdziwą pocztą, a oszustw napisanych dla każdego języka jest niewiele: klasyfikator jest pewniejszy zwykłej poczty w tych językach i wyłapuje tylko trochę więcej ich spamu.
+
+Uczył się na 81 254 wiadomościach spamu i 133 317 wiadomościach hamu. Skrypt odkłada co dziesiątą wiadomość, trenuje na pozostałych i mierzy sam klasyfikator, bez innych kontroli:
 
 | Test na odłożonych | Wiadomości | Precyzja | Czułość | Fałszywe alarmy | Niepewne |
 | ------------------ | ---------: | -------: | ------: | --------------: | -------: |
-| Angielski          |       8515 |   100,0% |   96,4% |            0,0% |     2,6% |
-| Rosyjski           |       1680 |   100,0% |   97,4% |            0,0% |     2,3% |
-| Włoski             |       1392 |    98,6% |   81,0% |            1,2% |    12,5% |
-| Niemiecki          |       1314 |    97,8% |   72,5% |            2,1% |    22,6% |
-| Hiszpański         |       2088 |    98,5% |   56,1% |            0,4% |    15,7% |
-| Enron-Spam         |       2888 |   100,0% |   92,4% |            0,0% |     4,4% |
-| all-scam-spam      |       4236 |   100,0% |   89,3% |            0,0% |    11,6% |
-| Wszystkie          |     18 967 |    99,6% |   77,2% |            0,2% |    15,8% |
+| Angielski          |       8481 |   100,0% |   96,3% |            0,0% |     2,6% |
+| Rosyjski           |       1680 |   100,0% |   97,4% |            0,0% |     2,2% |
+| Włoski             |       1392 |    99,0% |   81,0% |            0,9% |    12,6% |
+| Niemiecki          |       1314 |    97,9% |   71,4% |            1,9% |    22,3% |
+| Hiszpański         |       2088 |    98,7% |   53,3% |            0,4% |    16,2% |
+| Enron-Spam         |       2870 |   100,0% |   95,2% |            0,0% |     2,6% |
+| all-scam-spam      |       4222 |    99,9% |   92,2% |            0,0% |     9,1% |
+| Wszystkie          |     21 329 |    99,6% |   76,6% |            0,2% |    14,2% |
 
 Spam oznacza tu prawdopodobieństwo według klasyfikatora wynoszące 99% lub więcej, czyli punkt, w którym sam klasyfikator osiąga próg spamu. Podczas skanowania spam, co do którego jest mniej pewny, nadal dostaje punkty, a inne kontrole dodają swoje.
 
@@ -132,7 +139,7 @@ Wyniki dla niemieckiego, hiszpańskiego i włoskiego pochodzą z syntetycznych z
 ### Ponowne trenowanie
 
 ```sh
-npm run model:train                       # downloads the datasets into data/ the first time
+npm run model:train                       # downloads the datasets into data/ the first time; needs 4 GB of memory
 npm run model:train -- --no-download      # reuse data/
 npm run model:train -- --out /tmp/model.json --max-features 200000
 ```

@@ -1,4 +1,4 @@
-<!-- source: c4f8c2c7aa5a -->
+<!-- source: 6f344039ec5d -->
 
 # Treinamento
 
@@ -95,21 +95,28 @@ O `model/classifier.json` é gerado pelo `npm run model:train` a partir destes c
 | [chairulridjal/high-accuracy-email-classifier-indonesian](https://huggingface.co/datasets/chairulridjal/high-accuracy-email-classifier-indonesian)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Apache-2.0                 | E-mails indonésios por categoria                                          |
 | [JeisonJimenez/emails_2025](https://huggingface.co/datasets/JeisonJimenez/emails_2025)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Apache-2.0                 | O correio de uma empresa em espanhol                                      |
 | [imnim/multiclass-email-classification](https://huggingface.co/datasets/imnim/multiclass-email-classification), [weijianzhg/email-triage-action-seed](https://huggingface.co/datasets/weijianzhg/email-triage-action-seed), [dedsec995/Email_Classification_Text](https://huggingface.co/datasets/dedsec995/Email_Classification_Text), [vpakarinen/open-wiki-email-templates](https://huggingface.co/datasets/vpakarinen/open-wiki-email-templates), [neurocheckout-ai/synthetic-abandoned-cart-email-examples](https://huggingface.co/datasets/neurocheckout-ai/synthetic-abandoned-cart-email-examples), [dhnanjay/MarketMail-AI-Dataset](https://huggingface.co/datasets/dhnanjay/MarketMail-AI-Dataset) | MIT, Apache-2.0, CC-BY-4.0 | Correio comum: contas, reservas, newsletters, promoções e avisos de conta |
+| [AmazonScience/massive](https://huggingface.co/datasets/AmazonScience/massive)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | CC-BY-4.0                  | O que as pessoas pedem a um assistente, em 20 idiomas                     |
+| [sinabis-group/sinabis-100k-synthetic-emails](https://huggingface.co/datasets/sinabis-group/sinabis-100k-synthetic-emails)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | CC-BY-4.0                  | O correio de uma empresa fictícia em francês                              |
+| [scripts/everyday-mail](https://github.com/spamscanner/spamscanner/tree/master/scripts/everyday-mail)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | Com este projeto           | Correio do dia a dia e fraudes em 23 idiomas, escritos para este projeto  |
 
 O ham inclui o correio comum de empresas e lojas (faturas, avisos de pedidos e de conta, newsletters, promoções), de modo que esse correio, por si só, não é lido como spam.
 
-Ele aprendeu com 77.564 mensagens de spam e 112.586 de ham. O script separa uma em cada dez mensagens, treina com o restante e mede apenas o classificador, sem as outras verificações:
+As mensagens de devolução (bounces) dos conjuntos de dados ficam de fora: estão apenas entre o spam, o que ensinaria ao classificador que toda devolução é spam.
+
+As três últimas linhas são texto comum nos idiomas dos quais os outros conjuntos de dados têm sobretudo spam (francês, português, holandês, as línguas nórdicas, polonês, turco, árabe, japonês, coreano, chinês e outros), onde cada palavra comum seria lida como spam. De 10.000 textos comuns em 20 idiomas com os quais o modelo não foi treinado, 1,4% recebem uma probabilidade de 80% ou mais (4,8% sem essas linhas) e 0,1% uma de 99% ou mais. Esse texto não é correio real, e as fraudes escritas para cada idioma são poucas: o classificador fica mais seguro do correio comum nesses idiomas e apanha pouco mais do spam deles.
+
+Ele aprendeu com 81.254 mensagens de spam e 133.317 de ham. O script separa uma em cada dez mensagens, treina com o restante e mede apenas o classificador, sem as outras verificações:
 
 | Teste com dados separados | Mensagens | Precisão | Revocação | Falsos positivos | Incertas |
 | ------------------------- | --------: | -------: | --------: | ---------------: | -------: |
-| Inglês                    |     8.515 |   100,0% |     96,4% |             0,0% |     2,6% |
-| Russo                     |     1.680 |   100,0% |     97,4% |             0,0% |     2,3% |
-| Italiano                  |     1.392 |    98,6% |     81,0% |             1,2% |    12,5% |
-| Alemão                    |     1.314 |    97,8% |     72,5% |             2,1% |    22,6% |
-| Espanhol                  |     2.088 |    98,5% |     56,1% |             0,4% |    15,7% |
-| Enron-Spam                |     2.888 |   100,0% |     92,4% |             0,0% |     4,4% |
-| all-scam-spam             |     4.236 |   100,0% |     89,3% |             0,0% |    11,6% |
-| Todos                     |    18.967 |    99,6% |     77,2% |             0,2% |    15,8% |
+| Inglês                    |     8.481 |   100,0% |     96,3% |             0,0% |     2,6% |
+| Russo                     |     1.680 |   100,0% |     97,4% |             0,0% |     2,2% |
+| Italiano                  |     1.392 |    99,0% |     81,0% |             0,9% |    12,6% |
+| Alemão                    |     1.314 |    97,9% |     71,4% |             1,9% |    22,3% |
+| Espanhol                  |     2.088 |    98,7% |     53,3% |             0,4% |    16,2% |
+| Enron-Spam                |     2.870 |   100,0% |     95,2% |             0,0% |     2,6% |
+| all-scam-spam             |     4.222 |    99,9% |     92,2% |             0,0% |     9,1% |
+| Todos                     |    21.329 |    99,6% |     76,6% |             0,2% |    14,2% |
 
 Aqui, spam significa uma probabilidade do classificador de 99% ou mais, o ponto em que o classificador sozinho atinge o limite de spam. Em uma análise, o spam sobre o qual ele tem menos certeza ainda recebe pontos, e as outras verificações somam os delas.
 
@@ -132,7 +139,7 @@ O `npm run model:train -- --with multilingual-sms` adiciona a [SMS Spam Multilin
 ### Treinar de novo
 
 ```sh
-npm run model:train                       # downloads the datasets into data/ the first time
+npm run model:train                       # downloads the datasets into data/ the first time; needs 4 GB of memory
 npm run model:train -- --no-download      # reuse data/
 npm run model:train -- --out /tmp/model.json --max-features 200000
 ```

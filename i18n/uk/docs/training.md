@@ -1,4 +1,4 @@
-<!-- source: c4f8c2c7aa5a -->
+<!-- source: 6f344039ec5d -->
 
 # Навчання
 
@@ -95,21 +95,28 @@ scanner.saveModel('/var/lib/spamscanner/model.json');
 | [chairulridjal/high-accuracy-email-classifier-indonesian](https://huggingface.co/datasets/chairulridjal/high-accuracy-email-classifier-indonesian)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Apache-2.0                     | Індонезійські листи за категоріями                                                     |
 | [JeisonJimenez/emails_2025](https://huggingface.co/datasets/JeisonJimenez/emails_2025)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Apache-2.0                     | Пошта однієї компанії іспанською мовою                                                 |
 | [imnim/multiclass-email-classification](https://huggingface.co/datasets/imnim/multiclass-email-classification), [weijianzhg/email-triage-action-seed](https://huggingface.co/datasets/weijianzhg/email-triage-action-seed), [dedsec995/Email_Classification_Text](https://huggingface.co/datasets/dedsec995/Email_Classification_Text), [vpakarinen/open-wiki-email-templates](https://huggingface.co/datasets/vpakarinen/open-wiki-email-templates), [neurocheckout-ai/synthetic-abandoned-cart-email-examples](https://huggingface.co/datasets/neurocheckout-ai/synthetic-abandoned-cart-email-examples), [dhnanjay/MarketMail-AI-Dataset](https://huggingface.co/datasets/dhnanjay/MarketMail-AI-Dataset) | MIT, Apache-2.0, CC-BY-4.0     | Звичайна пошта: рахунки, бронювання, розсилки, акції та сповіщення про обліковий запис |
+| [AmazonScience/massive](https://huggingface.co/datasets/AmazonScience/massive)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | CC-BY-4.0                      | Про що люди просять голосового помічника, 20 мовами                                    |
+| [sinabis-group/sinabis-100k-synthetic-emails](https://huggingface.co/datasets/sinabis-group/sinabis-100k-synthetic-emails)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | CC-BY-4.0                      | Пошта вигаданої компанії французькою мовою                                             |
+| [scripts/everyday-mail](https://github.com/spamscanner/spamscanner/tree/master/scripts/everyday-mail)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | Разом із цим проєктом          | Повсякденна пошта й шахрайські листи 23 мовами, написані для цього проєкту             |
 
 До хаму входить звичайна ділова та магазинна пошта (рахунки, сповіщення про замовлення й обліковий запис, розсилки, акції), тож така пошта сама по собі не вважається спамом.
 
-Вона навчалася на 77 564 листах зі спамом і 112 586 листах ham. Скрипт відкладає кожен десятий лист, навчається на решті й вимірює лише класифікатор, без інших перевірок:
+Повідомлення про недоставлення (bounce) з наборів даних вилучаються: вони є лише серед спаму, і це навчило б класифікатор вважати спамом кожне таке повідомлення.
+
+Останні три рядки — звичайний текст мовами, якими в інших наборах даних є здебільшого спам (французька, португальська, нідерландська, скандинавські мови, польська, турецька, арабська, японська, корейська, китайська та інші) і якими інакше кожне звичайне слово читалося б як спам. Із 10 000 звичайних текстів 20 мовами, на яких модель не навчалася, 1,4 % отримують імовірність 80 % і вище (4,8 % без цих рядків), а 0,1 % — 99 % і вище. Цей текст не є справжньою поштою, а шахрайських листів, написаних для кожної мови, небагато: класифікатор упевненіше розпізнає звичайну пошту цими мовами й ловить лише трохи більше їхнього спаму.
+
+Вона навчалася на 81 254 листах зі спамом і 133 317 листах ham. Скрипт відкладає кожен десятий лист, навчається на решті й вимірює лише класифікатор, без інших перевірок:
 
 | Відкладений тест |  Листи | Точність | Повнота | Хибні спрацювання | Невизначені |
 | ---------------- | -----: | -------: | ------: | ----------------: | ----------: |
-| Англійська       |   8515 |  100,0 % |  96,4 % |             0,0 % |       2,6 % |
-| Російська        |   1680 |  100,0 % |  97,4 % |             0,0 % |       2,3 % |
-| Італійська       |   1392 |   98,6 % |  81,0 % |             1,2 % |      12,5 % |
-| Німецька         |   1314 |   97,8 % |  72,5 % |             2,1 % |      22,6 % |
-| Іспанська        |   2088 |   98,5 % |  56,1 % |             0,4 % |      15,7 % |
-| Enron-Spam       |   2888 |  100,0 % |  92,4 % |             0,0 % |       4,4 % |
-| all-scam-spam    |   4236 |  100,0 % |  89,3 % |             0,0 % |      11,6 % |
-| Усі              | 18 967 |   99,6 % |  77,2 % |             0,2 % |      15,8 % |
+| Англійська       |   8481 |  100,0 % |  96,3 % |             0,0 % |       2,6 % |
+| Російська        |   1680 |  100,0 % |  97,4 % |             0,0 % |       2,2 % |
+| Італійська       |   1392 |   99,0 % |  81,0 % |             0,9 % |      12,6 % |
+| Німецька         |   1314 |   97,9 % |  71,4 % |             1,9 % |      22,3 % |
+| Іспанська        |   2088 |   98,7 % |  53,3 % |             0,4 % |      16,2 % |
+| Enron-Spam       |   2870 |  100,0 % |  95,2 % |             0,0 % |       2,6 % |
+| all-scam-spam    |   4222 |   99,9 % |  92,2 % |             0,0 % |       9,1 % |
+| Усі              | 21 329 |   99,6 % |  76,6 % |             0,2 % |      14,2 % |
 
 Спамом тут вважається ймовірність за класифікатором 99 % або більше — точка, у якій сам класифікатор досягає порогу спаму. Під час перевірки спам, щодо якого він менш упевнений, усе одно отримує бали, а інші перевірки додають свої.
 
@@ -132,7 +139,7 @@ scanner.saveModel('/var/lib/spamscanner/model.json');
 ### Перенавчання
 
 ```sh
-npm run model:train                       # downloads the datasets into data/ the first time
+npm run model:train                       # downloads the datasets into data/ the first time; needs 4 GB of memory
 npm run model:train -- --no-download      # reuse data/
 npm run model:train -- --out /tmp/model.json --max-features 200000
 ```

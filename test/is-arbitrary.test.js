@@ -199,13 +199,28 @@ describe('isArbitrary', () => {
 
 		// (not a phishing word or a service joined to it, a short brand
 		//  joined to anything, or another top-level domain)
-		for (const from of ['PayPal <service@paypal-secure.com>', 'PayPal <x@paypalsecure.com>', 'Apple <x@appleidverify.com>', 'Apple <x@applecustomercare.com>', 'Amazon <x@amazonservice.top>', 'UPS <x@upsdelivery.com>', 'DHL <x@dhlexpress-parcel.com>', 'Microsoft <x@microsoft-security.live>', 'PayPal <x@com>', 'PayPal <x@paypall.com>', 'PayPal <x@paypalx.top>', 'PayPal <x@paypalcases.com>', 'Amazon <x@amazonn.com>', 'Amazon <x@amazonorders.top>', 'Netflix <x@netflixbill.com>', 'Microsoft <x@microsoftt.com>', 'Microsoft Teams <x@microsofteams.com>', 'Apple <x@appleid.top>', 'Apple ID <x@appleidlocked.com>', 'DocuSign <x@docusignfiles.net>', 'PayPal Security <x@paypalsecurity.com>', 'Apple Music Store <x@applemusicstores.com>', 'USPS Tracking <x@uspstracking.top>', 'DHL Express <x@dhlexpress.xyz>', 'UPS Delivery <x@upsdelivery.top>', 'IRS Tax Return <x@irstax.top>', 'HSBC UK <x@hsbcuk.top>', 'PayPal <x@paypalmail.top>', 'PayPal <x@paypal-communication.com>']) {
+		for (const from of ['PayPal <service@paypal-secure.com>', 'PayPal <x@paypalsecure.com>', 'Apple <x@appleidverify.com>', 'Apple <x@applecustomercare.com>', 'Amazon <x@amazonservice.top>', 'UPS <x@upsdelivery.com>', 'DHL <x@dhlexpress-parcel.com>', 'Microsoft <x@microsoft-security.live>', 'PayPal <x@com>', 'PayPal <x@paypall.com>', 'PayPal <x@paypalx.top>', 'PayPal <x@paypalcases.com>', 'Amazon <x@amazonn.com>', 'Amazon <x@amazonorders.top>', 'Netflix <x@netflixbill.com>', 'Microsoft <x@microsoftt.com>', 'Microsoft Teams <x@microsofteams.com>', 'Apple <x@appleid.top>', 'Apple ID <x@appleidlocked.com>', 'DocuSign <x@docusignfiles.net>', 'PayPal Security <x@paypalsecurity.com>', 'Apple Music Store <x@applemusicstores.com>', 'USPS Tracking <x@uspstracking.top>', 'DHL Express <x@dhlexpress.xyz>', 'UPS Delivery <x@upsdelivery.top>', 'IRS Tax Return <x@irstax.top>', 'HSBC UK <x@hsbcuk.top>', 'PayPal <x@paypalmail.top>']) {
 			assert.deepEqual(names(isArbitrary(await parse(message({from})))), ['FROM_NAME_BRAND'], from);
 		}
 	});
 
 	it('takes the brands\' sending domains for theirs', async () => {
 		for (const from of ['Microsoft Store <x@microsoftstoreemail.com>', 'Microsoft <x@email.microsoftemail.com>', 'Microsoft 365 <x@email.microsoftemail.com>', 'Microsoft <x@email.microsoftrewards.com>', 'Barclays <x@email.barclaysus.com>', 'Santander <x@santanderconsumerusa.com>', 'Amazon <x@amazonbusiness.com>', 'McAfee <x@mcafeemail.com>', 'Adobe <x@adobesystems.com>', '\'Jane\' via Google Cloud Developers <x@googlegroups.com>', 'PayPal <x@paypal-communications.com>', 'PayPal <x@paypal-prepaid.com>', 'Facebook <x@facebookmail.com>', 'Dropbox <x@dropboxmail.com>', 'UPS <x@upsemail.com>', 'Yahoo <x@yahoonews.com>', 'Yahoo <no-reply@cc.yahoo-inc.com>', 'UPS Capital <x@upscapital.com>', 'DHL eCommerce <x@dhlecs.com>', 'DHL <x@dhl-news.com>', 'Barclays <x@barclaycardus.com>', 'Dropbox Sign <x@hellosign.com>', 'DHL eCommerce <x@dhlecommerce.nl>', 'PayPal Cashback Mastercard <x@servicing.synchrony.com>', 'Meta for Business <x@global.metamail.com>', 'Instagram for Business <x@global.metamail.com>', 'Google <x@withgoogle.com>', 'Microsoft <x@sharepointonline.com>', 'La Poste <x@colissimo.fr>', 'The UPS Store <x@theupsstore.com>']) {
+			assert.deepEqual(names(isArbitrary(await parse(message({from})))), [], from);
+		}
+
+		// (the brand's word of something else: a place and its universities, a
+		//  rainforest, a magazine, a house of adobe; and a bank's other names)
+		for (const from of ['Universidad Industrial de Santander <x@uis.edu.co>', '"Escuela de Policia General Santander" <x@escueladepolicia.edu.co>', 'Gobernación de Santander <x@gov.example>', 'Amazon Conservation Team <x@amazonteam.org>', 'Amazon Watch <x@mail.example>', 'Economic Outlook <x@oecd.example>', 'Outlook India <x@mail.example>', 'Adobe Animal Hospital <x@vet.example>', 'Bank of America Merrill Lynch <x@ml.com>', 'Bank of America <x@bofasecurities.com>']) {
+			assert.deepEqual(names(isArbitrary(await parse(message({from})))), [], from);
+		}
+
+		for (const from of ['Santander <x@mail.example>', 'Banco Santander <x@mail.example>', 'Amazon <x@mail.example>', 'Amazon Prime <x@mail.example>', 'Outlook <x@mail.example>', 'Microsoft Outlook Team <x@mail.example>', 'Adobe <x@mail.example>', 'Adobe Sign <x@mail.example>', 'Bank of America <x@ml.example>']) {
+			assert.deepEqual(names(isArbitrary(await parse(message({from})))), ['FROM_NAME_BRAND'], from);
+		}
+
+		// (more of a brand's own domains)
+		for (const from of ['PayPal <x@mail.paypal-communication.com>', 'Wells Fargo <x@wellsfargoemail.com>', 'Chase Bank <x@jpmorgansecurities.com>', 'Santander <x@bancosantander.es>', 'Barclays <x@barclayspartnerfinance.com>']) {
 			assert.deepEqual(names(isArbitrary(await parse(message({from})))), [], from);
 		}
 

@@ -1,4 +1,5 @@
 import {parse as parseDomain} from 'tldts';
+import {CLICK_TRACKERS, MAILBOX_DOMAINS} from './providers.js';
 import {BRANDS} from './homograph.js';
 import {decodeEntities, visibleText} from './html.js';
 import {scriptOf, detectLanguage} from './language.js';
@@ -146,30 +147,6 @@ const FILE_TLDS = new Set(['ai', 'app', 'md', 'mov', 'pm', 'ps', 'py', 'rs', 'sh
 // Of these, those that name files far more often than sites in the text of a
 // link ("README.md", "setup.sh"; not "linear.app" or "character.ai")
 const LINK_FILE_TLDS = new Set(['md', 'mov', 'pm', 'ps', 'py', 'rs', 'sh', 'so', 'zip']);
-
-// Hosts of email services that count each click on a link of a message and
-// send the reader on to the address it shows, documented as their click
-// tracking: SendGrid (*.ct.sendgrid.net), Mailchimp (*.list-manage.com),
-// Mandrill (mandrillapp.com), Amazon SES (*.awstrack.me), Postmark
-// (click.pstmrk.it), HubSpot (*.hubspotlinks.com), Constant Contact
-// (r20.rs6.net), Klaviyo (trk.klclick.com), Mailjet (*.mjt.lu),
-// Salesforce Marketing Cloud (click.exacttarget.com), Kit, formerly
-// ConvertKit (click.convertkit-mail.com, click.convertkit-mail2.com,
-// *.click.kit-mail3.com), Brevo, formerly Sendinblue (*.sendibt2.com,
-// *.r.bh.d.sendibt3.com), Campaign Monitor (*.createsend1.com, cmail20.com),
-// MailerLite (*.clicks.mlsend.com), ActiveCampaign (*.lt.acemlnb.com) and
-// beehiiv (link.mail.beehiiv.com, bhclick.com); and Substack's
-// substack.com/redirect/ (see isClickTracker). And the security gateways that
-// rewrite each link of the mail they pass to check it when it is clicked, so
-// a message forwarded from behind one shows the address it had: Microsoft
-// Defender's Safe Links (*.safelinks.protection.outlook.com), Proofpoint
-// (urldefense.com, urldefense.proofpoint.com), Mimecast
-// (protect-*.mimecast.com, url.*.mimecastprotect.com), Barracuda
-// (linkprotect.cudasvc.com) and Cisco (secure-web.cisco.com), whose address
-// the original is read from where its form is known (see unwrapLink). A link
-// through them that shows another address is deceptive only as
-// isDeceptiveLink says.
-const CLICK_TRACKERS = ['sendgrid.net', 'list-manage.com', 'mandrillapp.com', 'awstrack.me', 'pstmrk.it', 'hubspotlinks.com', 'rs6.net', 'klclick.com', 'mjt.lu', 'exacttarget.com', 'convertkit-mail.com', 'convertkit-mail2.com', 'kit-mail3.com', 'sendibt2.com', 'sendibt3.com', 'createsend1.com', 'cmail20.com', 'click.mlsend.com', 'clicks.mlsend.com', 'exponea.com', 'bloomreach.com', 'acemlnb.com', 'link.mail.beehiiv.com', 'bhclick.com', 'safelinks.protection.outlook.com', 'urldefense.com', 'urldefense.proofpoint.com', 'mimecast.com', 'mimecastprotect.com', 'cudasvc.com', 'secure-web.cisco.com'];
 
 // The most characters of a link's host read, past those the URL parser drops
 // (below) and its port: the parser's time grows with the square of the labels
@@ -1281,6 +1258,7 @@ const SAME_OWNER = [
 	['americanexpress.com', 'americanexpress.co.uk', 'americanexpress.de', 'americanexpress.es', 'americanexpress.fr', 'americanexpress.it', 'aexp.com', 'amex.co', 'go.amex'],
 	['zoom.us', 'zoom.com'],
 	['citi.com', 'citibank.com', 'citicards.com'],
+	['tangocard.com', 'rewardlink.com'],
 ];
 const OWNER_OF = new Map(SAME_OWNER.flatMap((domains, owner) => domains.map(domain => [domain, owner])));
 const sameOwner = (one, other) => OWNER_OF.has(one) && OWNER_OF.get(one) === OWNER_OF.get(other);
@@ -1302,8 +1280,20 @@ const SENDING_DOMAINS = new Map([
 	['yahoo', ['yahoonews.com']],
 ]);
 
-// Providers of mailboxes, where an address is anyone's, not the brand's
-export const MAILBOXES = new Set(['aol', 'gmail', 'googlemail', 'hotmail', 'icloud', 'live', 'mac', 'me', 'msn', 'outlook', 'yahoo', 'ymail']);
+// Providers of mailboxes, where an address is anyone's, not the brand's: by
+// name under any suffix (yahoo.co.uk, outlook.fr, gmx.at), or one of
+// MAILBOX_DOMAINS
+const MAILBOXES = new Set(['aol', 'fastmail', 'gmail', 'gmx', 'googlemail', 'hotmail', 'icloud', 'live', 'mac', 'me', 'msn', 'outlook', 'yahoo', 'yandex', 'ymail']);
+
+/**
+ * Whether a domain is a provider of mailboxes, where an address is anyone's.
+ * @param {string} domain - a domain, or an address at one
+ * @returns {boolean}
+ */
+export function isMailbox(domain) {
+	const {domain: registrable, domainWithoutSuffix} = parseDomain(domain);
+	return MAILBOXES.has(domainWithoutSuffix) || MAILBOX_DOMAINS.has(registrable);
+}
 
 // The path and query of the address a link goes to ("" for none that reads)
 function reachedPath(target, link) {
@@ -1379,7 +1369,7 @@ export function isDeceptiveLink(link, {from, authenticated, known} = {}) {
 	// (a sender that passes DMARC, linking to its own domain: its own click
 	//  tracking; a known sender's under any address of a partner it writes
 	//  about; not a provider of mailboxes, whose domain holds anyone's pages)
-	const own = Boolean(authenticated) && typeof from === 'string' && registrableDomain(from) === reached && !MAILBOXES.has(parseDomain(from).domainWithoutSuffix);
+	const own = Boolean(authenticated) && typeof from === 'string' && registrableDomain(from) === reached && !isMailbox(from);
 	if (own && known) {
 		return false;
 	}
@@ -1547,7 +1537,10 @@ function addLinkFeatures(links, from, add) {
 		const tld = link.host.split('.').pop();
 		if (/^\d+$/.test(tld) || link.host.includes(':')) {
 			add('url:ip');
-		} else {
+		} else if (tld.length > 2) {
+			// (not a country's: which countries the training mail linked to
+			//  says nothing of a message, and counted every link to a site
+			//  of Austria or India as a sign of spam)
 			add(`url:tld:${tld}`);
 		}
 
@@ -1586,7 +1579,11 @@ function addSenderFeatures(mail, add) {
 	const domain = addressDomain(from.address);
 	if (domain) {
 		add(`from:${registrableDomain(domain)}`);
-		add(`from:tld:${domain.split('.').pop()}`);
+		const tld = domain.split('.').pop();
+		if (tld.length > 2) {
+			add(`from:tld:${tld}`);
+		}
+
 		if (FREEMAIL.has(domain)) {
 			add('from:freemail');
 		}

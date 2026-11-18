@@ -25,7 +25,7 @@ import {
 } from './reputation.js';
 import {scoreResults} from './score.js';
 import {
-	MAILBOXES, extractLinks, getFeatures, isDeceptiveLink, obfuscationOf, registrableDomain, segmentWords, unwrapLink,
+	extractLinks, getFeatures, isDeceptiveLink, isMailbox, obfuscationOf, registrableDomain, segmentWords, unwrapLink,
 } from './tokenizer.js';
 import {VERSION} from './version.js';
 
@@ -436,7 +436,7 @@ function isKnownSender(domain, knownSenders) {
 	}
 
 	const list = new Set(knownSenders.filter(entry => typeof entry === 'string' && !entry.includes('@')).map(entry => entry.trim().toLowerCase().replace(/\.$/, '')));
-	return Boolean(matchList(domain, list, {hostnamesOnly: true})) && !MAILBOXES.has(registrableDomain(domain).split('.')[0]);
+	return Boolean(matchList(domain, list, {hostnamesOnly: true})) && !isMailbox(domain);
 }
 
 // A message to parse from raw input: text whose first line is not a header

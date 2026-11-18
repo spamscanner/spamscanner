@@ -1,4 +1,4 @@
-<!-- source: c4f8c2c7aa5a -->
+<!-- source: 6f344039ec5d -->
 
 # אימון
 
@@ -95,21 +95,28 @@ scanner.saveModel('/var/lib/spamscanner/model.json');
 | [chairulridjal/high-accuracy-email-classifier-indonesian](https://huggingface.co/datasets/chairulridjal/high-accuracy-email-classifier-indonesian)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Apache-2.0                 | הודעות דוא"ל באינדונזית לפי קטגוריה                         |
 | [JeisonJimenez/emails_2025](https://huggingface.co/datasets/JeisonJimenez/emails_2025)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Apache-2.0                 | דואר של חברה בספרדית                                        |
 | [imnim/multiclass-email-classification](https://huggingface.co/datasets/imnim/multiclass-email-classification), [weijianzhg/email-triage-action-seed](https://huggingface.co/datasets/weijianzhg/email-triage-action-seed), [dedsec995/Email_Classification_Text](https://huggingface.co/datasets/dedsec995/Email_Classification_Text), [vpakarinen/open-wiki-email-templates](https://huggingface.co/datasets/vpakarinen/open-wiki-email-templates), [neurocheckout-ai/synthetic-abandoned-cart-email-examples](https://huggingface.co/datasets/neurocheckout-ai/synthetic-abandoned-cart-email-examples), [dhnanjay/MarketMail-AI-Dataset](https://huggingface.co/datasets/dhnanjay/MarketMail-AI-Dataset) | MIT, Apache-2.0, CC-BY-4.0 | דואר רגיל: חשבונות, הזמנות, ניוזלטרים, מבצעים והודעות חשבון |
+| [AmazonScience/massive](https://huggingface.co/datasets/AmazonScience/massive)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | CC-BY-4.0                  | מה שאנשים מבקשים מעוזר קולי, ב-20 שפות                      |
+| [sinabis-group/sinabis-100k-synthetic-emails](https://huggingface.co/datasets/sinabis-group/sinabis-100k-synthetic-emails)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | CC-BY-4.0                  | דואר של חברה בדויה בצרפתית                                  |
+| [scripts/everyday-mail](https://github.com/spamscanner/spamscanner/tree/master/scripts/everyday-mail)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | עם הפרויקט הזה             | דואר יומיומי והונאות ב-23 שפות, שנכתבו עבור הפרויקט הזה     |
 
 ה-ham כולל דואר רגיל של עסקים וחנויות (חשבוניות, הודעות על הזמנות וחשבונות, ניוזלטרים, מבצעים), כך שדואר כזה לבדו אינו נקרא כספאם.
 
-הוא למד מ-77,564 הודעות ספאם ו-112,586 הודעות ham. הסקריפט מחזיק בצד כל הודעה עשירית, מאמן על השאר ומודד את המסווג לבדו, בלי שאר הבדיקות:
+הודעות החזרה (bounce) שבמערכי הנתונים מושמטות: הן נמצאות רק בין הודעות הספאם, וזה היה מלמד את המסווג שכל הודעת החזרה היא ספאם.
+
+שלוש השורות האחרונות הן טקסט רגיל בשפות שבמערכי הנתונים האחרים יש מהן בעיקר ספאם (צרפתית, פורטוגזית, הולנדית, השפות הנורדיות, פולנית, טורקית, ערבית, יפנית, קוריאנית, סינית ועוד), שבהן כל מילה רגילה הייתה נקראת אחרת כספאם. מתוך 10,000 טקסטים רגילים ב-20 שפות שהמודל לא אומן עליהם, 1.4% מקבלים הסתברות של 80% או יותר (4.8% בלי השורות האלה) ו-0.1% הסתברות של 99% או יותר. הטקסט הזה אינו דואר אמיתי, וההונאות שנכתבו לכל שפה מעטות: המסווג בטוח יותר בדואר רגיל בשפות האלה, ותופס רק מעט יותר מהספאם שלהן.
+
+הוא למד מ-81,254 הודעות ספאם ו-133,317 הודעות ham. הסקריפט מחזיק בצד כל הודעה עשירית, מאמן על השאר ומודד את המסווג לבדו, בלי שאר הבדיקות:
 
 | מבחן על הודעות שהוחזקו בצד | הודעות |   דיוק | רגישות | חיוביות שגויות | לא בטוח |
 | -------------------------- | -----: | -----: | -----: | -------------: | ------: |
-| אנגלית                     |  8,515 | 100.0% |  96.4% |           0.0% |    2.6% |
-| רוסית                      |  1,680 | 100.0% |  97.4% |           0.0% |    2.3% |
-| איטלקית                    |  1,392 |  98.6% |  81.0% |           1.2% |   12.5% |
-| גרמנית                     |  1,314 |  97.8% |  72.5% |           2.1% |   22.6% |
-| ספרדית                     |  2,088 |  98.5% |  56.1% |           0.4% |   15.7% |
-| Enron-Spam                 |  2,888 | 100.0% |  92.4% |           0.0% |    4.4% |
-| all-scam-spam              |  4,236 | 100.0% |  89.3% |           0.0% |   11.6% |
-| הכול                       | 18,967 |  99.6% |  77.2% |           0.2% |   15.8% |
+| אנגלית                     |  8,481 | 100.0% |  96.3% |           0.0% |    2.6% |
+| רוסית                      |  1,680 | 100.0% |  97.4% |           0.0% |    2.2% |
+| איטלקית                    |  1,392 |  99.0% |  81.0% |           0.9% |   12.6% |
+| גרמנית                     |  1,314 |  97.9% |  71.4% |           1.9% |   22.3% |
+| ספרדית                     |  2,088 |  98.7% |  53.3% |           0.4% |   16.2% |
+| Enron-Spam                 |  2,870 | 100.0% |  95.2% |           0.0% |    2.6% |
+| all-scam-spam              |  4,222 |  99.9% |  92.2% |           0.0% |    9.1% |
+| הכול                       | 21,329 |  99.6% |  76.6% |           0.2% |   14.2% |
 
 כאן ספאם פירושו הסתברות מסווג של 99% ומעלה, הנקודה שבה המסווג לבדו מגיע לסף הספאם. בסריקה, ספאם שהוא פחות בטוח לגביו עדיין מקבל נקודות, ושאר הבדיקות מוסיפות את שלהן.
 
@@ -132,7 +139,7 @@ scanner.saveModel('/var/lib/spamscanner/model.json');
 ### אימון מחדש
 
 ```sh
-npm run model:train                       # downloads the datasets into data/ the first time
+npm run model:train                       # downloads the datasets into data/ the first time; needs 4 GB of memory
 npm run model:train -- --no-download      # reuse data/
 npm run model:train -- --out /tmp/model.json --max-features 200000
 ```

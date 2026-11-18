@@ -1,4 +1,4 @@
-<!-- source: c4f8c2c7aa5a -->
+<!-- source: 6f344039ec5d -->
 
 # Træning
 
@@ -95,21 +95,28 @@ En besked, der er rapporteret som fejlklassificeret, bør aflæres fra den forke
 | [chairulridjal/high-accuracy-email-classifier-indonesian](https://huggingface.co/datasets/chairulridjal/high-accuracy-email-classifier-indonesian)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Apache-2.0                  | Indonesiske e-mails efter kategori                                             |
 | [JeisonJimenez/emails_2025](https://huggingface.co/datasets/JeisonJimenez/emails_2025)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Apache-2.0                  | En virksomheds post på spansk                                                  |
 | [imnim/multiclass-email-classification](https://huggingface.co/datasets/imnim/multiclass-email-classification), [weijianzhg/email-triage-action-seed](https://huggingface.co/datasets/weijianzhg/email-triage-action-seed), [dedsec995/Email_Classification_Text](https://huggingface.co/datasets/dedsec995/Email_Classification_Text), [vpakarinen/open-wiki-email-templates](https://huggingface.co/datasets/vpakarinen/open-wiki-email-templates), [neurocheckout-ai/synthetic-abandoned-cart-email-examples](https://huggingface.co/datasets/neurocheckout-ai/synthetic-abandoned-cart-email-examples), [dhnanjay/MarketMail-AI-Dataset](https://huggingface.co/datasets/dhnanjay/MarketMail-AI-Dataset) | MIT, Apache-2.0, CC-BY-4.0  | Almindelig post: regninger, bookinger, nyhedsbreve, tilbud og kontomeddelelser |
+| [AmazonScience/massive](https://huggingface.co/datasets/AmazonScience/massive)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | CC-BY-4.0                   | Hvad folk beder en assistent om, på 20 sprog                                   |
+| [sinabis-group/sinabis-100k-synthetic-emails](https://huggingface.co/datasets/sinabis-group/sinabis-100k-synthetic-emails)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | CC-BY-4.0                   | En opdigtet virksomheds post på fransk                                         |
+| [scripts/everyday-mail](https://github.com/spamscanner/spamscanner/tree/master/scripts/everyday-mail)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | Med dette projekt           | Hverdagspost og svindel på 23 sprog, skrevet til dette projekt                 |
 
 Ham omfatter almindelig erhvervs- og butikspost (fakturaer, ordre- og kontomeddelelser, nyhedsbreve, tilbud), så sådan post i sig selv ikke ligner spam.
 
-Den har lært af 77.564 spambeskeder og 112.586 ham-beskeder. Scriptet holder hver tiende besked ude, træner på resten og måler klassifikatoren alene, uden de andre tjek:
+Afvisningsmeddelelser (bounces) i datasættene udelades: de findes kun blandt spammen, hvilket ville lære klassifikatoren, at enhver afvisningsmeddelelse er spam.
+
+De sidste tre rækker er almindelig tekst på de sprog, som de andre datasæt mest har spam på (fransk, portugisisk, hollandsk, de nordiske sprog, polsk, tyrkisk, arabisk, japansk, koreansk, kinesisk med flere), hvor hvert almindeligt ord ellers ville blive læst som spam. Af 10.000 almindelige tekster på 20 sprog, som modellen ikke er trænet på, får 1,4 % en sandsynlighed på 80 % eller mere (4,8 % uden disse rækker) og 0,1 % en på 99 % eller mere. Denne tekst er ikke rigtig post, og den svindel, der er skrevet til hvert sprog, er sparsom: klassifikatoren bliver mere sikker på almindelig post på disse sprog og fanger kun lidt mere af deres spam.
+
+Den har lært af 81.254 spambeskeder og 133.317 ham-beskeder. Scriptet holder hver tiende besked ude, træner på resten og måler klassifikatoren alene, uden de andre tjek:
 
 | Test på udeladte beskeder | Beskeder | Præcision | Genkaldelse | Falske positiver | Usikre |
 | ------------------------- | -------: | --------: | ----------: | ---------------: | -----: |
-| Engelsk                   |    8.515 |   100,0 % |      96,4 % |            0,0 % |  2,6 % |
-| Russisk                   |    1.680 |   100,0 % |      97,4 % |            0,0 % |  2,3 % |
-| Italiensk                 |    1.392 |    98,6 % |      81,0 % |            1,2 % | 12,5 % |
-| Tysk                      |    1.314 |    97,8 % |      72,5 % |            2,1 % | 22,6 % |
-| Spansk                    |    2.088 |    98,5 % |      56,1 % |            0,4 % | 15,7 % |
-| Enron-Spam                |    2.888 |   100,0 % |      92,4 % |            0,0 % |  4,4 % |
-| all-scam-spam             |    4.236 |   100,0 % |      89,3 % |            0,0 % | 11,6 % |
-| Alle                      |   18.967 |    99,6 % |      77,2 % |            0,2 % | 15,8 % |
+| Engelsk                   |    8.481 |   100,0 % |      96,3 % |            0,0 % |  2,6 % |
+| Russisk                   |    1.680 |   100,0 % |      97,4 % |            0,0 % |  2,2 % |
+| Italiensk                 |    1.392 |    99,0 % |      81,0 % |            0,9 % | 12,6 % |
+| Tysk                      |    1.314 |    97,9 % |      71,4 % |            1,9 % | 22,3 % |
+| Spansk                    |    2.088 |    98,7 % |      53,3 % |            0,4 % | 16,2 % |
+| Enron-Spam                |    2.870 |   100,0 % |      95,2 % |            0,0 % |  2,6 % |
+| all-scam-spam             |    4.222 |    99,9 % |      92,2 % |            0,0 % |  9,1 % |
+| Alle                      |   21.329 |    99,6 % |      76,6 % |            0,2 % | 14,2 % |
 
 Spam betyder her en sandsynlighed fra klassifikatoren på 99 % eller mere, det punkt, hvor klassifikatoren alene når spamgrænsen. I en scanning får spam, som den er mindre sikker på, stadig point, og de andre tjek lægger deres til.
 
@@ -132,7 +139,7 @@ De tyske, spanske og italienske resultater kommer fra syntetiske datasæt, som i
 ### Træn den igen
 
 ```sh
-npm run model:train                       # downloads the datasets into data/ the first time
+npm run model:train                       # downloads the datasets into data/ the first time; needs 4 GB of memory
 npm run model:train -- --no-download      # reuse data/
 npm run model:train -- --out /tmp/model.json --max-features 200000
 ```

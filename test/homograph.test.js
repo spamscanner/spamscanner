@@ -326,4 +326,37 @@ describe('brands that are words', () => {
 		assert.equal(result.brand, 'paypal');
 		assert.ok(result.riskScore > risk('paypa1-login.com').riskScore);
 	});
+	it('leaves the names of other companies, in other countries, that are a letter from a brand', () => {
+		// (another first letter makes another name; a company or a word of
+		//  another language; a number; a brand's own spelling with a hyphen,
+		//  under any country's domain; a savings bank's and a group's own)
+		for (const domain of ['ubank.com.au', 'eubank.kz', 'oberbank.at', 'lithub.com', 'landex.com', 'zetflix.fm', 'telegraf.rs', 'telegraf.com.ua', 'paypay.ne.jp', 'paypak.net.pk', 'amaron.com', 'amazone.de', 'cosco.in', 'citicbank.com', 'ncbank.co.jp', 'nurbank.kz', 'allpay.net', 'rechat.com', '477.jp', '163.com', 'credit-agricole.pl', 'credit-agricole.ua', 'deutsche-bank.es', 'sber-bank.by', 'wal-mart.com', 'berliner-sparkasse.de', 'frankfurter-sparkasse.de', 'rakuten-edy.co.jp', 'rakuten-sec.net', 'star-telegram.com', 'groupe-telegram.fr', 'ayto-santander.es', 'andover-norton.co.uk', 'e-postbank.bg', 'amazon-corp.com', 'payments-amazon.com', 'adobe-campaign.com', 'microsoftonline-p.com', 'ads-twitter.com', 'cloudflare-quic.com', 'paypal-ads.com']) {
+			assert.equal(risk(domain).riskScore, 0, domain);
+		}
+
+		// (a slip of the hand inside a brand's name still counts, and so does a
+		//  brand beside a phishing word, a digit for a letter, or a savings
+		//  bank's name with one)
+		for (const domain of ['gogle.work', 'hotmaal.gg', 'paybal.io', 'amazom.com', 'whatspp.click', 'nubnak.com', 'alipya.com', 'wecaht.com']) {
+			assert.equal(risk(domain).riskScore, 0.5, domain);
+		}
+
+		for (const domain of ['telegram-login.com', 'santander-secure.com', 'secure-postbank.com', 'norton-support.com', 'berliner-sparkasse-login.de', 'paypa1.com', 'amaz0n.com']) {
+			assert.ok(risk(domain).riskScore >= 0.6, domain);
+		}
+	});
+
+	it('takes a brand before another service\'s name for its customer, and a network\'s name for the brand\'s own', () => {
+		// (a company's page at a service, a brand's files at a delivery
+		//  network, and an address read through a company's proxy)
+		for (const domain of ['walmart.wd5.myworkdayjobs.com', 'salesforce.wd12.myworkdayjobs.com', 'tiktok.en.softonic.com', 'instagram.fabc1-1.fna.fbcdn.net', 'apple.com.edgekey.net', 'itunes.apple.com.akadns.net', 'sharepoint.com.dual-spo-0005.spo-msedge.net', 'microsoft.com.b-0005.b-msedge.net', 'paypal.com.mcas.ms', 'outlook.acdc.tm.svc.cloud.microsoft', 'aliexpress.com.gds.alibabadns.com']) {
+			assert.equal(risk(domain).riskScore, 0, domain);
+		}
+
+		// (not the start of an address, a name beside a phishing word, or a
+		//  name anyone may choose)
+		for (const domain of ['paypal.com.account-check.example', 'paypal.secure-login.example.com', 'paypal.login.example.com', 'microsoft.verify.hosting.example', 'paypal.com.s3.amazonaws.com', 'paypal.com.pages.example', 'notmsedge.net.paypal.com.example.org']) {
+			assert.ok(risk(domain).riskScore >= 0.6, domain);
+		}
+	});
 });

@@ -129,7 +129,7 @@
     "build": "node build.mjs",
     "i18n:check": "node scripts/i18n-check.js",
     "lint": "fixpack && remark . -qfo && xo --fix",
-    "model:train": "node scripts/train-model.js",
+    "model:train": "node --max-old-space-size=4096 scripts/train-model.js",
     "pre-commit": "lint-staged",
     "prepare": "husky",
     "prepublishOnly": "npm run build",

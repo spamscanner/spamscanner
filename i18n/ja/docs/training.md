@@ -1,4 +1,4 @@
-<!-- source: c4f8c2c7aa5a -->
+<!-- source: 6f344039ec5d -->
 
 # 学習
 
@@ -95,21 +95,28 @@ scanner.saveModel('/var/lib/spamscanner/model.json');
 | [chairulridjal/high-accuracy-email-classifier-indonesian](https://huggingface.co/datasets/chairulridjal/high-accuracy-email-classifier-indonesian)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Apache-2.0                 | カテゴリ別のインドネシア語メール                       |
 | [JeisonJimenez/emails_2025](https://huggingface.co/datasets/JeisonJimenez/emails_2025)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Apache-2.0                 | ある企業のスペイン語メール                          |
 | [imnim/multiclass-email-classification](https://huggingface.co/datasets/imnim/multiclass-email-classification), [weijianzhg/email-triage-action-seed](https://huggingface.co/datasets/weijianzhg/email-triage-action-seed), [dedsec995/Email_Classification_Text](https://huggingface.co/datasets/dedsec995/Email_Classification_Text), [vpakarinen/open-wiki-email-templates](https://huggingface.co/datasets/vpakarinen/open-wiki-email-templates), [neurocheckout-ai/synthetic-abandoned-cart-email-examples](https://huggingface.co/datasets/neurocheckout-ai/synthetic-abandoned-cart-email-examples), [dhnanjay/MarketMail-AI-Dataset](https://huggingface.co/datasets/dhnanjay/MarketMail-AI-Dataset) | MIT, Apache-2.0, CC-BY-4.0 | 通常のメール: 請求書、予約、ニュースレター、プロモーション、アカウント通知 |
+| [AmazonScience/massive](https://huggingface.co/datasets/AmazonScience/massive)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | CC-BY-4.0                  | 人がアシスタントに頼むこと（20言語）                    |
+| [sinabis-group/sinabis-100k-synthetic-emails](https://huggingface.co/datasets/sinabis-group/sinabis-100k-synthetic-emails)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | CC-BY-4.0                  | 架空の企業のフランス語メール                         |
+| [scripts/everyday-mail](https://github.com/spamscanner/spamscanner/tree/master/scripts/everyday-mail)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | このプロジェクトと同じ                | このプロジェクトのために書いた、23言語の日常のメールと詐欺メール      |
 
 ハムには通常の業務メールやショップのメール（請求書、注文やアカウントの通知、ニュースレター、プロモーション）が含まれるため、そうしたメールがそれだけでスパムと判定されることはありません。
 
-このモデルは77,564通のスパムと112,586通のハムから学習しました。スクリプトは10通に1通を取り分け、残りで学習し、ほかの検査を使わずに分類器単体を計測します。
+データセット内のバウンスメールは除外されます。スパムの中にしか含まれておらず、すべてのバウンスメールがスパムだと分類器に学習させてしまうためです。
+
+最後の3行は、ほかのデータセットにはほとんどスパムしかない言語（フランス語、ポルトガル語、オランダ語、北欧の言語、ポーランド語、トルコ語、アラビア語、日本語、韓国語、中国語など）の普通の文章です。これがなければ、こうした言語では普通の言葉がどれもスパムと読まれてしまいます。モデルが学習していない20言語の普通の文章10,000件のうち、確率が80%以上になるのは1.4%（この3行がなければ4.8%）、99%以上になるのは0.1%です。この文章は本物のメールではなく、各言語のために書いた詐欺メールもわずかです。分類器はこれらの言語の普通のメールをより確かに見分けられるようになりますが、スパムの検出はわずかに増えるだけです。
+
+このモデルは81,254通のスパムと133,317通のハムから学習しました。スクリプトは10通に1通を取り分け、残りで学習し、ほかの検査を使わずに分類器単体を計測します。
 
 | 取り分けたテスト      |  メッセージ |    適合率 |   再現率 |  誤検知 |  判定不能 |
 | ------------- | -----: | -----: | ----: | ---: | ----: |
-| 英語            |  8,515 | 100.0% | 96.4% | 0.0% |  2.6% |
-| ロシア語          |  1,680 | 100.0% | 97.4% | 0.0% |  2.3% |
-| イタリア語         |  1,392 |  98.6% | 81.0% | 1.2% | 12.5% |
-| ドイツ語          |  1,314 |  97.8% | 72.5% | 2.1% | 22.6% |
-| スペイン語         |  2,088 |  98.5% | 56.1% | 0.4% | 15.7% |
-| Enron-Spam    |  2,888 | 100.0% | 92.4% | 0.0% |  4.4% |
-| all-scam-spam |  4,236 | 100.0% | 89.3% | 0.0% | 11.6% |
-| すべて           | 18,967 |  99.6% | 77.2% | 0.2% | 15.8% |
+| 英語            |  8,481 | 100.0% | 96.3% | 0.0% |  2.6% |
+| ロシア語          |  1,680 | 100.0% | 97.4% | 0.0% |  2.2% |
+| イタリア語         |  1,392 |  99.0% | 81.0% | 0.9% | 12.6% |
+| ドイツ語          |  1,314 |  97.9% | 71.4% | 1.9% | 22.3% |
+| スペイン語         |  2,088 |  98.7% | 53.3% | 0.4% | 16.2% |
+| Enron-Spam    |  2,870 | 100.0% | 95.2% | 0.0% |  2.6% |
+| all-scam-spam |  4,222 |  99.9% | 92.2% | 0.0% |  9.1% |
+| すべて           | 21,329 |  99.6% | 76.6% | 0.2% | 14.2% |
 
 ここでのスパムは、分類器の確率が99%以上のものを指します。これは分類器単体でスパムのしきい値に達する点です。実際のスキャンでは、確信度がそれより低いスパムにも点数が付き、ほかの検査もそれぞれの点数を加えます。
 
@@ -132,7 +139,7 @@ scanner.saveModel('/var/lib/spamscanner/model.json');
 ### 再学習させる
 
 ```sh
-npm run model:train                       # downloads the datasets into data/ the first time
+npm run model:train                       # downloads the datasets into data/ the first time; needs 4 GB of memory
 npm run model:train -- --no-download      # reuse data/
 npm run model:train -- --out /tmp/model.json --max-features 200000
 ```
