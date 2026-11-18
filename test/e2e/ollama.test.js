@@ -16,8 +16,8 @@ const url = process.env.OLLAMA_URL || 'http://127.0.0.1:11434';
 const model = process.env.OLLAMA_MODEL || 'qwen3.5:4b';
 const timeout = 30 * 60 * 1000;
 
-// Languages the bundled classifier saw little or no mail in: the language
-// model decides these.
+// Languages the bundled classifier saw little real mail in: the language
+// model is asked about each, also where the classifier is sure by now.
 const LANGUAGES = new Set(['zh', 'ar', 'ko', 'hi', 'th']);
 
 describe('Ollama', {skip: !enabled && 'set SPAMSCANNER_E2E_OLLAMA=1', timeout}, () => {
@@ -51,11 +51,11 @@ describe('Ollama', {skip: !enabled && 'set SPAMSCANNER_E2E_OLLAMA=1', timeout}, 
 		assert.ok(times.decision < times.generate, JSON.stringify(times));
 	});
 
-	it('catches spam and passes ham in languages the classifier does not know', async () => {
+	it('catches spam and passes ham in languages the classifier knows little of', async () => {
 		const scanner = new SpamScanner({
 			phishing: {cloudflare: false},
 			llm: {
-				provider: 'ollama', baseUrl: url, model, timeout: 300_000,
+				provider: 'ollama', baseUrl: url, model, mode: 'always', timeout: 300_000,
 			},
 		});
 		const wrong = [];
