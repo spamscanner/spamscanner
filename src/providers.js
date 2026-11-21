@@ -46,6 +46,11 @@ export const CLICK_TRACKERS = [
 	// Salesforce Marketing Cloud (click.exacttarget.com, cl.exct.net)
 	'exacttarget.com',
 	'exct.net',
+	// APSIS One (tr.apsis.one, tr-apac.apsis.one)
+	'apsis.one',
+	// CSID, an Experian identity protection service, for American Express
+	// CreditSecure
+	'csid.com',
 	// Brevo, formerly Sendinblue (*.sendibt2.com, *.r.a.d.sendibm1.com) and
 	// Newsletter2Go
 	...numbered('sendibm', 1, 7),

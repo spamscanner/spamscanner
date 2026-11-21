@@ -1,4 +1,4 @@
-<!-- source: ab57fd1d3952 -->
+<!-- source: 92d45ef57945 -->
 
 # 작동 방식
 
@@ -63,7 +63,7 @@ Spam Scanner는 단어 세기에서 효과가 있는 부분, 즉 통계는 그�
 모든 링크를 검사합니다.
 
 * **유사 도메인.** 각 도메인을 유니코드 혼동 문자(confusables) 표로 골격 형태로 줄이므로, `pаypal.com`(키릴 문자 а), `paypa1.com`, `rnicrosoft.com`, `xn--pple-43d.com`이 모두 흉내 낸 브랜드와 일치합니다. 한 레이블 안에 섞인 여러 문자 체계, 하위 도메인 속 브랜드 이름(`paypal.com.example.net`), 한 글자 오타는 더 낮은 점수를 받습니다. 자주 사칭되는 브랜드 100개 가까이가 내장되어 있으며, 더 추가할 수 있습니다.
-* **기만적인 링크.** 보이는 텍스트가 실제 대상과 다른 주소인 HTML 링크. 텍스트 전체가 주소이거나, 텍스트 안에 `http://` 또는 `https://`가 붙은 주소가 있는 경우입니다(`Sign in at https://www.paypal.com`). 문장 속의 파일 이름이나 사이트 이름(`Download report.zip`, `Read why Booking.com switched`)은 주소가 아닙니다. 메일 발송 서비스의 클릭 추적(SendGrid, Mailchimp, Amazon SES, Kit, Brevo, beehiiv, Substack 등)이나 링크를 다시 쓰는 보안 게이트웨이(Microsoft Safe Links, Proofpoint, Mimecast, Barracuda, Cisco)를 거치는 링크는 원래 다른 곳으로 가도록 되어 있으므로 텍스트가 경로가 없거나 로그인 경로인 브랜드의 전체 주소이고(소셜 네트워크, 쇼핑몰 상품, 지도로 가는 링크는 제외) 발신자가 그 브랜드나 그 브랜드의 발송 도메인이 아닐 때만 반영합니다. 게이트웨이의 링크에 이어서 갈 주소가 들어 있으면(Safe Links, Proofpoint) 대신 그 주소를 비교합니다.
+* **기만적인 링크.** 보이는 텍스트가 실제 대상과 다른 주소인 HTML 링크. 텍스트 전체가 주소이거나, 텍스트 안에 `http://` 또는 `https://`가 붙은 주소가 있는 경우입니다(`Sign in at https://www.paypal.com`). 문장 속의 파일 이름이나 사이트 이름(`Download report.zip`, `Read why Booking.com switched`)은 주소가 아닙니다. 메일 발송 서비스의 클릭 추적(SendGrid, Mailchimp, Amazon SES, Kit, Brevo, beehiiv, Substack 등)이나 링크를 다시 쓰는 보안 게이트웨이(Microsoft Safe Links, Proofpoint, Mimecast, Barracuda, Cisco)를 거치는 링크는 원래 다른 곳으로 가도록 되어 있으므로 텍스트가 경로가 없거나 로그인 경로인 브랜드의 전체 주소이고(소셜 네트워크, 쇼핑몰 상품, 지도로 가는 링크는 제외) 발신자가 그 브랜드나 그 브랜드의 발송 도메인이 아닐 때만 반영합니다. 게이트웨이의 링크에 이어서 갈 주소가 들어 있으면(Safe Links, Proofpoint) 대신 그 주소를 비교합니다. 위장만 계산합니다. 즉 브랜드의 주소, 정부 사이트(`irs.gov`, `gov.uk`), 또는 받는 사람 자신의 도메인을 다른 사이트 위에 표시한 경우입니다. 그 밖의 사이트 표시는 위장이 아닙니다. 사람과 상점은 사이트를 실제 위치와 다른 이름으로 부르기 때문입니다(저장소 위의 프로젝트 문서, 플랫폼 위의 상점). 인터넷에서 아무도 접근할 수 없는 호스트(`localhost`, `192.168.1.1`, `example.com`)나 같은 회사의 다른 도메인(`blog.google` 위의 `google.com`)도 위장이 아닙니다. 사이트의 리디렉션이 이동할 주소를 담고 있으면(Google의 `google.com/url?q=`, Facebook, Slack, LinkedIn, YouTube, Wayback Machine) 대신 그 주소를 비교합니다.
 * **Cloudflare의 필터링 리졸버.** 링크 호스트를 1.1.1.2와 1.1.1.3에서 조회합니다. 1.1.1.2는 알려진 악성코드와 피싱에 대해 `0.0.0.0`으로 응답하고, 1.1.1.3은 성인 콘텐츠도 차단합니다.
 * **표시 이름.** 다른 도메인 주소에서 보낸 "PayPal Security" 같은 이름, 또는 다른 이메일 주소가 들어 있는 이름.
 

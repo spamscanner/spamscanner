@@ -216,8 +216,25 @@ export function isClickTracker(url) {
 	return CLICK_TRACKERS.some(domain => isUnder(host, domain)) || (host === 'substack.com' && url.pathname.startsWith('/redirect/'));
 }
 
+// The redirects of sites people copy links from, which go on to the address
+// a parameter holds: by host, the path and the parameter (and Google's
+// search results', "google.com/url?q=", and the Wayback Machine's, see
+// gatewayTarget)
+const REDIRECTS = new Map([
+	['l.facebook.com', ['/l.php', 'u']],
+	['lm.facebook.com', ['/l.php', 'u']],
+	['l.messenger.com', ['/l.php', 'u']],
+	['l.instagram.com', ['', 'u']],
+	['slack-redir.net', ['/link', 'url']],
+	['www.linkedin.com', ['/redir/redirect', 'url']],
+	['www.youtube.com', ['/redirect', 'q']],
+	['steamcommunity.com', ['/linkfilter', 'url']],
+	['vk.com', ['/away.php', 'to']],
+]);
+
 // The address a security gateway's link goes on to, as the gateway wrote it
-// in the link (see CLICK_TRACKERS), or null: the "url" parameter of Safe
+// in the link (see CLICK_TRACKERS), or a redirect's (see REDIRECTS), or
+// null: the "url" parameter of Safe
 // Links, the "u" parameter of Proofpoint's second form ("https-3A__www.example.com_a",
 // "-" and two hex digits for "%" and "_" for "/") and what is between "/v3/__"
 // and "__;" in its third
@@ -242,7 +259,18 @@ function gatewayTarget(url) {
 		return end === -1 ? null : rest.slice(0, end);
 	}
 
-	return null;
+	// (the Wayback Machine's copy of a page: "/web/20200101000000/https://...")
+	if (host === 'web.archive.org') {
+		return /^\/web\/\w+\/(https?:\/\/.+)$/i.exec(`${url.pathname}${url.search}`)?.[1] ?? null;
+	}
+
+	const path = url.pathname.replace(/\/$/, '');
+	if (/^(?:www\.)?google\.(?:com?\.)?[a-z]{2,3}$/.test(host) && path === '/url') {
+		return url.searchParams.get('q') || url.searchParams.get('url');
+	}
+
+	const [redirect, parameter] = REDIRECTS.get(host) ?? [];
+	return redirect === path ? url.searchParams.get(parameter) : null;
 }
 
 // (gateways unwrapped at most: forwarding through several organizations
@@ -290,7 +318,8 @@ export function unwrapLink(address) {
 	return url;
 }
 
-const BRAND_NAMES = new Set(BRANDS);
+// (and WeTransfer, whose name phishing shows over a "file shared" page)
+const BRAND_NAMES = new Set([...BRANDS, 'wetransfer']);
 
 const SHORTENERS = new Set(['bit.ly', 'tinyurl.com', 'goo.gl', 't.co', 'ow.ly', 'is.gd', 'buff.ly', 'rebrand.ly', 'cutt.ly', 'shorturl.at', 'tiny.cc', 'rb.gy', 'bit.do', 'v.gd', 's.id', 't.ly', 'lnkd.in', 'qrco.de', 'shorturl.asia', 'urlz.fr']);
 
@@ -1248,7 +1277,8 @@ const LINKED_BRANDS = new Set(['airbnb', 'aliexpress', 'alibaba', 'bestbuy', 'bo
 // (forms.office.com, sharepoint.com, docs.google.com, paypal.me) or shortens
 // a link (bing.com, goo.gl).
 const SAME_OWNER = [
-	['microsoft.com', 'microsoftonline.com', 'xbox.com', 'windows.com', 'msn.com', 'skype.com', 'aka.ms'],
+	['microsoft.com', 'microsoftonline.com', 'azure.com', 'xbox.com', 'windows.com', 'msn.com', 'skype.com', 'aka.ms'],
+	['google.com', 'withgoogle.com', 'android.com', 'youtube.com', 'gmail.com'],
 	['amazon.com', 'amazon.co.uk', 'amazon.de', 'amazon.fr', 'amazon.it', 'amazon.es', 'amazon.nl', 'amazon.ca', 'amazon.com.mx', 'amazon.com.br', 'amazon.co.jp', 'amazon.in', 'amazon.com.au', 'amzn.com', 'a.co', 'primevideo.com', 'audible.com'],
 	['apple.com', 'icloud.com', 'apple.co'],
 	['facebook.com', 'fb.com', 'fb.me', 'messenger.com', 'instagram.com', 'whatsapp.com', 'meta.com'],
@@ -1261,18 +1291,50 @@ const SAME_OWNER = [
 	['tangocard.com', 'rewardlink.com'],
 ];
 const OWNER_OF = new Map(SAME_OWNER.flatMap((domains, owner) => domains.map(domain => [domain, owner])));
-const sameOwner = (one, other) => OWNER_OF.has(one) && OWNER_OF.get(one) === OWNER_OF.get(other);
+// (and a brand's own top-level domain, "blog.google", is its "google.com")
+const brandSite = domain => {
+	const {publicSuffix, isIcann} = parseDomain(domain);
+	return isIcann && BRAND_NAMES.has(publicSuffix) ? `${publicSuffix}.com` : domain;
+};
+
+const sameOwner = (one, other) => [one, brandSite(one)].some(first => [other, brandSite(other)].some(second => first === second || (OWNER_OF.has(first) && OWNER_OF.get(first) === OWNER_OF.get(second))));
+
+// Hosts no one reaches on the internet, which a link's text shows as no
+// disguise ("http://localhost:3000", "http://192.168.1.1", "example.com"):
+// an IP address, a name under a top-level domain of local networks, and the
+// names kept for examples
+const LOCAL_SUFFIXES = new Set(['corp', 'home', 'home.arpa', 'internal', 'intranet', 'invalid', 'lan', 'local', 'localdomain', 'localhost', 'test']);
+const EXAMPLE_DOMAINS = new Set(['example.com', 'example.net', 'example.org']);
+const isUnreachable = host => {
+	const parsed = parseDomain(host);
+	return parsed.isIp || LOCAL_SUFFIXES.has(parsed.publicSuffix) || EXAMPLE_DOMAINS.has(parsed.domain);
+};
+
+// Sites of governments ("irs.gov", "gov.uk", "impots.gouv.fr", "nta.go.jp",
+// "canada.ca"), whose names a message shows over a phishing page as it does
+// a brand's
+const GOVERNMENT_SUFFIX = /^(?:gov|mil)$|^(?:gc|go|gob|gouv|gov|govt|gub|gv|mil)\.[a-z]{2}$/;
+const GOVERNMENT_DOMAINS = new Set(['admin.ch', 'bund.de', 'canada.ca', 'europa.eu']);
+const isGovernment = domain => GOVERNMENT_SUFFIX.test(parseDomain(domain).publicSuffix ?? '') || GOVERNMENT_DOMAINS.has(domain);
 // A part of the path of an address that asks to sign in or pay ("signin",
 // "ServiceLogin", "YourAccount", "oauth2", "accountverification",
 // "updatepayment", "LoginHelp"), between "/", "?", "&", "=", ".", "_" or
-// "-", in any case: not a product, a page or a map ("updates", "products")
-const SIGN_IN_PART = /^(?:your|my|service|secure)?(?:login|logon|signin|signon|accounts?|verify|verification|security|secure|auth|authenticate|authorize|oauth2?|billing|password|recover|recovery|unlock|confirm|update|wallet|webscr)(?:verification|payment|info|help|page|\d{1,2})?$/;
+// "-", in any case: not a product, a page or a map ("updates", "products",
+// "wallet", which Apple, Google and Samsung name a product)
+const SIGN_IN_PART = /^(?:your|my|service|secure)?(?:login|logon|signin|signon|accounts?|verify|verification|security|secure|auth|authenticate|authorize|oauth2?|billing|password|recover|recovery|unlock|confirm|update|webscr)(?:verification|payment|info|help|page|\d{1,2})?$/;
+// Of the address a sender's own click tracking goes to, only a part that
+// asks to sign in: its other words name what a click tracking link records
+// ("account=12", "secure.", "update-preferences", "confirm")
+const STRICT_SIGN_IN_PART = /^(?:your|my|service|secure)?(?:login|logon|signin|signon|verify|verification|auth|authenticate|authorize|oauth2?|password|recover|recovery|unlock|webscr)(?:verification|info|help|page|\d{1,2})?$/;
 // ("sign-in" and "log-on" are read as one part)
-const signInPath = path => path.toLowerCase().replaceAll(/\b(log|sign)-(in|on)\b/g, '$1$2').split(/[/?&=._-]/).some(part => SIGN_IN_PART.test(part));
+const signInPath = (path, parts = SIGN_IN_PART) => path.toLowerCase().replaceAll(/\b(log|sign)-(in|on)\b/g, '$1$2').split(/[/?&=._-]/).some(part => parts.test(part));
 // The domains brands send from that hold their name and another word
-// ("facebookmail.com"): only these, as the others are anyone's
-// ("paypalmail.com", "chasemails.com", "facebookmail.top")
+// ("facebookmail.com"), or that a service sends their mail from
+// ("membershipmail.net", CSID's for American Express CreditSecure): only
+// these, as the others are anyone's ("paypalmail.com", "chasemails.com",
+// "facebookmail.top")
 const SENDING_DOMAINS = new Map([
+	['americanexpress', ['membershipmail.net']],
 	['dropbox', ['dropboxmail.com']],
 	['facebook', ['facebookmail.com']],
 	['mcafee', ['mcafeemail.com']],
@@ -1307,38 +1369,66 @@ function reachedPath(target, link) {
 
 /**
  * Whether the visible text of a link names a different site than the link
- * goes to ("https://paypal.com" linking to another domain; not another
- * domain of the same company, see SAME_OWNER). A link through an
- * email service's click tracking (see CLICK_TRACKERS) goes elsewhere by
- * design, so it counts only when the sender is known (`from`, the domain of
- * the From address, or "" for none), the text shows a whole address with
- * "http://" or "https://" of a brand's own domain (see BRANDS; not one that
+ * goes to, where that is a disguise: a brand's site (see BRANDS; "https://paypal.com"
+ * linking to another domain), a government's ("irs.gov", "gov.uk"), or a
+ * recipient's own domain (`recipients`: a mailbox page under it). Any other
+ * site shown is no disguise, as people and shops name a site another way
+ * than where it is ("docs.example.dev" over its repository, a shop over its
+ * platform), nor is a host no one reaches on the internet ("localhost",
+ * "192.168.1.1", "example.com"), another domain of the same company (see
+ * SAME_OWNER, and "blog.google" for "google.com"), or a government's site
+ * to another's. A link through a security gateway or a site's redirect
+ * ("google.com/url?q=") is read as the address it goes on to (see
+ * unwrapLink).
+ *
+ * A link through an email service's click tracking (see CLICK_TRACKERS) goes
+ * elsewhere by design, so it counts only when the sender is known (`from`,
+ * the domain of the From address, or "" for none), the text shows a whole
+ * address with "http://" or "https://" of a brand's own domain (not one that
  * newsletters link to, see LINKED_BRANDS) with no path or one that asks to
  * sign in or pay, and the sender is not that brand (nor one of its sending
- * domains, "facebookmail.com", see SENDING_DOMAINS): a hijacked account of a mailing service
- * sending "https://www.paypal.com" to a phishing page, not a newsletter's
- * links. A link through a security gateway is read as the address the
- * gateway goes on to, where the gateway's link holds it (see unwrapLink).
- * A sender that passes DMARC (`authenticated`) shows its own address, or a
- * shop's, over the tracking domain of the service that sends its mail, so
- * its other links count only when they show an address of a brand's domain
- * that is not its own domain, whatever the path (for a brand newsletters
- * link to, no path or one that asks to sign in or pay). Its links to its own
- * domain are its own click tracking: a shop naming a partner
+ * domains, "facebookmail.com", see SENDING_DOMAINS): a hijacked account of a
+ * mailing service sending "https://www.paypal.com" to a phishing page, not a
+ * newsletter's links. A sender that passes DMARC (`authenticated`), a person
+ * or a shop, links to a brand's pages any way (copied through another site,
+ * in a newsletter forwarded), so of a brand's site only its front page (not
+ * of a brand newsletters link to) or a page that asks to sign in or pay
+ * counts, and only when it is not the sender's own domain. Its links to its
+ * own domain are its own click tracking: a shop naming a partner
  * ("amazon.co.uk") over it is no disguise, so a brand's address counts
  * there only when it, or the address the link goes to, asks to sign in or
  * pay ("paypal.com/signin", or "www.paypal.com" over ".../login"), and none
  * when it is a known sender (`known`, see phishing.knownSenders); a provider
- * of mailboxes has no domain of its own that way ("gmail.com"). A sender is the
- * brand there by its domain, not by its name: "paypal.top" is not PayPal.
+ * of mailboxes has no domain of its own that way ("gmail.com"). A sender is
+ * the brand there by its domain, not by its name: "paypal.top" is not PayPal.
+ *
+ * The domains that sent the message, as its authentication shows (`senders`:
+ * of a DKIM signature that passes for the whole body, or of an envelope
+ * sender SPF passes for), are the sender's own whether or not they are its
+ * From domain's, as a sender's mailing service signs and sends for it: a link
+ * to one of them, or to another domain of its company, is its own click
+ * tracking (only the address it shows asking to sign in counts, or the
+ * address it goes to asking to sign in by a word no click tracking link
+ * records), and a site of theirs shown is the sender's own. Not a mailing
+ * service's click tracking (see CLICK_TRACKERS), which anyone sends through,
+ * a provider of mailboxes, nor a brand's domain, which carries anyone's mail
+ * (a calendar invitation, a shared document). A known sender that passes
+ * DMARC shows a brand's address that does not ask to sign in on any link,
+ * and a government's or a recipient's site on any.
  * @param {{host: string, text: string|null, url?: string}} link
  * @param {object} [options]
  * @param {string} [options.from] - the sender's domain
  * @param {boolean} [options.authenticated] - whether the sender passes DMARC
  * @param {boolean} [options.known] - whether the sender is a known sender
+ * @param {string[]} [options.senders] - the registrable domains that
+ *   authenticated the message (see above)
+ * @param {string[]} [options.recipients] - the registrable domains of its
+ *   recipients
  * @returns {boolean}
  */
-export function isDeceptiveLink(link, {from, authenticated, known} = {}) {
+export function isDeceptiveLink(link, {
+	from, authenticated, known, senders, recipients,
+} = {}) {
 	if (!link.text) {
 		return false;
 	}
@@ -1357,36 +1447,70 @@ export function isDeceptiveLink(link, {from, authenticated, known} = {}) {
 	const shown = registrableDomain(shownHost);
 	const reached = registrableDomain(host);
 	// (the same site, or another domain of the company that owns it)
-	if (!shownHost.includes('.') || shown === reached || sameOwner(shown, reached)) {
+	// (and a government's site to another's)
+	if (!shownHost.includes('.') || isUnreachable(shownHost.replace(/^\[(.*)]$/, '$1')) || sameOwner(shown, reached) || (isGovernment(shown) && isGovernment(reached))) {
+		return false;
+	}
+
+	// (the domains that sent the message: those its authentication shows, but
+	//  not a brand's, and its From domain when it passes DMARC; not a provider
+	//  of mailboxes, whose domain holds anyone's pages)
+	const fromDomain = typeof from === 'string' ? registrableDomain(from) : '';
+	const proven = new Set((Array.isArray(senders) ? senders : []).filter(domain => typeof domain === 'string' && !isMailbox(domain) && !BRAND_NAMES.has(parseDomain(domain).domainWithoutSuffix)));
+	if (authenticated && fromDomain !== '' && !isMailbox(from)) {
+		proven.add(fromDomain);
+	}
+
+	// (a site of a domain that sent it, shown)
+	if (proven.has(shown)) {
 		return false;
 	}
 
 	const tracked = isClickTracker(target ?? {hostname: host, pathname: ''});
+	// (a link to a domain that sent it, or to another of its company's: its
+	//  own click tracking)
+	const own = !tracked && [...proven].some(domain => domain === reached || sameOwner(domain, reached));
+	const brand = parseDomain(shown).domainWithoutSuffix;
+	if (!BRAND_NAMES.has(brand)) {
+		// (of another site, only a recipient's domain, which a message claiming
+		//  to come from it shows over a phishing page, or a government's: a
+		//  link to a site people name another way is no disguise, "docs.example.dev"
+		//  over its repository, "www.shop.example" over its shop's platform)
+		return !tracked && !own && !(authenticated && known)
+			&& ((Array.isArray(recipients) && recipients.includes(shown)) || isGovernment(shown));
+	}
+
+	// (a brand's own sending domain: "facebookmail.com")
+	if ((authenticated || tracked) && SENDING_DOMAINS.get(brand)?.includes(fromDomain)) {
+		return false;
+	}
+
+	const path = `${shownUrl.pathname}${shownUrl.search}`;
+	if (own) {
+		// (a known sender's under any address of a partner it writes about)
+		return !(authenticated && known) && (signInPath(path) || signInPath(reachedPath(target, link), STRICT_SIGN_IN_PART));
+	}
+
 	if (!tracked && !authenticated) {
 		return true;
 	}
 
-	// (a sender that passes DMARC, linking to its own domain: its own click
-	//  tracking; a known sender's under any address of a partner it writes
-	//  about; not a provider of mailboxes, whose domain holds anyone's pages)
-	const own = Boolean(authenticated) && typeof from === 'string' && registrableDomain(from) === reached && !isMailbox(from);
-	if (own && known) {
-		return false;
+	// (a known sender's shows a partner's address on any link: an order
+	//  shipped, under the carrier's)
+	if (authenticated && known) {
+		return signInPath(path);
 	}
 
-	const brand = parseDomain(shown).domainWithoutSuffix;
+	// (of a brand's site, only its front page, or a page that asks to sign in
+	//  or pay: a person links to a brand's other pages any way, through the
+	//  site they copied the link from or a newsletter they forward; and of a
+	//  brand newsletters link to, only a page that asks to sign in)
 	const sender = parseDomain(from ?? '').domainWithoutSuffix ?? '';
-	const path = `${shownUrl.pathname}${shownUrl.search}`;
-	const signIn = path === '/' || signInPath(path);
+	const signIn = (path === '/' && !LINKED_BRANDS.has(brand)) || signInPath(path);
 	return typeof from === 'string'
-		&& BRAND_NAMES.has(brand)
-		&& (own
-			? signInPath(path) || signInPath(reachedPath(target, link))
-			: (tracked
-				? !LINKED_BRANDS.has(brand) && /^https?:\/\//i.test(link.text) && signIn && sender !== brand
-				: !LINKED_BRANDS.has(brand) || signIn))
-			&& registrableDomain(from) !== shown
-			&& !SENDING_DOMAINS.get(brand)?.includes(registrableDomain(from));
+		&& signIn
+		&& (!tracked || (!LINKED_BRANDS.has(brand) && /^https?:\/\//i.test(link.text) && sender !== brand))
+		&& fromDomain !== shown;
 }
 
 function addressDomain(address) {

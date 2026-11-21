@@ -162,7 +162,7 @@ describe('isArbitrary', () => {
 
 		// (a brand's other domains, people's names, and names that hold a
 		//  brand's name without being the brand)
-		for (const from of ['Chase Smith <chase.smith@example.com>', 'Edward Norton <ed@example.com>', 'iCloud <noreply@email.apple.com>', 'Gmail Team <mail-noreply@google.com>', 'American Express <americanexpress@welcome.aexp.com>', 'HMRC <noreply@confirmation.tax.service.gov.uk>', 'Geek Squad <geeksquad@bestbuy.com>', 'Jane (Chase) <jane@jpmchase.com>', 'Volunteer Sign-ups <info@meetup.com>', 'Google Developer Group Berlin <info@meetup.com>', 'PayPal <service@paypal.com.au>', 'Sparkasse KölnBonn <info@sparkasse-koelnbonn.de>', 'Yahoo Japan <info@mail.yahoo-corp.jp>', 'Amazon via PayPal <service@paypal.com>']) {
+		for (const from of ['Chase Smith <chase.smith@example.com>', 'Edward Norton <ed@example.com>', 'iCloud <noreply@email.apple.com>', 'Gmail Team <mail-noreply@google.com>', 'American Express <americanexpress@welcome.aexp.com>', 'American Express <noreply@mail.membershipmail.net>', 'American Express <noreply@csid.com>', 'HMRC <noreply@confirmation.tax.service.gov.uk>', 'Geek Squad <geeksquad@bestbuy.com>', 'Jane (Chase) <jane@jpmchase.com>', 'Volunteer Sign-ups <info@meetup.com>', 'Google Developer Group Berlin <info@meetup.com>', 'PayPal <service@paypal.com.au>', 'Sparkasse KölnBonn <info@sparkasse-koelnbonn.de>', 'Yahoo Japan <info@mail.yahoo-corp.jp>', 'Amazon via PayPal <service@paypal.com>']) {
 			assert.deepEqual(names(isArbitrary(await parse(message({from})))), [], from);
 		}
 

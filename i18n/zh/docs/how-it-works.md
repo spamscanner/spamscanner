@@ -1,4 +1,4 @@
-<!-- source: ab57fd1d3952 -->
+<!-- source: 92d45ef57945 -->
 
 # 工作原理
 
@@ -63,7 +63,7 @@ Spam Scanner 保留了词语计数中有效的部分，即统计方法，而改�
 每个链接都会被检查：
 
 * **仿冒域名**。每个域名都会用 Unicode 易混淆字符表归约为骨架形式，因此 `pаypal.com`（西里尔字母 а）、`paypa1.com`、`rnicrosoft.com` 和 `xn--pple-43d.com` 都会与它们所模仿的品牌匹配。单个标签中混用多种文字、子域名中的品牌名（`paypal.com.example.net`）以及一个字母的拼写错误，得分较低。内置了近 100 个常被冒充的品牌，还可以添加更多。
-* **欺骗性链接**。可见文字与目标地址不同的 HTML 链接：可见文字整体是一个地址，或其中有一个带 `http://` 或 `https://` 的地址（`Sign in at https://www.paypal.com`）。句子中的文件名或网站名（`Download report.zip`、`Read why Booking.com switched`）不算地址。经过邮件发送服务点击跟踪（SendGrid、Mailchimp、Amazon SES、Kit、Brevo、beehiiv、Substack 等）或经过改写链接的安全网关（Microsoft Safe Links、Proofpoint、Mimecast、Barracuda、Cisco）的链接本来就会指向别处，因此只有当其文字是某个品牌的完整地址（不带路径或只带登录路径，而不是指向社交网络、商店商品或地图的链接）、发件人又不是该品牌或其发信域名之一时才计入。网关的链接中含有其后续指向的地址时（Safe Links、Proofpoint），改为比较该地址。
+* **欺骗性链接**。可见文字与目标地址不同的 HTML 链接：可见文字整体是一个地址，或其中有一个带 `http://` 或 `https://` 的地址（`Sign in at https://www.paypal.com`）。句子中的文件名或网站名（`Download report.zip`、`Read why Booking.com switched`）不算地址。经过邮件发送服务点击跟踪（SendGrid、Mailchimp、Amazon SES、Kit、Brevo、beehiiv、Substack 等）或经过改写链接的安全网关（Microsoft Safe Links、Proofpoint、Mimecast、Barracuda、Cisco）的链接本来就会指向别处，因此只有当其文字是某个品牌的完整地址（不带路径或只带登录路径，而不是指向社交网络、商店商品或地图的链接）、发件人又不是该品牌或其发信域名之一时才计入。网关的链接中含有其后续指向的地址时（Safe Links、Proofpoint），改为比较该地址。只有伪装才计分：显示在其他网站之上的品牌地址、政府网站（`irs.gov`、`gov.uk`）或某个收件人自己的域名。显示的其他任何网站都不算，因为人们和商店称呼网站的方式与其所在位置不同（项目的文档显示在其代码仓库之上，商店显示在其平台之上），互联网上无人能访问的主机（`localhost`、`192.168.1.1`、`example.com`）或同一公司的另一个域名（`blog.google` 上的 `google.com`）也不算。当网站的重定向包含其前往的地址时（Google 的 `google.com/url?q=`、Facebook、Slack、LinkedIn、YouTube、Wayback Machine），改为比较该地址。
 * **Cloudflare 的过滤解析器**。链接主机会在 1.1.1.2 上查询，它对已知的恶意软件和钓鱼网站返回 `0.0.0.0`；还会在 1.1.1.3 上查询，它同时拦截成人内容。
 * **显示名称**。例如来自另一个域名地址的“PayPal Security”这样的名称，或包含另一个电子邮件地址的名称。
 

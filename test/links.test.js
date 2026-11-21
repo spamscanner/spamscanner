@@ -471,7 +471,7 @@ describe('carriedLinkHosts on every shape of input', () => {
 		// (not an imitation of its name, nor a link when the sender is not known)
 		const imitation = await scanner.checkLinks([{url: 'https://paypa1.com/', host: 'paypa1.com', text: null}], scanner.config, [], {from: 'paypal.top'});
 		assert.equal(imitation.phishing.find(item => item.type === 'homograph').unlessAuthenticated, false);
-		const shown = [{url: 'https://links.mailer-service.example/c/1', host: 'links.mailer-service.example', text: 'www.shop.example'}];
+		const shown = [{url: 'https://links.mailer-service.example/c/1', host: 'links.mailer-service.example', text: 'www.apple.com/iphone/'}];
 		const skipped = async from => (await scanner.checkLinks(shown, scanner.config, [], {from})).phishing.find(item => item.type === 'deceptive_link').unlessAuthenticated;
 		assert.deepEqual([await skipped('shop.example'), await skipped(null)], [true, false]);
 	});
@@ -482,7 +482,7 @@ describe('carriedLinkHosts on every shape of input', () => {
 		const passed = domain => ({authenticationResults: {dmarc: {status: {result: 'pass'}, domain}}});
 		const failed = domain => ({authenticationResults: {dmarc: {status: {result: 'fail'}, domain, policy: 'reject'}}});
 		// (a shop's own address over the tracking domain of its mailing service)
-		const newsletter = message({from: 'news@mail.shop.example', subject: 'New this week', html: '<p>See what is new at <a href="https://links.mailer-service.example/c/1">www.shop.example</a> and <a href="https://links.mailer-service.example/c/2">www.partner-store.example</a></p>'});
+		const newsletter = message({from: 'news@mail.shop.example', subject: 'New this week', html: '<p>See what is new at <a href="https://links.mailer-service.example/c/1">www.shop.example</a> and <a href="https://links.mailer-service.example/c/2">www.apple.com/iphone/</a></p>'});
 		assert.ok(names(await scanner.scan(newsletter)).includes('DECEPTIVE_LINK'));
 		assert.ok(names(await scanner.scan(newsletter, failed('shop.example'))).includes('DECEPTIVE_LINK'));
 		assert.ok(!names(await scanner.scan(newsletter, passed('shop.example'))).includes('DECEPTIVE_LINK'));
@@ -544,6 +544,66 @@ describe('carriedLinkHosts on every shape of input', () => {
 		const authenticated = names(await scanner.scan(lettering, passed('shop.example')));
 		assert.ok(!authenticated.includes('INVISIBLE_CHARACTERS') && !authenticated.includes('STYLED_LETTERS') && !authenticated.includes('MIXED_SCRIPT_WORDS'));
 		assert.ok(names(await scanner.scan(lettering, failed('shop.example'))).includes('MIXED_SCRIPT_WORDS'));
+	});
+
+	it('takes a link to a domain that signed the message, or that SPF passes for, for the sender\'s own click tracking', async () => {
+		const scanner = new SpamScanner({classifier: false, phishing: {cloudflare: false}});
+		const deceptive = result => result.results.phishing.filter(item => item.type === 'deceptive_link').map(item => item.text);
+		// (a builder's newsletter through its marketing domain, which signs it
+		//  and is its envelope sender, but not aligned with its From domain, so
+		//  DMARC fails for it under a policy of none)
+		const auth = ({dkim = 'pass', underSized, spf = 'pass', dmarc = 'fail', aligned} = {}) => ({
+			authenticationResults: {
+				spf: {status: {result: spf}, domain: 'bounces.homes-marketing.example'},
+				dkim: {results: [{status: {result: dkim, underSized, ...(aligned ? {aligned} : {})}, signingDomain: aligned ?? 'homes-marketing.example'}]},
+				dmarc: {status: {result: dmarc}, domain: 'homes.example', p: 'none'},
+			},
+		});
+		const html = '<p>New homes at <a href="https://email.homes-marketing.example/c/1">www.homes.example</a>, by <a href="https://email.homes-marketing.example/c/2">www.partner.example</a>, and <a href="https://email.homes-marketing.example/c/3">www.paypal.com</a></p>';
+		const newsletter = message({from: 'sales@homes.example', subject: 'Featured homes this week', html});
+		assert.deepEqual(deceptive(await scanner.scan(newsletter)), ['www.paypal.com']);
+		assert.deepEqual(deceptive(await scanner.scan(newsletter, auth())), []);
+		assert.deepEqual(deceptive(await scanner.scan(newsletter, auth({dkim: 'fail'}))), []);
+		assert.deepEqual(deceptive(await scanner.scan(newsletter, auth({spf: 'softfail'}))), []);
+		assert.deepEqual(deceptive(await scanner.scan(newsletter, auth({dkim: 'fail', spf: 'softfail'}))), ['www.paypal.com']);
+		// (not by a signature of only the start of the body, after which anyone
+		//  can add links)
+		assert.deepEqual(deceptive(await scanner.scan(newsletter, auth({underSized: 120, spf: 'softfail'}))), ['www.paypal.com']);
+		// (a brand's address that asks to sign in still counts)
+		const signIn = message({from: 'sales@homes.example', subject: 'Your account', html: '<p><a href="https://email.homes-marketing.example/c/1">https://www.paypal.com/signin</a></p>'});
+		assert.ok((await scanner.scan(signIn, auth())).tests.some(test => test.name === 'DECEPTIVE_LINK'));
+		// (a domain without a DMARC record, whose own signature vouches for its
+		//  From address: as one that passes)
+		const shop = message({from: 'news@shop.example', subject: 'New this week', html: '<p>See <a href="https://t.mailer.example/c/1">www.apple.com/iphone/</a></p>'});
+		const unsigned = {authenticationResults: {dkim: {results: []}, spf: {status: {result: 'none'}}, dmarc: {status: {result: 'none'}}}};
+		const signed = {authenticationResults: {dkim: {results: [{status: {result: 'pass', aligned: 'shop.example'}, signingDomain: 'shop.example'}]}, spf: {status: {result: 'none'}}, dmarc: {status: {result: 'none'}}}};
+		assert.deepEqual(deceptive(await scanner.scan(shop, unsigned)), ['www.apple.com/iphone/']);
+		assert.deepEqual(deceptive(await scanner.scan(shop, signed)), []);
+		// (all of a message's links are read again, not only the first 50 found)
+		const many = message({from: 'sales@homes.example', subject: 'All our homes', html: `${'<p><a href="https://email.homes-marketing.example/c/1">www.paypal.com</a></p>'.repeat(60)}<p><a href="https://evil.example/">www.uscourts.gov</a></p>`});
+		assert.deepEqual(deceptive(await scanner.scan(many, auth())), ['www.uscourts.gov']);
+	});
+
+	it('takes another site than a brand\'s shown for no disguise, but a recipient\'s or a government\'s', async () => {
+		const scanner = new SpamScanner({classifier: false, phishing: {cloudflare: false}});
+		const deceptive = result => result.results.phishing.filter(item => item.type === 'deceptive_link').map(item => item.text);
+		const session = {remoteAddress: '192.0.2.1', envelope: {mailFrom: {address: 'news@shop.example'}, rcptTo: [{address: 'jane@customer.example'}]}};
+		const shop = message({from: 'news@shop.example', subject: 'New this week', html: '<p>See <a href="https://t.mailer.example/c/1">www.shop.example</a> and <a href="https://t.mailer.example/c/2">www.uscourts.gov</a> and <a href="https://t.mailer.example/c/3">https://docs.project.dev/</a></p>'});
+		assert.deepEqual(deceptive(await scanner.scan(shop, {session, authentication: false})), ['www.uscourts.gov']);
+		// (a mailbox page under the recipient's own domain, from it)
+		const mailbox = message({from: 'admin@customer.example', subject: 'Mailbox full', html: '<p>Sign in at <a href="https://firebasestorage.googleapis.com/x">https://mail.customer.example/owa</a></p>'});
+		assert.deepEqual(deceptive(await scanner.scan(mailbox, {session, authentication: false})), ['https://mail.customer.example/owa']);
+		// (and recipients without an address read, as a caller may give them)
+		const odd = {...session, envelope: {...session.envelope, rcptTo: [null, {}, {address: 42}, {address: 'jane@customer.example'}]}};
+		assert.deepEqual(deceptive(await scanner.scan(mailbox, {session: odd, authentication: false})), ['https://mail.customer.example/owa']);
+		assert.deepEqual(deceptive(await scanner.scan(shop, {session: {envelope: {rcptTo: 'jane@customer.example'}}, authentication: false})), ['www.uscourts.gov']);
+		// (from a mailbox that passes DMARC too, but not from the recipient's
+		//  own domain when it passes)
+		const passed = domain => ({session, authenticationResults: {dmarc: {status: {result: 'pass'}, domain}}});
+		const stranger = message({from: 'helpdesk.notice@gmail.com', subject: 'Mailbox full', html: '<p>Sign in at <a href="https://firebasestorage.googleapis.com/x">https://mail.customer.example/owa</a></p>'});
+		assert.deepEqual(deceptive(await scanner.scan(stranger, passed('gmail.com'))), ['https://mail.customer.example/owa']);
+		const colleague = message({from: 'it@customer.example', subject: 'Intranet', html: '<p>See <a href="https://customer.sharepoint.com/sites/it">intranet.customer.example</a></p>'});
+		assert.deepEqual(deceptive(await scanner.scan(colleague, passed('customer.example'))), []);
 	});
 
 	it('does not count a known sender\'s own domain as a malicious one when it passes DMARC', async () => {

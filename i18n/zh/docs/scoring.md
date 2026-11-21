@@ -1,4 +1,4 @@
-<!-- source: d5a7884f5d2a -->
+<!-- source: cbe7f5d561ae -->
 
 # 测试与分值
 
@@ -109,9 +109,9 @@ DMARC 失败按域名的策略计分：域名要求隔离或拒绝失败的邮�
 
 只签署正文开头部分的 DKIM 签名（正文长度 `l=` 短于正文：任何人都能在其后追加文字）不会得到 `DKIM_PASS`，仅依赖这种签名、没有对齐的 SPF 的 DMARC 通过也不会得到 `DMARC_PASS`。
 
-通过 DMARC 并获得 `DMARC_PASS` 的发件人就是其自称的身份，因此查找隐藏发件人的测试不会对其计分。`INVISIBLE_CHARACTERS`、`MIXED_SCRIPT_WORDS`、`STYLED_LETTERS` 和 `BRAND_IN_DOMAIN` 不计入。只有当链接显示的是发件人以外某个品牌的地址时，`DECEPTIVE_LINK` 才计入：商店在其邮件服务的跟踪域名上显示自己的地址不会得分，而从任何其他域名显示 `www.paypal.com` 的邮件仍会得分。`SPF_FAIL` 和 `SPF_SOFTFAIL` 同样不计入：邮件经过转发，其签名为它作保。 指向发件人自有域名的链接是其自己的点击跟踪：显示在其上的合作伙伴名称（`amazon.co.uk`）不计分，除非显示的地址或链接打开的页面要求登录（`paypal.com/signin`）。邮箱提供商（如 `gmail.com`）在这个意义上没有自己的域名。
+通过 DMARC 并获得 `DMARC_PASS` 的发件人就是其自称的身份，因此查找隐藏发件人的测试不会对其计分。`INVISIBLE_CHARACTERS`、`MIXED_SCRIPT_WORDS`、`STYLED_LETTERS` 和 `BRAND_IN_DOMAIN` 不计入。只有当链接显示的是发件人以外某个品牌的地址时，`DECEPTIVE_LINK` 才计入：商店在其邮件服务的跟踪域名上显示自己的地址不会得分，而从任何其他域名显示 `www.paypal.com` 的邮件仍会得分。`SPF_FAIL` 和 `SPF_SOFTFAIL` 同样不计入：邮件经过转发，其签名为它作保。 指向发件人自有域名的链接是其自己的点击跟踪：显示在其上的合作伙伴名称（`amazon.co.uk`）不计分，除非显示的地址或链接打开的页面要求登录（`paypal.com/signin`）。邮箱提供商（如 `gmail.com`）在这个意义上没有自己的域名。对于品牌的网站，通过 DMARC 的发件人只会因首页或要求登录的页面而得到它（通过复制链接的页面链接到 `docs.aws.amazon.com` 的人不计分），而任何发件人在显示于其他网站之上的政府网站（`irs.gov`、`gov.uk`）或某个收件人自己的域名上都会得到它。
 
-已知发件人，即您在 `phishing.knownSenders` 中指定的域名（涵盖其子域名；例如访问量最大的网站），在通过 DMARC 时还可以在指向自身域名的链接上显示合作伙伴的地址：商店自己的点击跟踪显示为 `www.apple.com`。邮箱提供商（如 `gmail.com`）永远不算已知发件人。 此时其自有域名也不计为 `MALICIOUS_DOMAIN`。
+已知发件人，即您在 `phishing.knownSenders` 中指定的域名（涵盖其子域名；例如访问量最大的网站），在通过 DMARC 时还可以在指向自身域名的链接上显示合作伙伴的地址：商店自己的点击跟踪显示为 `www.apple.com`。邮箱提供商（如 `gmail.com`）永远不算已知发件人。 此时其自有域名也不计为 `MALICIOUS_DOMAIN`。在指向非自身域名的链接上，通过 DMARC 的已知发件人只会因要求登录的品牌地址而得到 `DECEPTIVE_LINK`（在 `www.ups.com` 下显示的订单发货通知不计分）。在政府网站或某个收件人自己的域名上，它永远不会得到这一项。
 
 转发方（例如邮件列表）可以用 ARC 封印为其收到的内容作担保。任何人都能封印邮件，因此只有来自你在 `authentication.trustedArcSealers` 中指定的转发方的封印才计入（域名涵盖其子域名），而且只有当最新的 ARC 组由该域名封印（其 ARC-Seal 和 ARC-Message-Signature 属于同一域名），且其封印的结果表明邮件在它收到时已通过时才计入：From 域名的 DMARC，或可注册域名相同的域名的 DKIM 或 SPF。这样的邮件（`authentication.arc.trusted`）会得到 `ARC_PASS`，且不会因 SPF、DKIM 或 DMARC 失败而得分，也不算 `SELF_SPOOF`（列表成员写信给自己域名的列表）；其他任何 ARC 通过都不得分，不受信任或失败的封印仍会得到 `SELF_SPOOF`。通过 `authenticationResults` 传入的结果信任同样的转发方。
 

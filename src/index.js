@@ -21,7 +21,7 @@ import {
 	expandAttachments, isAttachedMessage, isDeliveryReport, namedTextParts, parseWithin,
 } from './parse.js';
 import {
-	ReputationChecker, matchList, reputationValues, trustReputation, trustedReputationValues,
+	ReputationChecker, asciiHostname, matchList, reputationValues, trustReputation, trustedReputationValues,
 } from './reputation.js';
 import {scoreResults} from './score.js';
 import {
@@ -384,6 +384,73 @@ const MAX_LOOKALIKE_HOSTS = 1000;
 // At most this many deceptive links are reported for a message (one is enough
 // to score it)
 const MAX_DECEPTIVE_LINKS = 50;
+// The links of a result of checkLinks whose text shows another address than
+// they go to, for scan() to read again by what the message's authentication
+// shows (see deceptiveLinks)
+const DECEPTIVE_CANDIDATES = new WeakMap();
+
+function deceptiveFinding(link, unlessAuthenticated) {
+	return finding({
+		type: 'deceptive_link',
+		url: link.url,
+		text: link.text,
+		unlessAuthenticated,
+		message: `A link shows "${link.text}" but goes to ${link.host}`,
+	});
+}
+
+/**
+ * The registrable domains that authenticated a message: of each DKIM
+ * signature that passes for the whole body (one of only its start, `l=`,
+ * signs nothing added after it, links included), and of the envelope sender
+ * (or the HELO name) SPF passes for.
+ * @param {object|null} authentication
+ * @returns {string[]}
+ */
+function senderDomains(authentication) {
+	const domains = [];
+	for (const entry of Array.isArray(authentication?.dkim?.results) ? authentication.dkim.results : []) {
+		if (entry?.status?.result === 'pass' && !(entry.status.underSized > 0)) {
+			domains.push(asciiHostname(entry.signingDomain));
+		}
+	}
+
+	if (authentication?.spf?.status?.result === 'pass') {
+		domains.push(asciiHostname(authentication.spf.domain));
+	}
+
+	return [...new Set(domains.filter(Boolean).map(domain => registrableDomain(domain)).filter(Boolean))];
+}
+
+/**
+ * The deceptive links of a message that count (see isDeceptiveLink), by what
+ * its authentication shows: who sent it (the domains of `senderDomains`), and
+ * whether its From address is genuine, which a DMARC pass (that earns
+ * DMARC_PASS, of a message read whole) shows, or a passing DKIM signature of
+ * the From domain where the domain has no DMARC record (`dkim.aligned`), or
+ * a trusted forwarder's ARC seal (`arc.trusted`).
+ * @param {object[]} links - see DECEPTIVE_CANDIDATES
+ * @param {object} message
+ * @param {string} message.from
+ * @param {object|null} message.authentication
+ * @param {boolean} message.readWhole
+ * @param {boolean} message.known
+ * @param {string[]} message.recipients
+ * @returns {object[]}
+ */
+function deceptiveLinks(links, {
+	from, authentication, readWhole, known, recipients,
+}) {
+	const authenticated = readWhole && Boolean(authentication) && (
+		authentication.score.tests.some(test => test.name === 'DMARC_PASS')
+		|| (authentication.dmarc?.status?.result === 'none' && Boolean(authentication.dkim?.aligned))
+		|| authentication.arc?.trusted === true);
+	const options = {
+		from, authenticated, known, senders: senderDomains(authentication), recipients,
+	};
+	return links.filter(link => isDeceptiveLink(link, options)).slice(0, MAX_DECEPTIVE_LINKS).map(link => deceptiveFinding(link, false));
+}
+
 // Attachments sent to clamd at the same time, and milliseconds for all of a
 // message's attachments (clamav.timeout).
 const CLAMAV_CONCURRENCY = 4;
@@ -635,9 +702,10 @@ export class SpamScanner {
 	}
 
 	// (`from`: the sender's domain; `carried`: the link hosts of the whole
-	//  message and of what it carries, see carriedLinkHosts)
+	//  message and of what it carries, see carriedLinkHosts; `recipients`: the
+	//  registrable domains of its recipients, see isDeceptiveLink)
 	async checkLinks(links, config, hosts = [], options = {}) {
-		const {from = '', carried = null} = typeof options === 'string' ? {from: options} : (options ?? {});
+		const {from = '', carried = null, recipients} = typeof options === 'string' ? {from: options} : (options ?? {});
 		const known = isKnownSender(from, config.phishing?.knownSenders);
 		const phishing = [];
 		const homographs = [];
@@ -686,18 +754,19 @@ export class SpamScanner {
 		//  address it goes on to,
 		//  written as link hosts are: without a final dot or IPv6 brackets)
 		const destination = link => unwrapLink(link.url)?.hostname.toLowerCase().replace(/\.$/, '').replace(/^\[(.*)]$/, '$1') || link.host;
-		let deceptive = 0;
+		// (every one, for scan() to keep those that count by what the message's
+		//  authentication shows: see deceptiveLinks)
+		const deceptive = [];
 		for (const link of links) {
 			// (a link through click tracking counts by who sent it: see isDeceptiveLink)
-			if (deceptive < MAX_DECEPTIVE_LINKS && isDeceptiveLink(link, {from})) {
-				deceptive++;
-				phishing.push(finding({
-					type: 'deceptive_link',
-					url: link.url,
-					text: link.text,
-					unlessAuthenticated: typeof from === 'string' && !isDeceptiveLink(link, {from, authenticated: true, known}),
-					message: `A link shows "${link.text}" but goes to ${link.host}`,
-				}));
+			if (isDeceptiveLink(link, {from, recipients})) {
+				if (deceptive.length < MAX_DECEPTIVE_LINKS) {
+					phishing.push(deceptiveFinding(link, typeof from === 'string' && !isDeceptiveLink(link, {
+						from, authenticated: true, known, recipients,
+					})));
+				}
+
+				deceptive.push(link);
 			}
 
 			// (by the name looked up: a gateway's own host is not, and an
@@ -803,13 +872,15 @@ export class SpamScanner {
 			}));
 		}
 
-		return {
+		const result = {
 			phishing,
 			homographs,
 			// (at least one when the message has more hosts than were read)
 			uncheckedHosts: Math.max(seenHosts.size - checked.length, carried?.more ? 1 : 0),
 			timedOutHosts: cloudflareResult.unanswered,
 		};
+		DECEPTIVE_CANDIDATES.set(result, deceptive);
+		return result;
 	}
 
 	/**
@@ -1039,8 +1110,10 @@ export class SpamScanner {
 			: null;
 		const attachments = config.attachments === false ? [] : inspectAttachments([...attached, ...namedTextParts(mail), ...named]).filter(item => config.macros !== false || !['macro', 'pdf_active', 'rtf_object'].includes(item.type)).map(item => finding(item));
 
+		// (the registrable domains of the recipients, see isDeceptiveLink)
+		const recipients = (Array.isArray(session.envelope?.rcptTo) ? session.envelope.rcptTo : []).map(rcpt => asciiHostname(typeof rcpt?.address === 'string' ? rcpt.address.slice(rcpt.address.lastIndexOf('@') + 1) : null)).filter(Boolean).map(domain => registrableDomain(domain));
 		const [links, authentication, checkedReputation, dnsbl, virusScan, toxicity, nsfw] = await Promise.all([
-			this.checkLinks(checkedLinks, config, extracted.hosts, {from: fromDomain(mail), carried}),
+			this.checkLinks(checkedLinks, config, extracted.hosts, {from: fromDomain(mail), carried, recipients}),
 			config.authenticationResults && typeof config.authenticationResults === 'object'
 				// (with the forwarders whose ARC seal is believed, as when the
 				//  message is checked here)
@@ -1070,6 +1143,18 @@ export class SpamScanner {
 			authentication.score = calculateAuthScore(authentication, typeof config.authentication === 'object' ? config.authentication.weights : undefined);
 		}
 
+		// (the deceptive links that count by what the message's authentication
+		//  shows, in place of those checkLinks found without it)
+		const phishing = [
+			...deceptiveLinks(DECEPTIVE_CANDIDATES.get(links), {
+				from: fromDomain(mail),
+				authentication,
+				readWhole: parseErrors.length === 0,
+				known: isKnownSender(fromDomain(mail), config.phishing?.knownSenders),
+				recipients,
+			}),
+			...links.phishing.filter(item => item.type !== 'deceptive_link'),
+		];
 		const arbitrary = config.arbitrary === false ? {rules: [], score: 0, reasons: []} : isArbitrary(mail, {session, authentication});
 		// ("en-US" and "eng" are English too)
 		const allowed = (config.allowedLanguages || []).map(code => normalizeLanguageCode(code)).filter(Boolean);
@@ -1085,7 +1170,7 @@ export class SpamScanner {
 			// read whole), or null.
 			parseError: parseErrors.length > 0 ? [...new Set(parseErrors)].join('; ') : null,
 			classification,
-			phishing: links.phishing,
+			phishing,
 			attachments,
 			viruses,
 			arbitrary,

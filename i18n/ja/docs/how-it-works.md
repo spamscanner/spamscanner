@@ -1,4 +1,4 @@
-<!-- source: ab57fd1d3952 -->
+<!-- source: 92d45ef57945 -->
 
 # 仕組み
 
@@ -63,7 +63,7 @@ Spam Scannerは、単語を数える方式のうちうまくいく部分、つ�
 すべてのリンクを検査します。
 
 * **類似ドメイン**：各ドメインをUnicodeの紛らわしい文字の表（confusables）で骨格に変換するため、`pаypal.com`（キリル文字のа）、`paypa1.com`、`rnicrosoft.com`、`xn--pple-43d.com`はいずれも、なりすましの対象のブランドに一致します。1つのラベル内での文字体系の混在、サブドメインに含まれるブランド名（`paypal.com.example.net`）、1文字のタイプミスは低めに採点します。なりすましの多い約100のブランドを組み込んでおり、追加もできます。
-* **欺瞞的なリンク**：表示テキストと宛先が別のアドレスになっているHTMLリンク。対象は、テキスト全体がアドレスの場合か、テキストの中に`http://`や`https://`付きのアドレスがある場合（`Sign in at https://www.paypal.com`）です。文中のファイル名やサイト名（`Download report.zip`、`Read why Booking.com switched`）はアドレスとはみなしません。メール配信サービス（SendGrid、Mailchimp、Amazon SES、Kit、Brevo、beehiiv、Substackなど）のクリック計測や、リンクを書き換えるセキュリティゲートウェイ（Microsoft Safe Links、Proofpoint、Mimecast、Barracuda、Cisco）を経由するリンクは、仕組み上別の場所を指すため、テキストがブランドの完全なアドレス（パスなし、またはサインイン用のパス。ソーシャルネットワーク、ショップの商品、地図へのリンクは除く）で、送信者がそのブランドでもその送信用ドメインでもない場合に限り数えます。ゲートウェイのリンクがその先のアドレスを含んでいる場合（Safe Links、Proofpoint）は、代わりにそのアドレスを比較します。
+* **欺瞞的なリンク**：表示テキストと宛先が別のアドレスになっているHTMLリンク。対象は、テキスト全体がアドレスの場合か、テキストの中に`http://`や`https://`付きのアドレスがある場合（`Sign in at https://www.paypal.com`）です。文中のファイル名やサイト名（`Download report.zip`、`Read why Booking.com switched`）はアドレスとはみなしません。メール配信サービス（SendGrid、Mailchimp、Amazon SES、Kit、Brevo、beehiiv、Substackなど）のクリック計測や、リンクを書き換えるセキュリティゲートウェイ（Microsoft Safe Links、Proofpoint、Mimecast、Barracuda、Cisco）を経由するリンクは、仕組み上別の場所を指すため、テキストがブランドの完全なアドレス（パスなし、またはサインイン用のパス。ソーシャルネットワーク、ショップの商品、地図へのリンクは除く）で、送信者がそのブランドでもその送信用ドメインでもない場合に限り数えます。ゲートウェイのリンクがその先のアドレスを含んでいる場合（Safe Links、Proofpoint）は、代わりにそのアドレスを比較します。数えるのは偽装だけです。つまり、ブランドのアドレス、政府のサイト（`irs.gov`、`gov.uk`）、受信者自身のドメインを別のサイトの上に表示したものです。それ以外のサイトの表示は偽装ではありません。人や店はサイトを実際の場所とは別の名前で呼ぶからです（リポジトリの上にプロジェクトのドキュメント、プラットフォームの上に店）。インターネット上の誰も到達できないホスト（`localhost`、`192.168.1.1`、`example.com`）や同じ会社の別のドメイン（`blog.google`の上の`google.com`）も偽装ではありません。サイトのリダイレクトが移動先のアドレスを含む場合（Googleの`google.com/url?q=`、Facebook、Slack、LinkedIn、YouTube、Wayback Machine）は、代わりにそのアドレスを比較します。
 * **Cloudflareのフィルタリング用リゾルバー**：リンクのホストを、既知のマルウェアとフィッシングに`0.0.0.0`を返す1.1.1.2と、アダルトコンテンツもブロックする1.1.1.3で照会します。
 * **表示名**：別のドメインのアドレスから送られた「PayPal Security」のような名前や、別のメールアドレスを含む名前。
 

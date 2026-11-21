@@ -300,7 +300,7 @@ const DISPLAY_BRANDS = [
 	['wells fargo', ['wellsfargo', 'wellsfargoadvisors', 'wellsfargoemail']],
 	['chase', ['chase', 'jpmchase', 'jpmorgan', 'jpmorganchase', 'jpmorgansecurities'], /\b(?:bank(?:ing)?|card|credit|online|alerts?|security|support|fraud|customer|service|team|jpmorgan)\b/],
 	['bank of america', ['bankofamerica', 'bofa', 'bofaml', 'bofasecurities', 'merrill', 'merrilledge', 'merrilllynch', 'ml.com']],
-	['american express', ['americanexpress', 'aexp', 'amex']],
+	['american express', ['americanexpress', 'aexp', 'amex', 'membershipmail', 'csid']],
 	['facebook', ['facebook', 'facebookmail', 'meta', 'metamail']],
 	['instagram', ['instagram', 'facebookmail', 'meta', 'metamail']],
 	['whatsapp', ['whatsapp', 'facebookmail', 'meta', 'metamail']],
