@@ -1,4 +1,4 @@
-<!-- source: cbe7f5d561ae -->
+<!-- source: 0d3b948f68b9 -->
 
 # 测试与分值
 
@@ -25,6 +25,8 @@
 | `BRAND_IN_DOMAIN`           | 1.5 | `brandInDomain`     | 品牌名出现在他人的域名中（`paypal-secure.example`；本身是词语的品牌，只有紧挨着钓鱼词语或其服务的词语时才算，如 `apple-support.com` 和 `login.apple.example.com`，而 `apple-tree.com` 不算；最常见的词语，如 `office`、`steam` 和 `ledger`，只有紧挨着其产品名称或帮助类词语时才算，如 `steam-gift.com` 和 `steam-support.com`，而 `steam-service.com` 不算），或者仅用字母模仿短品牌名或本身是词语的品牌名（`arnex` 模仿 amex，`stearn` 模仿 steam） |
 | `TYPO_DOMAIN`               |   1 | `typoDomain`        | 与某个品牌的域名相差一个字母且首字母相同（`gogle`；不含对应 nubank 的 `ubank`）；对于与某个单词或地名只差一个字母的品牌（`zelle` 和 `belle`、`fedex` 和 `cedex`、`venmo` 和 `venlo`），只计相邻两个字母互换的情况，或者对本身不是单词的品牌，名称内部漏掉一个字母或重复一个字母的情况（`twiter`、`samsng`、`twittter`；而不是 icloud 的 `cloud` 或 samsung 的 `samsun`）                                                                          |
 | `DECEPTIVE_LINK`            |   3 | `deceptiveLink`     | 链接显示一个地址，却指向另一个地址                                                                                                                                                                                                                                                                                                               |
+| `QR_CODE_LINK`              | 1.5 | `qrCodeLink`        | 图片、PDF 文件或邮件中绘制的二维码含有链接，且发件人未经 DMARC 证明为真（无论发件人是谁，其链接都会像邮件中的其他链接一样被检查）                                                                                                                                                                                                                                                          |
+| `SCRIPT_LINK`               |   3 | `scriptLink`        | 链接会运行脚本，或打开链接本身所含的页面（`javascript:`、`vbscript:`、HTML 的 `data:` 地址）                                                                                                                                                                                                                                                               |
 | `MALICIOUS_DOMAIN`          |   6 | `maliciousDomain`   | Cloudflare 的恶意软件解析器拦截了链接的域名                                                                                                                                                                                                                                                                                                     |
 | `ADULT_DOMAIN`              |   2 | `adultDomain`       | Cloudflare 的家庭解析器拦截了链接的域名                                                                                                                                                                                                                                                                                                       |
 | `URIBL_<LIST>`              |   5 | `uriblListed`       | 链接的域名在域名黑名单上，例如 `URIBL_DBL`                                                                                                                                                                                                                                                                                                     |
@@ -78,12 +80,13 @@
 
 ## 混淆和语言
 
-| 测试                     |  分值 | 设置键                   | 含义                      |
-| ---------------------- | --: | --------------------- | ----------------------- |
-| `INVISIBLE_CHARACTERS` |   2 | `invisibleCharacters` | 文本中有三个或更多不可见字符          |
-| `MIXED_SCRIPT_WORDS`   | 2.5 | `mixedScriptWords`    | 两个或更多词语混用了不同字母表的字母      |
-| `STYLED_LETTERS`       | 1.5 | `styledLetters`       | 冒充普通文字的数学字母或带圈字母        |
-| `LANGUAGE_NOT_ALLOWED` |   3 | `languageNotAllowed`  | 不在 `allowedLanguages` 中 |
+| 测试                     |  分值 | 设置键                   | 含义                                                        |
+| ---------------------- | --: | --------------------- | --------------------------------------------------------- |
+| `INVISIBLE_CHARACTERS` |   2 | `invisibleCharacters` | 文本中有三个或更多不可见字符                                            |
+| `MIXED_SCRIPT_WORDS`   | 2.5 | `mixedScriptWords`    | 两个或更多词语混用了不同字母表的字母                                        |
+| `STYLED_LETTERS`       | 1.5 | `styledLetters`       | 冒充普通文字的数学字母或带圈字母                                          |
+| `DRAWN_QR_CODE`        |   3 | `drawnQrCode`         | 用 HTML 单元格或方块字符而不是图片绘制的二维码，会让扫描器看不到其中的链接；通过 DMARC 的发件人也计分 |
+| `LANGUAGE_NOT_ALLOWED` |   3 | `languageNotAllowed`  | 不在 `allowedLanguages` 中                                   |
 
 
 ## 身份验证
@@ -109,7 +112,7 @@ DMARC 失败按域名的策略计分：域名要求隔离或拒绝失败的邮�
 
 只签署正文开头部分的 DKIM 签名（正文长度 `l=` 短于正文：任何人都能在其后追加文字）不会得到 `DKIM_PASS`，仅依赖这种签名、没有对齐的 SPF 的 DMARC 通过也不会得到 `DMARC_PASS`。
 
-通过 DMARC 并获得 `DMARC_PASS` 的发件人就是其自称的身份，因此查找隐藏发件人的测试不会对其计分。`INVISIBLE_CHARACTERS`、`MIXED_SCRIPT_WORDS`、`STYLED_LETTERS` 和 `BRAND_IN_DOMAIN` 不计入。只有当链接显示的是发件人以外某个品牌的地址时，`DECEPTIVE_LINK` 才计入：商店在其邮件服务的跟踪域名上显示自己的地址不会得分，而从任何其他域名显示 `www.paypal.com` 的邮件仍会得分。`SPF_FAIL` 和 `SPF_SOFTFAIL` 同样不计入：邮件经过转发，其签名为它作保。 指向发件人自有域名的链接是其自己的点击跟踪：显示在其上的合作伙伴名称（`amazon.co.uk`）不计分，除非显示的地址或链接打开的页面要求登录（`paypal.com/signin`）。邮箱提供商（如 `gmail.com`）在这个意义上没有自己的域名。对于品牌的网站，通过 DMARC 的发件人只会因首页或要求登录的页面而得到它（通过复制链接的页面链接到 `docs.aws.amazon.com` 的人不计分），而任何发件人在显示于其他网站之上的政府网站（`irs.gov`、`gov.uk`）或某个收件人自己的域名上都会得到它。
+通过 DMARC 并获得 `DMARC_PASS` 的发件人就是其自称的身份，因此查找隐藏发件人的测试不会对其计分。`INVISIBLE_CHARACTERS`、`MIXED_SCRIPT_WORDS`、`STYLED_LETTERS` 和 `BRAND_IN_DOMAIN` 不计入。只有当链接显示的是发件人以外某个品牌的地址时，`DECEPTIVE_LINK` 才计入：商店在其邮件服务的跟踪域名上显示自己的地址不会得分，而从任何其他域名显示 `www.paypal.com` 的邮件仍会得分。`SPF_FAIL` 和 `SPF_SOFTFAIL` 同样不计入：邮件经过转发，其签名为它作保。 指向发件人自有域名的链接是其自己的点击跟踪：显示在其上的合作伙伴名称（`amazon.co.uk`）不计分，除非显示的地址或链接打开的页面要求登录（`paypal.com/signin`）。邮箱提供商（如 `gmail.com`）在这个意义上没有自己的域名。对于品牌的网站，通过 DMARC 的发件人只会因首页（也包括 `/us/`）、要求登录的页面，或以包裹、付款或被锁定的账户为诱饵的页面（`/track/`、`refund`）而得到它：通过复制链接的页面链接到 `docs.aws.amazon.com` 的人不计分。任何发件人在显示于其他网站之上的政府网站（`irs.gov`、`gov.uk`）和某个收件人自己的域名上都会得到它；但对于通过 DMARC 的发件人，只限该域名的首页、其邮件或登录主机（`mail.`、`owa.`、`login.`）或要求登录的页面，因为合作伙伴会把它的其他页面显示在预览主机之上。
 
 已知发件人，即您在 `phishing.knownSenders` 中指定的域名（涵盖其子域名；例如访问量最大的网站），在通过 DMARC 时还可以在指向自身域名的链接上显示合作伙伴的地址：商店自己的点击跟踪显示为 `www.apple.com`。邮箱提供商（如 `gmail.com`）永远不算已知发件人。 此时其自有域名也不计为 `MALICIOUS_DOMAIN`。在指向非自身域名的链接上，通过 DMARC 的已知发件人只会因要求登录的品牌地址而得到 `DECEPTIVE_LINK`（在 `www.ups.com` 下显示的订单发货通知不计分）。在政府网站或某个收件人自己的域名上，它永远不会得到这一项。
 

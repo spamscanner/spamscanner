@@ -23,9 +23,12 @@ import {
 import {
 	ReputationChecker, asciiHostname, matchList, reputationValues, trustReputation, trustedReputationValues,
 } from './reputation.js';
+import {
+	drawnQrCode, drawnQrImages, qrCodesOf, qrSources,
+} from './qr.js';
 import {scoreResults} from './score.js';
 import {
-	extractLinks, getFeatures, isDeceptiveLink, isMailbox, obfuscationOf, registrableDomain, segmentWords, unwrapLink,
+	extractLinks, getFeatures, isDeceptiveLink, isMailbox, obfuscationOf, registrableDomain, scriptLinks, segmentWords, unwrapLink,
 } from './tokenizer.js';
 import {VERSION} from './version.js';
 
@@ -133,12 +136,24 @@ export const DEFAULTS = {
 		// tracking, not a disguise, and its own domain is not counted as a
 		// malicious one. Not a provider of mailboxes, whose domain is anyone's.
 		knownSenders: [],
+		// Whether the sender signed in to send the message, as to a mail
+		// server's submission port: its From address is then genuine for link
+		// checks, as one that passes DMARC (outbound mail has no
+		// authentication to check).
+		authenticatedSender: false,
 	},
 	// DNS blocklists: { ip: ['zen.spamhaus.org'], domain: ['dbl.spamhaus.org'] }.
 	dnsbl: {ip: [], domain: []},
 	// Name servers for DNS checks (default: the system's) and their timeout.
 	dns: {servers: null, timeout: 3000},
 	attachments: true,
+	// Read the QR codes of images, PDF files and those drawn in a message, for
+	// their links (see qr.js).
+	qrCodes: true,
+	// A function that decodes an image the scanner does not itself (WebP,
+	// progressive JPEG): async buffer => ({width, height, data, channels}),
+	// or null.
+	decodeImage: null,
 	arbitrary: true,
 	// SPF, DKIM, DMARC and ARC (needs the client IP: scan(raw, {session: {remoteAddress}})).
 	authentication: false,
@@ -211,6 +226,8 @@ const NESTED = ['phishing', 'dnsbl', 'dns', 'session'];
  * @property {{ip?: string[], domain?: string[]}} [dnsbl] - DNS blocklist zones
  * @property {{servers?: string[]|null, timeout?: number, resolve4?: (name: string, servers?: string[]|null) => Promise<string[]>}} [dns]
  * @property {boolean} [attachments]
+ * @property {boolean} [qrCodes] - read QR codes for their links (true)
+ * @property {((image: Buffer) => Promise<{width: number, height: number, data: Uint8Array, channels: number}|null>)|null} [decodeImage] - decodes images the scanner does not (WebP, progressive JPEG)
  * @property {boolean} [macros] - flag macros, active PDFs and RTF objects
  * @property {boolean} [arbitrary]
  * @property {boolean|object} [authentication] - SPF, DKIM, DMARC and ARC (see authenticate())
@@ -276,7 +293,8 @@ const NESTED = ['phishing', 'dnsbl', 'dns', 'session'];
  * @property {ScanFinding[]} attachments
  * @property {ScanFinding[]} viruses
  * @property {ScanFinding[]} arbitrary - rules that decide on their own
- * @property {{invisible: number, mixed: number, styled: boolean}} obfuscation
+ * @property {{invisible: number, mixed: number, styled: boolean, qrCode: boolean}} obfuscation
+ * @property {string[]} qrCodes - the texts of its QR codes, at most ten
  * @property {object|null} authentication - SPF, DKIM, DMARC and ARC results
  * @property {ReputationResult|null} reputation
  * @property {Array<{zone: string, value: string, answers: string[]}>} dnsbl
@@ -423,12 +441,121 @@ function senderDomains(authentication) {
 }
 
 /**
+ * The obfuscation of a message (see obfuscationOf): of the text its HTML
+ * shows and of its plain text, the more of each (the HTML part always
+ * counts, and an alternative part, the same text again, is not counted
+ * twice), and whether it draws a QR code without an image (see
+ * drawnQrCode); and the text its HTML shows.
+ * @param {object} mail - parsed message
+ * @param {object} message
+ * @param {string} message.html
+ * @param {string} message.text
+ * @param {number} message.maxLength
+ * @returns {{obfuscation: {invisible: number, mixed: number, styled: boolean, qrCode: boolean}, shownText: string}}
+ */
+function obfuscationOfMessage(mail, {html, text, maxLength}) {
+	const subject = mail.subject || '';
+	const plain = obfuscationOf(`${subject}\n${text}`, {maxLength});
+	const shownText = visibleText(html.slice(0, maxLength * 2)).text;
+	const shown = obfuscationOf(`${subject}\n${shownText}`, {maxLength});
+	return {
+		obfuscation: {
+			invisible: Math.max(plain.invisible, shown.invisible),
+			mixed: Math.max(plain.mixed, shown.mixed),
+			styled: plain.styled || shown.styled,
+			qrCode: drawnQrCode(html.slice(0, maxLength * 2), [text, shownText], {maxLength}),
+		},
+		shownText,
+	};
+}
+
+// Whether a message's From address is genuine: by a DMARC pass (that earns
+// DMARC_PASS, of a message read whole), a passing DKIM signature of the From
+// domain where it has no DMARC record, a trusted forwarder's ARC seal, or
+// its sender having signed in to send it (see phishing.authenticatedSender)
+function isGenuine(authentication, {readWhole, signedIn}) {
+	return signedIn || (readWhole && Boolean(authentication) && (
+		authentication.score.tests.some(test => test.name === 'DMARC_PASS')
+		|| (authentication.dmarc?.status?.result === 'none' && Boolean(authentication.dkim?.aligned))
+		|| authentication.arc?.trusted === true));
+}
+
+// Milliseconds the QR codes of a message are read for at most
+const QR_TIME = 1000;
+
+/**
+ * The QR codes of a message (see qrCodesOf), unless `qrCodes: false`, and
+ * the links they hold (`qr: true`), at most ten.
+ * @param {object} message
+ * @param {object[]} message.attached - its attachments, opened
+ * @param {string} message.html
+ * @param {string[]} message.texts - its text, and the text its HTML shows
+ * @param {boolean} message.drawn - whether it draws a QR code without an
+ *   image (see drawnQrCode)
+ * @param {object} config
+ * @returns {Promise<{codes: string[], links: object[]}>}
+ */
+async function readQrLinks({
+	attached, html, texts, drawn,
+}, config) {
+	if (config.qrCodes === false) {
+		return {codes: [], links: []};
+	}
+
+	// (the images of the whole HTML, which is read once for them, and the
+	//  QR codes drawn in as much of it as the classifier reads)
+	const codes = await qrCodesOf({...qrSources(attached, html), drawn: drawn ? drawnQrImages(html.slice(0, config.maxLength * 2), texts, {maxLength: config.maxLength}) : []}, {
+		decode: config.decodeImage,
+		deadline: Date.now() + Math.min(QR_TIME, Math.max(100, config.timeout / 2)),
+	});
+	const links = [...new Map(codes.flatMap(code => extractLinks(code, '', {maxLength: 4096})).map(link => [link.url, {...link, text: null, qr: true}])).values()].slice(0, 10);
+	return {codes, links};
+}
+
+/**
+ * The findings of a message's QR codes and script links: a QR code that holds
+ * a link, from a sender whose From address is not shown genuine (see
+ * isGenuine: a shop's QR code to its app, or a shortener, is no sign of
+ * phishing, and the link of every QR code is checked as the message's
+ * others are, whoever sends it); and a link that runs a script or opens a
+ * page held in the link (see scriptLinks), from any sender. One of each at
+ * most.
+ * @param {object} message
+ * @param {object[]} message.qrLinks
+ * @param {string} message.html
+ * @param {object|null} message.authentication
+ * @param {boolean} message.readWhole
+ * @param {boolean} message.signedIn
+ * @returns {object[]}
+ */
+function qrAndScriptFindings({
+	qrLinks, html, authentication, readWhole, signedIn,
+}) {
+	const findings = [];
+	if (qrLinks.length > 0 && !isGenuine(authentication, {readWhole, signedIn})) {
+		findings.push({
+			type: 'qr_code_link', host: qrLinks[0].host, url: qrLinks[0].url, message: `A QR code in the message goes to ${qrLinks[0].host}`,
+		});
+	}
+
+	const [script] = scriptLinks(html);
+	if (script) {
+		findings.push({
+			type: 'script_link', href: script.href, message: `A link${script.text ? ` showing "${script.text}"` : ''} runs a script or opens a page held in it (${script.href})`,
+		});
+	}
+
+	return findings;
+}
+
+/**
  * The deceptive links of a message that count (see isDeceptiveLink), by what
  * its authentication shows: who sent it (the domains of `senderDomains`), and
  * whether its From address is genuine, which a DMARC pass (that earns
  * DMARC_PASS, of a message read whole) shows, or a passing DKIM signature of
  * the From domain where the domain has no DMARC record (`dkim.aligned`), or
- * a trusted forwarder's ARC seal (`arc.trusted`).
+ * a trusted forwarder's ARC seal (`arc.trusted`), or its sender having
+ * signed in to send it (`signedIn`, see phishing.authenticatedSender).
  * @param {object[]} links - see DECEPTIVE_CANDIDATES
  * @param {object} message
  * @param {string} message.from
@@ -436,15 +563,13 @@ function senderDomains(authentication) {
  * @param {boolean} message.readWhole
  * @param {boolean} message.known
  * @param {string[]} message.recipients
+ * @param {boolean} message.signedIn
  * @returns {object[]}
  */
 function deceptiveLinks(links, {
-	from, authentication, readWhole, known, recipients,
+	from, authentication, readWhole, known, recipients, signedIn,
 }) {
-	const authenticated = readWhole && Boolean(authentication) && (
-		authentication.score.tests.some(test => test.name === 'DMARC_PASS')
-		|| (authentication.dmarc?.status?.result === 'none' && Boolean(authentication.dkim?.aligned))
-		|| authentication.arc?.trusted === true);
+	const authenticated = isGenuine(authentication, {readWhole, signedIn});
 	const options = {
 		from, authenticated, known, senders: senderDomains(authentication), recipients,
 	};
@@ -1071,17 +1196,8 @@ export class SpamScanner {
 		const checkedLinks = extractLinks(text.slice(0, linkLength), html.slice(0, linkLength * 2), {maxLength: linkLength * 2, bareHosts: true});
 		const linksTruncated = text.length > linkLength || html.length > linkLength * 2;
 
-		// Obfuscation seen by the tokenizer.
-		// (of the text the HTML shows and of the plain text, the more of each:
-		//  the HTML part always counts, and an alternative part, the same text
-		//  again, is not counted twice)
-		const plainObfuscation = obfuscationOf(`${mail.subject || ''}\n${typeof mail.text === 'string' ? mail.text : ''}`, {maxLength: config.maxLength});
-		const shownObfuscation = obfuscationOf(`${mail.subject || ''}\n${visibleText(html.slice(0, config.maxLength * 2)).text}`, {maxLength: config.maxLength});
-		const obfuscation = {
-			invisible: Math.max(plainObfuscation.invisible, shownObfuscation.invisible),
-			mixed: Math.max(plainObfuscation.mixed, shownObfuscation.mixed),
-			styled: plainObfuscation.styled || shownObfuscation.styled,
-		};
+		// Obfuscation seen by the tokenizer (see obfuscationOfMessage).
+		const {obfuscation, shownText} = obfuscationOfMessage(mail, {html, text, maxLength: config.maxLength});
 
 		// (with the attachments of attached messages, and those not opened;
 		//  text parts named as files, and the other names attachments give in
@@ -1109,6 +1225,12 @@ export class SpamScanner {
 			})
 			: null;
 		const attachments = config.attachments === false ? [] : inspectAttachments([...attached, ...namedTextParts(mail), ...named]).filter(item => config.macros !== false || !['macro', 'pdf_active', 'rtf_object'].includes(item.type)).map(item => finding(item));
+		// (the links of its QR codes, checked as its other links are, and
+		//  looked up before them)
+		const qr = await readQrLinks({
+			attached, html, texts: [text, shownText], drawn: obfuscation.qrCode,
+		}, config);
+		checkedLinks.unshift(...qr.links);
 
 		// (the registrable domains of the recipients, see isDeceptiveLink)
 		const recipients = (Array.isArray(session.envelope?.rcptTo) ? session.envelope.rcptTo : []).map(rcpt => asciiHostname(typeof rcpt?.address === 'string' ? rcpt.address.slice(rcpt.address.lastIndexOf('@') + 1) : null)).filter(Boolean).map(domain => registrableDomain(domain));
@@ -1152,8 +1274,16 @@ export class SpamScanner {
 				readWhole: parseErrors.length === 0,
 				known: isKnownSender(fromDomain(mail), config.phishing?.knownSenders),
 				recipients,
+				signedIn: config.phishing?.authenticatedSender === true,
 			}),
 			...links.phishing.filter(item => item.type !== 'deceptive_link'),
+			...qrAndScriptFindings({
+				qrLinks: qr.links,
+				html: html.slice(0, linkLength * 2),
+				authentication,
+				readWhole: parseErrors.length === 0,
+				signedIn: config.phishing?.authenticatedSender === true,
+			}),
 		];
 		const arbitrary = config.arbitrary === false ? {rules: [], score: 0, reasons: []} : isArbitrary(mail, {session, authentication});
 		// ("en-US" and "eng" are English too)
@@ -1175,6 +1305,8 @@ export class SpamScanner {
 			viruses,
 			arbitrary,
 			obfuscation,
+			// The texts of its QR codes, at most ten (see qrCodesOf).
+			qrCodes: qr.codes,
 			authentication,
 			reputation,
 			dnsbl,

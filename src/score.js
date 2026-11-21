@@ -19,6 +19,10 @@ export const DEFAULT_SCORES = {
 	brandInDomain: 1.5,
 	typoDomain: 1,
 	deceptiveLink: 3,
+	// A QR code that goes elsewhere than the sender's own domains
+	qrCodeLink: 1.5,
+	// A link that runs a script or opens a page held in the link
+	scriptLink: 3,
 	maliciousDomain: 6,
 	adultDomain: 2,
 	uriblListed: 5,
@@ -56,6 +60,8 @@ export const DEFAULT_SCORES = {
 	invisibleCharacters: 2,
 	mixedScriptWords: 2.5,
 	styledLetters: 1.5,
+	// A QR code drawn with HTML cells or block characters, not an image
+	drawnQrCode: 3,
 	languageNotAllowed: 3,
 	toxicity: 3,
 	nsfw: 3,
@@ -64,6 +70,15 @@ export const DEFAULT_SCORES = {
 	llmSpam: 6,
 	llmHam: 3,
 };
+
+// The tests of link findings by their type, and their keys in scores
+const PHISHING_TESTS = Object.fromEntries([
+	['deceptive_link', ['DECEPTIVE_LINK', 'deceptiveLink']],
+	['qr_code_link', ['QR_CODE_LINK', 'qrCodeLink']],
+	['script_link', ['SCRIPT_LINK', 'scriptLink']],
+	['malicious_domain', ['MALICIOUS_DOMAIN', 'maliciousDomain']],
+	['adult_domain', ['ADULT_DOMAIN', 'adultDomain']],
+]);
 
 const ATTACHMENT_TESTS = Object.fromEntries([
 	['executable', ['EXECUTABLE_ATTACHMENT', 'executable']],
@@ -192,28 +207,13 @@ export function scoreResults(results, options) {
 				break;
 			}
 
-			case 'deceptive_link': {
-				add('DECEPTIVE_LINK', scores.deceptiveLink, item.message);
-				break;
-			}
-
-			case 'malicious_domain': {
-				add('MALICIOUS_DOMAIN', scores.maliciousDomain, item.message);
-				break;
-			}
-
-			case 'adult_domain': {
-				add('ADULT_DOMAIN', scores.adultDomain, item.message);
-				break;
-			}
-
-			case 'uribl': {
-				add(`URIBL_${item.zone.split('.')[0].toUpperCase()}`, scores.uriblListed, item.message);
-				break;
-			}
-
 			default: {
-				break;
+				const [name, key] = PHISHING_TESTS[item.type] || [];
+				if (name) {
+					add(name, scores[key], item.message);
+				} else if (item.type === 'uribl') {
+					add(`URIBL_${item.zone.split('.')[0].toUpperCase()}`, scores.uriblListed, item.message);
+				}
 			}
 		}
 	}
@@ -248,6 +248,11 @@ export function scoreResults(results, options) {
 
 	if (obfuscation.styled) {
 		add('STYLED_LETTERS', scores.styledLetters, 'Uses mathematical or enclosed letters to look like plain text');
+	}
+
+	// (also of a sender that passes DMARC: no one but phishing draws one so)
+	if (obfuscation.qrCode) {
+		add('DRAWN_QR_CODE', scores.drawnQrCode, 'A QR code drawn with HTML cells or block characters rather than an image, which hides its link from scanners');
 	}
 
 	for (const test of results.authentication?.score?.tests || []) {

@@ -604,6 +604,13 @@ describe('carriedLinkHosts on every shape of input', () => {
 		assert.deepEqual(deceptive(await scanner.scan(stranger, passed('gmail.com'))), ['https://mail.customer.example/owa']);
 		const colleague = message({from: 'it@customer.example', subject: 'Intranet', html: '<p>See <a href="https://customer.sharepoint.com/sites/it">intranet.customer.example</a></p>'});
 		assert.deepEqual(deceptive(await scanner.scan(colleague, passed('customer.example'))), []);
+		// (a sender that signed in to send it, as outbound mail is, is genuine
+		//  as one that passes DMARC: its links to a brand's pages and to the
+		//  recipient's previews are none)
+		const preview = message({from: 'dev@vendor.example', subject: 'Preview ready', html: '<p>See <a href="https://customer-staging.vercel.app/">https://staging.customer.example/feature</a> and <a href="https://wiki.vendor-docs.example/lambda">https://docs.aws.amazon.com/lambda/latest/dg/welcome.html</a> but sign in at <a href="https://evil.example/">https://www.paypal.com/signin</a></p>'});
+		assert.deepEqual(deceptive(await scanner.scan(preview, {session, authentication: false})), ['https://staging.customer.example/feature', 'https://docs.aws.amazon.com/lambda/latest/dg/welcome.html', 'https://www.paypal.com/signin']);
+		assert.deepEqual(deceptive(await scanner.scan(preview, {session, authentication: false, phishing: {authenticatedSender: true}})), ['https://www.paypal.com/signin']);
+		assert.deepEqual(deceptive(await scanner.scan(preview, {session, authentication: false, phishing: {authenticatedSender: 'yes'}})).length, 3);
 	});
 
 	it('does not count a known sender\'s own domain as a malicious one when it passes DMARC', async () => {

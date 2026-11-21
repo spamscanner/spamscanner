@@ -15,8 +15,8 @@ const xoConfig = [
 		},
 	},
 	{
-		// Hashing and the milter protocol work on bits.
-		files: ['src/classifier.js', 'src/milter.js', 'src/attachments.js', 'test/**/*.js'],
+		// Hashing, the milter protocol, images and QR codes work on bits.
+		files: ['src/classifier.js', 'src/milter.js', 'src/attachments.js', 'src/image.js', 'src/qr.js', 'test/**/*.js'],
 		rules: {
 			'no-bitwise': 'off',
 		},

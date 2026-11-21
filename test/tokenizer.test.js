@@ -5,6 +5,7 @@ import {
 	characterClass, chunk, decodeEntities, extractHosts, extractLinks, getFeatures, isDeceptiveLink, normalizeText, obfuscationOf, readableText, registrableDomain, segmentWords, unwrapLink, visibleText,
 } from '../src/tokenizer.js';
 import SpamScanner from '../src/index.js';
+import {drawnQrCode} from '../src/qr.js';
 import {message} from './helpers/index.js';
 import {cpuTime} from './helpers/cpu-time.js';
 
@@ -453,6 +454,18 @@ describe('links', () => {
 		//  DMARC, but not to the recipient's own domain from it)
 		assert.equal(isDeceptiveLink({host: 'evil.example', text: 'https://mail.customer.example/owa'}, {from: 'gmail.com', authenticated: true, recipients}), true);
 		assert.equal(isDeceptiveLink({host: 'customer.sharepoint.com', text: 'intranet.customer.example'}, {from: 'customer.example', authenticated: true, recipients}), false);
+		// (from a sender that authenticated itself, only its front page, mail
+		//  or sign-in host, or a page that asks to sign in or lures: a partner
+		//  names another page of it over the host of a preview)
+		for (const text of ['https://customer.example', 'www.customer.example/en/', 'https://webmail.customer.example/', 'https://owa.customer.example/', 'https://login.customer.example/', 'https://intranet.customer.example/signin', 'https://files.customer.example/invoice/2026']) {
+			assert.equal(isDeceptiveLink({host: 'evil.example', text}, {from: 'vendor.example', authenticated: true, recipients}), true, text);
+		}
+
+		for (const text of ['https://staging.customer.example/', 'https://staging.customer.example/feature/checkout', 'https://www.customer.example/blog/launch']) {
+			assert.equal(isDeceptiveLink({host: 'customer-staging.vercel.app', text}, {from: 'vendor.example', authenticated: true, recipients}), false, text);
+			assert.equal(isDeceptiveLink({host: 'customer-staging.vercel.app', text}, {from: 'vendor.example', recipients}), true, text);
+		}
+
 		// (a government's site, from anyone but a known sender that passes
 		//  DMARC, and not to another government's site, nor through click
 		//  tracking or to the sender's own domain)
@@ -503,10 +516,19 @@ describe('links', () => {
 			assert.equal(isDeceptiveLink({host, text}, {from: 'gmail.com'}), true, text);
 		}
 
-		// (its front page, and a page that asks to sign in, still count)
-		for (const text of ['https://www.paypal.com', 'https://www.apple.com/account/signin', 'https://github.com/login']) {
+		// (its front page, also in a language, a page that asks to sign in, and
+		//  one that lures with a parcel, a payment or a locked account, still
+		//  count, as phishing from a domain of its own shows them)
+		for (const text of ['https://www.paypal.com', 'https://www.paypal.com/us/home', 'https://www.apple.com/en-gb/', 'https://www.dhl.com/index.html', 'https://www.apple.com/account/signin', 'https://github.com/login', 'https://www.usps.com/track/9400100000', 'https://www.amazon.com/refund?id=1', 'https://www.netflix.com/account/suspended', 'www.dhl.com/de/redelivery']) {
 			assert.equal(isDeceptiveLink({host: 'acme.github.io', text}, {from: 'gmail.com', authenticated: true}), true, text);
+			assert.equal(isDeceptiveLink({host: 'landing.evil.example', text}, {from: 'notice.evil-mail.example', authenticated: true}), true, text);
 		}
+
+		// (but not a page deeper than a language's, nor a parcel through a
+		//  shop's own click tracking or its mailing service's)
+		assert.equal(isDeceptiveLink({host: 'acme.github.io', text: 'https://www.apple.com/us/iphone/'}, {from: 'gmail.com', authenticated: true}), false);
+		assert.equal(isDeceptiveLink({host: 'click.mail.shop.example', text: 'https://www.ups.com/track?tracknum=1Z999'}, {from: 'mail.shop.example', authenticated: true}), false);
+		assert.equal(isDeceptiveLink({host: 'u1.ct.sendgrid.net', text: 'https://www.ups.com/track?tracknum=1Z999'}, {from: 'shop.example', authenticated: true}), false);
 	});
 
 	it('reads "wallet" as a product, not as a page that asks to sign in', () => {
@@ -1199,6 +1221,71 @@ describe('links and lookalikes in a full scan', () => {
 	});
 });
 
+describe('QR codes drawn without an image', () => {
+	const testNames = result => result.tests.map(test => test.name);
+	const grid = (size, cell) => `<table>${Array.from({length: size}, () => `<tr>${cell.repeat(size)}</tr>`).join('')}</table>`;
+	const blocks = rows => Array.from({length: rows}, () => '\u2588\u2588  \u2580\u2584\u2588 \u2584\u2584\u2580 \u2588\u2588\u2588  \u2580 \u2588'.repeat(2)).join('\n');
+
+	it('finds a grid of small cells with background colors', () => {
+		for (const cell of ['<td width="4" height="4" bgcolor="#000000"></td>', '<td style="width:5px;height:5px;background-color:#111"></td>', '<div style="background:#000;width: 3.5px;height:3.5px"></div>', '<TD WIDTH=4 BGCOLOR=black></TD>']) {
+			assert.equal(drawnQrCode(grid(25, cell), []), true, cell);
+		}
+
+		// (not fewer cells than a QR code has, cells too big, or without colors)
+		assert.equal(drawnQrCode(grid(20, '<td width="4" height="4" bgcolor="#000"></td>'), []), false);
+		assert.equal(drawnQrCode(grid(25, '<td width="40" height="40" bgcolor="#000"></td>'), []), false);
+		assert.equal(drawnQrCode(grid(25, '<td width="4" height="4"></td>'), []), false);
+		assert.equal(drawnQrCode(grid(25, '<td bgcolor="#000"></td>'), []), false);
+		// (nor past the characters read)
+		assert.equal(drawnQrCode(`${' '.repeat(5000)}${grid(25, '<td width="4" bgcolor="#000"></td>')}`, [], {maxLength: 2000}), false);
+		assert.equal(drawnQrCode(null, null), false);
+	});
+
+	it('finds ten lines of block characters or more, one after another', () => {
+		assert.equal(drawnQrCode('', blocks(10)), true);
+		assert.equal(drawnQrCode('', ['', `Scan me:\n\n  ${blocks(12).replaceAll('\n', '\n  ')}\n`]), true);
+		// (not nine, lines broken by others, a bar, or a frame of lines)
+		assert.equal(drawnQrCode('', blocks(9)), false);
+		assert.equal(drawnQrCode('', `${blocks(5)}\nScan me\n${blocks(5)}`), false);
+		assert.equal(drawnQrCode('', Array.from({length: 12}, () => `[${'\u2588'.repeat(30)}] 100%`).join('\n')), false);
+		assert.equal(drawnQrCode('', Array.from({length: 12}, () => '\u2502 \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u2502').join('\n')), false);
+		assert.equal(drawnQrCode('', Array.from({length: 12}, () => `\u2588${' '.repeat(30)}`).join('\n')), false);
+		assert.equal(drawnQrCode('', Array.from({length: 12}, () => '\u25A1'.repeat(30)).join('\n')), false);
+	});
+
+	it('scores a QR code drawn without an image, also from a sender that passes DMARC', async () => {
+		const scanner = new SpamScanner({phishing: {cloudflare: false}, classifier: false});
+		// (a grid of 45 by 45 cells of 4 pixels, black and white)
+		const cell = index => `<td width="4" height="4" bgcolor="${(index * 7) % 3 ? '#000000' : '#FFFFFF'}"></td>`;
+		const grid = Array.from({length: 45}, (_, row) => `<tr height="4">${Array.from({length: 45}, (_, column) => cell((row * 45) + column)).join('')}</tr>`).join('');
+		const html = `<p>Scan to keep your mailbox</p><table role="presentation" width="180" height="180" cellpadding="0" cellspacing="0">${grid}</table>`;
+		const drawn = await scanner.scan(message({subject: 'Mailbox notice', html}));
+		assert.ok(testNames(drawn).includes('DRAWN_QR_CODE'));
+		assert.equal(drawn.results.obfuscation.qrCode, true);
+		const passed = {authenticationResults: {dmarc: {status: {result: 'pass'}, domain: 'example.com'}}};
+		assert.ok(testNames(await scanner.scan(message({subject: 'Mailbox notice', html}), passed)).includes('DRAWN_QR_CODE'));
+		assert.equal((await scanner.scan(message({subject: 'Mailbox notice', html}), {scores: {drawnQrCode: 0}})).tests.find(test => test.name === 'DRAWN_QR_CODE')?.score ?? 0, 0);
+		// (with block characters in the text)
+		const text = `Scan to keep your mailbox:\n${Array.from({length: 12}, (_, row) => '\u2588\u2580\u2584 '.repeat(8).slice(row % 2)).join('\n')}`;
+		assert.ok(testNames(await scanner.scan(message({subject: 'Mailbox notice', text}))).includes('DRAWN_QR_CODE'));
+		// (not a newsletter's layout tables, nor a line of blocks)
+		const layout = `<table>${'<tr><td width="300" bgcolor="#f5f5f5">News</td><td width="10"></td></tr>'.repeat(500)}</table>`;
+		assert.ok(!testNames(await scanner.scan(message({subject: 'News', html: layout}))).includes('DRAWN_QR_CODE'));
+		assert.ok(!testNames(await scanner.scan(message({subject: 'Progress', text: `Upload: ${'\u2588'.repeat(30)} 100%`}))).includes('DRAWN_QR_CODE'));
+	});
+
+	it('reads a long message in linear time', () => {
+		const text = `${'\u2588 '.repeat(200_000)}\n`.repeat(5);
+		const start = cpuTime();
+		// (tags never closed, closed at the end, and sizes after many spaces)
+		for (const html of ['<td width="4" bgcolor="#000"'.repeat(40_000), '<td'.repeat(700_000), `${'<td'.repeat(700_000)}>`, `<td bgcolor=1 width=${' '.repeat(380)}x>`.repeat(5000)]) {
+			assert.equal(drawnQrCode(html, text), false);
+		}
+
+		assert.ok(cpuTime() - start < 1000);
+	});
+});
+
 describe('links through security gateways and mailing services', () => {
 	const safeLinks = target => `https://eur01.safelinks.protection.outlook.com/?url=${encodeURIComponent(target)}&data=05%7C02&reserved=0`;
 	// (Proofpoint's second form: "-" and two hex digits for "%", "_" for "/")
@@ -1257,12 +1344,25 @@ describe('links through security gateways and mailing services', () => {
 			assert.equal(unwrapLink(url).href, new URL(url).href, url);
 		}
 
+		// (and Google's AMP pages)
+		assert.equal(unwrapLink('https://www.google.com/amp/s/docs.project.dev/guide?a=1').href, target);
+		assert.equal(unwrapLink('https://www.google.com/amp/docs.project.dev/').href, 'http://docs.project.dev/');
+		// (not a link that gives two addresses, which goes to one of them only
+		//  the site knows: it is read as the site's own)
+		for (const url of [`https://www.google.com/url?q=${encodeURIComponent('https://www.paypal.com/')}&url=${encodeURIComponent('https://evil.example/')}`, 'https://l.facebook.com/l.php?u=https://www.paypal.com/&u=https://evil.example/', `https://eur01.safelinks.protection.outlook.com/?url=${encodeURIComponent('https://www.paypal.com/')}&url=${encodeURIComponent('https://evil.example/')}`]) {
+			assert.equal(unwrapLink(url).href, new URL(url).href, url);
+			assert.equal(isDeceptiveLink({host: new URL(url).hostname, url, text: 'https://www.paypal.com/'}, {from: 'shop.example'}), true, url);
+		}
+
+		assert.equal(unwrapLink(`https://www.google.com/url?q=${encoded}&q=${encoded}`).href, target);
 		// (so a link shown is read by where it goes, the address it shows or
 		//  another)
 		const link = (url, text) => ({host: new URL(url).hostname, url, text});
 		assert.equal(isDeceptiveLink(link(`https://www.google.com/url?q=${encodeURIComponent('https://www.paypal.com/us/home')}&sa=D`, 'https://www.paypal.com/us/home'), {from: 'shop.example'}), false);
 		assert.equal(isDeceptiveLink(link('https://www.google.com/url?q=https://evil.example/x&sa=D', 'https://www.paypal.com/signin'), {from: 'gmail.com', authenticated: true}), true);
 		assert.equal(isDeceptiveLink(link(`https://l.facebook.com/l.php?u=${encodeURIComponent('https://evil.example/')}`, 'https://www.paypal.com'), {from: 'gmail.com', authenticated: true}), true);
+		// (a brand's open redirect shown under its own name)
+		assert.equal(isDeceptiveLink(link('https://www.google.com/amp/s/evil.example/login', 'https://www.google.com/'), {from: 'shop.example'}), true);
 	});
 
 	it('compares the address a gateway goes on to with the address shown', () => {

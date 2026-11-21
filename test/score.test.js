@@ -47,7 +47,9 @@ describe('scoreResults', () => {
 			attachments: [{type: 'executable', message: 'x'}, {type: 'html_attachment', active: true, message: 'y'}, {type: 'macro', message: 'z'}, {type: 'unknown_kind'}],
 			viruses: [{message: 'Eicar'}],
 			arbitrary: {rules: [{name: 'GTUBE', score: 1000, message: 'gtube'}]},
-			obfuscation: {invisible: 3, mixed: 2, styled: true},
+			obfuscation: {
+				invisible: 3, mixed: 2, styled: true, qrCode: true,
+			},
 			authentication: {score: {tests: [{name: 'DMARC_FAIL', score: 3.5}]}},
 			reputation: {isDenylisted: true, denylistValue: 'bad.example'},
 			dnsbl: [{zone: 'zen.spamhaus.org', value: '192.0.2.1'}],
@@ -55,7 +57,7 @@ describe('scoreResults', () => {
 			toxicity: [{message: 'insult'}],
 			nsfw: [{message: 'image'}],
 		});
-		assert.deepEqual(names(result), ['EXECUTABLE_ATTACHMENT', 'HTML_ATTACHMENT', 'MACRO_ATTACHMENT', 'VIRUS', 'GTUBE', 'INVISIBLE_CHARACTERS', 'MIXED_SCRIPT_WORDS', 'STYLED_LETTERS', 'DMARC_FAIL', 'DENYLISTED', 'RBL_ZEN', 'LANGUAGE_NOT_ALLOWED', 'TOXIC_CONTENT', 'NSFW_IMAGE']);
+		assert.deepEqual(names(result), ['EXECUTABLE_ATTACHMENT', 'HTML_ATTACHMENT', 'MACRO_ATTACHMENT', 'VIRUS', 'GTUBE', 'INVISIBLE_CHARACTERS', 'MIXED_SCRIPT_WORDS', 'STYLED_LETTERS', 'DRAWN_QR_CODE', 'DMARC_FAIL', 'DENYLISTED', 'RBL_ZEN', 'LANGUAGE_NOT_ALLOWED', 'TOXIC_CONTENT', 'NSFW_IMAGE']);
 		assert.equal(result.tests[1].score, DEFAULT_SCORES.activeHtmlAttachment);
 		assert.equal(result.action, 'reject');
 	});
@@ -82,6 +84,8 @@ describe('scoreResults', () => {
 		const passed = {score: {tests: [{name: 'DMARC_PASS', score: -1.5}]}};
 		assert.deepEqual(names(scoreResults({...disguised, authentication: passed})), ['BRAND_IN_DOMAIN', 'DMARC_PASS']);
 		assert.deepEqual(names(scoreResults({authentication: passed})), ['DMARC_PASS']);
+		// (but a QR code drawn without an image, which no one but phishing draws)
+		assert.deepEqual(names(scoreResults({obfuscation: {...disguised.obfuscation, qrCode: true}, authentication: passed})), ['DRAWN_QR_CODE', 'DMARC_PASS']);
 		assert.deepEqual(names(scoreResults({...disguised, authentication: passed, parseError: 'too many parts'})), ['DECEPTIVE_LINK', 'BRAND_IN_DOMAIN', 'MIME_TOO_COMPLEX', 'INVISIBLE_CHARACTERS', 'MIXED_SCRIPT_WORDS', 'STYLED_LETTERS']);
 		assert.deepEqual(names(scoreResults({...disguised, authentication: {score: {tests: [{name: 'SPF_PASS', score: -0.5}]}}})), ['DECEPTIVE_LINK', 'BRAND_IN_DOMAIN', 'INVISIBLE_CHARACTERS', 'MIXED_SCRIPT_WORDS', 'STYLED_LETTERS', 'SPF_PASS']);
 	});

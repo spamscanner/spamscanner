@@ -1,4 +1,4 @@
-<!-- source: e5ae9d07f714 -->
+<!-- source: c3fc2d7fd158 -->
 
 # API 레퍼런스
 
@@ -19,37 +19,40 @@ const result = await scanner.scan(rawMessage, scanOptions);
 
 모든 옵션은 생성자에 전달할 수 있습니다. 대부분은 메시지 하나에 대해 `scan()`에도 전달할 수 있으며, 이때 생성자의 옵션 위에 병합됩니다. `undefined`로 전달한 옵션은 기본값을 유지합니다. `classifier`, `classifierOptions`, `dns`, `phishing.homograph`, `strictIDNDetection`은 생성자만 읽습니다. `classifier`로 지정한 모델 파일이나 객체도 생성자에서 읽으므로, 모델이 없거나 손상되었으면 즉시 오류가 발생합니다.
 
-| 옵션                      | 기본값                              | 의미                                                                                                                                         |
-| ----------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `threshold`             | `5`                              | 메시지를 스팸으로 판정하는 점수                                                                                                                          |
-| `rejectThreshold`       | `15`                             | `action`이 `reject`가 되는 점수                                                                                                                  |
-| `scores`                | `{}`                             | 테스트별 점수. 설정 키 또는 테스트 이름으로 지정합니다([테스트와 점수](scoring.md))                                                                                     |
-| `classifier`            | 번들 모델                            | `Classifier`, 모델 객체, 모델 파일 경로 또는 `false`                                                                                                   |
-| `classifierOptions`     | `{}`                             | 번들 모델의 옵션([Classifier](#classifier) 참고)                                                                                                    |
-| `allowedLanguages`      | `[]`                             | ISO 639-1 코드(`no`는 `nb`로, `fil`은 `tl`로, 옛 코드 `iw`, `in`, `ji`는 `he`, `id`, `yi`로 읽습니다). 그 밖의 언어에는 `LANGUAGE_NOT_ALLOWED`가 붙습니다             |
-| `phishing.cloudflare`   | `true`                           | 링크 호스트를 Cloudflare의 필터링 리졸버에 조회합니다                                                                                                         |
-| `phishing.adult`        | `true`                           | 성인 사이트를 차단하는 가족용 리졸버에도 조회합니다                                                                                                               |
-| `phishing.maxHosts`     | `25`                             | 메시지당 조회할 링크 호스트 수                                                                                                                          |
-| `phishing.attachments`  | `false`                          | 링크 호스트를 조회할 때 메시지 전체와 그것이 담고 있는 것의 링크도 최대 5초 동안 읽습니다: 첨부된 메시지, HTML·SVG·XML 파일, 텍스트 파일, 초대장과 연락처 카드, iframe과 `data:` URL 속 문서              |
-| `phishing.hostsInText`  | `false`                          | 메일 클라이언트가 링크로 만드는, 링크나 경로 없이 쓰인 호스트 이름(`evil.example`)도 링크 다음에 여유가 있는 만큼 조회합니다                                                             |
-| `phishing.timeout`      | `timeout`                        | 링크 조회 전체에 허용하는 시간(밀리초)                                                                                                                     |
-| `phishing.maxLength`    | `1000000`                        | 링크를 찾기 위해 읽는 본문 문자 수(HTML은 두 배). 더 긴 본문은 `results.linksTruncated`를 설정합니다; `Infinity`나 양수가 아닌 값은 기본값을 뜻합니다                                  |
-| `phishing.homograph`    | `{}`                             | `brands`(내장 목록 대체), `extraBrands`, `allowlist`(표시하지 않을 도메인), `strictMode`                                                                  |
-| `dnsbl`                 | `{ip: [], domain: []}`           | 클라이언트 IP와 링크 도메인용 DNS 차단 목록 영역                                                                                                             |
-| `dns`                   | `{servers: null, timeout: 3000}` | DNS 검사에 쓸 네임 서버(기본값: 시스템 설정)                                                                                                               |
-| `attachments`           | `true`                           | 첨부 파일을 검사합니다                                                                                                                               |
-| `macros`                | `true`                           | 매크로, 동적 PDF, RTF 개체를 표시합니다                                                                                                                 |
-| `arbitrary`             | `true`                           | [규칙](scoring.md#rules)을 실행합니다                                                                                                              |
-| `authentication`        | `false`                          | `true` 또는 `{dnsServers, timeout, maxDnsQueries, mta, weights, trustedArcSealers}`: SPF, DKIM, DMARC, ARC ([점수](scoring.md#authentication)) |
-| `reputation`            | `false`                          | `{allowlist, denylist, apiUrl, headers, timeout, concurrency, cacheTtl, cacheSize}`. 응답은 서비스와 헤더별로 보관하며, `cacheSize`는 스캐너 전체에 적용됩니다        |
-| `allowlist`, `denylist` |                                  | IP 주소, 도메인 또는 주소. `reputation`의 축약형 → [허용 목록과 차단 목록](#allowlist-and-denylist)                                                              |
-| `clamav`                | `false`                          | `true`(기본 소켓), `{socket}` 또는 `{host, port}`, 그리고 `timeout`: 메시지의 모든 첨부 파일에 허용하는 시간(밀리초, `60000`)                                           |
-| `llm`                   | `null`                           | `mode`, `minScore`, `maxScore`를 포함한 [언어 모델 설정](llm.md#any-server-port-and-authentication)                                                  |
-| `toxicity`              | `false`                          | `{model, threshold = 0.7}`: `classify([text])`가 `@tensorflow-models/toxicity`처럼 응답하는 모델                                                    |
-| `nsfw`                  | `false`                          | `{model, threshold = 0.6}`: `classify(imageBuffer)`가 `nsfwjs`처럼 응답하는 모델                                                                    |
-| `maxLength`             | `100000`                         | 읽을 본문 텍스트의 글자 수                                                                                                                            |
-| `timeout`               | `10000`                          | 각 네트워크 검사에 허용하는 시간(밀리초); 인증과 이미지 모델은 전체 합쳐 이 시간 안에 끝납니다(ClamAV에는 별도의 `clamav.timeout`이 있습니다)                                               |
-| `session`               | `{}`                             | 기본 SMTP 세션 정보                                                                                                                              |
+| 옵션                             | 기본값                              | 의미                                                                                                                                         |
+| ------------------------------ | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `threshold`                    | `5`                              | 메시지를 스팸으로 판정하는 점수                                                                                                                          |
+| `rejectThreshold`              | `15`                             | `action`이 `reject`가 되는 점수                                                                                                                  |
+| `scores`                       | `{}`                             | 테스트별 점수. 설정 키 또는 테스트 이름으로 지정합니다([테스트와 점수](scoring.md))                                                                                     |
+| `classifier`                   | 번들 모델                            | `Classifier`, 모델 객체, 모델 파일 경로 또는 `false`                                                                                                   |
+| `classifierOptions`            | `{}`                             | 번들 모델의 옵션([Classifier](#classifier) 참고)                                                                                                    |
+| `allowedLanguages`             | `[]`                             | ISO 639-1 코드(`no`는 `nb`로, `fil`은 `tl`로, 옛 코드 `iw`, `in`, `ji`는 `he`, `id`, `yi`로 읽습니다). 그 밖의 언어에는 `LANGUAGE_NOT_ALLOWED`가 붙습니다             |
+| `phishing.cloudflare`          | `true`                           | 링크 호스트를 Cloudflare의 필터링 리졸버에 조회합니다                                                                                                         |
+| `phishing.adult`               | `true`                           | 성인 사이트를 차단하는 가족용 리졸버에도 조회합니다                                                                                                               |
+| `phishing.maxHosts`            | `25`                             | 메시지당 조회할 링크 호스트 수                                                                                                                          |
+| `phishing.attachments`         | `false`                          | 링크 호스트를 조회할 때 메시지 전체와 그것이 담고 있는 것의 링크도 최대 5초 동안 읽습니다: 첨부된 메시지, HTML·SVG·XML 파일, 텍스트 파일, 초대장과 연락처 카드, iframe과 `data:` URL 속 문서              |
+| `phishing.hostsInText`         | `false`                          | 메일 클라이언트가 링크로 만드는, 링크나 경로 없이 쓰인 호스트 이름(`evil.example`)도 링크 다음에 여유가 있는 만큼 조회합니다                                                             |
+| `phishing.timeout`             | `timeout`                        | 링크 조회 전체에 허용하는 시간(밀리초)                                                                                                                     |
+| `phishing.maxLength`           | `1000000`                        | 링크를 찾기 위해 읽는 본문 문자 수(HTML은 두 배). 더 긴 본문은 `results.linksTruncated`를 설정합니다; `Infinity`나 양수가 아닌 값은 기본값을 뜻합니다                                  |
+| `phishing.homograph`           | `{}`                             | `brands`(내장 목록 대체), `extraBrands`, `allowlist`(표시하지 않을 도메인), `strictMode`                                                                  |
+| `phishing.authenticatedSender` | `false`                          | 보낸 사람이 메시지를 보내려고 로그인한 경우(제출 서버의 발신 메일처럼). 이때 From 주소는 DMARC를 통과한 보낸 사람처럼 링크 검사에서 진짜로 봅니다                                                   |
+| `dnsbl`                        | `{ip: [], domain: []}`           | 클라이언트 IP와 링크 도메인용 DNS 차단 목록 영역                                                                                                             |
+| `dns`                          | `{servers: null, timeout: 3000}` | DNS 검사에 쓸 네임 서버(기본값: 시스템 설정)                                                                                                               |
+| `attachments`                  | `true`                           | 첨부 파일을 검사합니다                                                                                                                               |
+| `qrCodes`                      | `true`                           | 이미지(PNG, GIF, 기본 JPEG), PDF 파일, 메시지에 그려진 QR 코드를 그 링크 때문에 읽음: 메시지당 이미지 10개, 600만 픽셀, 1초까지                                                   |
+| `decodeImage`                  | `null`                           | 스캐너가 직접 읽지 않는 이미지(WebP, 프로그레시브 JPEG)를 읽는 함수: `async buffer => ({width, height, data, channels})`, 또는 null                                  |
+| `macros`                       | `true`                           | 매크로, 동적 PDF, RTF 개체를 표시합니다                                                                                                                 |
+| `arbitrary`                    | `true`                           | [규칙](scoring.md#rules)을 실행합니다                                                                                                              |
+| `authentication`               | `false`                          | `true` 또는 `{dnsServers, timeout, maxDnsQueries, mta, weights, trustedArcSealers}`: SPF, DKIM, DMARC, ARC ([점수](scoring.md#authentication)) |
+| `reputation`                   | `false`                          | `{allowlist, denylist, apiUrl, headers, timeout, concurrency, cacheTtl, cacheSize}`. 응답은 서비스와 헤더별로 보관하며, `cacheSize`는 스캐너 전체에 적용됩니다        |
+| `allowlist`, `denylist`        |                                  | IP 주소, 도메인 또는 주소. `reputation`의 축약형 → [허용 목록과 차단 목록](#allowlist-and-denylist)                                                              |
+| `clamav`                       | `false`                          | `true`(기본 소켓), `{socket}` 또는 `{host, port}`, 그리고 `timeout`: 메시지의 모든 첨부 파일에 허용하는 시간(밀리초, `60000`)                                           |
+| `llm`                          | `null`                           | `mode`, `minScore`, `maxScore`를 포함한 [언어 모델 설정](llm.md#any-server-port-and-authentication)                                                  |
+| `toxicity`                     | `false`                          | `{model, threshold = 0.7}`: `classify([text])`가 `@tensorflow-models/toxicity`처럼 응답하는 모델                                                    |
+| `nsfw`                         | `false`                          | `{model, threshold = 0.6}`: `classify(imageBuffer)`가 `nsfwjs`처럼 응답하는 모델                                                                    |
+| `maxLength`                    | `100000`                         | 읽을 본문 텍스트의 글자 수                                                                                                                            |
+| `timeout`                      | `10000`                          | 각 네트워크 검사에 허용하는 시간(밀리초); 인증과 이미지 모델은 전체 합쳐 이 시간 안에 끝납니다(ClamAV에는 별도의 `clamav.timeout`이 있습니다)                                               |
+| `session`                      | `{}`                             | 기본 SMTP 세션 정보                                                                                                                              |
 
 `scan()`은 `session`도 받습니다.
 
@@ -138,7 +141,8 @@ await scanner.scan(raw, {authenticationResults: auth});
     virusScanSkipped: [], // attachments larger than clamd accepts, not scanned: {filename, reason}
     unopenedAttachments: [], // attached messages not opened, past the limits they are read within: {filename, reason}
     arbitrary: [],       // rules strong enough to mark spam alone
-    obfuscation: {invisible, mixed, styled},
+    obfuscation: {invisible, mixed, styled, qrCode},
+    qrCodes: [],
     authentication: null, // mailauth's results with a score, when checked
     reputation: null,
     dnsbl: [],           // {zone, value, answers} for each listing

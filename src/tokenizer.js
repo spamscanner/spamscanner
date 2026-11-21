@@ -232,21 +232,29 @@ const REDIRECTS = new Map([
 	['vk.com', ['/away.php', 'to']],
 ]);
 
+// The one value of a link's parameters of those names, or null: a link that
+// gives two ("?q=https://www.paypal.com/&url=https://evil.example/") goes
+// to one of them, which one only the site knows
+function onlyValue(url, ...names) {
+	const values = new Set(names.flatMap(name => url.searchParams.getAll(name)).filter(Boolean));
+	return values.size === 1 ? [...values][0] : null;
+}
+
 // The address a security gateway's link goes on to, as the gateway wrote it
-// in the link (see CLICK_TRACKERS), or a redirect's (see REDIRECTS), or
-// null: the "url" parameter of Safe
+// in the link (see CLICK_TRACKERS), or a redirect's (see REDIRECTS, and
+// Google's "/url?q=" and "/amp/s/"), or null: the "url" parameter of Safe
 // Links, the "u" parameter of Proofpoint's second form ("https-3A__www.example.com_a",
 // "-" and two hex digits for "%" and "_" for "/") and what is between "/v3/__"
 // and "__;" in its third
 function gatewayTarget(url) {
 	const host = url.hostname.toLowerCase();
 	if (isUnder(host, 'safelinks.protection.outlook.com')) {
-		return url.searchParams.get('url');
+		return onlyValue(url, 'url');
 	}
 
 	if (host === 'urldefense.proofpoint.com' && url.pathname.startsWith('/v2/')) {
 		try {
-			return decodeURIComponent((url.searchParams.get('u') ?? '').replaceAll('_', '/').replaceAll(/-([\da-f]{2})/gi, '%$1'));
+			return decodeURIComponent((onlyValue(url, 'u') ?? '').replaceAll('_', '/').replaceAll(/-([\da-f]{2})/gi, '%$1'));
 		} catch {
 			return null;
 		}
@@ -265,12 +273,18 @@ function gatewayTarget(url) {
 	}
 
 	const path = url.pathname.replace(/\/$/, '');
-	if (/^(?:www\.)?google\.(?:com?\.)?[a-z]{2,3}$/.test(host) && path === '/url') {
-		return url.searchParams.get('q') || url.searchParams.get('url');
+	if (/^(?:www\.)?google\.(?:com?\.)?[a-z]{2,3}$/.test(host)) {
+		// (an AMP page's: "/amp/s/example.com/page" is "https://example.com/page")
+		const amp = /^\/amp\/(s\/)?([^/]+\/?.*)$/.exec(url.pathname);
+		if (amp) {
+			return `${amp[1] ? 'https' : 'http'}://${amp[2]}${url.search}`;
+		}
+
+		return path === '/url' ? onlyValue(url, 'q', 'url') : null;
 	}
 
 	const [redirect, parameter] = REDIRECTS.get(host) ?? [];
-	return redirect === path ? url.searchParams.get(parameter) : null;
+	return redirect === path ? onlyValue(url, parameter) : null;
 }
 
 // (gateways unwrapped at most: forwarding through several organizations
@@ -604,6 +618,42 @@ export function obfuscationOf(text, options = {}) {
 	}
 
 	return {invisible: normalized.invisible, mixed, styled: normalized.styled};
+}
+
+// A link that runs a script or opens a page held in the link, which mail
+// clients and browsers block for a reason and a message has none for:
+// "javascript:" that does more than nothing, print or go back, "vbscript:",
+// "blob:", and "data:" of HTML, SVG or a script
+const SCRIPT_HREF = /^\s*(?:javascript|vbscript|blob|data)\s*:/i;
+const DATA_PAGE = /^\s*data\s*:\s*(?:text\/html|application\/xhtml|image\/svg|text\/javascript|application\/(?:x-)?javascript|text\/vbscript)/i;
+// (read without spaces: nothing, print, go back or close, as often as written)
+const HARMLESS_SCRIPT = /^javascript:(?:void\(?0\)?|returnfalse|(?:window\.)?print\(\)|(?:window\.)?history\.(?:back\(\)|go\(-1\))|(?:window\.)?close\(\)|;)*$/i;
+
+/**
+ * The links of HTML that run a script or open a page held in the link (see
+ * SCRIPT_HREF), at most ten: the start of each address and the text shown.
+ * @param {string} html
+ * @returns {Array<{href: string, text: string}>}
+ */
+export function scriptLinks(html) {
+	if (typeof html !== 'string' || !/(?:javascript|vbscript|blob|data)\s*:/i.test(html)) {
+		return [];
+	}
+
+	const found = [];
+	for (const {href, inner} of anchors(html)) {
+		const scheme = SCRIPT_HREF.exec(href);
+		if (!scheme || HARMLESS_SCRIPT.test(href.replaceAll(/\s+/g, '')) || (/^\s*data/i.test(href) && !DATA_PAGE.test(href))) {
+			continue;
+		}
+
+		found.push({href: href.trim().slice(0, 80), text: inner.slice(0, 200)});
+		if (found.length >= 10) {
+			break;
+		}
+	}
+
+	return found;
 }
 
 function bucket(n, steps) {
@@ -1326,6 +1376,17 @@ const SIGN_IN_PART = /^(?:your|my|service|secure)?(?:login|logon|signin|signon|a
 // asks to sign in: its other words name what a click tracking link records
 // ("account=12", "secure.", "update-preferences", "confirm")
 const STRICT_SIGN_IN_PART = /^(?:your|my|service|secure)?(?:login|logon|signin|signon|verify|verification|auth|authenticate|authorize|oauth2?|password|recover|recovery|unlock|webscr)(?:verification|info|help|page|\d{1,2})?$/;
+// Of a brand's address that goes to another sender's site, also a part that
+// lures with a parcel, a payment or a locked account ("/track/", "refund",
+// "suspended"), as phishing from a domain of its own shows
+const LURE_PART = /^(?:track(?:ing)?|trackandtrace|redelivery?|delivery|parcels?|packages?|shipments?|refunds?|invoices?|payments?|claims?|suspended|locked|reactivat(?:e|ion)|restore|confirm(?:ation)?)$/;
+// The parts of the path of a front page in a language or a country ("/us/",
+// "/en-gb/home", "/index.html")
+const FRONT_PART = /^(?:[a-z]{2}(?:[-_][a-z]{2,4})?|home|welcome|index\.(?:html?|php)|default\.aspx?)$/i;
+const isFrontPage = pathname => pathname.split('/').filter(Boolean).every((part, index) => index < 2 && FRONT_PART.test(part));
+// Hosts of a domain's mail and sign-in ("mail.", "webmail.", "owa.",
+// "login.", "sso.")
+const MAIL_HOST = /^(?:accounts?|auth|autodiscover|email|exchange|login|mail|outlook|owa|portal|remote|secure|signin|sso|vpn|webmail)\d*\./;
 // ("sign-in" and "log-on" are read as one part)
 const signInPath = (path, parts = SIGN_IN_PART) => path.toLowerCase().replaceAll(/\b(log|sign)-(in|on)\b/g, '$1$2').split(/[/?&=._-]/).some(part => parts.test(part));
 // The domains brands send from that hold their name and another word
@@ -1357,6 +1418,17 @@ export function isMailbox(domain) {
 	return MAILBOXES.has(domainWithoutSuffix) || MAILBOX_DOMAINS.has(registrable);
 }
 
+// Whether a recipient's own domain shown by a sender that authenticated
+// itself is a disguise: its front page, its mail or sign-in host, or a page
+// that asks to sign in or lures (see LURE_PART); not another page of it, as a
+// partner names one ("staging.example.com/feature" over the host of its
+// preview)
+function isMailPage(shownUrl, path) {
+	const host = shownUrl.hostname.toLowerCase();
+	const {subdomain} = parseDomain(host);
+	return ((!subdomain || subdomain === 'www') && isFrontPage(shownUrl.pathname)) || MAIL_HOST.test(host) || signInPath(path) || signInPath(path, LURE_PART);
+}
+
 // The path and query of the address a link goes to ("" for none that reads)
 function reachedPath(target, link) {
 	try {
@@ -1379,7 +1451,7 @@ function reachedPath(target, link) {
  * SAME_OWNER, and "blog.google" for "google.com"), or a government's site
  * to another's. A link through a security gateway or a site's redirect
  * ("google.com/url?q=") is read as the address it goes on to (see
- * unwrapLink).
+ * unwrapLink), where it gives one.
  *
  * A link through an email service's click tracking (see CLICK_TRACKERS) goes
  * elsewhere by design, so it counts only when the sender is known (`from`,
@@ -1391,9 +1463,13 @@ function reachedPath(target, link) {
  * mailing service sending "https://www.paypal.com" to a phishing page, not a
  * newsletter's links. A sender that passes DMARC (`authenticated`), a person
  * or a shop, links to a brand's pages any way (copied through another site,
- * in a newsletter forwarded), so of a brand's site only its front page (not
- * of a brand newsletters link to) or a page that asks to sign in or pay
- * counts, and only when it is not the sender's own domain. Its links to its
+ * in a newsletter forwarded), so of a brand's site only its front page, also
+ * in a language ("/us/", not of a brand newsletters link to), or a page that
+ * asks to sign in or pay counts, or, not through click tracking, one that
+ * lures with a parcel, a payment or a locked account (see LURE_PART), and
+ * only when it is not the sender's own domain; and of a recipient's domain,
+ * only its front page, its mail or sign-in host, or such a page (see
+ * isMailPage). Its links to its
  * own domain are its own click tracking: a shop naming a partner
  * ("amazon.co.uk") over it is no disguise, so a brand's address counts
  * there only when it, or the address the link goes to, asks to sign in or
@@ -1471,13 +1547,14 @@ export function isDeceptiveLink(link, {
 	//  own click tracking)
 	const own = !tracked && [...proven].some(domain => domain === reached || sameOwner(domain, reached));
 	const brand = parseDomain(shown).domainWithoutSuffix;
+	const path = `${shownUrl.pathname}${shownUrl.search}`;
 	if (!BRAND_NAMES.has(brand)) {
 		// (of another site, only a recipient's domain, which a message claiming
 		//  to come from it shows over a phishing page, or a government's: a
 		//  link to a site people name another way is no disguise, "docs.example.dev"
 		//  over its repository, "www.shop.example" over its shop's platform)
 		return !tracked && !own && !(authenticated && known)
-			&& ((Array.isArray(recipients) && recipients.includes(shown)) || isGovernment(shown));
+			&& (isGovernment(shown) || (Array.isArray(recipients) && recipients.includes(shown) && (!authenticated || isMailPage(shownUrl, path))));
 	}
 
 	// (a brand's own sending domain: "facebookmail.com")
@@ -1485,7 +1562,6 @@ export function isDeceptiveLink(link, {
 		return false;
 	}
 
-	const path = `${shownUrl.pathname}${shownUrl.search}`;
 	if (own) {
 		// (a known sender's under any address of a partner it writes about)
 		return !(authenticated && known) && (signInPath(path) || signInPath(reachedPath(target, link), STRICT_SIGN_IN_PART));
@@ -1504,12 +1580,14 @@ export function isDeceptiveLink(link, {
 	// (of a brand's site, only its front page, or a page that asks to sign in
 	//  or pay: a person links to a brand's other pages any way, through the
 	//  site they copied the link from or a newsletter they forward; and of a
-	//  brand newsletters link to, only a page that asks to sign in)
+	//  brand newsletters link to, only a page that asks to sign in; to another
+	//  site than click tracking, also one that lures, see LURE_PART)
 	const sender = parseDomain(from ?? '').domainWithoutSuffix ?? '';
-	const signIn = (path === '/' && !LINKED_BRANDS.has(brand)) || signInPath(path);
+	const signIn = (isFrontPage(shownUrl.pathname) && !LINKED_BRANDS.has(brand)) || signInPath(path);
 	return typeof from === 'string'
-		&& signIn
-		&& (!tracked || (!LINKED_BRANDS.has(brand) && /^https?:\/\//i.test(link.text) && sender !== brand))
+		&& (tracked
+			? signIn && !LINKED_BRANDS.has(brand) && /^https?:\/\//i.test(link.text) && sender !== brand
+			: signIn || signInPath(path, LURE_PART))
 		&& fromDomain !== shown;
 }
 

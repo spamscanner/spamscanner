@@ -1,4 +1,4 @@
-<!-- source: cbe7f5d561ae -->
+<!-- source: 0d3b948f68b9 -->
 
 # 테스트와 점수
 
@@ -25,6 +25,8 @@
 | `BRAND_IN_DOMAIN`           | 1.5 | `brandInDomain`     | 다른 사람의 도메인 안에 브랜드 이름이 들어 있습니다(`paypal-secure.example`. 단어이기도 한 브랜드는 `apple-support.com`, `login.apple.example.com`처럼 피싱 단어나 그 브랜드의 서비스를 나타내는 단어 옆에 있을 때만 해당하며, `apple-tree.com`은 제외. `office`, `steam`, `ledger`처럼 아주 흔한 단어는 `steam-gift.com`, `steam-support.com`처럼 그 제품 이름이나 도움말 단어 옆에 있을 때만 해당하며, `steam-service.com`은 제외). 또는 짧은 브랜드나 단어이기도 한 브랜드를 글자만으로 흉내 냅니다(amex를 흉내 낸 `arnex`, steam을 흉내 낸 `stearn`) |
 | `TYPO_DOMAIN`               |   1 | `typoDomain`        | 브랜드 도메인과 한 글자만 다릅니다. 첫 글자는 브랜드와 같아야 합니다(`gogle`; nubank에 대한 `ubank`는 제외). 단어나 지명과 한 글자 차이인 브랜드(`zelle`과 `belle`, `fedex`와 `cedex`, `venmo`와 `venlo`)는 이웃한 두 글자가 뒤바뀐 경우만 해당하며, 그 자체가 단어가 아닌 브랜드는 이름 안에서 한 글자가 빠졌거나 한 글자가 겹친 경우도 해당합니다(`twiter`, `samsng`, `twittter`. icloud에 대한 `cloud`나 samsung에 대한 `samsun`은 제외)                                                                                            |
 | `DECEPTIVE_LINK`            |   3 | `deceptiveLink`     | 링크가 표시하는 주소와 실제로 가는 주소가 다릅니다                                                                                                                                                                                                                                                                                                                                                                                  |
+| `QR_CODE_LINK`              | 1.5 | `qrCodeLink`        | 이미지, PDF 파일 또는 메시지에 그려진 QR 코드에 링크가 있고, 보낸 사람이 DMARC로 진짜임이 확인되지 않음(그 링크는 보낸 사람이 누구든 메시지의 다른 링크처럼 검사됩니다)                                                                                                                                                                                                                                                                                                        |
+| `SCRIPT_LINK`               |   3 | `scriptLink`        | 스크립트를 실행하거나 링크 자체에 담긴 페이지를 여는 링크(`javascript:`, `vbscript:`, HTML `data:` URL)                                                                                                                                                                                                                                                                                                                                |
 | `MALICIOUS_DOMAIN`          |   6 | `maliciousDomain`   | Cloudflare의 악성코드 리졸버가 링크된 도메인을 차단합니다                                                                                                                                                                                                                                                                                                                                                                          |
 | `ADULT_DOMAIN`              |   2 | `adultDomain`       | Cloudflare의 가족용 리졸버가 링크된 도메인을 차단합니다                                                                                                                                                                                                                                                                                                                                                                           |
 | `URIBL_<LIST>`              |   5 | `uriblListed`       | 링크된 도메인이 도메인 차단 목록에 있습니다. 예: `URIBL_DBL`                                                                                                                                                                                                                                                                                                                                                                      |
@@ -78,12 +80,13 @@ MIME 파서의 한도 중 이 두 가지만 `MIME_TOO_COMPLEX`를 주며, 파서
 
 ## 난독화와 언어
 
-| 테스트                    |  점수 | 설정 키                  | 의미                                 |
-| ---------------------- | --: | --------------------- | ---------------------------------- |
-| `INVISIBLE_CHARACTERS` |   2 | `invisibleCharacters` | 텍스트 안에 보이지 않는 문자가 세 개 이상 있습니다      |
-| `MIXED_SCRIPT_WORDS`   | 2.5 | `mixedScriptWords`    | 두 개 이상의 단어에 서로 다른 알파벳의 글자가 섞여 있습니다 |
-| `STYLED_LETTERS`       | 1.5 | `styledLetters`       | 수학용 글자나 둘러싼 글자가 일반 텍스트 행세를 합니다     |
-| `LANGUAGE_NOT_ALLOWED` |   3 | `languageNotAllowed`  | `allowedLanguages`에 없는 언어입니다       |
+| 테스트                    |  점수 | 설정 키                  | 의미                                                                           |
+| ---------------------- | --: | --------------------- | ---------------------------------------------------------------------------- |
+| `INVISIBLE_CHARACTERS` |   2 | `invisibleCharacters` | 텍스트 안에 보이지 않는 문자가 세 개 이상 있습니다                                                |
+| `MIXED_SCRIPT_WORDS`   | 2.5 | `mixedScriptWords`    | 두 개 이상의 단어에 서로 다른 알파벳의 글자가 섞여 있습니다                                           |
+| `STYLED_LETTERS`       | 1.5 | `styledLetters`       | 수학용 글자나 둘러싼 글자가 일반 텍스트 행세를 합니다                                               |
+| `DRAWN_QR_CODE`        |   3 | `drawnQrCode`         | 이미지 대신 HTML 셀이나 블록 문자로 그린 QR 코드로, 링크를 스캐너로부터 숨깁니다. DMARC를 통과한 보낸 사람이어도 해당합니다 |
+| `LANGUAGE_NOT_ALLOWED` |   3 | `languageNotAllowed`  | `allowedLanguages`에 없는 언어입니다                                                 |
 
 
 ## 인증
@@ -109,7 +112,7 @@ DMARC 실패의 점수는 도메인의 정책에 따라 정해집니다. 도메�
 
 본문의 앞부분만 서명한 DKIM 서명(본문 길이 `l=`이 본문보다 짧은 서명: 그 뒤에는 누구나 텍스트를 덧붙일 수 있습니다)은 `DKIM_PASS`를 받지 못하며, 정렬된 SPF 없이 그런 서명에만 기댄 DMARC 통과는 `DMARC_PASS`를 받지 못합니다.
 
-DMARC를 통과하고 `DMARC_PASS`를 받은 발신자는 자신이 밝힌 그 발신자이므로, 숨은 발신자를 찾는 테스트는 이 발신자를 건드리지 않습니다. `INVISIBLE_CHARACTERS`, `MIXED_SCRIPT_WORDS`, `STYLED_LETTERS`, `BRAND_IN_DOMAIN`은 제외됩니다. `DECEPTIVE_LINK`는 링크가 발신자가 아닌 브랜드의 주소를 보여 줄 때만 계산됩니다. 메일 발송 서비스의 추적 도메인 위에 자기 주소를 보여 주는 쇼핑몰은 아무것도 받지 않고, 다른 도메인에서 `www.paypal.com`을 보여 주는 메시지는 여전히 받습니다. `SPF_FAIL`과 `SPF_SOFTFAIL`도 제외됩니다. 메시지가 전달된 것이고 서명이 이를 보증하기 때문입니다. 발신자 자신의 도메인으로 가는 링크는 발신자 자신의 클릭 추적입니다. 그 위에 표시된 파트너의 이름(`amazon.co.uk`)은 아무 점수도 받지 않습니다. 다만 표시된 주소나 링크가 여는 페이지가 로그인을 요구하는 경우(`paypal.com/signin`)는 예외입니다. `gmail.com` 같은 메일함 제공자에게는 이런 의미의 자기 도메인이 없습니다. 메시지에 서명한 도메인(본문 전체의 DKIM 서명) 또는 SPF가 통과하는 도메인으로 가는 링크도, DMARC가 통과하지 않을 때에도, 보낸 사람 자신의 클릭 추적입니다. 발송 서비스가 보내는 사람을 대신해 서명하고 보내기 때문입니다. 같은 회사의 다른 도메인으로 가는 링크도 마찬가지입니다. 누구나 보낼 수 있는 발송 서비스의 클릭 추적 도메인과 누구의 메일이든 전달하는 브랜드의 도메인은 해당하지 않습니다. DMARC 레코드가 없고 자체 DKIM 서명이 통과하는 도메인은 여기서 DMARC를 통과한 것으로 보며, 신뢰하는 전달자가 봉인한 메시지도 마찬가지입니다. 브랜드의 사이트의 경우, DMARC를 통과한 보낸 사람은 첫 페이지나 로그인을 요구하는 페이지에 대해서만 이를 받으며(링크를 복사한 페이지를 거쳐 `docs.aws.amazon.com`으로 링크하는 사람은 아무 점수도 받지 않습니다), 정부 사이트(`irs.gov`, `gov.uk`)나 받는 사람 자신의 도메인을 다른 사이트 위에 표시하면 어떤 보낸 사람이든 이를 받습니다.
+DMARC를 통과하고 `DMARC_PASS`를 받은 발신자는 자신이 밝힌 그 발신자이므로, 숨은 발신자를 찾는 테스트는 이 발신자를 건드리지 않습니다. `INVISIBLE_CHARACTERS`, `MIXED_SCRIPT_WORDS`, `STYLED_LETTERS`, `BRAND_IN_DOMAIN`은 제외됩니다. `DECEPTIVE_LINK`는 링크가 발신자가 아닌 브랜드의 주소를 보여 줄 때만 계산됩니다. 메일 발송 서비스의 추적 도메인 위에 자기 주소를 보여 주는 쇼핑몰은 아무것도 받지 않고, 다른 도메인에서 `www.paypal.com`을 보여 주는 메시지는 여전히 받습니다. `SPF_FAIL`과 `SPF_SOFTFAIL`도 제외됩니다. 메시지가 전달된 것이고 서명이 이를 보증하기 때문입니다. 발신자 자신의 도메인으로 가는 링크는 발신자 자신의 클릭 추적입니다. 그 위에 표시된 파트너의 이름(`amazon.co.uk`)은 아무 점수도 받지 않습니다. 다만 표시된 주소나 링크가 여는 페이지가 로그인을 요구하는 경우(`paypal.com/signin`)는 예외입니다. `gmail.com` 같은 메일함 제공자에게는 이런 의미의 자기 도메인이 없습니다. 메시지에 서명한 도메인(본문 전체의 DKIM 서명) 또는 SPF가 통과하는 도메인으로 가는 링크도, DMARC가 통과하지 않을 때에도, 보낸 사람 자신의 클릭 추적입니다. 발송 서비스가 보내는 사람을 대신해 서명하고 보내기 때문입니다. 같은 회사의 다른 도메인으로 가는 링크도 마찬가지입니다. 누구나 보낼 수 있는 발송 서비스의 클릭 추적 도메인과 누구의 메일이든 전달하는 브랜드의 도메인은 해당하지 않습니다. DMARC 레코드가 없고 자체 DKIM 서명이 통과하는 도메인은 여기서 DMARC를 통과한 것으로 보며, 신뢰하는 전달자가 봉인한 메시지도 마찬가지입니다. 브랜드의 사이트의 경우, DMARC를 통과한 보낸 사람은 첫 페이지(`/us/`도 포함), 로그인을 요구하는 페이지, 또는 소포, 결제, 잠긴 계정으로 유인하는 페이지(`/track/`, `refund`)에 대해서만 이를 받습니다. 링크를 복사한 페이지를 거쳐 `docs.aws.amazon.com`으로 링크하는 사람은 아무 점수도 받지 않습니다. 다른 사이트 위에 표시한 정부 사이트(`irs.gov`, `gov.uk`)와 받는 사람 자신의 도메인에 대해서는 어떤 보낸 사람이든 이를 받습니다. 단, DMARC를 통과한 보낸 사람은 그 도메인의 첫 페이지, 메일 또는 로그인 호스트(`mail.`, `owa.`, `login.`), 또는 로그인을 요구하는 페이지에 대해서만 받습니다. 파트너는 다른 페이지를 미리보기 호스트 위에 표시하기 때문입니다.
 
 알려진 발신자, 즉 `phishing.knownSenders`에 지정한 도메인(하위 도메인도 포함합니다. 예를 들어 방문자가 가장 많은 사이트)은 DMARC를 통과하면 자기 도메인으로 가는 링크에 제휴사의 주소를 표시할 수도 있습니다. 상점 자체의 클릭 추적 링크에 `www.apple.com`을 표시하는 경우입니다. `gmail.com` 같은 메일함 제공업체는 결코 알려진 발신자가 아닙니다. 그때는 발신자 자신의 도메인도 `MALICIOUS_DOMAIN`으로 계산되지 않습니다. 자신의 도메인이 아닌 도메인으로 가는 링크에서, DMARC를 통과한 알려진 보낸 사람은 로그인을 요구하는 브랜드 주소에 대해서만 `DECEPTIVE_LINK`를 받습니다(`www.ups.com` 아래에 표시한 주문 발송 알림은 아무 점수도 받지 않습니다). 정부 사이트나 받는 사람 자신의 도메인에 대해서는 결코 받지 않습니다.
 
