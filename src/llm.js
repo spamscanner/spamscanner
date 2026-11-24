@@ -50,7 +50,7 @@ export const PROVIDERS = {
 		name: 'Text Embeddings Inference', api: 'classifier', baseUrl: 'http://127.0.0.1:8080/predict', auth: 'none', local: true,
 	},
 	openai: {
-		name: 'OpenAI', api: 'openai', baseUrl: 'https://api.openai.com/v1', model: 'gpt-5-mini', envKey: 'OPENAI_API_KEY', json: true, maxTokensField: 'max_completion_tokens',
+		name: 'OpenAI', api: 'openai', baseUrl: 'https://api.openai.com/v1', model: 'gpt-5.6-terra', envKey: 'OPENAI_API_KEY', json: true, maxTokensField: 'max_completion_tokens',
 	},
 	anthropic: {
 		name: 'Anthropic (Claude)', api: 'anthropic', baseUrl: 'https://api.anthropic.com/v1', model: 'claude-haiku-4-5', envKey: 'ANTHROPIC_API_KEY', auth: 'x-api-key',
