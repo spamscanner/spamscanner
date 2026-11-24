@@ -259,6 +259,7 @@ const NESTED = ['phishing', 'dnsbl', 'dns', 'session'];
  * @property {string} type
  * @property {string} message
  * @property {boolean} [unlessAuthenticated] - not counted toward the score of a sender that passes DMARC
+ * @property {boolean} [quoted] - a malicious link only in a message it carries, which takes no credit away (see scoreResults)
  */
 
 /**
@@ -827,10 +828,15 @@ export class SpamScanner {
 	}
 
 	// (`from`: the sender's domain; `carried`: the link hosts of the whole
-	//  message and of what it carries, see carriedLinkHosts; `recipients`: the
-	//  registrable domains of its recipients, see isDeceptiveLink)
+	//  message and of what it carries, see carriedLinkHosts; `quoted`: the
+	//  link hosts of the messages attached to it, a malicious one of which
+	//  that is not one of its own is `quoted`, see scoreResults;
+	//  `recipients`: the registrable domains of its recipients, see
+	//  isDeceptiveLink)
 	async checkLinks(links, config, hosts = [], options = {}) {
-		const {from = '', carried = null, recipients} = typeof options === 'string' ? {from: options} : (options ?? {});
+		const {
+			from = '', carried = null, quoted = [], recipients,
+		} = typeof options === 'string' ? {from: options} : (options ?? {});
 		const known = isKnownSender(from, config.phishing?.knownSenders);
 		const phishing = [];
 		const homographs = [];
@@ -952,6 +958,9 @@ export class SpamScanner {
 		}
 
 		const checked = [...new Set([...firsts.values(), ...own, ...carriedHosts])].slice(0, config.phishing.maxHosts);
+		// (a host only in a message it carries, not one of its own)
+		const ownHosts = new Set(own);
+		const quotedHosts = new Set(quoted.map(host => lookupName(host)).filter(host => host && !ownHosts.has(host)));
 		const domains = [...new Set(checked.map(host => registrableDomain(host)))];
 		// Each host is looked up on its own, and what was found by the time
 		// limit is kept (a slow answer for one host does not lose the others);
@@ -986,6 +995,7 @@ export class SpamScanner {
 					//  most visited sites, which a filter that blocks its click
 					//  tracking has wrong, "clicks.exchange.example")
 					unlessAuthenticated: known && registrableDomain(host) === registrableDomain(from),
+					...(quotedHosts.has(host) ? {quoted: true} : {}),
 					message: `Link hostname ${host} is blocked by Cloudflare's malware filtering as phishing or malware`,
 				}
 				: {type: 'adult_domain', domain: host, message: `Link hostname ${host} was detected by Cloudflare's family filtering to contain adult-related content`}));
@@ -1224,6 +1234,10 @@ export class SpamScanner {
 				mails: opened, attachments: attached, maxHosts: config.phishing.maxHosts, hostsInText: config.phishing.hostsInText === true,
 			})
 			: null;
+		// (and those of the messages attached to it, see checkLinks's `quoted`)
+		const quoted = carried && opened.length > 0
+			? carriedLinkHosts(opened[0], {mails: opened.slice(1), maxHosts: config.phishing.maxHosts, hostsInText: config.phishing.hostsInText === true}).hosts
+			: [];
 		const attachments = config.attachments === false ? [] : inspectAttachments([...attached, ...namedTextParts(mail), ...named]).filter(item => config.macros !== false || !['macro', 'pdf_active', 'rtf_object'].includes(item.type)).map(item => finding(item));
 		// (the links of its QR codes, checked as its other links are, and
 		//  looked up before them)
@@ -1235,7 +1249,9 @@ export class SpamScanner {
 		// (the registrable domains of the recipients, see isDeceptiveLink)
 		const recipients = (Array.isArray(session.envelope?.rcptTo) ? session.envelope.rcptTo : []).map(rcpt => asciiHostname(typeof rcpt?.address === 'string' ? rcpt.address.slice(rcpt.address.lastIndexOf('@') + 1) : null)).filter(Boolean).map(domain => registrableDomain(domain));
 		const [links, authentication, checkedReputation, dnsbl, virusScan, toxicity, nsfw] = await Promise.all([
-			this.checkLinks(checkedLinks, config, extracted.hosts, {from: fromDomain(mail), carried, recipients}),
+			this.checkLinks(checkedLinks, config, extracted.hosts, {
+				from: fromDomain(mail), carried, quoted, recipients,
+			}),
 			config.authenticationResults && typeof config.authenticationResults === 'object'
 				// (with the forwarders whose ARC seal is believed, as when the
 				//  message is checked here)

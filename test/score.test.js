@@ -90,6 +90,47 @@ describe('scoreResults', () => {
 		assert.deepEqual(names(scoreResults({...disguised, authentication: {score: {tests: [{name: 'SPF_PASS', score: -0.5}]}}})), ['DECEPTIVE_LINK', 'BRAND_IN_DOMAIN', 'INVISIBLE_CHARACTERS', 'MIXED_SCRIPT_WORDS', 'STYLED_LETTERS', 'SPF_PASS']);
 	});
 
+	it('gives a message with a link to a site blocked as phishing or malware no credit, but for the allowlist\'s and a truth source\'s', () => {
+		const authentication = {score: {tests: [{name: 'DKIM_PASS', score: -0.5}, {name: 'SPF_PASS', score: -0.5}, {name: 'DMARC_PASS', score: -1.5}]}};
+		const results = {
+			classification: {probability: 0},
+			phishing: [{type: 'malicious_domain', message: 'Link hostname x.example is blocked'}],
+			authentication,
+		};
+		const result = scoreResults(results);
+		assert.equal(result.score, DEFAULT_SCORES.maliciousDomain);
+		assert.equal(result.isSpam, true);
+		assert.deepEqual(result.tests.map(test => [test.name, test.score]), [['BAYES_00', 0], ['MALICIOUS_DOMAIN', 6]]);
+		assert.equal(result.tests[0].description, 'Classifier spam probability 0.0% (no credit: it links to a site blocked as phishing or malware)');
+		// (the credits count without it)
+		assert.equal(scoreResults({...results, phishing: []}).score, -5);
+		// (and the receiver's own trust still does)
+		assert.equal(scoreResults({...results, reputation: {isAllowlisted: true, allowlistValue: 'x'}}).score, DEFAULT_SCORES.maliciousDomain + DEFAULT_SCORES.allowlisted);
+		assert.equal(scoreResults({...results, reputation: {isTruthSource: true, truthSourceValue: 'x'}}).score, DEFAULT_SCORES.maliciousDomain + DEFAULT_SCORES.truthSource);
+		// (nor when its points are turned off)
+		assert.equal(scoreResults(results, {scores: {maliciousDomain: 0}}).score, -5);
+		// (a message not read whole says so first)
+		assert.match(scoreResults({...results, parseError: 'too many parts'}).tests[0].description, /no credit: the message was not read whole\)$/);
+		// (nor for a link only in a message it carries)
+		assert.equal(scoreResults({...results, phishing: [{...results.phishing[0], quoted: true}]}).score, DEFAULT_SCORES.maliciousDomain - 5);
+	});
+
+	it('gives a message sent straight from a rented cloud server without authenticating no credit, so it is spam', () => {
+		const results = {
+			classification: {probability: 0},
+			authentication: {score: {tests: [{name: 'SPF_PASS', score: -0.5}]}},
+			arbitrary: {rules: [{name: 'CLOUD_SERVER', score: 5, message: 'Sent straight from a rented cloud server'}]},
+		};
+		const result = scoreResults(results);
+		assert.equal(result.score, 5);
+		assert.equal(result.isSpam, true);
+		assert.match(result.tests[0].description, /no credit: it was sent straight from a rented cloud server without authenticating\)$/);
+		// (nor when its points are turned off)
+		assert.equal(scoreResults(results, {scores: {CLOUD_SERVER: 0}}).score, -3);
+		// (and the receiver's own trust still counts)
+		assert.equal(scoreResults({...results, reputation: {isAllowlisted: true, allowlistValue: 'x'}}).score, 5 + DEFAULT_SCORES.allowlisted);
+	});
+
 	it('adds or removes points for the language model\'s verdict, scaled by confidence', () => {
 		const spam = scoreResults({
 			llm: {

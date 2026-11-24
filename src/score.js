@@ -144,6 +144,20 @@ function attachmentPoints(item, scores, key) {
 	return item.type === 'executable' && item.script ? scores.scriptAttachment : scores[key];
 }
 
+// Why a message earns no credit (see scoreResults), or null
+function noCreditReason(results, tests) {
+	const fired = name => tests.some(test => test.name === name && test.score > 0);
+	if (results.parseError) {
+		return 'the message was not read whole';
+	}
+
+	if (fired('MALICIOUS_DOMAIN') && results.phishing.some(item => item.type === 'malicious_domain' && !item.quoted)) {
+		return 'it links to a site blocked as phishing or malware';
+	}
+
+	return fired('CLOUD_SERVER') ? 'it was sent straight from a rented cloud server without authenticating' : null;
+}
+
 function round(value) {
 	return Math.round(value * 100) / 100;
 }
@@ -298,11 +312,19 @@ export function scoreResults(results, options) {
 
 	// (a message not read whole earns no credit, as the
 	//  sender's own authentication, but what the receiver trusts: what was
-	//  not read cannot be vouched for)
-	if (results.parseError) {
+	//  not read cannot be vouched for; nor does one with a link to a site
+	//  blocked as phishing or malware: a sender that passes DMARC with words
+	//  the classifier finds ordinary is how a hacked account or a
+	//  throwaway domain sends it, but not for a link only in a message it
+	//  carries, as a mailing list's notice of a post held for approval or a
+	//  bounce quotes one; nor does one sent straight from a rented cloud
+	//  server without authenticating, whose words are the spammer's to
+	//  choose)
+	const noCredit = noCreditReason(results, tests);
+	if (noCredit) {
 		for (const test of tests.filter(test => test.score < 0 && !['ALLOWLISTED', 'TRUTH_SOURCE'].includes(test.name))) {
 			test.score = 0;
-			test.description += ' (no credit: the message was not read whole)';
+			test.description += ` (no credit: ${noCredit})`;
 		}
 	}
 

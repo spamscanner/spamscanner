@@ -8,6 +8,66 @@ import {message} from './helpers/index.js';
 const parse = raw => simpleParser(raw);
 const names = result => result.rules.map(rule => rule.name);
 
+// (the addresses below whose domain imitates the brand their display name
+//  says: FROM_DOMAIN_BRAND too)
+const IMITATING = new Set([
+	'PayPal <service@paypal-secure.top>',
+	'PayPal <help@paypalsupport.xyz>',
+	'Apple <no-reply@applesupport-id.click>',
+	'Microsoft <alert@microsoft365-security.com>',
+	'Amazon <x@amazonprime-billing.top>',
+	'Chase Bank <alerts@chase-alerts.top>',
+	'Sparkasse <info@sparkasse-sicherheit.com>',
+	'PayPal <service@paypal-secure.com>',
+	'PayPal <x@paypalsecure.com>',
+	'Apple <x@appleidverify.com>',
+	'Apple <x@applecustomercare.com>',
+	'Amazon <x@amazonservice.top>',
+	'Microsoft <x@microsoft-security.live>',
+	'PayPal <x@paypall.com>',
+	'PayPal <x@paypalx.top>',
+	'PayPal <x@paypalcases.com>',
+	'Amazon <x@amazonn.com>',
+	'Amazon <x@amazonorders.top>',
+	'Netflix <x@netflixbill.com>',
+	'Microsoft <x@microsoftt.com>',
+	'Microsoft Teams <x@microsofteams.com>',
+	'Apple <x@appleid.top>',
+	'Apple ID <x@appleidlocked.com>',
+	'DocuSign <x@docusignfiles.net>',
+	'PayPal Security <x@paypalsecurity.com>',
+	'Apple Music Store <x@applemusicstores.com>',
+	'USPS Tracking <x@uspstracking.top>',
+	'HSBC UK <x@hsbcuk.top>',
+	'PayPal <x@paypalmail.top>',
+	'PayPal <x@paypalmail.com>',
+	'Chase Bank <x@chasemails.com>',
+	'DocuSign <x@docusignnotifications.com>',
+	'LinkedIn <x@linkedinnotifications.com>',
+	'Dropbox <x@dropboxnotifications.com>',
+	'Adobe <x@adobenotifications.com>',
+	'Santander <x@santandermail.com>',
+	'Santander <x@santandernews.com>',
+	'Gmail <x@gmailemail.com>',
+	'Gmail <x@gmailmails.com>',
+	'iCloud <x@icloudmails.com>',
+	'iCloud <x@icloudemail.com>',
+	'HSBC <x@hsbcemail.com>',
+	'Facebook <x@facebooknotifications.com>',
+	'Facebook <x@facebookmails.com>',
+	'WhatsApp <x@whatsappmail.com>',
+	'USPS <x@uspsmail.com>',
+	'FedEx <x@fedexmail.com>',
+	'FedEx <x@fedexnotifications.com>',
+	'Netflix <x@netflixnews.com>',
+	'Coinbase <x@coinbasenews.com>',
+	'Apple <x@applemail.com>',
+	'Apple <x@applemails.com>',
+	'Office 365 <x@office365email.com>',
+	'LinkedIn <x@linkedinnews.com>',
+]);
+const brandTests = from => (IMITATING.has(from) ? ['FROM_NAME_BRAND', 'FROM_DOMAIN_BRAND'] : ['FROM_NAME_BRAND']);
+
 describe('isArbitrary', () => {
 	it('passes ordinary mail', async () => {
 		const result = isArbitrary(await parse(message({subject: 'Lunch on Thursday', text: 'See you at noon.'})));
@@ -145,11 +205,99 @@ describe('isArbitrary', () => {
 		assert.deepEqual(names(isArbitrary(await parse(message({from: 'service@paypal.com', subject: 'Billing Dept requested $599.00 from you'})))), ['PAYPAL_INVOICE']);
 	});
 
+	it('catches a From domain that imitates the brand its display name says', async () => {
+		for (const from of ['LinkedIn <x@linkedlnbilling.example>', 'LinkedIn <x@linkedincorp.example>', 'Microsoft <x@rnicrosoft-billing.example>', 'PayPal <x@secure-paypa1.example>', 'Netflix <x@netf1ix.example>', 'DocuSign <x@docus1gn.example>', 'Santander <x@santander-news.example>']) {
+			assert.deepEqual(names(isArbitrary(await parse(message({from})))), ['FROM_NAME_BRAND', 'FROM_DOMAIN_BRAND'], from);
+		}
+
+		const rule = isArbitrary(await parse(message({from: 'LinkedIn <x@linkedlnbilling.example>'}))).rules.find(item => item.name === 'FROM_DOMAIN_BRAND');
+		assert.equal(rule.score, 3);
+		assert.equal(rule.message, 'The From domain linkedlnbilling.example imitates "linkedin", the brand its display name says');
+
+		// (not the brand inside another word, a brand of three letters, nor a
+		//  domain that does not hold the brand)
+		for (const from of ['Chase Bank <x@purchase-alerts.example>', 'UPS <x@ups-delivery.example>', 'DocuSign <x@horvathroofing.example>', 'LinkedIn <x@mylinkedin.example>']) {
+			assert.deepEqual(names(isArbitrary(await parse(message({from})))), ['FROM_NAME_BRAND'], from);
+		}
+
+		// (nor mail that passes DMARC: a domain with the brand in it that does
+		//  is the brand's partner or its own more often than not)
+		const partner = await parse(message({from: 'Insurer Santander <x@insurer-santander.example>'}));
+		assert.deepEqual(names(isArbitrary(partner, {authentication: {dmarc: {status: {result: 'pass'}}}})), ['FROM_NAME_BRAND']);
+		assert.deepEqual(names(isArbitrary(partner, {authentication: {dmarc: {status: {result: 'fail'}}}})), ['FROM_NAME_BRAND', 'FROM_DOMAIN_BRAND']);
+
+		// (nor the brand's own domains, or one its display name does not say)
+		for (const from of ['LinkedIn <x@linkedin.com>', 'Jane <x@linkedlnbilling.example>']) {
+			assert.deepEqual(names(isArbitrary(await parse(message({from})))), [], from);
+		}
+	});
+
+	it('counts mail sent straight from a rented cloud server that does not authenticate', async () => {
+		const mail = await parse(message({from: 'news@example.org', to: 'bob@example.net'}));
+		const failing = {dmarc: {status: {result: 'fail'}}, dkim: {aligned: null}, spf: {status: {result: 'softfail'}}};
+		const check = (resolvedClientHostname, authentication = failing) => names(isArbitrary(mail, {session: {resolvedClientHostname}, authentication}));
+		for (const host of ['1.2.3.4.bc.googleusercontent.com', 'ec2-1-2-3-4.compute-1.amazonaws.com', 'ec2-1-2-3-4.eu-west-1.compute.amazonaws.com', 'EC2-1-2-3-4.US-WEST-2.COMPUTE.AMAZONAWS.COM.']) {
+			assert.deepEqual(check(host), ['CLOUD_SERVER'], host);
+		}
+
+		const [rule] = isArbitrary(mail, {session: {resolvedClientHostname: '1.2.3.4.bc.googleusercontent.com'}, authentication: failing}).rules;
+		assert.deepEqual(rule, {name: 'CLOUD_SERVER', score: 5, message: 'Sent straight from a rented cloud server (1.2.3.4.bc.googleusercontent.com) without authenticating'});
+
+		// (not one that passes DMARC or signs for its From domain, another
+		//  server, mail not checked, or one with no name)
+		for (const authentication of [{dmarc: {status: {result: 'pass'}}}, {dmarc: {status: {result: 'none'}}, dkim: {aligned: 'example.org'}}]) {
+			assert.deepEqual(check('1.2.3.4.bc.googleusercontent.com', authentication), [], JSON.stringify(authentication));
+		}
+
+		for (const host of ['mail.example.org', 'static.1.2.3.4.clients.your-server.de', 'googleusercontent.com.example', 'mail-wr1-f41.google.com', undefined]) {
+			assert.deepEqual(check(host), [], String(host));
+		}
+
+		assert.deepEqual(names(isArbitrary(mail, {session: {resolvedClientHostname: '1.2.3.4.bc.googleusercontent.com'}})), []);
+	});
+
+	it('catches mail that does not authenticate made out for the recipient\'s domain, in its From address or at the start of its subject', async () => {
+		const session = {envelope: {mailFrom: {address: 'x@sender.example'}, rcptTo: [{address: 'bob@gmail.com'}, {address: 'Bob@Recipient.example.au'}]}};
+		const failing = {dmarc: {status: {result: 'none'}}, dkim: {aligned: null}, spf: {status: {result: 'none'}}};
+		const check = async (fields, authentication = failing, options = session) => names(isArbitrary(await parse(message({to: 'bob@recipient.example.au', subject: 'Hello', ...fields})), {session: options, authentication}));
+		for (const fields of [
+			{from: 'recipient.example.aunotice-desk@sender.example'},
+			{from: 'billing@sender.example', subject: 'recipient.example.au Mail Service: your mailbox is full'},
+			{from: 'billing@sender.example', subject: '[bob@recipient.example.au]: Action required'},
+			{from: 'billing@sender.example', subject: 'bob@recipient.example.au account notice'},
+		]) {
+			assert.deepEqual(await check(fields), ['RECIPIENT_DOMAIN_LURE'], JSON.stringify(fields));
+		}
+
+		const [rule] = isArbitrary(await parse(message({from: 'recipient.example.au.billing@sender.example'})), {session, authentication: failing}).rules;
+		assert.deepEqual(rule, {name: 'RECIPIENT_DOMAIN_LURE', score: 2.5, message: 'The From address or the subject starts with the recipient\'s domain (recipient.example.au), but the message does not authenticate'});
+
+		// (not mail that authenticates, another domain or a longer one, the
+		//  domain later in the subject, a provider of mailboxes, the From
+		//  domain's own, nor mail not checked or with no recipients)
+		for (const authentication of [{dmarc: {status: {result: 'pass'}}}, {dkim: {aligned: 'sender.example'}}, {arc: {trusted: true, status: {result: 'pass'}}}]) {
+			assert.deepEqual(await check({from: 'recipient.example.au.billing@sender.example'}, authentication), [], JSON.stringify(authentication));
+		}
+
+		for (const fields of [
+			{from: 'billing@sender.example', subject: 'recipient.example.australia deals'},
+			{from: 'billing@sender.example', subject: 'Report Domain: recipient.example.au Submitter: sender.example'},
+			{from: 'gmail.com.support@sender.example'},
+			{from: 'billing@mail.recipient.example.au', subject: 'recipient.example.au: backup done'},
+			{from: 'billing@sender.example'},
+		]) {
+			assert.ok(!(await check(fields)).includes('RECIPIENT_DOMAIN_LURE'), JSON.stringify(fields));
+		}
+
+		assert.deepEqual(await check({from: 'recipient.example.au.billing@sender.example'}, null), []);
+		assert.deepEqual(await check({from: 'recipient.example.au.billing@sender.example'}, failing, {}), []);
+	});
+
 	it('catches display names that claim another address or a brand', async () => {
 		const other = await parse(message({from: '"security@yourbank.com" <alerts@random.example>'}));
 		assert.deepEqual(names(isArbitrary(other)), ['FROM_NAME_OTHER_ADDRESS']);
 		const brand = await parse(message({from: 'PayPal Service <service@paypa1.example>'}));
-		assert.deepEqual(names(isArbitrary(brand)), ['FROM_NAME_BRAND']);
+		assert.deepEqual(names(isArbitrary(brand)), ['FROM_NAME_BRAND', 'FROM_DOMAIN_BRAND']);
 		for (const from of ['PayPal <service@paypal.com>', 'Amazon Web Services <no-reply@sns.amazonaws.com>', 'Startups Weekly <news@example.org>', 'Applebee Fan Club <fans@example.org>', 'Xoom, a PayPal service <service@xoom.com>', 'PayPal Credit <card@mail.synchronybank.com>']) {
 			assert.deepEqual(names(isArbitrary(await parse(message({from})))), [], from);
 		}
@@ -157,7 +305,7 @@ describe('isArbitrary', () => {
 		// (a domain that starts with or holds the brand's name is not the
 		//  brand's)
 		for (const from of ['PayPal <service@paypal-secure.top>', 'PayPal <help@paypalsupport.xyz>', 'Apple <no-reply@applesupport-id.click>', 'Microsoft <alert@microsoft365-security.com>', 'Amazon <x@amazonprime-billing.top>', 'Chase Bank <alerts@chase-alerts.top>', 'Norton Security <billing@renewals.example>', 'UPS <track@ups-delivery.top>', 'Sparkasse <info@sparkasse-sicherheit.com>']) {
-			assert.deepEqual(names(isArbitrary(await parse(message({from})))), ['FROM_NAME_BRAND'], from);
+			assert.deepEqual(names(isArbitrary(await parse(message({from})))), brandTests(from), from);
 		}
 
 		// (a brand's other domains, people's names, and names that hold a
@@ -188,7 +336,7 @@ describe('isArbitrary', () => {
 		}
 
 		for (const from of ['UPS <a@example.org>', 'The UPS Store <a@example.org>', 'Apple <a@example.org>', 'Apple Inc. <a@example.org>', 'Apple Support <a@example.org>', 'apple id <a@example.org>', 'Apple Pay Team <a@example.org>']) {
-			assert.deepEqual(names(isArbitrary(await parse(message({from})))), ['FROM_NAME_BRAND'], from);
+			assert.deepEqual(names(isArbitrary(await parse(message({from})))), brandTests(from), from);
 		}
 	});
 
@@ -200,7 +348,7 @@ describe('isArbitrary', () => {
 		// (not a phishing word or a service joined to it, a short brand
 		//  joined to anything, or another top-level domain)
 		for (const from of ['PayPal <service@paypal-secure.com>', 'PayPal <x@paypalsecure.com>', 'Apple <x@appleidverify.com>', 'Apple <x@applecustomercare.com>', 'Amazon <x@amazonservice.top>', 'UPS <x@upsdelivery.com>', 'DHL <x@dhlexpress-parcel.com>', 'Microsoft <x@microsoft-security.live>', 'PayPal <x@com>', 'PayPal <x@paypall.com>', 'PayPal <x@paypalx.top>', 'PayPal <x@paypalcases.com>', 'Amazon <x@amazonn.com>', 'Amazon <x@amazonorders.top>', 'Netflix <x@netflixbill.com>', 'Microsoft <x@microsoftt.com>', 'Microsoft Teams <x@microsofteams.com>', 'Apple <x@appleid.top>', 'Apple ID <x@appleidlocked.com>', 'DocuSign <x@docusignfiles.net>', 'PayPal Security <x@paypalsecurity.com>', 'Apple Music Store <x@applemusicstores.com>', 'USPS Tracking <x@uspstracking.top>', 'DHL Express <x@dhlexpress.xyz>', 'UPS Delivery <x@upsdelivery.top>', 'IRS Tax Return <x@irstax.top>', 'HSBC UK <x@hsbcuk.top>', 'PayPal <x@paypalmail.top>']) {
-			assert.deepEqual(names(isArbitrary(await parse(message({from})))), ['FROM_NAME_BRAND'], from);
+			assert.deepEqual(names(isArbitrary(await parse(message({from})))), brandTests(from), from);
 		}
 	});
 
@@ -216,7 +364,7 @@ describe('isArbitrary', () => {
 		}
 
 		for (const from of ['Santander <x@mail.example>', 'Banco Santander <x@mail.example>', 'Amazon <x@mail.example>', 'Amazon Prime <x@mail.example>', 'Outlook <x@mail.example>', 'Microsoft Outlook Team <x@mail.example>', 'Adobe <x@mail.example>', 'Adobe Sign <x@mail.example>', 'Bank of America <x@ml.example>']) {
-			assert.deepEqual(names(isArbitrary(await parse(message({from})))), ['FROM_NAME_BRAND'], from);
+			assert.deepEqual(names(isArbitrary(await parse(message({from})))), brandTests(from), from);
 		}
 
 		// (more of a brand's own domains)
@@ -227,7 +375,7 @@ describe('isArbitrary', () => {
 		// (but not a name with "mail", "news" or "notifications" that is not
 		//  listed: anyone's)
 		for (const from of ['PayPal <x@paypalmail.com>', 'Chase Bank <x@chasemails.com>', 'DocuSign <x@docusignnotifications.com>', 'LinkedIn <x@linkedinnotifications.com>', 'Dropbox <x@dropboxnotifications.com>', 'Adobe <x@adobenotifications.com>', 'IRS <x@irsnews.com>', 'IRS <x@irsnotifications.com>', 'Santander <x@santandermail.com>', 'Santander <x@santandernews.com>', 'Gmail <x@gmailemail.com>', 'Gmail <x@gmailmails.com>', 'iCloud <x@icloudmails.com>', 'iCloud <x@icloudemail.com>', 'HSBC <x@hsbcemail.com>', 'Facebook <x@facebooknotifications.com>', 'Facebook <x@facebookmails.com>', 'WhatsApp <x@whatsappmail.com>', 'USPS <x@uspsmail.com>', 'FedEx <x@fedexmail.com>', 'FedEx <x@fedexnotifications.com>', 'DHL <x@dhlmail.com>', 'DHL <x@dhlmails.com>', 'Netflix <x@netflixnews.com>', 'Coinbase <x@coinbasenews.com>', 'Apple <x@applemail.com>', 'Apple <x@applemails.com>', 'Office 365 <x@office365email.com>', 'LinkedIn <x@linkedinnews.com>']) {
-			assert.deepEqual(names(isArbitrary(await parse(message({from})))), ['FROM_NAME_BRAND'], from);
+			assert.deepEqual(names(isArbitrary(await parse(message({from})))), brandTests(from), from);
 		}
 	});
 
@@ -350,7 +498,7 @@ describe('isArbitrary', () => {
 
 	it('reads Apple as phishing mail writes it, beside or after its services, but not as a place or a food', async () => {
 		for (const from of ['Apple Customer Service <x@scam.example>', 'Apple.com <x@scam.example>', 'Apple-Support <x@scam.example>', 'Apple, Inc. <x@scam.example>', 'Apple Notification <x@scam.example>', 'Apple Subscription <x@scam.example>', 'Apple Receipt <x@scam.example>', 'Apple Refund <x@scam.example>', 'Apple Notification Center <x@scam.example>', 'The Apple Billing Team <x@scam.example>', 'iTunes Store <x@scam.example>', 'Apple ID <x@scam.example>', 'iCloud <x@scam.example>']) {
-			assert.deepEqual(names(isArbitrary(await parse(message({from})))), ['FROM_NAME_BRAND'], from);
+			assert.deepEqual(names(isArbitrary(await parse(message({from})))), brandTests(from), from);
 		}
 
 		for (const from of ['Apple Pie Recipes <x@recipes.example>', 'Green Apple Farm <x@farm.example>', 'Jane Apple <jane@example.com>', 'Apple Valley Dental Support <x@dental.example>', 'Apple Tree Daycare Team <x@daycare.example>', 'Apple Hill Orchard <x@orchard.example>', 'Pineapple Support <x@shop.example>', 'Red Apple Market <x@market.example>', 'iTunes <x@itunes.com>', 'Apple Support <x@apple.com>']) {
@@ -466,7 +614,7 @@ describe('isArbitrary', () => {
 
 	it('reads each "Apple" of a display name on its own, and only with the word next to it', async () => {
 		for (const from of ['Apple ID Support - Apple Seed <x@scam.example>', 'Apple Support (Apple Valley Store) <x@scam.example>', 'Apple Store Apple Tree <x@scam.example>', 'Apple Pay Apple Pie <x@scam.example>', 'Apple Inc. Support <x@scam.example>']) {
-			assert.deepEqual(names(isArbitrary(await parse(message({from})))), ['FROM_NAME_BRAND'], from);
+			assert.deepEqual(names(isArbitrary(await parse(message({from})))), brandTests(from), from);
 		}
 
 		// (businesses named Apple, with such a word further on, or words of any

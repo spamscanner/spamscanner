@@ -1,5 +1,5 @@
 import {parse as parseDomain} from 'tldts';
-import {PHISHING_WORDS} from './homograph.js';
+import {PHISHING_WORDS, skeleton} from './homograph.js';
 import {
 	attributeText, decodeEntities, formHelp, visibleText,
 } from './html.js';
@@ -404,6 +404,34 @@ function isOfficial({brand, official}, domain, display, shared = true) {
 		: (entry.includes('.') ? (shared || parseDomain(entry).domain !== null) && (domain === entry || domain.endsWith(`.${entry}`)) : name === entry)));
 }
 
+// Whether a From domain that is not the brand's imitates it: the brand's
+// name, or one written with lookalike letters ("linkedln", "paypa1", "rn"
+// for "m"), at the start of its name or as a word of it
+// ("linkedincorp.example", "secure-paypal.example"), not inside another word
+// ("purchase" for Chase); brands of four letters or more
+function imitatesBrand(brand, domain) {
+	const compact = brand.replaceAll(' ', '');
+	if (compact.length < 4 || !/^[a-z\d]+$/.test(compact)) {
+		return false;
+	}
+
+	// (as written, and with letter pairs read as one: "santandernews" holds
+	//  "santander" as it is, "rnicrosoft" holds "microsoft" read so)
+	const letters = text => skeleton(text).replaceAll('0', 'o').replaceAll('1', 'l').replaceAll('3', 'e').replaceAll('5', 's').replaceAll('i', 'l');
+	const pairs = text => letters(text).replaceAll('rn', 'm').replaceAll('vv', 'w');
+	const domainName = parseDomain(domain).domainWithoutSuffix ?? '';
+	return [letters, pairs].some(read => {
+		const name = read(domainName);
+		const wanted = read(compact);
+		return name.startsWith(wanted) || name.split('-').slice(1).some(word => word.startsWith(wanted));
+	});
+}
+
+// The default names of rented cloud servers (Google Cloud's and Amazon EC2's),
+// which a company's mail server does not keep: mail sent straight from one
+// that does not authenticate is how throwaway servers send spam
+const CLOUD_SERVER = /\.bc\.googleusercontent\.com$|\.compute(?:-1)?\.amazonaws\.com$/;
+
 function headerString(mail, name) {
 	const value = mail.headers?.get?.(name);
 	if (value === undefined || value === null) {
@@ -493,6 +521,36 @@ export function isOwnHost(session, authentication) {
 //  not refuse: a cron job, a NAS or a site's form writing as its owner's
 //  domain from a host the domain does not name; a bounce, which has no
 //  envelope sender, does not come from outside)
+// The recipient's domain a message that does not authenticate is made out
+// for: at the start of its From address
+// ("example.com.notice-desk@other.example") or of its subject
+// ("example.com Mail Service: ...", "[jane@example.com]: Action required"),
+// as phishing and scams that name each recipient are written; not the From
+// domain itself or one of its domains (see SELF_SPOOF), nor a provider of
+// mailboxes, whose domain is anyone's; or null
+function recipientLure(session, authentication, address, subject) {
+	const authenticated = authentication.dmarc?.status?.result === 'pass' || authentication.dkim?.aligned || (authentication.arc?.trusted === true && authentication.arc.status?.result === 'pass');
+	if (authenticated || !session.envelope?.rcptTo?.length) {
+		return null;
+	}
+
+	const local = address.slice(0, address.lastIndexOf('@')).toLowerCase();
+	const domain = domainOf(address);
+	const start = subject.toLowerCase().replace(/^[\s"'([]+/, '').replace(/^[^\s@]+@/, '');
+	for (const rcpt of session.envelope.rcptTo) {
+		const name = domainOf(rcpt?.address);
+		if (!name.includes('.') || isMailbox(name) || domain === name || domain.endsWith(`.${name}`)) {
+			continue;
+		}
+
+		if (local.startsWith(name) || (start.startsWith(name) && !/[\w.-]/.test(start.charAt(name.length)))) {
+			return name;
+		}
+	}
+
+	return null;
+}
+
 function isSelfSpoof(session, authentication, fromRoot) {
 	if (!authentication || !session.envelope?.rcptTo?.length) {
 		return false;
@@ -511,8 +569,9 @@ function isSelfSpoof(session, authentication, fromRoot) {
  * string, sextortion subjects, text that tries to instruct an AI filter,
  * Microsoft's own spam verdict on mail it relayed, PayPal invoice and money
  * request spam, display names that claim another address or a brand, mail
- * that claims to come from the recipient's own domain without authenticating,
- * and missing or impossible dates.
+ * that claims to come from the recipient's own domain without authenticating
+ * or is made out for it, mail sent straight from a rented cloud server
+ * without authenticating, and missing or impossible dates.
  *
  * @param {object} mail - parsed message
  * @param {object} [options]
@@ -595,6 +654,13 @@ export function isArbitrary(mail, options) {
 		if (brands.length > 0) {
 			if (!brands.some(entry => isOfficial(entry, session.originalFromAddressDomain, named))) {
 				hit('FROM_NAME_BRAND', 2, `Display name says "${brands[0].brand}" but the message is from ${fromRoot}`, 'PHISHING');
+				// (only in mail that does not pass DMARC: a domain with the
+				//  brand in it that does is the brand's partner or its own
+				//  more often than not, e.g. insurer-santander.example)
+				const imitated = authentication?.dmarc?.status?.result === 'pass' ? undefined : brands.find(entry => imitatesBrand(entry.brand, fromRoot));
+				if (imitated) {
+					hit('FROM_DOMAIN_BRAND', 3, `The From domain ${fromRoot} imitates "${imitated.brand}", the brand its display name says`, 'PHISHING');
+				}
 			}
 		} else if (claimed && isWholeName(name, claimed)) {
 			// (a display name that is itself one of a brand's addresses,
@@ -606,6 +672,18 @@ export function isArbitrary(mail, options) {
 			if (brand) {
 				hit('FROM_NAME_BRAND', 2, `Display name is an address of "${brand.brand}" but the message is from ${fromRoot}`, 'PHISHING');
 			}
+		}
+
+		// (spam: its points alone, as it earns no credit either, see
+		//  scoreResults; both providers block mail servers' port by default,
+		//  and a company's own server is not kept under their default name)
+		if (authentication && CLOUD_SERVER.test(session.resolvedClientHostname || '') && authentication.dmarc?.status?.result !== 'pass' && !authentication.dkim?.aligned) {
+			hit('CLOUD_SERVER', 5, `Sent straight from a rented cloud server (${session.resolvedClientHostname}) without authenticating`, 'SPAM');
+		}
+
+		const lure = authentication ? recipientLure(session, authentication, from.address, subject) : null;
+		if (lure) {
+			hit('RECIPIENT_DOMAIN_LURE', 2.5, `The From address or the subject starts with the recipient's domain (${lure}), but the message does not authenticate`, 'PHISHING');
 		}
 
 		if (isSelfSpoof(session, authentication, fromRoot)) {

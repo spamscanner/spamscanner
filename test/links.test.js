@@ -7,6 +7,7 @@ import {carriedLinkHosts} from '../src/links.js';
 import {serializeResult} from '../src/server.js';
 import {message} from './helpers/index.js';
 
+const names = result => result.tests.map(test => test.name);
 const hostsOf = (mail, options) => carriedLinkHosts(mail, options).hosts;
 const card = (filename, contentType, text) => ({filename, contentType, content: Buffer.from(text)});
 
@@ -181,6 +182,30 @@ describe('link checks of what a message carries', () => {
 		assert.equal(result.results.linksIncomplete, false);
 		// (with the attachments, of the attached message too)
 		assert.ok(result.attached.some(item => item.filename === 'fw.eml'));
+	});
+
+	it('takes no credit away for a malicious link only in an attached message, as a list\'s notice of a held post quotes it', async () => {
+		const {resolve4} = lookups();
+		const scanner = new SpamScanner({classifier: false, dns: {resolve4}, phishing: {attachments: true}});
+		const authenticationResults = {dmarc: {status: {result: 'pass'}, domain: 'lists.example'}, spf: {status: {result: 'pass'}, domain: 'lists.example'}};
+		const held = message({text: 'Devel post from someone@spam.example requires approval: https://lists.example/admindb/devel', attachments: [{contentType: 'message/rfc822', content: message({text: 'Sign in at https://bad.held.example/login'})}]});
+		const notice = await scanner.scan(held, {authenticationResults});
+		const found = notice.results.phishing.find(item => item.type === 'malicious_domain');
+		assert.equal(found.domain, 'bad.held.example');
+		assert.equal(found.quoted, true);
+		assert.ok(names(notice).includes('MALICIOUS_DOMAIN'));
+		assert.equal(notice.tests.find(test => test.name === 'DMARC_PASS').score, -1.5);
+
+		// (its own link, also in the attached message, or a link in a file it carries, takes it all away)
+		for (const raw of [
+			message({text: 'Sign in at https://bad.held.example/login', attachments: [{contentType: 'message/rfc822', content: message({text: 'https://bad.held.example/login'})}]}),
+			message({text: 'See the page.', attachments: [{contentType: 'message/rfc822', content: message({text: 'Hello.'})}, {filename: 'page.html', contentType: 'text/html', content: '<a href="https://bad.page.example/">x</a>'}]}),
+		]) {
+			const result = await scanner.scan(raw, {authenticationResults});
+			assert.ok(!result.results.phishing.some(item => item.quoted));
+			assert.ok(names(result).includes('MALICIOUS_DOMAIN'));
+			assert.ok(!names(result).includes('DMARC_PASS'));
+		}
 	});
 
 	it('looks up the link hosts of the AMP part of a message', async () => {
