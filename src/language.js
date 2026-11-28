@@ -211,12 +211,73 @@ function slavicLanguage(text, code) {
 	return cyrillicLanguage(words(text).filter(word => !NON_SLAVIC_WORD.test(word)).join(' ')) || code;
 }
 
+// English that franc reads as another language of Latin letters: the names
+// of products, prices and the links of a shop's mail hold few of the letter
+// sequences franc tells English by ("Samsung 65\" Class 4K Smart TV. Free
+// shipping. Price Match Guarantee."), and it answers French, Danish or
+// Catalan. The words English text is held together by, and those its shops
+// write, tell: none of them is a word of another language of Latin letters
+// ("has" is Spanish, "all" Swedish, "see" German, "into" Finnish), so three
+// of them, at least three in a hundred words, and more than the words that
+// hold the language franc answered together (in small letters, as "ET" and
+// "EST" are no French) and the words with letters English has none of ("ä",
+// "ç", "ñ"), are a text in English. A text of two languages stays the one it
+// has more of.
+const ENGLISH_WORDS = new Set('the and you your with this that from our they their these those which would should could about what when where why how who there please because have are not were more but if she his its did does being them such very get buy save free new now here only each every while through other before after may out up off today shipping terms rights reserved learn apply available price prices deals items click'.split(' '));
+const FUNCTION_WORDS = Object.fromEntries(Object.entries({
+	fr: 'le la les des une un du pour vous votre vos nous notre que qui dans sur pas avec au aux ce cette ne se sont mais ou par et est être à',
+	es: 'el la los las de del que en un una por para con se su sus es al lo como más pero y este esta le nos ha muy',
+	pt: 'de que não o os um uma para em da dos das na nas nos por se mais ao como você seu sua é ou mas foi',
+	it: 'il lo la gli le di del della dei delle da con tra che un una uno è sono ma se più questo questa al alla nel nella ha',
+	de: 'der das und ist nicht ein eine zu den mit sich auf für von dem sie ich wir ihr ihre ihnen auch oder wird werden bei nach aus wenn dass sind einen einer des im zum zur',
+	nl: 'de het een en van dat niet op te zijn voor als aan maar ook uw naar bij deze dit nog wel geen wij jij worden wordt heeft',
+	da: 'og det er jeg ikke en til på med af har den de som du vi kan vil fra eller også din dit et',
+	nb: 'og det er jeg ikke en til på med av har den de som du vi kan vil fra eller også din ditt et å',
+	sv: 'och det är jag inte en till på med av har den de som du vi kan vill från eller också din ditt ett att för',
+	fi: 'ja ei että se oli tai kun niin myös mutta ole hän olen sinä ovat tämä joka sekä kuin jos',
+	pl: 'na nie się że jest za jak ale od dla czy lub oraz tak przez przy są tym tego jej ich',
+	cs: 'se na je že ale jako za tak jsou nebo jsem podle od být ve tento tato které',
+	hu: 'az és hogy nem egy ez csak már vagy még mint volt lesz ami aki ezt azt nagyon',
+	ro: 'de și în la cu pe nu că un este se din pentru mai sau dar fost sunt prin către',
+	tr: 've bir bu için ile de da gibi çok daha kadar ama veya olarak ben sen biz siz değil yok mı',
+	vi: 'và của là có cho không được này các một những với trong đã để người khi tôi bạn',
+	id: 'yang dan di untuk dengan ini itu dari tidak ke pada akan juga atau saya kami anda adalah oleh sudah bisa dalam',
+	ca: 'el la els les de del que en un una amb és al més però aquest aquesta',
+	af: 'van het nie wat vir op sy hy ek jy ons hulle dat',
+}).map(([language, words]) => [language, new Set(words.split(' '))]));
+// (the languages written much as another is: Malay as Indonesian, Slovak as
+//  Czech)
+const WRITTEN_AS = {ms: 'id', sk: 'cs'};
+// (a word with the letters after an apostrophe in it: "you've" has no "ve",
+//  the Turkish and Czech word)
+const LATIN_WORD = /\p{Script=Latin}(?:[\p{Script=Latin}\p{M}]|['’](?=\p{Script=Latin}))*/gu;
+const NOT_ENGLISH_LETTER = /[^a-z'’]/i;
+
+function isEnglish(sample, language) {
+	const own = FUNCTION_WORDS[WRITTEN_AS[language] ?? language];
+	let words = 0;
+	let english = 0;
+	let others = 0;
+	for (const [word] of sample.matchAll(LATIN_WORD)) {
+		words++;
+		if (ENGLISH_WORDS.has(word.toLowerCase())) {
+			english++;
+		} else if (own?.has(word) || NOT_ENGLISH_LETTER.test(word)) {
+			others++;
+		}
+	}
+
+	return english >= 3 && english >= 0.03 * words && english > others;
+}
+
 /**
  * Detect the language of a text.
  *
  * Scripts used by one language (Korean, Thai, Greek, Hebrew, Japanese kana and
  * others) decide directly. Otherwise franc's trigram model decides when there
- * is enough text; short texts fall back to the script alone.
+ * is enough text, but for English it reads as another language of Latin
+ * letters, which the words of English tell; short texts fall back to the
+ * script alone.
  *
  * @param {string} text
  * @returns {{language: string|null, script: string|null, scripts: string[], confidence: number}}
@@ -277,9 +338,13 @@ export function detectLanguage(text) {
 			const language = normalizeLanguageCode(code);
 			// (Cyrillic text with letters of Kazakh and others, which
 			//  cyrillicLanguage leaves to franc, and franc reads as Slavic)
-			result.language = script === 'Cyrillic' && SLAVIC.has(language) && NON_SLAVIC_CYRILLIC.test(sample)
-				? slavicLanguage(sample, language)
-				: language;
+			if (script === 'Cyrillic' && SLAVIC.has(language) && NON_SLAVIC_CYRILLIC.test(sample)) {
+				result.language = slavicLanguage(sample, language);
+			} else {
+				// (English that franc reads as another language of Latin letters)
+				result.language = script === 'Latin' && language !== 'en' && isEnglish(sample, language) ? 'en' : language;
+			}
+
 			return result;
 		}
 	}

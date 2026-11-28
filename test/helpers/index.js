@@ -454,3 +454,21 @@ export function sink() {
 		buffer: () => Buffer.concat(chunks),
 	};
 }
+
+/**
+ * Point a scanner's lookups of Cloudflare's resolvers at test servers, and
+ * list the hosts it asks them about.
+ * @param {object} scanner
+ * @param {{malwareServers: string[], familyServers: string[], plainServers: string[]}} servers
+ * @returns {string[]} the hosts asked about, as they are asked
+ */
+export function cloudflareServers(scanner, servers) {
+	const original = scanner.dns.checkCloudflare.bind(scanner.dns);
+	const asked = [];
+	scanner.dns.checkCloudflare = (hosts, options) => {
+		asked.push(...hosts);
+		return original(hosts, {...options, ...servers});
+	};
+
+	return asked;
+}

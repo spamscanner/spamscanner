@@ -75,6 +75,16 @@ const LOOKALIKES = {
 	а: 'a', в: 'b', е: 'e', ё: 'e', к: 'k', м: 'm', н: 'h', о: 'o', р: 'p', с: 'c', т: 't', у: 'y', х: 'x', ѕ: 's', і: 'i', ї: 'i', ј: 'j', ԁ: 'd', ԛ: 'q', ԝ: 'w', һ: 'h', ӏ: 'l', ɡ: 'g', ь: 'b', п: 'n', г: 'r',
 	α: 'a', β: 'b', ε: 'e', η: 'n', ι: 'i', κ: 'k', ν: 'v', ο: 'o', ρ: 'p', τ: 't', υ: 'u', χ: 'x', ω: 'w', γ: 'y', μ: 'u',
 };
+// The capitals that look like another Latin letter than their small letters
+// do (a Greek capital "Ν" is an "N", the small "ν" a "v"), and those that
+// look like none (a capital "Ω" is no "W"), in text as written.
+const CAPITAL_LOOKALIKES = {
+	Ζ: 'z', Η: 'h', Μ: 'm', Ν: 'n', Υ: 'y', Γ: '', Ω: '', Г: '', П: '',
+};
+// The letters of the phonetic alphabet that look like plain ones, "\u0251"
+// and "\u0261" ("p\u0251yp\u0251l").
+const PLAIN_LOOKALIKES = /[\u0251\u0261]/g;
+const plainLetter = letter => (letter === '\u0251' ? 'a' : 'g');
 
 // Greek letters of units, "\u00B5" and "\u2126" ("10 \u00B5g", "5 k\u2126"), as NFKC
 // and lowercasing make them: a unit ("\u03BCg", "k\u03C9", "10\u03BCmol",
@@ -514,8 +524,11 @@ for (const [char, latin] of Object.entries(LOOKALIKES)) {
 // A word that mixes scripts with the lookalike letters of the others written
 // in the script most of its letters are in: "pa\u0443pal" is "paypal", and
 // "\u043Fp\u0438\u0432\u0435\u0442" (with a Latin "p") is
-// "\u043F\u0440\u0438\u0432\u0435\u0442"; Latin when as many are Latin
-function foldLookalikes(word) {
+// "\u043F\u0440\u0438\u0432\u0435\u0442"; Latin when as many are Latin. Each letter
+// keeps its case, a capital read as the capital it looks like (a Greek "Ν"
+// in "Νetflix" is an "N"). Not `inside`: but for the letters between the
+// first and the last Latin letter of a Latin word (see unmixedText)
+function foldLookalikes(word, inside = true) {
 	let most = 'Latin';
 	const counts = scriptLetters(word);
 	for (const [script, count] of counts) {
@@ -524,13 +537,43 @@ function foldLookalikes(word) {
 		}
 	}
 
+	const letters = [...word];
+	const scripts = letters.map(char => scriptOf(char));
+	const [first, last] = inside || most !== 'Latin' ? [letters.length, -1] : [scripts.indexOf(most), scripts.lastIndexOf(most)];
 	let out = '';
-	for (const char of word) {
-		const script = scriptOf(char);
-		out += script === most ? char : ((most === 'Latin' ? LOOKALIKES[char] : script === 'Latin' && LATIN_LOOKALIKES[most][char]) || char);
+	for (const [index, char] of letters.entries()) {
+		// (a capital "İ" an "i")
+		const small = char.toLowerCase().replace('\u0307', '');
+		const letter = scripts[index] !== most && (index < first || index > last) && (most === 'Latin' ? CAPITAL_LOOKALIKES[char] ?? LOOKALIKES[small] : scripts[index] === 'Latin' && LATIN_LOOKALIKES[most][small]);
+		out += letter ? (char === small ? letter : letter.toUpperCase()) : char;
 	}
 
 	return out;
+}
+
+/**
+ * Text with each word that mixes Latin, Cyrillic and Greek letters written in
+ * the script most of its letters are in, as its reader sees it ("pаypal"
+ * with a Cyrillic "а" is "paypal", "Νetflix" with a Greek "Ν" is "Netflix"),
+ * and the letters of the phonetic alphabet that look like plain ones as
+ * those ("p\u0251yp\u0251l" is "paypal"); other words of one script stay as
+ * they are, and each letter keeps its case.
+ *
+ * As `typed`, only what a keyboard explains is read so: a letter of another
+ * script at the start or the end of a Latin word, as a typist who changes
+ * keyboards a letter late or early leaves it ("Νetflix", and a Greek
+ * keyboard has "Ν" on the key of "N"), and Latin letters in a Cyrillic or a
+ * Greek word, typed for letters a keyboard lacks or has on the same key
+ * ("Cбербанк" with a Latin "C", "Дiя" with a Latin "i"). A Cyrillic or Greek
+ * letter inside a Latin word and a letter of the phonetic alphabet stay as
+ * they are: no one types those by mistake.
+ * @param {string} text - as written or in small letters
+ * @param {boolean} [typed]
+ * @returns {string}
+ */
+export function unmixedText(text, typed = false) {
+	// (a unit's Greek letter mixes no scripts in small letters, see UNIT_WORD)
+	return (typed ? text : text.replaceAll(PLAIN_LOOKALIKES, plainLetter)).replaceAll(/[\p{L}\p{M}\p{N}]+/gu, word => (mixedScripts(word.toLowerCase()) ? foldLookalikes(word, !typed) : word));
 }
 
 /**
@@ -1362,9 +1405,14 @@ const isUnreachable = host => {
 
 // Sites of governments ("irs.gov", "gov.uk", "impots.gouv.fr", "nta.go.jp",
 // "canada.ca"), whose names a message shows over a phishing page as it does
-// a brand's
-const GOVERNMENT_SUFFIX = /^(?:gov|mil)$|^(?:gc|go|gob|gouv|gov|govt|gub|gv|mil)\.[a-z]{2}$/;
-const GOVERNMENT_DOMAINS = new Set(['admin.ch', 'bund.de', 'canada.ca', 'europa.eu']);
+// a brand's: under a suffix governments register under, a state's or a
+// city's too ("service.nsw.gov.au", "detran.sp.gov.br", "city.osaka.lg.jp"),
+// or one of the domains of governments and their tax, benefit and health
+// offices that are under none ("gov.hu", "belastingdienst.nl", "ameli.fr")
+const GOVERNMENT_SUFFIX = /^(?:gov|mil)$|^(?:[a-z\d-]+\.)?(?:gc|go|gob|gouv|gov|govt|gub|gv|lg|mil)\.[a-z]{2}$|^(?:nic\.in|nhs\.uk|police\.uk)$/;
+const GOVERNMENT_DOMAINS = new Set([
+	'aade.gr', 'admin.ch', 'agenciatributaria.es', 'agenziaentrate.it', 'alberta.ca', 'altinn.no', 'ameli.fr', 'anaf.ro', 'belastingdienst.nl', 'belgium.be', 'borger.dk', 'bund.de', 'bzst.de', 'canada.ca', 'digid.nl', 'elster.de', 'europa.eu', 'fgov.be', 'gosuslugi.ru', 'gouv.qc.ca', 'gov.ab.ca', 'gov.bc.ca', 'gov.hu', 'gov.on.ca', 'gov.ro', 'gov.ru', 'gov.scot', 'gov.sk', 'gov.wales', 'inps.it', 'mod.uk', 'nalog.ru', 'nhs.net', 'nra.bg', 'ontario.ca', 'overheid.nl', 'quebec.ca', 'revenue.ie', 'revenuquebec.ca', 'rijksoverheid.nl', 'seg-social.es', 'service-public.fr', 'sii.cl', 'skat.dk', 'skatteetaten.no', 'skatteverket.se', 'suomi.fi', 'vero.fi',
+]);
 const isGovernment = domain => GOVERNMENT_SUFFIX.test(parseDomain(domain).publicSuffix ?? '') || GOVERNMENT_DOMAINS.has(domain);
 // A part of the path of an address that asks to sign in or pay ("signin",
 // "ServiceLogin", "YourAccount", "oauth2", "accountverification",

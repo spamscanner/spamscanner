@@ -270,8 +270,10 @@ describe('authentication points of forwarded mail', () => {
 		// (a mailing list adds a footer, which breaks the signature, and seals
 		//  what it received)
 		const edited = signed.replace('below.', 'below.\r\n-- \r\nlist footer');
+		// (one signing time, as in sign: a seal made while the second changes
+		//  does not verify without one)
 		const seal = async (domain, raw, results = 'dkim=pass header.d=trusted.example; spf=pass smtp.mailfrom=trusted.example; dmarc=pass header.from=trusted.example') => (await sealMessage(Buffer.from(raw), {
-			signingDomain: domain, selector: 's1', privateKey: dns.keys[domain], authResults: `mx.${domain}; ${results}`, cv: 'none', i: 1,
+			signingDomain: domain, selector: 's1', privateKey: dns.keys[domain], authResults: `mx.${domain}; ${results}`, cv: 'none', i: 1, signTime: new Date(),
 		})).toString() + raw;
 		const forwarded = await seal('lists.example', edited);
 		const options = {

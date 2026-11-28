@@ -1,4 +1,5 @@
 import {parse as parseDomain} from 'tldts';
+import {DISPLAY_BRANDS, brandsIn} from './brands.js';
 import {PHISHING_WORDS, skeleton} from './homograph.js';
 import {
 	attributeText, decodeEntities, formHelp, visibleText,
@@ -23,11 +24,65 @@ export const GTUBE = 'XJS*C4JDBQADN1.NSBN3*2IDNEN*GTUBE-STANDARD-ANTI-UBE-TEST-E
 // recital", only with a demand for payment)
 const BLOCKED_SUBJECT = /cheecck y0ur acc0untt|\brecorded\s+you\s+(?:masturbating|jerking|touching\s+yourself|watching\s+porn)\b|personal data has leaked|private information has been stolen/i;
 const HACKED_SUBJECT = /\byou['’]ve been hacked\b|\baccount is hacked\b|\b(?:i|we)(?:\s+have|['’]ve)?\s+recorded\s+you\b|\brecorded\s+you\s+(?:doing|while|watching|through|on\s+(?:cam|camera|video|webcam))\b/i;
+// The same subjects in other languages ("Ihr Konto wurde gehackt", "Votre
+// compte a été piraté", "Ваш аккаунт взломан", "アカウントがハッキングされました"):
+// an account, a device or the reader hacked, or the reader recorded. Only
+// with a demand for payment, as a notice of a sign-in and advice on security
+// say the same.
+const HACKED_ELSEWHERE = new RegExp(String.raw`(?<![\p{L}\p{N}])(?:${[
+	// German
+	String.raw`(?:ihr|dein)\s+(?:pers[oö]nliches\s+)?(?:konto|e-?mail-?konto|ger[aä]t|system|computer)\s+wurde\s+gehackt`,
+	String.raw`(?:sie\s+wurden|du\s+wurdest)\s+gehackt`,
+	String.raw`ich\s+habe\s+(?:sie|dich)\s+(?:aufgenommen|gefilmt)`,
+	// French
+	String.raw`(?:votre|ton)\s+(?:compte|appareil|ordinateur|syst[eè]me)\s+a\s+[eé]t[eé]\s+pirat[eé]`,
+	String.raw`(?:vous\s+avez|tu\s+as)\s+[eé]t[eé]\s+pirat[eé]s?`,
+	String.raw`je\s+(?:vous\s+|t['’])ai\s+(?:enregistr[eé]|film[eé])`,
+	// Spanish
+	String.raw`(?:su|tu)\s+(?:cuenta|dispositivo|ordenador|sistema)\s+ha\s+sido\s+(?:hackead[ao]|pirat?ead[ao])`,
+	String.raw`has?\s+sido\s+hackead[ao]`,
+	String.raw`(?:te|le)\s+he\s+grabado`,
+	// Portuguese
+	String.raw`(?:sua|tua)\s+conta\s+foi\s+(?:hackeada|invadida|pirateada)`,
+	String.raw`(?:seu|teu)\s+(?:dispositivo|computador|sistema)\s+foi\s+(?:hackeado|invadido)`,
+	String.raw`voc[eê]\s+foi\s+hackead[ao]`,
+	String.raw`gravei\s+voc[eê]`,
+	// Italian
+	String.raw`il\s+(?:tuo|suo)\s+(?:account|dispositivo|computer|sistema)\s+[eè]\s+stato\s+(?:hackerato|violato|compromesso)`,
+	String.raw`sei\s+stat[oa]\s+hackerat[oa]`,
+	String.raw`ti\s+ho\s+(?:registrato|filmato|ripreso)`,
+	// Dutch
+	String.raw`(?:uw|je|jouw)\s+(?:account|apparaat|computer|systeem)\s+is\s+gehackt`,
+	String.raw`(?:je|u)\s+bent\s+gehackt`,
+	String.raw`ik\s+heb\s+(?:je|u)\s+(?:opgenomen|gefilmd)`,
+	// Polish, Czech
+	String.raw`twoje\s+(?:konto|urz[aą]dzenie)\s+zosta[lł]o\s+zhakowane`,
+	String.raw`zosta[lł][eaę][sś]\s+zhakowan[ya]`,
+	String.raw`v[aá][sš]\s+[uú][cč]et\s+byl\s+(?:hacknut|napaden)`,
+	// Swedish, Danish, Norwegian
+	String.raw`ditt\s+konto\s+har\s+(?:hackats|blivit\s+hackat)`,
+	String.raw`din\s+konto\s+er\s+blevet\s+hacket`,
+	String.raw`kontoen\s+din\s+(?:er|har\s+blitt)\s+hacket`,
+	// Turkish
+	String.raw`(?:hesab[ıi]n[ıi]z|cihaz[ıi]n[ıi]z)\s+hack(?:lendi|lenmi[sş]tir)`,
+	// Russian, Ukrainian
+	String.raw`ва[шс]\s+(?:аккаунт|акаунт|компьютер|телефон)\s+(?:был\s+)?(?:взломан|зламано)`,
+	String.raw`ваше\s+устройство\s+(?:было\s+)?взломано`,
+	String.raw`вас\s+взломали`,
+	String.raw`я\s+(?:записал|снял)\s+вас`,
+].join('|')})(?![\p{L}\p{N}])|${[
+	// Japanese, Chinese, Korean
+	'(?:アカウント|デバイス|端末|パソコン)(?:が|は)ハッキングされ',
+	'あなたを(?:録画|撮影)しました',
+	String.raw`[您你]的?(?:帐户|账户|帳戶|账号|帳號|设备|設備|电脑|電腦)已?[被遭](?:黑客)?(?:入侵|攻击|攻擊|盗用|盜用)`,
+	'[您你]已?被黑客(?:入侵|攻击|攻擊)',
+	String.raw`(?:계정|기기|컴퓨터)[이가]\s?해킹(?:되었|당했)습니다`,
+].join('|')}`, 'iu');
 // (a cryptocurrency asked for: an amount of it, "0.1 BTC", "$900 in
-//  bitcoin", or a word to pay, send or transfer before it, "send it to my
-//  bitcoin wallet", not one that warns, "don't send bitcoin to anyone who
-//  asks"; the short names of currencies only after an amount, "0.05 ETH",
-//  not "ETH Zurich")
+//  bitcoin", "1500 € en Bitcoin", "900 USD em bitcoins", or a word to pay,
+//  send or transfer before it, "send it to my bitcoin wallet", not one that
+//  warns, "don't send bitcoin to anyone who asks"; the short names of
+//  currencies only after an amount, "0.05 ETH", not "ETH Zurich")
 const COIN = String.raw`(?:bitcoins?|btc|crypto(?:currency)?|ethereum|monero|litecoin)`;
 // (an amount of money as it is written, the currency's sign or code before
 //  or after it: "$1,500", "$1,500 USD", "1500$", "€ 800", "800 €", "USD 950",
@@ -38,7 +93,7 @@ const CURRENCY = String.raw`(?:${CODE}|(?:us\s)?dollars?|euros?|pounds?|bucks)`;
 // (of 31 characters at most, so that a run of digits is not read again from
 //  each of them)
 const MONEY = String.raw`(?:[$€£＄]\s?\d[\d,.]{0,30}(?:\s?${CODE}\b)?|\b${CODE}\s?\d[\d,.]{0,30}|\d[\d,.]{0,30}\s?(?:[$€£＄]|${CURRENCY}\b))`;
-const CRYPTOCURRENCY = new RegExp(String.raw`\d\s?(?:${COIN}|eth|xmr|usdt|ltc)\b|${MONEY}\s+(?:in|of|worth\s+of)\s+${COIN}\b|(?<!\b(?:don['’]?t|do\s+not|never|not)\s+)\b(?:send|pay|transfer|wire|deposit)\b[^.!?\n]{0,40}?\b${COIN}\b`, 'i');
+const CRYPTOCURRENCY = new RegExp(String.raw`\d\s?(?:${COIN}|eth|xmr|usdt|ltc)\b|${MONEY}\s+(?:in|of|worth\s+of|en|em|i)\s+${COIN}\b|(?<!\b(?:don['’]?t|do\s+not|never|not)\s+)\b(?:send|pay|transfer|wire|deposit)\b[^.!?\n]{0,40}?\b${COIN}\b`, 'i');
 // (an amount to pay, send or transfer, or one wanted)
 const AMOUNT_DEMAND = new RegExp(String.raw`\b(?:pay|send|transfer|wire)\b[^.!?\n]{0,40}?${MONEY}|\b(?:want|need|demand)\s+${MONEY}`, 'i');
 // (or one given as the amount, "amount: 950 dollars", "the sum is USD 950",
@@ -211,128 +266,6 @@ const PAYPAL_INVOICE_SUBJECT = /\binvoice from\b|\bsent you an invoice\b|\b(?:mo
 const MS_SPAM_VERDICT = /\bsfv:(?:spm|skb|sks)\b/i;
 const MS_SPAM_CATEGORY = /\bcat:(?:ospm|spm|hspm|phsh|hphsh|hphish|malw|spoof)\b/i;
 
-// Brands whose names appear in the display name of phishing mail, with the
-// domains that are theirs: a name without a dot is the brand's domain under
-// any suffix ("paypal" for paypal.com, paypal.de, paypal.com.au), one with a
-// dot that domain and those under it, a regular expression a whole domain.
-// So is a domain under the brand's own top-level domain ("applecard.apple"),
-// and, for a brand of five letters or more, one whose name is the brand's
-// name joined to the words after it in the display name, if they are no
-// phishing words ("Apple Music" from applemusic.com, not "USPS Tracking" from
-// uspstracking.top; see isOfficial). Any other domain, also one that starts
-// with or holds the brand's name ("paypal-secure.top", "paypalsupport.xyz",
-// "Amazon" from amazonorders.top, "PayPal" from paypalmail.com: names with
-// "mail" or "news" are anyone's, so a brand's sending domains are listed),
-// is not the brand's. Brands that are also people's
-// names or words count only with a word that makes them the brand ("Chase
-// Bank", "Norton Security", "Apple ID", or "Apple" alone, not "Big Apple
-// Bagels" or "Apple Valley Dental"), "UPS" only in capitals ("Grown Ups
-// Theatre" and "Follow Ups Team" do not name it), and some names are not the
-// brand at all.
-//
-// Apple counts alone ("Apple", "Apple Inc.", "Apple.com") or with one of its
-// products, services or what phishing mail writes beside it as the very next
-// word ("Apple ID", "Apple-Support", "Apple Customer Service", "The Apple
-// Billing Team", "Apple Inc. Support", "Big Apple Store"), or after one word
-// phishing mail puts between ("Apple Online Store", "Apple Media Services",
-// "Apple Center Support", "Apple Gift Card"), each "Apple" read on its own
-// ("Apple ID Support - Apple Seed"), not with such a word further on, as a
-// business named for a place, a tree, a food or a person writes it ("Apple
-// Valley Dental Support", "Apple Tree Daycare Team", "Apple Chevrolet
-// Service Department", "Apple Federal Credit Union Billing", "Apple, Jane
-// (Billing)"), nor with words of any shop ("Apple Center Kyiv", "Apple Gift
-// Baskets", "Apple Online Sales", "Apple Orders"), nor with a word of
-// another business after ("Apple Care Home", "Apple Music Lessons", "Apple
-// Pay Day Loans").
-const APPLE_NEXT = String.raw`id|icloud|itunes|pay|music|tv|card|cash|care|accounts?|arcade|one|developer|books|podcasts|billing|security|services?|team|wallet|store|app\s+store|appstore|support|customer|notifications?|subscriptions?|receipts?|invoices?|refunds?|verification|verify|alerts?|help|helpdesk|payments?|purchases?|notice|privacy|login|sign[\s-]?in|recovery|password|com`;
-const APPLE_FILLER = String.raw`official|secure|cloud|media|device|online|order|center|gift`;
-const APPLE_STRONG = String.raw`support|security|services?|team|store|billing|id|confirmation|accounts?|cards?`;
-const APPLE_BUSINESS = String.raw`homes?|lessons?|realty|academy|loans?|day|advance|shop|repair|school|studio|clinic|gifts|bakery|salon|restaurant`;
-const APPLE_ALONE = /^[^\p{L}\p{N}]*apple(?:[^\p{L}\p{N}]{1,3}inc)?[^\p{L}\p{N}]*$/u;
-const APPLE_BESIDE = new RegExp(`(?<![\\p{L}\\p{N}])apple[^\\p{L}\\p{N}]{1,3}(?:inc[^\\p{L}\\p{N}]{1,3})?(?:${APPLE_NEXT}|(?:${APPLE_FILLER})[^\\p{L}\\p{N}]{1,3}(?:${APPLE_STRONG}))(?![^\\p{L}\\p{N}]{1,3}(?:${APPLE_BUSINESS})(?:$|[^\\p{L}\\p{N}]))(?![\\p{L}\\p{N}])`, 'giu');
-// (and as a business's name, not with a word in capitals after that names
-//  no part of Apple, as a place does, read up to the next "Apple" or a mark
-//  other than a space: "Apple Store Kyiv", "Apple Help Desk Kyiv", "Apple
-//  Store Berlin Mitte", not "Apple Store Online", "Apple Support Team" or
-//  "Apple Security Department")
-const APPLE_PART = new Set(['account', 'accounts', 'alert', 'alerts', 'app', 'apple', 'arcade', 'assistance', 'billing', 'books', 'card', 'care', 'cash', 'center', 'centre', 'cloud', 'confirmation', 'customer', 'department', 'dept', 'desk', 'device', 'division', 'eu', 'fraud', 'gift', 'global', 'help', 'helpdesk', 'icloud', 'id', 'inc', 'info', 'information', 'international', 'invoice', 'invoices', 'itunes', 'login', 'media', 'music', 'notice', 'notification', 'notifications', 'office', 'official', 'one', 'online', 'operations', 'order', 'orders', 'password', 'pay', 'payment', 'payments', 'plus', 'prevention', 'privacy', 'protection', 'purchase', 'purchases', 'receipt', 'receipts', 'recovery', 'refund', 'refunds', 'resolution', 'review', 'safety', 'secure', 'security', 'service', 'services', 'sign', 'signin', 'staff', 'store', 'subscription', 'subscriptions', 'support', 'team', 'tech', 'technical', 'tv', 'uk', 'unit', 'update', 'us', 'usa', 'verification', 'verify', 'wallet', 'worldwide']);
-const NEXT_WORD = /[^\S\n]{1,8}([\p{L}\p{N}]+)/uy;
-const MAX_AFTER = 8;
-function namesPlace(name, end) {
-	NEXT_WORD.lastIndex = end;
-	for (let count = 0; count < MAX_AFTER; count++) {
-		const word = NEXT_WORD.exec(name);
-		if (word === null || word[1].toLowerCase() === 'apple') {
-			return false;
-		}
-
-		if (/^\p{Lu}/u.test(word[1]) && !APPLE_PART.has(word[1].toLowerCase())) {
-			return true;
-		}
-	}
-
-	return false;
-}
-
-const APPLE = {test: (name, written) => APPLE_ALONE.test(name) || [...written.matchAll(APPLE_BESIDE)].some(found => !namesPlace(written, found.index + found[0].length))};
-
-// (a name that says the brand's word of something else names no brand: the
-//  department of Santander and its universities, the Amazon rainforest, an
-//  economic outlook, an adobe house)
-const DISPLAY_BRANDS = [
-	['paypal', ['paypal', 'paypal-communication.com', 'paypal-communications.com', 'paypal-community.com', 'paypal-prepaid.com', 'paypalobjects.com', 'synchrony', 'synchronybank', 'xoom']],
-	['apple', ['apple', 'icloud', 'itunes', 'me.com'], APPLE],
-	['icloud', ['apple', 'icloud', 'itunes', 'me.com']],
-	['itunes', ['apple', 'icloud', 'itunes', 'me.com']],
-	['microsoft', ['microsoft', 'microsoftonline', 'microsoft365', 'microsoftstore', 'microsoftemail', 'microsoftstoreemail', 'microsoftrewards', 'office', 'office365', 'outlook', 'live', 'hotmail', 'msn', 'skype', 'xbox', 'sharepoint', 'sharepointonline', 'onmicrosoft', 'azure', 'bing']],
-	['outlook', ['microsoft', 'microsoftonline', 'microsoft365', 'office', 'office365', 'outlook', 'live', 'hotmail', 'msn'], null, /\b(?:economic|market|business|industry|energy|global|investment|weekly|monthly|annual|the)\s+outlook\b|\boutlook\s+(?:magazine|india|money|report|traveller|business)\b/],
-	['office 365', ['microsoft', 'microsoftonline', 'microsoft365', 'office', 'office365', 'outlook', 'onmicrosoft', 'sharepoint']],
-	['amazon', ['amazon', 'amazonaws', 'amazonses', 'amazonpay', 'amazonbusiness', 'aws', 'audible', 'primevideo'], null, /\bamazon\s+(?:rainforest|river|basin|conservation|watch|frontlines|jungle|region)\b/],
-	['netflix', ['netflix']],
-	['docusign', ['docusign']],
-	['dhl', ['dhl', 'dhlparcel', 'dhlecommerce', 'dhlecs', 'dhl-news', 'dpdhl', 'deutschepost']],
-	['fedex', ['fedex']],
-	['ups', ['ups', 'upsemail', 'upscapital', 'theupsstore'], null, null, true],
-	['usps', ['usps']],
-	['coinbase', ['coinbase']],
-	['binance', ['binance']],
-	['metamask', ['metamask', 'consensys']],
-	['wells fargo', ['wellsfargo', 'wellsfargoadvisors', 'wellsfargoemail']],
-	['chase', ['chase', 'jpmchase', 'jpmorgan', 'jpmorganchase', 'jpmorgansecurities'], /\b(?:bank(?:ing)?|card|credit|online|alerts?|security|support|fraud|customer|service|team|jpmorgan)\b/],
-	['bank of america', ['bankofamerica', 'bofa', 'bofaml', 'bofasecurities', 'merrill', 'merrilledge', 'merrilllynch', 'ml.com']],
-	['american express', ['americanexpress', 'aexp', 'amex', 'membershipmail', 'csid']],
-	['facebook', ['facebook', 'facebookmail', 'meta', 'metamail']],
-	['instagram', ['instagram', 'facebookmail', 'meta', 'metamail']],
-	['whatsapp', ['whatsapp', 'facebookmail', 'meta', 'metamail']],
-	['linkedin', ['linkedin']],
-	['dropbox', ['dropbox', 'dropboxmail', 'hellosign']],
-	['adobe', ['adobe', 'adobesystems', 'adobesign', 'echosign', 'adobelogin'], null, /\badobe\s+(?:animal|veterinary|creek|house|homes?|realty|ranch|inn|books?|gallery|cafe|grill|hacienda|springs|walls)\b/],
-	['google', ['google', 'googlegroups', 'googlemail', 'gmail', 'withgoogle', 'youtube'], null, /\bgoogle developers? groups?\b/],
-	['gmail', ['google', 'googlemail', 'gmail']],
-	['yahoo', ['yahoo', 'yahooinc', 'yahoo-inc', 'yahoonews', 'yahoo-corp.jp', 'aol']],
-	['norton', ['norton', 'nortonlifelock', 'lifelock', 'gendigital', 'symantec'], /\b(?:security|anti-?virus|360|lifelock|support|team|subscription|renewal|billing|protection)\b/],
-	['mcafee', ['mcafee', 'mcafeemail']],
-	['geek squad', ['geeksquad', 'bestbuy']],
-	['irs', ['irs']],
-	['hmrc', ['hmrc', 'gov.uk']],
-	['royal mail', ['royalmail', 'royalmailgroup', 'parcelforce']],
-	['la poste', ['laposte', 'colissimo']],
-	['sparkasse', ['sparkasse', /^(?:sparkasse|kreissparkasse|stadtsparkasse|ksk)-[a-z\d-]+\.(?:de|at)$/]],
-	['santander', ['santander', 'bancosantander', 'santanderbank', 'santanderconsumer', 'santanderconsumerusa'], null, /\b(?:universi|escuela|general|gobernaci|alcald|ayuntamiento|departamento|puerto|norte de|de paula|racing)/],
-	['hsbc', ['hsbc', 'hsbcnet']],
-	['barclays', ['barclays', 'barclaycard', 'barclaycardus', 'barclayspartnerfinance', 'barclaysus']],
-].map(([brand, official, qualifier = null, not = null, capitals = false]) => ({
-	brand,
-	official,
-	qualifier,
-	not,
-	// (not in a word, also not one joined by a "-" or "'" for a short name:
-	//  "Volunteer Sign-ups" does not name UPS; read in the display name as
-	//  written for a name only in capitals)
-	capitals,
-	pattern: new RegExp(`(?:^|[^\\p{L}\\p{N}${brand.length <= 3 ? '\'’-' : ''}])${(capitals ? brand.toUpperCase() : brand).replaceAll(' ', String.raw`\s+`)}(?:$|[^\\p{L}\\p{N}${brand.length <= 3 ? '\'’-' : ''}])`, 'u'),
-}));
-
 // The addresses in a display name, which name no brand themselves
 // ("'jane@gmail.com' via Book Club" names no Gmail)
 const ADDRESSES = linear(ADDRESS_SOURCE, 'gu');
@@ -350,8 +283,13 @@ const AFTER_ADDRESS = /^[\s\p{Cf}'">)\].,:;!?]*$/u;
 const isWholeName = (name, found) => BEFORE_ADDRESS.test(name.slice(0, found.index)) && AFTER_ADDRESS.test(name.slice(found.index + found[0].length));
 
 // Words phishing domains join to a brand's name ("paypalsupport",
-// "appleidverify", "amazonservice")
-const JOINED_WORDS = [...PHISHING_WORDS, 'center', 'centre', 'customer', 'gift', 'help', 'notice', 'online', 'payment', 'service', 'support', 'team', 'wallet'];
+// "appleidverify", "amazonservice", "amazonsoporte", "paypalhilfe")
+const JOINED_WORDS = [
+	...PHISHING_WORDS,
+	...'center centre customer gift help notice online payment service support team wallet'.split(' '),
+	// (help, service, customers and payment in other languages)
+	...'ajuda assistance assistenza atencion atendimento ayuda betaling cliente hilfe klanten kunden pagamento paiement servicio servico servizio soporte suporte zahlung'.split(' '),
+];
 
 // The most characters of a display name read for the words joined to a
 // brand's name
@@ -385,46 +323,79 @@ function joinsDisplay(brand, display, name) {
 	return false;
 }
 
+// Top-level domains that are a brand's name and open to anyone ("phish.ing"
+// is not ING's; nor is a suffix many share a brand's own, "gov.uk")
+const OPEN_SUFFIXES = new Set(['ing']);
+
 // Whether a domain is one of a brand's (see DISPLAY_BRANDS), for a display
 // name that names it: listed, under its own top-level domain, or, for a
 // brand of five letters or more, its name joined to the words after it in the
 // display name, if they are no phishing words; for a domain that is not the
 // sender's, only the brand's own domains, not a registry it shares with
-// others ("hmrc" for hmrc.gov.uk, not "gov.uk" for leeds.gov.uk)
+// others ("hmrc" for hmrc.gov.uk, not "gov.uk" for leeds.gov.uk) or a
+// pattern of its branches' domains
 function isOfficial({brand, official}, domain, display, shared = true) {
 	const parsed = parseDomain(domain);
 	const name = parsed.domainWithoutSuffix ?? '';
 	const compact = brand.replaceAll(' ', '');
-	if (parsed.publicSuffix === compact || (compact.length >= 5 && joinsDisplay(brand, display, name) && !JOINED_WORDS.some(word => name.slice(compact.length).includes(word)))) {
+	if ((parsed.publicSuffix === compact && !compact.includes('.') && !OPEN_SUFFIXES.has(compact)) || (compact.length >= 5 && joinsDisplay(brand, display, name) && !JOINED_WORDS.some(word => name.slice(compact.length).includes(word)))) {
 		return true;
 	}
 
 	return official.some(entry => (entry instanceof RegExp
-		? entry.test(registrableDomain(domain))
+		? shared && entry.test(registrableDomain(domain))
 		: (entry.includes('.') ? (shared || parseDomain(entry).domain !== null) && (domain === entry || domain.endsWith(`.${entry}`)) : name === entry)));
 }
 
-// Whether a From domain that is not the brand's imitates it: the brand's
-// name, or one written with lookalike letters ("linkedln", "paypa1", "rn"
-// for "m"), at the start of its name or as a word of it
-// ("linkedincorp.example", "secure-paypal.example"), not inside another word
-// ("purchase" for Chase); brands of four letters or more
-function imitatesBrand(brand, domain) {
-	const compact = brand.replaceAll(' ', '');
-	if (compact.length < 4 || !/^[a-z\d]+$/.test(compact)) {
-		return false;
-	}
-
+// Whether a From domain that is not the brand's imitates it: one of its
+// names, or one written with lookalike letters ("linkedln", "paypa1", "rn"
+// for "m"), at the start of the domain's name or as a word of it
+// ("linkedinjobs.example", "secure-paypal.example"), not inside another word
+// ("purchase" for Chase); names of four letters or more, in Latin letters
+function imitatesBrand({names}, domain) {
 	// (as written, and with letter pairs read as one: "santandernews" holds
 	//  "santander" as it is, "rnicrosoft" holds "microsoft" read so)
 	const letters = text => skeleton(text).replaceAll('0', 'o').replaceAll('1', 'l').replaceAll('3', 'e').replaceAll('5', 's').replaceAll('i', 'l');
 	const pairs = text => letters(text).replaceAll('rn', 'm').replaceAll('vv', 'w');
 	const domainName = parseDomain(domain).domainWithoutSuffix ?? '';
-	return [letters, pairs].some(read => {
-		const name = read(domainName);
-		const wanted = read(compact);
-		return name.startsWith(wanted) || name.split('-').slice(1).some(word => word.startsWith(wanted));
+	return names.some(({name}) => {
+		// (without its accents: "itau-fatura" holds "itaú")
+		const compact = skeleton(name.replaceAll(/[ -]/g, ''));
+		return compact.length >= 4 && /^[a-z\d]+$/.test(compact) && /^[\p{Script=Latin}\d -]+$/u.test(name) && [letters, pairs].some(read => {
+			const label = read(domainName);
+			const wanted = read(compact);
+			return label.startsWith(wanted) || label.split('-').slice(1).some(word => word.startsWith(wanted));
+		});
 	});
+}
+
+// The domain of the sender a privacy relay sent a message on for, which
+// writes it into the address it sends from; or undefined. The relay's own
+// domain authenticates such a message, so its display name is read against
+// the sender's.
+const RELAYS = [
+	// Apple's Hide My Email, the domain's dots as "_" and two tokens of its
+	// own after it ("news_at_shop_example_com_k3x9w2p4q7_1a2b3c4d@privaterelay.appleid.com")
+	/^[^@]{1,64}_at_([a-z\d_-]{1,255})_(?:[a-z\d]{10}|[a-z\d]{14})_[a-z\d]{8}@(?:(?:private\.)?icloud\.com|privaterelay\.appleid\.com)$/,
+	// DuckDuckGo's Email Protection, the domain as it is and the user's
+	// name after it ("news_at_shop.example.com_jane@duck.com")
+	/^[^@]{1,64}_at_([a-z\d.-]{1,255})_[a-z\d-]{1,64}@duck\.com$/,
+	// SimpleLogin, and Proton Pass, which it runs: as Apple's, with letters
+	// of its own after it ("news_at_shop_example_com_qwertyu@simplelogin.co").
+	// It cuts the sender's address at 45 characters, which may cut the
+	// domain into another's ("..._paypal_co"), so only a shorter one is read.
+	/^(?=.{1,44}_[a-z]{5,10}@)[^@]{1,64}_at_([a-z\d_-]{1,255})_[a-z]{5,10}@(?:simplelogin\.co|passmail\.net)$/,
+];
+const passesDmarc = authentication => authentication?.dmarc?.status?.result === 'pass';
+function relayedDomain(address, authentication) {
+	if (!passesDmarc(authentication)) {
+		return undefined;
+	}
+
+	const lower = address.toLowerCase();
+	const [, named] = RELAYS.map(relay => lower.match(relay)).find(Boolean) ?? [];
+	const domain = named?.includes('.') ? named : named?.replaceAll('_', '.');
+	return domain !== undefined && parseDomain(domain).isIcann ? domain : undefined;
 }
 
 // The default names of rented cloud servers (Google Cloud's and Amazon EC2's),
@@ -528,9 +499,36 @@ export function isOwnHost(session, authentication) {
 // as phishing and scams that name each recipient are written; not the From
 // domain itself or one of its domains (see SELF_SPOOF), nor a provider of
 // mailboxes, whose domain is anyone's; or null
+// Whether a message's authentication shows it is from its From domain: it
+// passes DMARC, has a DKIM signature aligned with it, or a trusted
+// forwarder's ARC seal passes
+function authenticates(authentication) {
+	return authentication.dmarc?.status?.result === 'pass' || Boolean(authentication.dkim?.aligned) || (authentication.arc?.trusted === true && authentication.arc.status?.result === 'pass');
+}
+
+// The names networks keep for themselves (those RFC 6762 lists as in use,
+// ICANN's ".internal", a system's default ".localdomain") and those kept for
+// tests and examples (RFC 6761): an address under one is a machine's or a
+// test's, and claims no top-level domain
+const PRIVATE_NAMES = new Set('corp example home internal intra intranet invalid lan local localdomain localhost private test'.split(' '));
+
+// The top-level name of a From domain under a top-level domain there is none
+// of ("billing@acme.zzq"), in mail a domain signed that does not authenticate
+// as its From domain, or null: no domain can be such a sender's, so what
+// passes is another's, and the message earns no credit (see scoreResults).
+// Not a machine's own mail under its network's name or its bare one, a cron
+// job's or a bounce, which no domain signs.
+function unknownTld(domain, authentication) {
+	if (authentication?.dkim?.status?.result !== 'pass' || authenticates(authentication)) {
+		return null;
+	}
+
+	const top = parseDomain(domain);
+	return top.isIcann === false && top.domain !== null && !PRIVATE_NAMES.has(top.publicSuffix) ? top.publicSuffix : null;
+}
+
 function recipientLure(session, authentication, address, subject) {
-	const authenticated = authentication.dmarc?.status?.result === 'pass' || authentication.dkim?.aligned || (authentication.arc?.trusted === true && authentication.arc.status?.result === 'pass');
-	if (authenticated || !session.envelope?.rcptTo?.length) {
+	if (authenticates(authentication) || !session.envelope?.rcptTo?.length) {
 		return null;
 	}
 
@@ -564,6 +562,18 @@ function isSelfSpoof(session, authentication, fromRoot) {
 	return recipients.has(fromRoot) && !aligned && !forwarded && !counted && !isOwnHost(session, authentication);
 }
 
+// The points of a subject sextortion and account takeover scams use: all of
+// them for one only they use, or with a demand for payment in the body (in
+// another language than English, only with one), some without
+function sextortionPoints(subject, text, html) {
+	const hacked = HACKED_SUBJECT.test(subject);
+	if (BLOCKED_SUBJECT.test(subject) || ((hacked || HACKED_ELSEWHERE.test(subject.slice(0, MAX_DISPLAY))) && isPaymentDemand(`${text.slice(0, 50_000)}\n${visibleText(html.slice(0, 100_000)).text}`))) {
+		return 6;
+	}
+
+	return hacked ? 2 : 0;
+}
+
 /**
  * Rules that recognise spam by structure rather than by words: the GTUBE test
  * string, sextortion subjects, text that tries to instruct an AI filter,
@@ -571,7 +581,8 @@ function isSelfSpoof(session, authentication, fromRoot) {
  * request spam, display names that claim another address or a brand, mail
  * that claims to come from the recipient's own domain without authenticating
  * or is made out for it, mail sent straight from a rented cloud server
- * without authenticating, and missing or impossible dates.
+ * without authenticating, mail a domain signed from an address under no
+ * top-level domain, and missing or impossible dates.
  *
  * @param {object} mail - parsed message
  * @param {object} [options]
@@ -579,7 +590,8 @@ function isSelfSpoof(session, authentication, fromRoot) {
  * @param {object} [options.session] - see buildSessionInfo
  * @param {object} [options.authentication] - result of authenticate(), if run
  * @param {Date} [options.now]
- * @returns {{isArbitrary: boolean, score: number, reasons: string[], rules: Array<{name: string, score: number, message: string}>, category: string|null}}
+ * @returns {{isArbitrary: boolean, score: number, reasons: string[], rules: Array<{name: string, score: number, message: string, subject?: boolean}>, category: string|null}}
+ *   (`subject`: of FROM_NAME_BRAND, whether the subject names the brand too)
  */
 export function isArbitrary(mail, options) {
 	mail ??= {};
@@ -589,8 +601,10 @@ export function isArbitrary(mail, options) {
 	const rules = [];
 	let category = null;
 	const hit = (name, score, message, kind = null) => {
-		rules.push({name, score, message});
+		const rule = {name, score, message};
+		rules.push(rule);
 		category ||= kind;
+		return rule;
 	};
 
 	const subject = typeof mail.subject === 'string' ? mail.subject : '';
@@ -602,10 +616,9 @@ export function isArbitrary(mail, options) {
 		hit('GTUBE', 1000, 'Contains the GTUBE spam test string', 'SPAM');
 	}
 
-	if (BLOCKED_SUBJECT.test(subject) || (HACKED_SUBJECT.test(subject) && isPaymentDemand(`${text.slice(0, 50_000)}\n${visibleText(html.slice(0, 100_000)).text}`))) {
-		hit('SEXTORTION_SUBJECT', 6, 'Subject used by sextortion and account takeover scams', 'SCAM');
-	} else if (HACKED_SUBJECT.test(subject)) {
-		hit('SEXTORTION_SUBJECT', 2, 'Subject used by sextortion and account takeover scams, without a demand for payment', 'SCAM');
+	const sextortion = sextortionPoints(subject, text, html);
+	if (sextortion > 0) {
+		hit('SEXTORTION_SUBJECT', sextortion, `Subject used by sextortion and account takeover scams${sextortion < 6 ? ', without a demand for payment' : ''}`, 'SCAM');
 	}
 
 	// (and the values of attributes that may hold words, each on its own:
@@ -643,23 +656,41 @@ export function isArbitrary(mail, options) {
 		const fromRoot = session.originalFromAddressRootDomain;
 		const written = typeof from.name === 'string' ? from.name : '';
 		const name = written.toLowerCase();
+		// (the sender a privacy relay names in its address is whose the
+		//  message is)
+		const sender = relayedDomain(from.address, authentication) ?? session.originalFromAddressDomain;
 		const claimed = name.match(NAMED_ADDRESS);
-		if (claimed && registrableDomain(claimed[1]) !== fromRoot && !(LIST_HOSTS.has(fromRoot) && VIA_LIST.test(name))) {
+		if (claimed && ![fromRoot, registrableDomain(sender)].includes(registrableDomain(claimed[1])) && !(LIST_HOSTS.has(fromRoot) && VIA_LIST.test(name))) {
 			hit('FROM_NAME_OTHER_ADDRESS', 2.5, `Display name shows ${claimed[0]} but the message is from ${from.address}`, 'SPOOFING');
 		}
 
-		const named = claimed ? name.replace(ADDRESSES, ' ') : name;
-		const shown = claimed ? written.replace(ADDRESSES, ' ') : written;
-		const brands = DISPLAY_BRANDS.filter(entry => entry.pattern.test(entry.capitals ? shown : named) && (!entry.qualifier || entry.qualifier.test(named, shown)) && !entry.not?.test(named));
+		// (the brands the display name and the subject name, see
+		//  DISPLAY_BRANDS: not in an address either shows, "jane@gmail.com
+		//  has subscribed")
+		const {small: named, brands} = brandsIn(claimed ? written.replace(ADDRESSES, ' ') : written);
+		const inSubject = brandsIn(subject.slice(0, MAX_DISPLAY).replaceAll(ADDRESSES, ' '));
 		if (brands.length > 0) {
-			if (!brands.some(entry => isOfficial(entry, session.originalFromAddressDomain, named))) {
-				hit('FROM_NAME_BRAND', 2, `Display name says "${brands[0].brand}" but the message is from ${fromRoot}`, 'PHISHING');
-				// (only in mail that does not pass DMARC: a domain with the
-				//  brand in it that does is the brand's partner or its own
-				//  more often than not, e.g. insurer-santander.example)
-				const imitated = authentication?.dmarc?.status?.result === 'pass' ? undefined : brands.find(entry => imitatesBrand(entry.brand, fromRoot));
-				if (imitated) {
+			if (!brands.some(entry => isOfficial(entry, sender, named))) {
+				// (a domain with the brand in it that passes DMARC is the
+				//  brand's partner or its own more often than not, e.g.
+				//  insurer-santander.example: it imitates the brand only in
+				//  mail that does not)
+				const imitated = brands.find(entry => imitatesBrand(entry, fromRoot));
+				const passes = passesDmarc(authentication);
+				// (a message that names the brand in its subject too claims
+				//  to be the brand's own, and earns no credit, see
+				//  scoreResults; but for such a domain)
+				hit('FROM_NAME_BRAND', 2, `Display name says "${brands[0].brand}" but the message is from ${fromRoot}`, 'PHISHING').subject = !(imitated && passes) && brands.some(entry => inSubject.brands.some(other => other.names === entry.names));
+				if (imitated && !passes) {
 					hit('FROM_DOMAIN_BRAND', 3, `The From domain ${fromRoot} imitates "${imitated.brand}", the brand its display name says`, 'PHISHING');
+				}
+
+				// (a name only lookalike letters spell is written for its
+				//  reader to take for the brand's, and earns no credit either,
+				//  see scoreResults)
+				const disguised = brands.find(entry => entry.lookalike);
+				if (disguised) {
+					hit('FROM_NAME_LOOKALIKE', 3, `Display name writes "${disguised.brand}" with lookalike letters`, 'PHISHING');
 				}
 			}
 		} else if (claimed && isWholeName(name, claimed)) {
@@ -668,7 +699,7 @@ export function isArbitrary(mail, options) {
 			//  provider of mailboxes, which anyone may have, as a form shows
 			//  who filled it in: "jane@gmail.com" from a form's service)
 			const domain = claimed[1];
-			const brand = isMailbox(domain) ? null : DISPLAY_BRANDS.find(entry => isOfficial(entry, domain, '', false) && !isOfficial(entry, session.originalFromAddressDomain, ''));
+			const brand = isMailbox(domain) ? null : DISPLAY_BRANDS.find(entry => isOfficial(entry, domain, '', false) && !isOfficial(entry, sender, ''));
 			if (brand) {
 				hit('FROM_NAME_BRAND', 2, `Display name is an address of "${brand.brand}" but the message is from ${fromRoot}`, 'PHISHING');
 			}
@@ -679,6 +710,18 @@ export function isArbitrary(mail, options) {
 		//  and a company's own server is not kept under their default name)
 		if (authentication && CLOUD_SERVER.test(session.resolvedClientHostname || '') && authentication.dmarc?.status?.result !== 'pass' && !authentication.dkim?.aligned) {
 			hit('CLOUD_SERVER', 5, `Sent straight from a rented cloud server (${session.resolvedClientHostname}) without authenticating`, 'SPAM');
+		}
+
+		const unknown = unknownTld(session.originalFromAddressDomain, authentication);
+		if (unknown) {
+			hit('FROM_UNKNOWN_TLD', 0.5, `The From address is under .${unknown}, which is no top-level domain, in a message another domain signed`, 'SPOOFING');
+		}
+
+		// (of mail that does not authenticate, when the From domain is not
+		//  one of the brand's)
+		const claim = authentication && !authenticates(authentication) && inSubject.brands.find(entry => !isOfficial(entry, session.originalFromAddressDomain, inSubject.small));
+		if (claim) {
+			hit('SUBJECT_BRAND', 3, `The subject names "${claim.brand}" but the message is from ${fromRoot} and does not authenticate`, 'PHISHING');
 		}
 
 		const lure = authentication ? recipientLure(session, authentication, from.address, subject) : null;

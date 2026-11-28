@@ -1,4 +1,4 @@
-<!-- source: 5d22e36f3f16 -->
+<!-- source: 63aeb5e7ec0c -->
 
 # Sprog
 
@@ -18,7 +18,7 @@ Hver beskeds sprog genkendes ud fra skriftsystemet og, for skriftsystemer, som m
 
 * Hangul er koreansk; hiragana og katakana betyder japansk; thai, græsk, hebraisk, armensk, georgisk, bengali, tamil og andre skriftsystemer, der bruges af ét sprog, angiver det direkte.
 * Kyrilliske bogstaver, der kun findes i ét sprog, afgør valget mellem ukrainsk (і, ї, є, ґ), hviderussisk (ў), serbisk (ђ, ћ, џ), makedonsk (ѓ, ќ, ѕ) og russisk (ы, э, ё) i de ord, der ikke er navne (ord med stort begyndelsesbogstav og resten små andre steder end i starten af en sætning eller en linje, ikke ord skrevet med store bogstaver, hvis bogstaver kun tæller i en tekst, der er for kort til den statistiske detektor: en bulgarsk tekst, der nævner "господин Рыскулов", er bulgarsk), medmindre teksten også har bogstaver fra kasakhisk, usbekisk, kirgisisk, tadsjikisk, tatarisk, basjkirsk eller mongolsk (ә, ө, ү, ұ, қ, ғ, ң, һ, ҳ, ҷ og andre), hvis alfabeter deler nogle af de bogstaver: så afgør den statistiske detektor, og når den svarer med et slavisk sprog (en russisk eller bulgarsk tekst med et kasakhisk navn eller ord i), afgør ordene uden de bogstaver, bortset fra navne, som ovenfor.
-* Tekst i skriftsystemer, som flere sprog deler (latinsk, kyrillisk, arabisk, devanagari og andre), går, når den er lang nok til at bedømme, til [franc](https://github.com/wooorm/franc), begrænset til sprog, der er almindelige i e-mail, så korte beskeder ikke mærkes med sjældne sprog.
+* Tekst i skriftsystemer, som flere sprog deler (latinsk, kyrillisk, arabisk, devanagari og andre), går, når den er lang nok til at bedømme, til [franc](https://github.com/wooorm/franc), begrænset til sprog, der er almindelige i e-mail, så korte beskeder ikke mærkes med sjældne sprog. Engelsk, som franc tager for et andet sprog med latinske bogstaver, som produktnavne og priser i en butiks mail, kendes på sine ord (`the`, `your`, `free shipping`): tre eller flere, mindst tre ud af hundrede ord, og flere end de ord, der er fra det sprog, franc nævnte, eller har et bogstav, engelsk ikke har (`é`, `ß`, `ø`).
 
 Sproget rapporteres som `result.language`, og `allowedLanguages: ['en', 'de']` (`--allow-language en,de`) lægger 3 point til post, der med sikkerhed er genkendt som et hvilket som helst andet sprog.
 

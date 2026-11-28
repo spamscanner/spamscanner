@@ -1,4 +1,4 @@
-<!-- source: 5d22e36f3f16 -->
+<!-- source: 63aeb5e7ec0c -->
 
 # Idiomas
 
@@ -18,7 +18,7 @@ O idioma de cada mensagem é detectado pelo sistema de escrita e, nos sistemas c
 
 * Hangul é coreano; hiragana e katakana indicam japonês; tailandês, grego, hebraico, armênio, georgiano, bengali, tâmil e outros sistemas de escrita usados por um único idioma o indicam diretamente.
 * Letras cirílicas encontradas em apenas um idioma decidem entre ucraniano (і, ї, є, ґ), bielorrusso (ў), sérvio (ђ, ћ, џ), macedônio (ѓ, ќ, ѕ) e russo (ы, э, ё) nas palavras que não são nomes (palavras com só a primeira letra maiúscula fora do início de uma frase ou de uma linha, não palavras todas em maiúsculas, cujas letras só contam em um texto curto demais para o detector estatístico: um texto búlgaro que cita "господин Рыскулов" é búlgaro), a menos que o texto também tenha letras de cazaque, uzbeque, quirguiz, tadjique, tártaro, bashkir ou mongol (ә, ө, ү, ұ, қ, ғ, ң, һ, ҳ, ҷ e outras), cujos alfabetos compartilham algumas dessas letras: então o detector estatístico decide, e quando ele responde com um idioma eslavo (um texto russo ou búlgaro com um nome ou uma palavra cazaque), as palavras sem essas letras, exceto nomes, decidem como acima.
-* Textos em sistemas de escrita compartilhados por vários idiomas (latino, cirílico, árabe, devanágari e outros), quando são longos o suficiente para avaliar, vão para o [franc](https://github.com/wooorm/franc), limitado aos idiomas comuns em e-mails para que mensagens curtas não sejam rotuladas com idiomas raros.
+* Textos em sistemas de escrita compartilhados por vários idiomas (latino, cirílico, árabe, devanágari e outros), quando são longos o suficiente para avaliar, vão para o [franc](https://github.com/wooorm/franc), limitado aos idiomas comuns em e-mails para que mensagens curtas não sejam rotuladas com idiomas raros. O inglês que o franc toma por outro idioma escrito em letras latinas, como os nomes de produtos e os preços do e-mail de uma loja, é reconhecido pelas suas palavras (`the`, `your`, `free shipping`): três ou mais, pelo menos três em cada cem palavras, e mais do que as palavras que são do idioma que o franc indicou ou têm uma letra que o inglês não tem (`é`, `ß`, `ø`).
 
 O idioma é informado em `result.language`, e `allowedLanguages: ['en', 'de']` (`--allow-language en,de`) adiciona 3 pontos aos e-mails detectados com confiança em qualquer outro idioma.
 

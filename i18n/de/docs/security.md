@@ -1,4 +1,4 @@
-<!-- source: 1d7373f991c2 -->
+<!-- source: 6806f38b2cad -->
 
 # Sicherheit und Datenschutz
 
@@ -7,7 +7,7 @@ Spam Scanner liest E-Mails, die privat sind, von Absendern, die feindselig sein 
 
 ## Was den Rechner verlässt
 
-Standardmäßig eine Sache: Die **Hostnamen von Links** in einer Nachricht werden bei den filternden Resolvern von Cloudflare abgefragt, 1.1.1.2 und 1.0.0.2 (Malware und Phishing) sowie 1.1.1.3 und 1.0.0.3 (zusätzlich Inhalte für Erwachsene). Das sind gewöhnliche DNS-Anfragen nach Namen wie `example.com`; kein Teil der Nachricht oder ihrer Adressen wird gesendet. Abschalten lassen sie sich mit `phishing: {cloudflare: false}` oder `--no-cloudflare`, nur die Prüfung auf Inhalte für Erwachsene mit `phishing: {adult: false}`.
+Standardmäßig eine Sache: Die **Hostnamen von Links** in einer Nachricht werden bei den filternden Resolvern von Cloudflare abgefragt, 1.1.1.2 und 1.0.0.2 (Malware und Phishing) sowie 1.1.1.3 und 1.0.0.3 (zusätzlich Inhalte für Erwachsene). Das sind gewöhnliche DNS-Anfragen nach Namen wie `example.com`; kein Teil der Nachricht oder ihrer Adressen wird gesendet. Abschalten lassen sie sich mit `phishing: {cloudflare: false}` oder `--no-cloudflare`, nur die Prüfung auf Inhalte für Erwachsene mit `phishing: {adult: false}`. Ein Name, den sie blockieren, wird auch bei 1.1.1.1 und 1.0.0.1 abgefragt, die nichts blockieren, um eine Sperre von einem Namen zu unterscheiden, der selbst auf `0.0.0.0` zeigt.
 
 Alles andere ist ausgeschaltet, bis es konfiguriert wird:
 

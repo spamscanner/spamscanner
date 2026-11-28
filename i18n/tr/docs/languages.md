@@ -1,4 +1,4 @@
-<!-- source: 5d22e36f3f16 -->
+<!-- source: 63aeb5e7ec0c -->
 
 # Diller
 
@@ -18,7 +18,7 @@ Her iletinin dili yazı sisteminden ve birçok dilin paylaştığı yazı sistem
 
 * Hangul Koreceyi gösterir; Hiragana ve Katakana Japonca anlamına gelir; Tay, Yunan, İbrani, Ermeni, Gürcü, Bengal, Tamil ve tek bir dil tarafından kullanılan diğer yazı sistemleri dili doğrudan belirtir.
 * Yalnızca tek bir dilde bulunan Kiril harfleri Ukraynaca (і, ї, є, ґ), Belarusça (ў), Sırpça (ђ, ћ, џ), Makedonca (ѓ, ќ, ѕ) ve Rusça (ы, э, ё) arasında ad olmayan sözcüklerde karar verir (cümlenin ya da satırın başı dışında büyük harfle başlayan sözcükler, tamamı büyük harfle yazılmış sözcükler değil; bunların harfleri yalnızca istatistiksel algılayıcı için fazla kısa bir metinde sayılır: "господин Рыскулов" adını anan Bulgarca bir metin Bulgarcadır); ancak metinde Kazakça, Özbekçe, Kırgızca, Tacikçe, Tatarca, Başkurtça veya Moğolca harfler de (ә, ө, ү, ұ, қ, ғ, ң, һ, ҳ, ҷ ve diğerleri) varsa, bu dillerin alfabeleri o harflerin bazılarını paylaştığından kararı istatistiksel algılayıcı verir; algılayıcı bir Slav diliyle yanıt verdiğinde (içinde Kazakça bir ad ya da sözcük geçen Rusça veya Bulgarca bir metin), yukarıdaki gibi o harfleri içermeyen, ad olmayan sözcükler karar verir.
-* Birkaç dilin paylaştığı yazı sistemlerindeki (Latin, Kiril, Arap, Devanagari ve diğerleri) metin, karar verecek kadar uzunsa [franc](https://github.com/wooorm/franc) aracına gider; kısa iletilerin nadir dillerle etiketlenmemesi için franc e-postada yaygın dillerle sınırlandırılır.
+* Birkaç dilin paylaştığı yazı sistemlerindeki (Latin, Kiril, Arap, Devanagari ve diğerleri) metin, karar verecek kadar uzunsa [franc](https://github.com/wooorm/franc) aracına gider; kısa iletilerin nadir dillerle etiketlenmemesi için franc e-postada yaygın dillerle sınırlandırılır. franc'ın Latin harfleriyle yazılan başka bir dil sandığı İngilizce, bir mağazanın postasındaki ürün adları ve fiyatlar gibi, sözcüklerinden tanınır (`the`, `your`, `free shipping`): üç ya da daha fazlası, yüz sözcükte en az üç ve franc'ın adını verdiği dile ait olan ya da İngilizcede bulunmayan bir harf içeren sözcüklerden çok (`é`, `ß`, `ø`).
 
 Dil `result.language` olarak bildirilir ve `allowedLanguages: ['en', 'de']` (`--allow-language en,de`), başka bir dilde olduğu güvenle tespit edilen postaya 3 puan ekler.
 

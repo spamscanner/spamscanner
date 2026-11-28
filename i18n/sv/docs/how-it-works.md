@@ -1,4 +1,4 @@
-<!-- source: 92d45ef57945 -->
+<!-- source: d573158b4022 -->
 
 # Så fungerar det
 
@@ -64,7 +64,7 @@ Varje länk kontrolleras:
 
 * **Förväxlingsbara domäner.** Varje domän reduceras till ett skelett med Unicodes tabell över förväxlingsbara tecken, så `pаypal.com` (kyrilliskt а), `paypa1.com`, `rnicrosoft.com` och `xn--pple-43d.com` matchar alla det varumärke de imiterar. Blandade skriftsystem i en etikett, varumärken i underdomäner (`paypal.com.example.net`) och stavfel på en bokstav ger lägre poäng. Nästan 100 varumärken som ofta utges för är inbyggda, och fler kan läggas till.
 * **Vilseledande länkar.** HTML-länkar vars synliga text är en annan adress än målet: hela texten, eller en adress med `http://` eller `https://` i sig (`Sign in at https://www.paypal.com`). Ett filnamn eller en webbplats namn i en mening (`Download report.zip`, `Read why Booking.com switched`) är ingen adress. En länk via en utskickstjänsts klickspårning (SendGrid, Mailchimp, Amazon SES, Kit, Brevo, beehiiv, Substack med flera) eller en säkerhetsgateway som skriver om länkar (Microsoft Safe Links, Proofpoint, Mimecast, Barracuda, Cisco) går med avsikt någon annanstans, så den räknas bara när dess text är ett varumärkes fullständiga adress, utan sökväg eller med en inloggningssökväg (inte en länk till ett socialt nätverk, en butiks produkt eller en karta), och avsändaren inte är det varumärket eller någon av dess avsändardomäner. Där en gateways länk innehåller adressen den går vidare till (Safe Links, Proofpoint) jämförs den adressen i stället. Bara en förklädnad räknas: ett varumärkes adress, en myndighets webbplats (`irs.gov`, `gov.uk`) eller en mottagares egen domän visad över en annan webbplats. Varje annan visad webbplats är ingen, eftersom människor och butiker kallar en webbplats något annat än där den finns (ett projekts dokumentation över dess repository, en butik över sin plattform), och inte heller en värd som ingen når på internet (`localhost`, `192.168.1.1`, `example.com`) eller en annan domän från samma företag (`google.com` över `blog.google`). Där en webbplats omdirigering innehåller adressen den leder vidare till (Googles `google.com/url?q=`, Facebook, Slack, LinkedIn, YouTube, Wayback Machine) jämförs den adressen i stället.
-* **Cloudflares filtrerande resolvrar.** Länkarnas värdar slås upp hos 1.1.1.2, som svarar `0.0.0.0` för kända webbplatser med skadlig kod och nätfiske, och 1.1.1.3, som även blockerar vuxeninnehåll.
+* **Cloudflares filtrerande resolvrar.** Länkarnas värdar slås upp hos 1.1.1.2, som svarar `0.0.0.0` för kända webbplatser med skadlig kod och nätfiske, och 1.1.1.3, som även blockerar vuxeninnehåll. En värd som blockeras där slås också upp på 1.1.1.1, som inte blockerar något: en som själv pekar på `0.0.0.0` är inte blockerad.
 * **Visningsnamn.** Ett namn som ”PayPal Security” från en adress på en annan domän, eller ett namn som innehåller en annan e-postadress.
 
 

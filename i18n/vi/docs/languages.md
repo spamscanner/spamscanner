@@ -1,4 +1,4 @@
-<!-- source: 5d22e36f3f16 -->
+<!-- source: 63aeb5e7ec0c -->
 
 # Ngôn ngữ
 
@@ -18,7 +18,7 @@ Ngôn ngữ của mỗi thư được nhận diện từ hệ chữ viết và, 
 
 * Hangul là tiếng Hàn; Hiragana và Katakana nghĩa là tiếng Nhật; chữ Thái, Hy Lạp, Do Thái, Armenia, Gruzia, Bengal, Tamil và các hệ chữ viết khác chỉ một ngôn ngữ sử dụng thì trực tiếp xác định ngôn ngữ đó.
 * Các chữ Kirin chỉ có trong một ngôn ngữ giúp phân biệt tiếng Ukraina (і, ї, є, ґ), tiếng Belarus (ў), tiếng Serbia (ђ, ћ, џ), tiếng Macedonia (ѓ, ќ, ѕ) và tiếng Nga (ы, э, ё) trong các từ không phải là tên (các từ viết hoa chữ cái đầu ở vị trí khác ngoài đầu câu hoặc đầu dòng, không phải các từ viết hoa toàn bộ, mà chữ cái của chúng chỉ được tính trong một văn bản quá ngắn đối với bộ phát hiện thống kê: một văn bản tiếng Bulgaria có nhắc đến "господин Рыскулов" là tiếng Bulgaria), trừ khi văn bản còn có chữ cái của tiếng Kazakh, Uzbek, Kyrgyz, Tajik, Tatar, Bashkir hoặc Mông Cổ (ә, ө, ү, ұ, қ, ғ, ң, һ, ҳ, ҷ và các chữ khác), những bảng chữ cái có chung một số chữ cái đó: khi ấy bộ phát hiện thống kê sẽ quyết định, và khi nó trả lời là một ngôn ngữ Slav (một văn bản tiếng Nga hoặc tiếng Bulgaria có một tên hoặc từ tiếng Kazakh trong đó), các từ không có những chữ cái đó, ngoài tên, sẽ quyết định như trên.
-* Văn bản bằng các hệ chữ viết được nhiều ngôn ngữ dùng chung (Latin, Kirin, Ả Rập, Devanagari và các hệ khác), khi đủ dài để đánh giá, được chuyển cho [franc](https://github.com/wooorm/franc), giới hạn ở các ngôn ngữ phổ biến trong email để thư ngắn không bị gán nhãn là ngôn ngữ hiếm.
+* Văn bản bằng các hệ chữ viết được nhiều ngôn ngữ dùng chung (Latin, Kirin, Ả Rập, Devanagari và các hệ khác), khi đủ dài để đánh giá, được chuyển cho [franc](https://github.com/wooorm/franc), giới hạn ở các ngôn ngữ phổ biến trong email để thư ngắn không bị gán nhãn là ngôn ngữ hiếm. Tiếng Anh mà franc nhận nhầm là một ngôn ngữ khác viết bằng chữ Latinh, như tên sản phẩm và giá trong thư của một cửa hàng, được nhận ra qua các từ của nó (`the`, `your`, `free shipping`): từ ba từ trở lên, ít nhất ba từ trong một trăm từ, và nhiều hơn các từ thuộc ngôn ngữ mà franc nêu hoặc có chữ cái mà tiếng Anh không có (`é`, `ß`, `ø`).
 
 Ngôn ngữ được báo cáo qua `result.language`, và `allowedLanguages: ['en', 'de']` (`--allow-language en,de`) cộng 3 điểm cho thư được nhận diện chắc chắn là thuộc bất kỳ ngôn ngữ nào khác.
 

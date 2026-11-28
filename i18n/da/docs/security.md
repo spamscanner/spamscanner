@@ -1,4 +1,4 @@
-<!-- source: 1d7373f991c2 -->
+<!-- source: 6806f38b2cad -->
 
 # Sikkerhed og privatliv
 
@@ -7,7 +7,7 @@ Spam Scanner læser post, som er privat, fra afsendere, som kan være fjendtlige
 
 ## Hvad der forlader maskinen
 
-Som standard én ting: **værtsnavnene i links** i en besked slås op på Cloudflares filtrerende resolvere, 1.1.1.2 og 1.0.0.2 (malware og phishing) samt 1.1.1.3 og 1.0.0.3 (også voksenindhold). Det er almindelige DNS-forespørgsler efter navne som `example.com`; ingen del af beskeden eller dens adresser sendes. Slå dem fra med `phishing: {cloudflare: false}` eller `--no-cloudflare`, eller slå kun tjekket for voksenindhold fra med `phishing: {adult: false}`.
+Som standard én ting: **værtsnavnene i links** i en besked slås op på Cloudflares filtrerende resolvere, 1.1.1.2 og 1.0.0.2 (malware og phishing) samt 1.1.1.3 og 1.0.0.3 (også voksenindhold). Det er almindelige DNS-forespørgsler efter navne som `example.com`; ingen del af beskeden eller dens adresser sendes. Slå dem fra med `phishing: {cloudflare: false}` eller `--no-cloudflare`, eller slå kun tjekket for voksenindhold fra med `phishing: {adult: false}`. Et navn, de blokerer, slås også op på 1.1.1.1 og 1.0.0.1, som intet blokerer, for at skelne en blokering fra et navn, der selv peger på `0.0.0.0`.
 
 Alt andet er slået fra, indtil det konfigureres:
 

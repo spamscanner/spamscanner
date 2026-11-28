@@ -1,4 +1,4 @@
-<!-- source: 1d7373f991c2 -->
+<!-- source: 6806f38b2cad -->
 
 # Sécurité et confidentialité
 
@@ -7,7 +7,7 @@ Spam Scanner lit du courrier, qui est privé, provenant d’expéditeurs, qui pe
 
 ## Ce qui quitte la machine
 
-Par défaut, une seule chose : les **noms d’hôte des liens** d’un message sont interrogés auprès des résolveurs filtrants de Cloudflare, 1.1.1.2 et 1.0.0.2 (logiciels malveillants et hameçonnage) et 1.1.1.3 et 1.0.0.3 (également contenu pour adultes). Ce sont des requêtes DNS ordinaires pour des noms comme `example.com` ; aucune partie du message ni de ses adresses n’est envoyée. Désactivez-les avec `phishing: {cloudflare: false}` ou `--no-cloudflare`, ou seulement la vérification du contenu pour adultes avec `phishing: {adult: false}`.
+Par défaut, une seule chose : les **noms d’hôte des liens** d’un message sont interrogés auprès des résolveurs filtrants de Cloudflare, 1.1.1.2 et 1.0.0.2 (logiciels malveillants et hameçonnage) et 1.1.1.3 et 1.0.0.3 (également contenu pour adultes). Ce sont des requêtes DNS ordinaires pour des noms comme `example.com` ; aucune partie du message ni de ses adresses n’est envoyée. Désactivez-les avec `phishing: {cloudflare: false}` ou `--no-cloudflare`, ou seulement la vérification du contenu pour adultes avec `phishing: {adult: false}`. Un nom qu'ils bloquent est aussi demandé à 1.1.1.1 et 1.0.0.1, qui ne bloquent rien, pour distinguer un blocage d'un nom qui pointe lui-même vers `0.0.0.0`.
 
 Tout le reste est désactivé tant qu’il n’est pas configuré :
 

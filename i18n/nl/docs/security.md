@@ -1,4 +1,4 @@
-<!-- source: 1d7373f991c2 -->
+<!-- source: 6806f38b2cad -->
 
 # Beveiliging en privacy
 
@@ -7,7 +7,7 @@ Spam Scanner leest mail, die privé is, van afzenders die vijandig kunnen zijn. 
 
 ## Wat de machine verlaat
 
-Standaard één ding: de **hostnamen van links** in een bericht worden opgezocht op de filterende resolvers van Cloudflare, 1.1.1.2 en 1.0.0.2 (malware en phishing) en 1.1.1.3 en 1.0.0.3 (ook content voor volwassenen). Dit zijn gewone DNS-queries voor namen zoals `example.com`; er wordt geen deel van het bericht of van de adressen verstuurd. Zet ze uit met `phishing: {cloudflare: false}` of `--no-cloudflare`, of alleen de controle op content voor volwassenen met `phishing: {adult: false}`.
+Standaard één ding: de **hostnamen van links** in een bericht worden opgezocht op de filterende resolvers van Cloudflare, 1.1.1.2 en 1.0.0.2 (malware en phishing) en 1.1.1.3 en 1.0.0.3 (ook content voor volwassenen). Dit zijn gewone DNS-queries voor namen zoals `example.com`; er wordt geen deel van het bericht of van de adressen verstuurd. Zet ze uit met `phishing: {cloudflare: false}` of `--no-cloudflare`, of alleen de controle op content voor volwassenen met `phishing: {adult: false}`. Een naam die ze blokkeren, wordt ook aan 1.1.1.1 en 1.0.0.1 gevraagd, die niets blokkeren, om een blokkade te onderscheiden van een naam die zelf naar `0.0.0.0` wijst.
 
 Al het andere staat uit tot je het instelt:
 

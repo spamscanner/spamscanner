@@ -1,4 +1,4 @@
-<!-- source: 1d7373f991c2 -->
+<!-- source: 6806f38b2cad -->
 
 # Bảo mật và quyền riêng tư
 
@@ -7,7 +7,7 @@ Spam Scanner đọc thư, vốn là thông tin riêng tư, từ những người
 
 ## Những gì rời khỏi máy
 
-Theo mặc định, chỉ một thứ: **tên máy chủ của các liên kết** trong thư được tra cứu trên các resolver có lọc của Cloudflare, 1.1.1.2 và 1.0.0.2 (mã độc và phishing) và 1.1.1.3 và 1.0.0.3 (thêm cả nội dung người lớn). Đây là các truy vấn DNS thông thường cho các tên như `example.com`; không phần nào của thư hay các địa chỉ trong đó được gửi đi. Tắt chúng bằng `phishing: {cloudflare: false}` hoặc `--no-cloudflare`, hoặc chỉ tắt kiểm tra nội dung người lớn bằng `phishing: {adult: false}`.
+Theo mặc định, chỉ một thứ: **tên máy chủ của các liên kết** trong thư được tra cứu trên các resolver có lọc của Cloudflare, 1.1.1.2 và 1.0.0.2 (mã độc và phishing) và 1.1.1.3 và 1.0.0.3 (thêm cả nội dung người lớn). Đây là các truy vấn DNS thông thường cho các tên như `example.com`; không phần nào của thư hay các địa chỉ trong đó được gửi đi. Tắt chúng bằng `phishing: {cloudflare: false}` hoặc `--no-cloudflare`, hoặc chỉ tắt kiểm tra nội dung người lớn bằng `phishing: {adult: false}`. Một tên mà chúng chặn cũng được hỏi tại 1.1.1.1 và 1.0.0.1, nơi không chặn gì, để phân biệt việc chặn với một tên tự trỏ tới `0.0.0.0`.
 
 Mọi thứ khác đều tắt cho đến khi được cấu hình:
 

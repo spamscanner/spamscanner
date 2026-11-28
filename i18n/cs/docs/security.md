@@ -1,4 +1,4 @@
-<!-- source: 1d7373f991c2 -->
+<!-- source: 6806f38b2cad -->
 
 # Zabezpečení a soukromí
 
@@ -7,7 +7,7 @@ Spam Scanner čte poštu, která je soukromá, od odesílatelů, kteří mohou b
 
 ## Co opouští počítač
 
-Ve výchozím stavu jediná věc: **názvy hostitelů z odkazů** ve zprávě se vyhledávají na filtrovacích resolverech Cloudflare, 1.1.1.2 a 1.0.0.2 (malware a phishing) a 1.1.1.3 a 1.0.0.3 (navíc obsah pro dospělé). Jde o běžné dotazy DNS na jména jako `example.com`; neposílá se žádná část zprávy ani jejích adres. Vypnete je pomocí `phishing: {cloudflare: false}` nebo `--no-cloudflare`, samotnou kontrolu obsahu pro dospělé pomocí `phishing: {adult: false}`.
+Ve výchozím stavu jediná věc: **názvy hostitelů z odkazů** ve zprávě se vyhledávají na filtrovacích resolverech Cloudflare, 1.1.1.2 a 1.0.0.2 (malware a phishing) a 1.1.1.3 a 1.0.0.3 (navíc obsah pro dospělé). Jde o běžné dotazy DNS na jména jako `example.com`; neposílá se žádná část zprávy ani jejích adres. Vypnete je pomocí `phishing: {cloudflare: false}` nebo `--no-cloudflare`, samotnou kontrolu obsahu pro dospělé pomocí `phishing: {adult: false}`. Na jméno, které blokují, se dotazuje i u 1.1.1.1 a 1.0.0.1, které nic neblokují, aby se odlišila blokace od jména, které samo ukazuje na `0.0.0.0`.
 
 Vše ostatní je vypnuté, dokud to nenastavíte:
 

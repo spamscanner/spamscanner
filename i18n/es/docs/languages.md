@@ -1,4 +1,4 @@
-<!-- source: 5d22e36f3f16 -->
+<!-- source: 63aeb5e7ec0c -->
 
 # Idiomas
 
@@ -18,7 +18,7 @@ El idioma de cada mensaje se detecta por su escritura y, en las escrituras que c
 
 * El hangul es coreano; el hiragana y el katakana indican japonés; el tailandés, el griego, el hebreo, el armenio, el georgiano, el bengalí, el tamil y otras escrituras que usa un solo idioma lo identifican directamente.
 * Las letras cirílicas que solo existen en un idioma deciden entre ucraniano (і, ї, є, ґ), bielorruso (ў), serbio (ђ, ћ, џ), macedonio (ѓ, ќ, ѕ) y ruso (ы, э, ё) en las palabras que no son nombres (palabras con la inicial en mayúscula y las demás letras en minúscula en otro lugar que el inicio de una frase o de una línea, no palabras en mayúsculas, cuyas letras solo cuentan en un texto demasiado corto para el detector estadístico: un texto búlgaro que nombra a «господин Рыскулов» es búlgaro), salvo que el texto tenga también letras del kazajo, uzbeko, kirguís, tayiko, tártaro, baskir o mongol (ә, ө, ү, ұ, қ, ғ, ң, һ, ҳ, ҷ y otras), cuyos alfabetos comparten algunas de esas letras: entonces decide el detector estadístico, y cuando responde con un idioma eslavo (un texto ruso o búlgaro con un nombre o una palabra kazajos), deciden como arriba las palabras sin esas letras, salvo los nombres.
-* El texto en escrituras que comparten varios idiomas (latina, cirílica, árabe, devanagari y otras), cuando es lo bastante largo para juzgarlo, pasa a [franc](https://github.com/wooorm/franc), limitado a los idiomas habituales en el correo electrónico para que los mensajes cortos no se etiqueten con idiomas poco frecuentes.
+* El texto en escrituras que comparten varios idiomas (latina, cirílica, árabe, devanagari y otras), cuando es lo bastante largo para juzgarlo, pasa a [franc](https://github.com/wooorm/franc), limitado a los idiomas habituales en el correo electrónico para que los mensajes cortos no se etiqueten con idiomas poco frecuentes. El inglés que franc toma por otro idioma escrito en letras latinas, como los nombres de productos y los precios del correo de una tienda, se reconoce por sus palabras (`the`, `your`, `free shipping`): tres o más, al menos tres de cada cien palabras, y más que las palabras que son del idioma que franc nombró o tienen una letra que el inglés no tiene (`é`, `ß`, `ø`).
 
 El idioma se indica en `result.language`, y `allowedLanguages: ['en', 'de']` (`--allow-language en,de`) suma 3 puntos al correo detectado con seguridad en cualquier otro idioma.
 

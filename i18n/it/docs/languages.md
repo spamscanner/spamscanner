@@ -1,4 +1,4 @@
-<!-- source: 5d22e36f3f16 -->
+<!-- source: 63aeb5e7ec0c -->
 
 # Lingue
 
@@ -18,7 +18,7 @@ La lingua di ogni messaggio viene rilevata dal suo sistema di scrittura e, per i
 
 * L'hangul è coreano; hiragana e katakana indicano il giapponese; thailandese, greco, ebraico, armeno, georgiano, bengali, tamil e gli altri sistemi di scrittura usati da una sola lingua la identificano direttamente.
 * Le lettere cirilliche presenti in una sola lingua decidono tra ucraino (і, ї, є, ґ), bielorusso (ў), serbo (ђ, ћ, џ), macedone (ѓ, ќ, ѕ) e russo (ы, э, ё) nelle parole diverse dai nomi (parole con solo l'iniziale maiuscola non all'inizio di una frase o di una riga, non parole tutte in maiuscolo, le cui lettere contano solo in un testo troppo breve per il rilevatore statistico: un testo bulgaro che nomina "господин Рыскулов" è bulgaro), a meno che il testo non contenga anche lettere del kazako, uzbeko, kirghiso, tagico, tataro, baschiro o mongolo (ә, ө, ү, ұ, қ, ғ, ң, һ, ҳ, ҷ e altre), i cui alfabeti condividono alcune di quelle lettere: allora decide il rilevatore statistico, e quando risponde con una lingua slava (un testo russo o bulgaro con dentro un nome o una parola kazaka), decidono come sopra le parole senza quelle lettere, nomi esclusi.
-* Il testo nei sistemi di scrittura condivisi da più lingue (latino, cirillico, arabo, devanagari e altri), quando è abbastanza lungo da poter essere valutato, passa a [franc](https://github.com/wooorm/franc), limitato alle lingue comuni nella posta elettronica perché i messaggi brevi non vengano etichettati con lingue rare.
+* Il testo nei sistemi di scrittura condivisi da più lingue (latino, cirillico, arabo, devanagari e altri), quando è abbastanza lungo da poter essere valutato, passa a [franc](https://github.com/wooorm/franc), limitato alle lingue comuni nella posta elettronica perché i messaggi brevi non vengano etichettati con lingue rare. L'inglese che franc scambia per un'altra lingua scritta in lettere latine, come i nomi dei prodotti e i prezzi della posta di un negozio, si riconosce dalle sue parole (`the`, `your`, `free shipping`): tre o più, almeno tre su cento parole, e più delle parole che sono della lingua indicata da franc o hanno una lettera che l'inglese non ha (`é`, `ß`, `ø`).
 
 La lingua è riportata come `result.language`, e `allowedLanguages: ['en', 'de']` (`--allow-language en,de`) aggiunge 3 punti alla posta rilevata con sicurezza in qualsiasi altra lingua.
 

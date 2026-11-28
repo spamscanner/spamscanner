@@ -1,4 +1,4 @@
-<!-- source: 5d22e36f3f16 -->
+<!-- source: 63aeb5e7ec0c -->
 
 # Sprachen
 
@@ -18,7 +18,7 @@ Die Sprache jeder Nachricht wird an ihrer Schrift erkannt und, bei Schriften, di
 
 * Hangul ist Koreanisch; Hiragana und Katakana bedeuten Japanisch; Thai, Griechisch, Hebräisch, Armenisch, Georgisch, Bengalisch, Tamil und andere Schriften, die nur eine Sprache verwendet, benennen diese direkt.
 * Kyrillische Buchstaben, die es nur in einer Sprache gibt, entscheiden zwischen Ukrainisch (і, ї, є, ґ), Belarussisch (ў), Serbisch (ђ, ћ, џ), Mazedonisch (ѓ, ќ, ѕ) und Russisch (ы, э, ё) in den Wörtern, die keine Namen sind (Wörter mit großem Anfangsbuchstaben und sonst kleinen Buchstaben, die nicht am Anfang eines Satzes oder einer Zeile stehen, keine Wörter in Großbuchstaben, deren Buchstaben nur in einem Text zählen, der für den statistischen Detektor zu kurz ist: Ein bulgarischer Text, der „господин Рыскулов“ nennt, ist bulgarisch), es sei denn, der Text enthält auch Buchstaben des Kasachischen, Usbekischen, Kirgisischen, Tadschikischen, Tatarischen, Baschkirischen oder Mongolischen (ә, ө, ү, ұ, қ, ғ, ң, һ, ҳ, ҷ und andere), deren Alphabete einige dieser Buchstaben teilen: Dann entscheidet der statistische Detektor, und wenn er eine slawische Sprache nennt (ein russischer oder bulgarischer Text mit einem kasachischen Namen oder Wort darin), entscheiden die Wörter ohne diese Buchstaben, außer Namen, wie oben.
-* Text in Schriften, die mehrere Sprachen teilen (Lateinisch, Kyrillisch, Arabisch, Devanagari und andere), geht, wenn er für ein Urteil lang genug ist, an [franc](https://github.com/wooorm/franc), beschränkt auf in E-Mails verbreitete Sprachen, damit kurze Nachrichten nicht mit seltenen Sprachen gekennzeichnet werden.
+* Text in Schriften, die mehrere Sprachen teilen (Lateinisch, Kyrillisch, Arabisch, Devanagari und andere), geht, wenn er für ein Urteil lang genug ist, an [franc](https://github.com/wooorm/franc), beschränkt auf in E-Mails verbreitete Sprachen, damit kurze Nachrichten nicht mit seltenen Sprachen gekennzeichnet werden. Englisch, das franc für eine andere Sprache in lateinischen Buchstaben hält, wie die Produktnamen und Preise in der Mail eines Shops, wird an seinen Wörtern erkannt (`the`, `your`, `free shipping`): drei oder mehr, mindestens drei von hundert Wörtern, und mehr als die Wörter, die aus der von franc genannten Sprache sind oder einen Buchstaben haben, den das Englische nicht hat (`é`, `ß`, `ø`).
 
 Die Sprache steht in `result.language`, und `allowedLanguages: ['en', 'de']` (`--allow-language en,de`) addiert 3 Punkte für E-Mails, die sicher als eine andere Sprache erkannt werden.
 

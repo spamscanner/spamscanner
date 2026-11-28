@@ -1,4 +1,4 @@
-<!-- source: 5d22e36f3f16 -->
+<!-- source: 63aeb5e7ec0c -->
 
 # Bahasa
 
@@ -18,7 +18,7 @@ Bahasa setiap pesan dideteksi dari aksaranya dan, untuk aksara yang dipakai bany
 
 * Hangul berarti bahasa Korea; Hiragana dan Katakana berarti bahasa Jepang; Thai, Yunani, Ibrani, Armenia, Georgia, Bengali, Tamil, dan aksara lain yang dipakai oleh satu bahasa langsung menunjukkan bahasanya.
 * Huruf Sirilik yang hanya ada dalam satu bahasa menentukan pilihan antara bahasa Ukraina (і, ї, є, ґ), Belarus (ў), Serbia (ђ, ћ, џ), Makedonia (ѓ, ќ, ѕ), dan Rusia (ы, э, ё) dalam kata-kata selain nama (kata yang hanya huruf awalnya kapital dan tidak berada di awal kalimat atau baris, bukan kata yang seluruhnya huruf kapital, yang hurufnya hanya dihitung dalam teks yang terlalu pendek untuk detektor statistik: teks Bulgaria yang menyebut "господин Рыскулов" adalah bahasa Bulgaria), kecuali teks itu juga memuat huruf bahasa Kazakh, Uzbek, Kirgiz, Tajik, Tatar, Bashkir, atau Mongolia (ә, ө, ү, ұ, қ, ғ, ң, һ, ҳ, ҷ, dan lainnya), yang alfabetnya memiliki sebagian huruf tersebut: dalam hal itu detektor statistik yang memutuskan, dan bila detektor menjawab dengan bahasa Slavia (teks Rusia atau Bulgaria yang memuat nama atau kata Kazakh), kata-kata tanpa huruf tersebut, selain nama, yang memutuskan seperti di atas.
-* Teks dalam aksara yang dipakai beberapa bahasa (Latin, Sirilik, Arab, Dewanagari, dan lainnya), jika cukup panjang untuk dinilai, diteruskan ke [franc](https://github.com/wooorm/franc), dibatasi pada bahasa yang umum dalam email agar pesan pendek tidak diberi label bahasa yang langka.
+* Teks dalam aksara yang dipakai beberapa bahasa (Latin, Sirilik, Arab, Dewanagari, dan lainnya), jika cukup panjang untuk dinilai, diteruskan ke [franc](https://github.com/wooorm/franc), dibatasi pada bahasa yang umum dalam email agar pesan pendek tidak diberi label bahasa yang langka. Bahasa Inggris yang dikira franc sebagai bahasa lain berhuruf Latin, seperti nama produk dan harga dalam surel sebuah toko, dikenali dari kata-katanya (`the`, `your`, `free shipping`): tiga atau lebih, sedikitnya tiga dari seratus kata, dan lebih banyak daripada kata-kata yang berasal dari bahasa yang disebut franc atau memiliki huruf yang tidak ada dalam bahasa Inggris (`é`, `ß`, `ø`).
 
 Bahasa dilaporkan sebagai `result.language`, dan `allowedLanguages: ['en', 'de']` (`--allow-language en,de`) menambahkan 3 poin pada email yang terdeteksi dengan yakin dalam bahasa lain.
 

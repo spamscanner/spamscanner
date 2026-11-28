@@ -1,4 +1,4 @@
-<!-- source: 5d22e36f3f16 -->
+<!-- source: 63aeb5e7ec0c -->
 
 # Języki
 
@@ -18,7 +18,7 @@ Język każdej wiadomości jest wykrywany na podstawie pisma, a w przypadku pism
 
 * Hangul to koreański; hiragana i katakana oznaczają japoński; tajski, grecki, hebrajski, ormiański, gruziński, bengalski, tamilski i inne pisma używane przez jeden język wskazują go bezpośrednio.
 * Litery cyrylicy występujące tylko w jednym języku rozstrzygają między ukraińskim (і, ї, є, ґ), białoruskim (ў), serbskim (ђ, ћ, џ), macedońskim (ѓ, ќ, ѕ) i rosyjskim (ы, э, ё) w słowach innych niż nazwy własne (słowach z wielką pierwszą literą i pozostałymi małymi w miejscu innym niż początek zdania lub wiersza, nie słowach pisanych samymi wielkimi literami, których litery liczą się tylko w tekście zbyt krótkim dla detektora statystycznego: tekst bułgarski, w którym pada "господин Рыскулов", jest bułgarski), chyba że tekst zawiera też litery kazachskie, uzbeckie, kirgiskie, tadżyckie, tatarskie, baszkirskie lub mongolskie (ә, ө, ү, ұ, қ, ғ, ң, һ, ҳ, ҷ i inne), których alfabety mają część tych liter: wtedy rozstrzyga detektor statystyczny, a gdy wskaże język słowiański (tekst rosyjski lub bułgarski z kazachskim imieniem lub słowem), rozstrzygają słowa bez tych liter, poza nazwami własnymi, jak wyżej.
-* Tekst w pismach wspólnych dla kilku języków (łacińskie, cyrylica, arabskie, dewanagari i inne), jeśli jest wystarczająco długi do oceny, trafia do [franc](https://github.com/wooorm/franc), ograniczonego do języków częstych w poczcie e-mail, aby krótkie wiadomości nie dostawały etykiet rzadkich języków.
+* Tekst w pismach wspólnych dla kilku języków (łacińskie, cyrylica, arabskie, dewanagari i inne), jeśli jest wystarczająco długi do oceny, trafia do [franc](https://github.com/wooorm/franc), ograniczonego do języków częstych w poczcie e-mail, aby krótkie wiadomości nie dostawały etykiet rzadkich języków. Angielski, który franc bierze za inny język pisany literami łacińskimi, jak nazwy produktów i ceny w poczcie sklepu, rozpoznaje się po jego słowach (`the`, `your`, `free shipping`): trzy lub więcej, co najmniej trzy na sto słów, i więcej niż słów, które są z języka wskazanego przez franc albo mają literę, której angielski nie ma (`é`, `ß`, `ø`).
 
 Język jest podawany jako `result.language`, a `allowedLanguages: ['en', 'de']` (`--allow-language en,de`) dodaje 3 punkty poczcie, która z pewnością została rozpoznana jako napisana w innym języku.
 

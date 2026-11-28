@@ -115,9 +115,12 @@ export const KNOWN_LISTS = {
 };
 
 // Cloudflare's resolvers for families: 1.1.1.2 blocks malware, 1.1.1.3 blocks
-// malware and adult content. Blocked names resolve to 0.0.0.0.
+// malware and adult content. Blocked names resolve to 0.0.0.0. So does a name
+// that points there itself, as a host no longer in use may ("go.example.com"
+// of a company's own site): 1.1.1.1 blocks nothing, and tells the two apart.
 export const CLOUDFLARE_MALWARE = ['1.1.1.2', '1.0.0.2'];
 export const CLOUDFLARE_FAMILY = ['1.1.1.3', '1.0.0.3'];
+export const CLOUDFLARE_PLAIN = ['1.1.1.1', '1.0.0.1'];
 
 // The eight 16-bit groups of an IPv6 address (an IPv4 address at its end,
 // as in "::ffff:192.0.2.1", is two groups).
@@ -405,17 +408,23 @@ export class DnsChecker {
 	 * @param {boolean} [options.adult] - also ask the family resolver
 	 * @param {string[]} [options.malwareServers]
 	 * @param {string[]} [options.familyServers]
+	 * @param {string[]} [options.plainServers] - a resolver that blocks nothing
 	 * @returns {Promise<Array<{host: string, category: 'malware'|'adult'}> & {unanswered: string[]}>}
 	 */
 	async checkCloudflare(hosts = [], options = {}) {
-		const {adult = true, malwareServers = CLOUDFLARE_MALWARE, familyServers = CLOUDFLARE_FAMILY} = options;
+		const {adult = true, malwareServers = CLOUDFLARE_MALWARE, familyServers = CLOUDFLARE_FAMILY, plainServers = CLOUDFLARE_PLAIN} = options;
 		const unanswered = [];
 		// (each by the name it is looked up as, see lookupName, once)
 		const names = [...new Set(hosts.map(host => lookupName(host)).filter(Boolean))];
 		const results = await Promise.all(names.map(async host => {
 			const malware = await this.answer(host, malwareServers);
 			if (malware?.includes('0.0.0.0')) {
-				return {host, category: 'malware'};
+				// (a name that points to 0.0.0.0 itself gets that answer from a
+				//  resolver that blocks nothing too, and is not blocked; one
+				//  with another address, which the block hides, is, and so is
+				//  one that resolver has no answer for)
+				const own = await this.answer(host, plainServers);
+				return own?.includes('0.0.0.0') && own.every(address => malware.includes(address)) ? null : {host, category: 'malware'};
 			}
 
 			const family = malware && adult ? await this.answer(host, familyServers) : [];

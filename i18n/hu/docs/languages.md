@@ -1,4 +1,4 @@
-<!-- source: 5d22e36f3f16 -->
+<!-- source: 63aeb5e7ec0c -->
 
 # Nyelvek
 
@@ -18,7 +18,7 @@ Minden levél nyelvét az írásrendszeréből, a több nyelv által használt �
 
 * A hangul koreai; a hiragana és a katakana japánt jelent; a thai, a görög, a héber, az örmény, a grúz, a bengáli, a tamil és más, egyetlen nyelv által használt írásrendszerek közvetlenül megnevezik a nyelvet.
 * A csak egy nyelvben előforduló cirill betűk döntenek az ukrán (і, ї, є, ґ), a belarusz (ў), a szerb (ђ, ћ, џ), a macedón (ѓ, ќ, ѕ) és az orosz (ы, э, ё) között a nem névnek számító szavakban (a nevek olyan szavak, amelyek nem mondat vagy sor elején állnak, és csak a kezdőbetűjük nagybetű, nem a csupa nagybetűs szavak, és betűik csak a statisztikai felismerőnek túl rövid szövegben számítanak: az a bolgár szöveg, amely „господин Рыскулов” nevét említi, bolgár), kivéve, ha a szövegben kazah, üzbég, kirgiz, tádzsik, tatár, baskír vagy mongol betűk is vannak (ә, ө, ү, ұ, қ, ғ, ң, һ, ҳ, ҷ és mások), amelyek ábécéi osztoznak e betűk némelyikén: ekkor a statisztikai felismerő dönt, és ha szláv nyelvet ad válaszul (egy orosz vagy bolgár szöveg, amelyben kazah név vagy szó van), az e betűk nélküli szavak, a nevek kivételével, döntenek a fentiek szerint.
-* A több nyelv által használt írásrendszerekben (latin, cirill, arab, dévanágari és mások) írt szöveg, ha elég hosszú a megítéléshez, a [franc](https://github.com/wooorm/franc) könyvtárhoz kerül, amely az e-mailekben gyakori nyelvekre van korlátozva, hogy a rövid leveleket ne címkézze ritka nyelvekkel.
+* A több nyelv által használt írásrendszerekben (latin, cirill, arab, dévanágari és mások) írt szöveg, ha elég hosszú a megítéléshez, a [franc](https://github.com/wooorm/franc) könyvtárhoz kerül, amely az e-mailekben gyakori nyelvekre van korlátozva, hogy a rövid leveleket ne címkézze ritka nyelvekkel. Azt az angol szöveget, amelyet a franc más, latin betűs nyelvnek vél, mint egy bolt levelének terméknevei és árai, a szavairól lehet felismerni (`the`, `your`, `free shipping`): három vagy több, száz szóból legalább három, és több, mint azok a szavak, amelyek a franc által megnevezett nyelvből valók, vagy olyan betűjük van, amilyen az angolban nincs (`é`, `ß`, `ø`).
 
 A nyelvet a `result.language` adja meg, az `allowedLanguages: ['en', 'de']` (`--allow-language en,de`) pedig 3 pontot ad minden olyan levélhez, amelyet nagy biztonsággal más nyelvűnek ismer fel.
 

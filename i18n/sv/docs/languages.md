@@ -1,4 +1,4 @@
-<!-- source: 5d22e36f3f16 -->
+<!-- source: 63aeb5e7ec0c -->
 
 # Språk
 
@@ -18,7 +18,7 @@ Språket i varje meddelande identifieras från dess skriftsystem och, för skrif
 
 * Hangul är koreanska; hiragana och katakana betyder japanska; thailändska, grekiska, hebreiska, armeniska, georgiska, bengaliska, tamilska och andra skriftsystem som används av ett enda språk anger det direkt.
 * Kyrilliska bokstäver som bara finns i ett språk avgör mellan ukrainska (і, ї, є, ґ), belarusiska (ў), serbiska (ђ, ћ, џ), makedonska (ѓ, ќ, ѕ) och ryska (ы, э, ё) i de ord som inte är namn (ord med stor begynnelsebokstav någon annanstans än i början av en mening eller en rad, inte ord skrivna helt med versaler, vars bokstäver bara räknas i en text som är för kort för den statistiska detektorn: en bulgarisk text som nämner "господин Рыскулов" är bulgarisk), om inte texten också har bokstäver från kazakiska, uzbekiska, kirgiziska, tadzjikiska, tatariska, basjkiriska eller mongoliska (ә, ө, ү, ұ, қ, ғ, ң, һ, ҳ, ҷ med flera), vars alfabet delar några av de bokstäverna: då avgör den statistiska detektorn, och när den svarar med ett slaviskt språk (en rysk eller bulgarisk text med ett kazakiskt namn eller ord i), avgör orden utan de bokstäverna, utom namn, som ovan.
-* Text i skriftsystem som delas av flera språk (latinskt, kyrilliskt, arabiskt, devanagari med flera) går, när den är tillräckligt lång för att bedöma, till [franc](https://github.com/wooorm/franc), begränsat till språk som är vanliga i e-post så att korta meddelanden inte märks med ovanliga språk.
+* Text i skriftsystem som delas av flera språk (latinskt, kyrilliskt, arabiskt, devanagari med flera) går, när den är tillräckligt lång för att bedöma, till [franc](https://github.com/wooorm/franc), begränsat till språk som är vanliga i e-post så att korta meddelanden inte märks med ovanliga språk. Engelska som franc tar för ett annat språk med latinska bokstäver, som produktnamn och priser i en butiks e-post, känns igen på sina ord (`the`, `your`, `free shipping`): tre eller fler, minst tre av hundra ord, och fler än de ord som är från det språk franc angav eller har en bokstav som engelskan inte har (`é`, `ß`, `ø`).
 
 Språket rapporteras som `result.language`, och `allowedLanguages: ['en', 'de']` (`--allow-language en,de`) lägger till 3 poäng på e-post som med säkerhet identifierats som något annat språk.
 

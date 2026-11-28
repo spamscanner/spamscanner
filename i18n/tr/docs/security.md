@@ -1,4 +1,4 @@
-<!-- source: 1d7373f991c2 -->
+<!-- source: 6806f38b2cad -->
 
 # Güvenlik ve gizlilik
 
@@ -7,7 +7,7 @@ Spam Scanner, özel olan postayı, düşmanca niyetli olabilecek göndericilerde
 
 ## Makineden ne çıkar
 
-Varsayılan olarak tek bir şey: bir iletideki **bağlantıların ana makine adları**, Cloudflare'in filtreleme yapan çözümleyicileri olan 1.1.1.2 ve 1.0.0.2'de (kötü amaçlı yazılım ve kimlik avı) ve 1.1.1.3 ve 1.0.0.3'te (ayrıca yetişkin içerik) sorgulanır. Bunlar `example.com` gibi adlar için sıradan DNS sorgularıdır; iletinin veya adreslerinin hiçbir parçası gönderilmez. Bunları `phishing: {cloudflare: false}` veya `--no-cloudflare` ile, yalnızca yetişkin içerik denetimini ise `phishing: {adult: false}` ile kapatın.
+Varsayılan olarak tek bir şey: bir iletideki **bağlantıların ana makine adları**, Cloudflare'in filtreleme yapan çözümleyicileri olan 1.1.1.2 ve 1.0.0.2'de (kötü amaçlı yazılım ve kimlik avı) ve 1.1.1.3 ve 1.0.0.3'te (ayrıca yetişkin içerik) sorgulanır. Bunlar `example.com` gibi adlar için sıradan DNS sorgularıdır; iletinin veya adreslerinin hiçbir parçası gönderilmez. Bunları `phishing: {cloudflare: false}` veya `--no-cloudflare` ile, yalnızca yetişkin içerik denetimini ise `phishing: {adult: false}` ile kapatın. Engelledikleri bir ad, hiçbir şeyi engellemeyen 1.1.1.1 ve 1.0.0.1'e de sorulur; böylece bir engelleme, kendisi `0.0.0.0` adresini gösteren bir addan ayırt edilir.
 
 Geri kalan her şey yapılandırılana kadar kapalıdır:
 

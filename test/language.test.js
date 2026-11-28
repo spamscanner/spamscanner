@@ -33,6 +33,35 @@ describe('language detection', () => {
 		});
 	}
 
+	it('reads English that the letters of names and prices make look like another language by its words', () => {
+		// (a shop's mail: names of products and links, which franc takes for
+		//  Javanese, Afrikaans and French)
+		for (const text of [
+			'Nike Air Max 270. Jordan Retro 4. adidas Samba OG. New Balance 9060. ASICS GEL-Kayano 14. Shop Men. Shop Women. Shop Kids. Free Shipping. Find a Store. Launch Calendar. Manage Preferences.',
+			'Dyson V15 Detect. KitchenAid Artisan. Ninja Foodi. Instant Pot Duo. Keurig K-Elite. Vitamix 5200. Le Creuset Dutch Oven. Cuisinart. Calphalon. Free Shipping. New Arrivals. Shop Kitchen. Shop Home. Order Status.',
+			'Levi\'s 501 Original. Carhartt Detroit Jacket. Patagonia Better Sweater. The North Face Nuptse. Columbia Bugaboo. UGG Tasman. Birkenstock Arizona. Dr. Martens 1460. Free Returns. New Arrivals. Shop Sale. Size Guide.',
+		]) {
+			assert.equal(detectLanguage(text).language, 'en', text);
+		}
+
+		// (not a text of another language with a few English words in it: a
+		//  product's or a book's name, a line in English after it)
+		for (const [language, text] of [
+			['fr', 'Bonjour, votre commande est prête. Vous pouvez la retirer en magasin dès demain avec votre pièce d\'identité. The Big Sale commence lundi. Merci pour votre confiance.'],
+			['fi', 'Toista äänikirja where we left off. Aloita minun äänikirjani siitä mihin jäin. Soita uudelleen the god of small things. Soita se viiden minuutin päästä, kiitos.'],
+			['es', 'Hola, tu pedido está listo y lo puedes recoger en la tienda desde mañana. Gracias por tu compra. You can track the order here.'],
+			['tr', 'Merhaba, siparişiniz hazır ve yarın mağazadan teslim alabilirsiniz. Bu kampanya için teşekkür ederiz ve iyi günler dileriz. Free shipping available now.'],
+			['nl', 'Uw bestelling is klaar en u kunt deze vanaf morgen ophalen in de winkel. Bedankt voor uw aankoop en tot ziens. Free shipping now available.'],
+			['ms', 'Selamat pagi, pesanan anda sudah siap dan boleh diambil di kedai kami mulai esok. Terima kasih kerana membeli dengan kami. Free shipping available now.'],
+			['tl', 'Magandang umaga po sa inyong lahat, salamat sa inyong pagbili at pagtitiwala sa aming tindahan ngayong araw.'],
+		]) {
+			assert.equal(detectLanguage(text).language, language, text);
+		}
+
+		// (a text of two languages is the one it has more of)
+		assert.equal(detectLanguage('Hello, your order is ready and you can pick it up at the store from tomorrow. Thank you for your purchase. Gracias por tu compra.').language, 'en');
+	});
+
 	it('leaves short Latin text undecided', () => {
 		const result = detectLanguage('ok thanks');
 		assert.equal(result.language, null);

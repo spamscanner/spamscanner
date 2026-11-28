@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {describe, it} from 'node:test';
 import {simpleParser} from 'mailparser';
 import {
-	characterClass, chunk, decodeEntities, extractHosts, extractLinks, getFeatures, isDeceptiveLink, normalizeText, obfuscationOf, readableText, registrableDomain, segmentWords, unwrapLink, visibleText,
+	characterClass, chunk, decodeEntities, extractHosts, extractLinks, getFeatures, isDeceptiveLink, normalizeText, obfuscationOf, readableText, registrableDomain, segmentWords, unmixedText, unwrapLink, visibleText,
 } from '../src/tokenizer.js';
 import SpamScanner from '../src/index.js';
 import {drawnQrCode} from '../src/qr.js';
@@ -469,7 +469,7 @@ describe('links', () => {
 		// (a government's site, from anyone but a known sender that passes
 		//  DMARC, and not to another government's site, nor through click
 		//  tracking or to the sender's own domain)
-		for (const text of ['https://www.uscourts.gov/case', 'www.gov.uk/tax-refund', 'impots.gouv.fr', 'https://www.nta.go.jp/', 'canada.ca', 'https://ec.europa.eu/']) {
+		for (const text of ['https://www.uscourts.gov/case', 'www.gov.uk/tax-refund', 'impots.gouv.fr', 'https://www.nta.go.jp/', 'canada.ca', 'https://ec.europa.eu/', 'https://www.service.nsw.gov.au/fines', 'detran.sp.gov.br', 'https://www.city.osaka.lg.jp/', 'https://nav.gov.hu/', 'www.belastingdienst.nl', 'https://www.ameli.fr/', 'www.nhs.uk', 'https://www.gosuslugi.ru/', 'elster.de', 'https://www.incometax.gov.in/']) {
 			assert.equal(isDeceptiveLink({host: 'evil.example', text}, {from: 'shop.example', recipients}), true, text);
 			assert.equal(isDeceptiveLink({host: 'evil.example', text}, {from: 'gmail.com', authenticated: true}), true, text);
 			assert.equal(isDeceptiveLink({host: 'evil.example', text}, {from: 'shop.example', authenticated: true, known: true}), false, text);
@@ -478,6 +478,12 @@ describe('links', () => {
 		assert.equal(isDeceptiveLink({text: 'https://www.uscourts.gov/'}, {from: 'shop.example'}), true);
 		assert.equal(isDeceptiveLink({host: 'www.treasury.gov', text: 'https://www.irs.gov'}, {from: 'shop.example'}), false);
 		assert.equal(isDeceptiveLink({host: 'www.canada.ca', text: 'https://www.cra-arc.gc.ca/'}, {from: 'shop.example'}), false);
+		assert.equal(isDeceptiveLink({host: 'mijn.overheid.nl', text: 'www.belastingdienst.nl'}, {from: 'shop.example'}), false);
+		// (not a site that only looks like a government's suffix)
+		for (const text of ['www.nic.example', 'https://shop.lg.example/', 'gov-hu.example']) {
+			assert.equal(isDeceptiveLink({host: 'evil.example', text}, {from: 'shop.example'}), false, text);
+		}
+
 		assert.equal(isDeceptiveLink({host: 'u1.ct.sendgrid.net', text: 'https://www.uscourts.gov'}, {from: 'firm.example'}), false);
 		assert.equal(isDeceptiveLink({host: 'email.firm-mail.example', text: 'https://www.uscourts.gov'}, {from: 'firm.example', senders: ['firm-mail.example']}), false);
 		assert.equal(isDeceptiveLink({host: 'other.example', text: 'https://www.gov.uk.evil.example'}, {from: 'shop.example'}), false);
@@ -842,6 +848,19 @@ describe('visibleText', () => {
 		assert.deepEqual(visibleText(null), {text: '', hidden: 0});
 		assert.equal(readableText(null), '');
 		assert.equal(readableText('Ｆr\u200Bee'), 'Free');
+		// (and a word that mixes scripts in the one most of its letters are
+		//  in, words of one script as they are)
+		assert.equal(unmixedText('p\u0430ypal \u043F\u0440\u0438\u0432\u0435\u0442 caf\u00E9 10\u03BCg'), 'paypal \u043F\u0440\u0438\u0432\u0435\u0442 caf\u00E9 10\u03BCg');
+		// (in text as written each letter keeps its case, a capital read as
+		//  the capital it looks like, a Greek "\u039D" as "N", or left when it
+		//  looks like none, and a unit as in small letters; the letters of
+		//  the phonetic alphabet that look like plain ones are those)
+		assert.equal(unmixedText('\u039Detflix P\u0430yP\u0410L D\u0397L \u03A9mega 5 k\u03A9 p\u0251yp\u0251l Goo\u0261le \u0130\u03C4\u03B1 P\u0440\u0438\u0432\u0435\u0442'), 'Netflix PayPAL DHL \u03A9mega 5 k\u03A9 paypal Google \u0399\u03C4\u03B1 \u0420\u0440\u0438\u0432\u0435\u0442');
+		// (as typed, only what a keyboard explains: a letter of another
+		//  script at the start or the end of a Latin word, and Latin letters
+		//  in a word of another script; not one inside a Latin word, nor a
+		//  letter of the phonetic alphabet)
+		assert.equal(unmixedText('\u039D\u0395\u03A4flix Netfli\u03C7 P\u0430ypal \u0410m\u0430zon p\u0251ypal C\u0431\u0435\u0440\u0431a\u043D\u043A', true), 'NETflix Netflix P\u0430ypal Am\u0430zon p\u0251ypal \u0421\u0431\u0435\u0440\u0431\u0430\u043D\u043A');
 	});
 
 	it('decodes character references as browsers do', () => {

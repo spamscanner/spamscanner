@@ -1,4 +1,4 @@
-<!-- source: 1d7373f991c2 -->
+<!-- source: 6806f38b2cad -->
 
 # Biztonság és adatvédelem
 
@@ -7,7 +7,7 @@ A Spam Scanner leveleket olvas, amelyek magánjellegűek, és olyan feladóktól
 
 ## Mi hagyja el a gépet
 
-Alapértelmezetten egyetlen dolog: a levélben lévő **hivatkozások gépneveit** lekérdezi a Cloudflare szűrő DNS-feloldóin, az 1.1.1.2-n és az 1.0.0.2-n (kártevők és adathalászat), valamint az 1.1.1.3-on és az 1.0.0.3-on (felnőtt tartalom is). Ezek hagyományos DNS-lekérdezések olyan nevekre, mint az `example.com`; a levél semmilyen része és a benne lévő címek sem kerülnek elküldésre. Kikapcsolhatók a `phishing: {cloudflare: false}` vagy a `--no-cloudflare` beállítással, csak a felnőtt tartalom ellenőrzése pedig a `phishing: {adult: false}` beállítással.
+Alapértelmezetten egyetlen dolog: a levélben lévő **hivatkozások gépneveit** lekérdezi a Cloudflare szűrő DNS-feloldóin, az 1.1.1.2-n és az 1.0.0.2-n (kártevők és adathalászat), valamint az 1.1.1.3-on és az 1.0.0.3-on (felnőtt tartalom is). Ezek hagyományos DNS-lekérdezések olyan nevekre, mint az `example.com`; a levél semmilyen része és a benne lévő címek sem kerülnek elküldésre. Kikapcsolhatók a `phishing: {cloudflare: false}` vagy a `--no-cloudflare` beállítással, csak a felnőtt tartalom ellenőrzése pedig a `phishing: {adult: false}` beállítással. Az általuk blokkolt nevet az 1.1.1.1 és az 1.0.0.1 címtől is megkérdezzük, amelyek semmit sem blokkolnak, hogy a blokkolást megkülönböztessük attól a névtől, amely maga mutat a `0.0.0.0` címre.
 
 Minden más ki van kapcsolva, amíg be nem állítják:
 

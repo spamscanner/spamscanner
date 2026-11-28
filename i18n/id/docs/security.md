@@ -1,4 +1,4 @@
-<!-- source: 1d7373f991c2 -->
+<!-- source: 6806f38b2cad -->
 
 # Keamanan dan privasi
 
@@ -7,7 +7,7 @@ Spam Scanner membaca email, yang bersifat pribadi, dari pengirim, yang mungkin b
 
 ## Apa yang keluar dari mesin
 
-Secara bawaan, satu hal: **nama host dari tautan** dalam pesan dicari di resolver penyaring Cloudflare, 1.1.1.2 dan 1.0.0.2 (malware dan phishing) serta 1.1.1.3 dan 1.0.0.3 (juga konten dewasa). Ini adalah kueri DNS biasa untuk nama seperti `example.com`; tidak ada bagian dari pesan atau alamatnya yang dikirim. Nonaktifkan dengan `phishing: {cloudflare: false}` atau `--no-cloudflare`, atau hanya pemeriksaan konten dewasa dengan `phishing: {adult: false}`.
+Secara bawaan, satu hal: **nama host dari tautan** dalam pesan dicari di resolver penyaring Cloudflare, 1.1.1.2 dan 1.0.0.2 (malware dan phishing) serta 1.1.1.3 dan 1.0.0.3 (juga konten dewasa). Ini adalah kueri DNS biasa untuk nama seperti `example.com`; tidak ada bagian dari pesan atau alamatnya yang dikirim. Nonaktifkan dengan `phishing: {cloudflare: false}` atau `--no-cloudflare`, atau hanya pemeriksaan konten dewasa dengan `phishing: {adult: false}`. Nama yang mereka blokir juga ditanyakan ke 1.1.1.1 dan 1.0.0.1, yang tidak memblokir apa pun, untuk membedakan pemblokiran dari nama yang menunjuk sendiri ke `0.0.0.0`.
 
 Semua yang lain nonaktif sampai dikonfigurasi:
 

@@ -1,4 +1,4 @@
-<!-- source: 1d7373f991c2 -->
+<!-- source: 6806f38b2cad -->
 
 # Säkerhet och integritet
 
@@ -7,7 +7,7 @@ Spam Scanner läser e-post, som är privat, från avsändare, som kan vara fient
 
 ## Vad som lämnar datorn
 
-Som standard en sak: **värdnamnen i länkar** i ett meddelande slås upp hos Cloudflares filtrerande resolvrar, 1.1.1.2 och 1.0.0.2 (skadlig kod och nätfiske) samt 1.1.1.3 och 1.0.0.3 (även vuxeninnehåll). Det är vanliga DNS-frågor efter namn som `example.com`; ingen del av meddelandet eller dess adresser skickas. Stäng av dem med `phishing: {cloudflare: false}` eller `--no-cloudflare`, eller bara kontrollen av vuxeninnehåll med `phishing: {adult: false}`.
+Som standard en sak: **värdnamnen i länkar** i ett meddelande slås upp hos Cloudflares filtrerande resolvrar, 1.1.1.2 och 1.0.0.2 (skadlig kod och nätfiske) samt 1.1.1.3 och 1.0.0.3 (även vuxeninnehåll). Det är vanliga DNS-frågor efter namn som `example.com`; ingen del av meddelandet eller dess adresser skickas. Stäng av dem med `phishing: {cloudflare: false}` eller `--no-cloudflare`, eller bara kontrollen av vuxeninnehåll med `phishing: {adult: false}`. Ett namn som de blockerar slås också upp på 1.1.1.1 och 1.0.0.1, som inte blockerar något, för att skilja en blockering från ett namn som självt pekar på `0.0.0.0`.
 
 Allt annat är avstängt tills det konfigureras:
 

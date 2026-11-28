@@ -13,7 +13,7 @@ import {
 } from '../src/auth.js';
 import {clamdAddress, ping, scanBuffer} from '../src/clamav.js';
 import {
-	CLOUDFLARE_FAMILY, DnsChecker, KNOWN_LISTS, isListedAnswer, isLookupName, lookupName, normalizeIp, reverseName,
+	CLOUDFLARE_FAMILY, CLOUDFLARE_PLAIN, DnsChecker, KNOWN_LISTS, isListedAnswer, isLookupName, lookupName, normalizeIp, reverseName,
 } from '../src/dnsbl.js';
 import {requestJson} from '../src/http.js';
 import SpamScanner from '../src/index.js';
@@ -153,15 +153,42 @@ describe('DNS blocklists and filtering resolvers', () => {
 	it('asks the malware resolver first, then the family resolver', async () => {
 		const malware = await dnsServer({'malware.example A': ['0.0.0.0'], 'adult.example A': ['192.0.2.9'], 'fine.example A': ['192.0.2.10']});
 		const family = await dnsServer({'adult.example A': ['0.0.0.0'], 'fine.example A': ['192.0.2.10']});
+		const plain = await dnsServer({'malware.example A': ['192.0.2.8']});
 		try {
 			const checker = new DnsChecker({timeout: 3000});
-			const options = {malwareServers: [malware.server], familyServers: [family.server]};
+			const options = {malwareServers: [malware.server], familyServers: [family.server], plainServers: [plain.server]};
 			assert.deepEqual(await checker.checkCloudflare(['malware.example', 'adult.example', 'fine.example', '192.0.2.1'], options), [{host: 'malware.example', category: 'malware'}, {host: 'adult.example', category: 'adult'}]);
 			assert.deepEqual(await checker.checkCloudflare(['adult.example'], {...options, adult: false}), []);
 			assert.equal(CLOUDFLARE_FAMILY[0], '1.1.1.3');
 		} finally {
 			await malware.close();
 			await family.close();
+			await plain.close();
+		}
+	});
+
+	it('does not take a name that points to 0.0.0.0 itself for a blocked one', async () => {
+		// (as a host no longer in use does, "go.example.com" of a company's
+		//  own site: every resolver answers 0.0.0.0 for it)
+		const blocked = {
+			'parked.example A': ['0.0.0.0'], 'hidden.example A': ['0.0.0.0'], 'silent.example A': ['0.0.0.0'], 'gone.example A': ['0.0.0.0'],
+		};
+		const malware = await dnsServer(blocked);
+		const family = await dnsServer(blocked);
+		const plain = await dnsServer({'parked.example A': ['0.0.0.0'], 'hidden.example A': ['0.0.0.0', '192.0.2.7'], 'silent.example A': 'timeout'});
+		try {
+			const checker = new DnsChecker({timeout: 500});
+			const options = {malwareServers: [malware.server], familyServers: [family.server], plainServers: [plain.server]};
+			assert.deepEqual(await checker.checkCloudflare(['parked.example'], options), []);
+			// (one with another address too, which a block hides, is blocked;
+			//  so is one the resolver that blocks nothing has no answer for,
+			//  or no address)
+			assert.deepEqual(await checker.checkCloudflare(['hidden.example', 'silent.example', 'gone.example'], options), [{host: 'hidden.example', category: 'malware'}, {host: 'silent.example', category: 'malware'}, {host: 'gone.example', category: 'malware'}]);
+			assert.equal(CLOUDFLARE_PLAIN[0], '1.1.1.1');
+		} finally {
+			await malware.close();
+			await family.close();
+			await plain.close();
 		}
 	});
 
@@ -211,13 +238,14 @@ describe('DNS blocklists and filtering resolvers', () => {
 		// (asked once for names that are looked up as one, and named so)
 		const asked = [];
 		const checker = new DnsChecker({
-			async resolve4(name) {
+			async resolve4(name, servers) {
 				asked.push(name);
-				return name === 'evil.example.com' ? ['0.0.0.0'] : ['192.0.2.1'];
+				return name === 'evil.example.com' && servers !== CLOUDFLARE_PLAIN ? ['0.0.0.0'] : ['192.0.2.1'];
 			},
 		});
 		assert.deepEqual(await checker.checkCloudflare(['x!y.evil.example.com', 'evil.example.com...', 'EVIL.example.com', 'x!y.com']), [{host: 'evil.example.com', category: 'malware'}]);
-		assert.deepEqual(asked, ['evil.example.com']);
+		// (and of the resolver that blocks nothing, as it is blocked)
+		assert.deepEqual(asked, ['evil.example.com', 'evil.example.com']);
 	});
 
 	it('looks up a name of any length in linear time', () => {
@@ -590,7 +618,7 @@ describe('lookups without an answer', () => {
 					throw Object.assign(new Error('queryA ETIMEOUT'), {code: 'ETIMEOUT'});
 				}
 
-				return name.startsWith('bad') ? ['0.0.0.0'] : ['192.0.2.1'];
+				return name.startsWith('bad') && servers !== CLOUDFLARE_PLAIN ? ['0.0.0.0'] : ['192.0.2.1'];
 			},
 		});
 		const found = await checker.checkCloudflare(['bad.example', 'silent.example', 'quiet.example', 'fine.example']);

@@ -115,6 +115,32 @@ describe('scoreResults', () => {
 		assert.equal(scoreResults({...results, phishing: [{...results.phishing[0], quoted: true}]}).score, DEFAULT_SCORES.maliciousDomain - 5);
 	});
 
+	it('gives a message whose display name and subject both claim a brand it is not from no credit', () => {
+		const results = {
+			classification: {probability: 0.97},
+			authentication: {score: {tests: [{name: 'SPF_PASS', score: -0.5}, {name: 'DKIM_PASS', score: -0.5}, {name: 'DMARC_PASS', score: -1.5}]}},
+			arbitrary: {
+				rules: [{
+					name: 'FROM_NAME_BRAND', score: 2, message: 'Display name says "docusign" but the message is from bakery.example', subject: true,
+				}],
+			},
+		};
+		const result = scoreResults(results);
+		assert.equal(result.isSpam, true);
+		assert.deepEqual(result.tests.map(test => test.name), ['BAYES_95', 'FROM_NAME_BRAND']);
+		const ham = scoreResults({...results, classification: {probability: 0.001}});
+		assert.equal(ham.score, 2);
+		assert.equal(ham.tests[0].description, 'Classifier spam probability 0.1% (no credit: its display name and its subject claim a brand it is not from)');
+		// (with its credit when only its display name does, or when the
+		//  rule's points are turned off)
+		const named = {...results, arbitrary: {rules: [{...results.arbitrary.rules[0], subject: false}]}};
+		assert.equal(scoreResults(named).isSpam, false);
+		assert.deepEqual(scoreResults(named).tests.map(test => test.name), ['BAYES_95', 'FROM_NAME_BRAND', 'SPF_PASS', 'DKIM_PASS', 'DMARC_PASS']);
+		assert.equal(scoreResults(results, {scores: {FROM_NAME_BRAND: 0}}).isSpam, false);
+		// (and the receiver's own trust still counts)
+		assert.equal(scoreResults({...results, reputation: {isAllowlisted: true, allowlistValue: 'x'}}).isSpam, false);
+	});
+
 	it('gives a message sent straight from a rented cloud server without authenticating no credit, so it is spam', () => {
 		const results = {
 			classification: {probability: 0},
@@ -129,6 +155,45 @@ describe('scoreResults', () => {
 		assert.equal(scoreResults(results, {scores: {CLOUD_SERVER: 0}}).score, -3);
 		// (and the receiver's own trust still counts)
 		assert.equal(scoreResults({...results, reputation: {isAllowlisted: true, allowlistValue: 'x'}}).score, 5 + DEFAULT_SCORES.allowlisted);
+	});
+
+	it('gives a message a domain signed from an address under no top-level domain no credit', () => {
+		const results = {
+			classification: {probability: 0.991},
+			authentication: {score: {tests: [{name: 'DKIM_PASS', score: -0.5}, {name: 'SPF_PASS', score: -0.5}]}},
+			arbitrary: {rules: [{name: 'FROM_UNKNOWN_TLD', score: 0.5, message: 'The From address is under .zzq, which is no top-level domain, in a message another domain signed'}]},
+		};
+		const result = scoreResults(results);
+		assert.equal(result.isSpam, true);
+		assert.deepEqual(names(result), ['BAYES_99', 'FROM_UNKNOWN_TLD']);
+		const ham = scoreResults({...results, classification: {probability: 0.001}});
+		assert.equal(ham.score, 0.5);
+		assert.equal(ham.tests[0].description, 'Classifier spam probability 0.1% (no credit: its From address is under no top-level domain, so what passes is another domain\'s)');
+		// (with its credit when the rule's points are turned off, as before it)
+		const before = scoreResults(results, {scores: {FROM_UNKNOWN_TLD: 0}});
+		assert.equal(before.isSpam, false);
+		assert.deepEqual(names(before), ['BAYES_99', 'DKIM_PASS', 'SPF_PASS']);
+		// (and the receiver's own trust still counts)
+		assert.equal(scoreResults({...results, reputation: {isAllowlisted: true, allowlistValue: 'x'}}).isSpam, false);
+	});
+
+	it('gives a message whose display name writes a brand with lookalike letters no credit, so it is spam', () => {
+		const results = {
+			classification: {probability: 0.001},
+			authentication: {score: {tests: [{name: 'DKIM_PASS', score: -0.5}, {name: 'SPF_PASS', score: -0.5}, {name: 'DMARC_PASS', score: -1.5}]}},
+			arbitrary: {rules: [{name: 'FROM_NAME_BRAND', score: 2, message: 'Display name says "paypal" but the message is from notice.example'}, {name: 'FROM_NAME_LOOKALIKE', score: 3, message: 'Display name writes "paypal" with lookalike letters'}]},
+		};
+		const result = scoreResults(results);
+		assert.equal(result.score, 5);
+		assert.equal(result.isSpam, true);
+		assert.equal(result.tests[0].description, 'Classifier spam probability 0.1% (no credit: its display name writes a brand it is not from with lookalike letters)');
+		// (with its credit when the rule's points are turned off, as a name
+		//  in plain letters has it)
+		const plain = scoreResults(results, {scores: {FROM_NAME_LOOKALIKE: 0}});
+		assert.equal(plain.score, -3);
+		assert.equal(plain.isSpam, false);
+		// (and the receiver's own trust still counts)
+		assert.equal(scoreResults({...results, reputation: {isAllowlisted: true, allowlistValue: 'x'}}).isSpam, false);
 	});
 
 	it('adds or removes points for the language model\'s verdict, scaled by confidence', () => {

@@ -1,4 +1,4 @@
-<!-- source: 1d7373f991c2 -->
+<!-- source: 6806f38b2cad -->
 
 # Tietoturva ja yksityisyys
 
@@ -7,7 +7,7 @@ Spam Scanner lukee postia, joka on yksityistä, lähettäjiltä, jotka voivat ol
 
 ## Mitä koneelta lähtee
 
-Oletuksena yksi asia: viestin **linkkien isäntänimet** tarkistetaan Cloudflaren suodattavista DNS-palveluista 1.1.1.2 ja 1.0.0.2 (haittaohjelmat ja tietojenkalastelu) sekä 1.1.1.3 ja 1.0.0.3 (myös aikuissisältö). Nämä ovat tavallisia DNS-kyselyjä nimille kuten `example.com`; mitään osaa viestistä tai sen osoitteista ei lähetetä. Poista ne käytöstä valinnalla `phishing: {cloudflare: false}` tai `--no-cloudflare`, tai pelkkä aikuissisällön tarkistus valinnalla `phishing: {adult: false}`.
+Oletuksena yksi asia: viestin **linkkien isäntänimet** tarkistetaan Cloudflaren suodattavista DNS-palveluista 1.1.1.2 ja 1.0.0.2 (haittaohjelmat ja tietojenkalastelu) sekä 1.1.1.3 ja 1.0.0.3 (myös aikuissisältö). Nämä ovat tavallisia DNS-kyselyjä nimille kuten `example.com`; mitään osaa viestistä tai sen osoitteista ei lähetetä. Poista ne käytöstä valinnalla `phishing: {cloudflare: false}` tai `--no-cloudflare`, tai pelkkä aikuissisällön tarkistus valinnalla `phishing: {adult: false}`. Niiden estämä nimi kysytään myös osoitteista 1.1.1.1 ja 1.0.0.1, jotka eivät estä mitään, jotta esto erotetaan nimestä, joka itse osoittaa osoitteeseen `0.0.0.0`.
 
 Kaikki muu on pois käytöstä, kunnes se määritetään:
 

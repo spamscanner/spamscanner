@@ -2,11 +2,13 @@ import {domainToUnicode} from 'node:url';
 import {parse as parseDomain} from 'tldts';
 import {scriptOf} from './language.js';
 
-// Banks, shops, payment and delivery services imitated in other languages
-// (only names that are not words or close to words, so ordinary domains
-// are not taken for typos of them).
+// Banks, posts, tax offices, shops, payment and delivery services imitated
+// around the world (only names that are not words or close to words, so
+// ordinary domains are not taken for typos of them: each run against a
+// million of the most visited domains, which must hold none it takes for
+// an imitation but those that are).
 const INTERNATIONAL_BRANDS = [
-	'alipay', 'auspost', 'bancolombia', 'bnpparibas', 'bradesco', 'caixabank', 'canadapost', 'commerzbank', 'coupang', 'creditagricole', 'deutschebank', 'flipkart', 'gosuslugi', 'japanpost', 'kakaobank', 'klarna', 'kucoin', 'lazada', 'mercadolibre', 'mercadolivre', 'mercadopago', 'mercari', 'natwest', 'nubank', 'phonepe', 'postbank', 'rakuten', 'sberbank', 'swisscom', 'trustwallet', 'unicredit', 'vodafone', 'wechat', 'yandex',
+	'abnamro', 'agenziaentrate', 'aliorbank', 'alipay', 'alphabank', 'alrajhibank', 'auspost', 'axisbank', 'banamex', 'bancatransilvania', 'bancoazteca', 'bancodebogota', 'bancodechile', 'bancodobrasil', 'bancoestado', 'bancofalabella', 'bancogalicia', 'bancolombia', 'bancomacro', 'bancomer', 'bancoposta', 'bancoppel', 'bancosabadell', 'bancsabadell', 'bangkokbank', 'bankaustria', 'bankhapoalim', 'bankleumi', 'bankmandiri', 'bankmillennium', 'bankofbaroda', 'bankofchina', 'bankofcyprus', 'bankofireland', 'bankwest', 'banorte', 'banquemisr', 'banquepopulaire', 'banreservas', 'banrisul', 'bbva', 'belarusbank', 'belastingdienst', 'belfius', 'bendigobank', 'biglobe', 'bitflyer', 'bithumb', 'bitstamp', 'bitvavo', 'bluehost', 'bnpparibas', 'boursobank', 'boursorama', 'bouyguestelecom', 'bradesco', 'britishgas', 'bukalapak', 'bunq', 'caixabank', 'canadapost', 'capitalone', 'ceskaposta', 'ceskasporitelna', 'chronopost', 'citibanamex', 'coincheck', 'colissimo', 'commerzbank', 'commonwealthbank', 'consorsbank', 'correoargentino', 'coupang', 'creditagricole', 'creditmutuel', 'creditsuisse', 'danskebank', 'daviplata', 'davivienda', 'denizbank', 'deutschebank', 'deutschepost', 'dgfip', 'dvla', 'easypaisa', 'emiratesnbd', 'emiratespost', 'eposcard', 'equitybank', 'erstebank', 'erstegroup', 'etisalat', 'fancourier', 'finecobank', 'flipkart', 'flutterwave', 'garantibbva', 'gazprombank', 'geeksquad', 'gosuslugi', 'grabpay', 'halkbank', 'halykbank', 'hanabank', 'handelsbanken', 'hdfcbank', 'hellenicbank', 'hellobank', 'hepsiburada', 'hostgator', 'hypovereinsbank', 'ibercaja', 'iberdrola', 'icbc', 'inbursa', 'indiapost', 'intesasanpaolo', 'isracard', 'israelpost', 'itau', 'japanpost', 'jazzcash', 'kakaobank', 'kakaopay', 'kakaotalk', 'kasikornbank', 'kiwibank', 'klarna', 'klikbca', 'kotakbank', 'krungsri', 'krungthai', 'kucoin', 'kutxabank', 'kyivstar', 'labanquepostale', 'landbank', 'lazada', 'lloydsbank', 'luxtrust', 'maltapost', 'mediolanum', 'mercadolibre', 'mercadolivre', 'mercadopago', 'mercari', 'metrobank', 'millenniumbcp', 'mizuhobank', 'moneygram', 'monobank', 'multibanco', 'multicaixa', 'naturgy', 'natwest', 'navyfederal', 'nexi', 'ninjavan', 'nonghyup', 'novaposhta', 'novobanco', 'nubank', 'octopusenergy', 'oschadbank', 'ovhcloud', 'pagseguro', 'parcelforce', 'paymaya', 'payoneer', 'paystack', 'permanenttsb', 'phonepe', 'piraeusbank', 'pocztapolska', 'posindonesia', 'postbank', 'posteitaliane', 'postfinance', 'postnord', 'rabobank', 'rakuten', 'resonabank', 'riyadbank', 'safaricom', 'saisoncard', 'sberbank', 'scotiabank', 'serpost', 'servicecanada', 'servientrega', 'shinhanbank', 'shinhancard', 'sicoob', 'sicredi', 'singpass', 'skatteetaten', 'skatteverket', 'squarespace', 'standardchartered', 'starlingbank', 'swedbank', 'swisscom', 'targobank', 'tatrabanka', 'techcombank', 'telepass', 'telstra', 'thailandpost', 'tinkoff', 'tokopedia', 'tossbank', 'totalenergies', 'trendyol', 'triodos', 'truemoney', 'trustwallet', 'turkcell', 'turktelekom', 'tvlicensing', 'ukrposhta', 'unicredit', 'vietcombank', 'vietinbank', 'vietnampost', 'viewcard', 'virginmedia', 'virginmoney', 'vodafone', 'wallapop', 'wechat', 'wechatpay', 'westernunion', 'wildberries', 'willhaben', 'wooribank', 'yandex', 'zenithbank', 'ziraatbank',
 ];
 
 /**
@@ -19,10 +21,32 @@ export const BRANDS = [
 	'adobe', 'airbnb', 'alibaba', 'aliexpress', 'amazon', 'americanexpress', 'amex', 'apple', 'appleid', 'att', 'binance', 'bankofamerica', 'barclays', 'bestbuy', 'blockchain', 'booking', 'bybit', 'cashapp', 'chase', 'citibank', 'cloudflare', 'coinbase', 'comcast', 'costco', 'dhl', 'discord', 'docusign', 'dropbox', 'ebay', 'facebook', 'fedex', 'forwardemail', 'github', 'gitlab', 'gmail', 'godaddy', 'google', 'hmrc', 'hotmail', 'hsbc', 'icloud', 'instagram', 'intuit', 'irs', 'kraken', 'ledger', 'linkedin', 'mastercard', 'mcafee', 'metamask', 'microsoft', 'microsoftonline', 'namecheap', 'netflix', 'norton', 'office', 'office365', 'okta', 'onedrive', 'outlook', 'paypal', 'proton', 'protonmail', 'quickbooks', 'revolut', 'roblox', 'royalmail', 'salesforce', 'samsung', 'santander', 'sharepoint', 'shopify', 'skype', 'slack', 'sparkasse', 'spotify', 'steam', 'steampowered', 'stripe', 'telegram', 'tiktok', 'tmobile', 'trezor', 'tutanota', 'twitter', 'uber', 'ups', 'usps', 'venmo', 'verizon', 'visa', 'walmart', 'wellsfargo', 'whatsapp', 'wise', 'xfinity', 'yahoo', 'zelle', 'zoom', ...INTERNATIONAL_BRANDS,
 ];
 
-// Words phishing domains add to a brand ("paypallogin", "secure-chase"):
-// asking to sign in, verify, unlock or pay, not words a shop or service puts
-// in an ordinary name.
-export const PHISHING_WORDS = ['account', 'accounts', 'alert', 'alerts', 'auth', 'authentication', 'billing', 'confirm', 'login', 'logon', 'password', 'recovery', 'refund', 'secure', 'security', 'signin', 'signon', 'suspended', 'unlock', 'update', 'validate', 'verification', 'verify'];
+// Words phishing domains add to a brand ("paypallogin", "secure-chase",
+// "paypal-konto", "amazonconnexion"): asking to sign in, verify, unlock or
+// pay, not words a shop or service puts in an ordinary name. In the languages
+// phishing is written in, as a domain name spells them, without accents; but
+// not those that start ordinary words of a business ("conta" of "contato"
+// and "contabilidade", "acceso" of "accesorios", "seguro" of "seguros").
+export const PHISHING_WORDS = [
+	'account accounts alert alerts auth authentication billing confirm login logon password recovery refund secure security signin signon suspended unlock update validate verification verify',
+	// German
+	'aktualisieren aktualisierung anmelden anmeldung bestaetigen bestatigen entsperren kennwort konto kundenkonto passwort sicherheit verifizieren verifizierung',
+	// French
+	'authentification compte confirmer connexion motdepasse remboursement securite verifier',
+	// Spanish, Portuguese
+	'actualizar atualizacao atualizar confirmacao confirmar contrasena cuenta reembolso seguranca seguridad verificacao verificacion verificar',
+	// Italian
+	'accedi aggiorna conferma rimborso sicurezza verifica',
+	// Dutch
+	'beveiliging bevestigen inloggen verificatie wachtwoord',
+	// Polish, Czech, Hungarian, Romanian
+	'autentificare bejelentkezes bezpieczenstwo biztonsag logowanie overeni potwierdz prihlaseni securitate weryfikacja zaloguj',
+	// Swedish, Danish, Norwegian, Finnish
+	'bekraeft bekreft inloggning kirjaudu losenord passord sakerhet salasana sikkerhed sikkerhet',
+	// Turkish, Indonesian, Vietnamese
+	'dangnhap dogrulama guncelle guvenlik keamanan konfirmasi taikhoan verifikasi xacminh',
+].flatMap(words => words.split(' '));
+const PHISHING_WORD = new Set(PHISHING_WORDS);
 
 // Brands that are also words: joined to a phishing word ("securebooking",
 // "officesecurity") they name something else as often as the brand.
@@ -108,7 +132,7 @@ const isTypo = (name, brand) => !TYPO_WORDS.has(brand) || isSwap(name, brand) ||
 // and the names of other companies and sites that are ("paypay" of Japan and
 // "paypak" of Pakistan for paypal, "amaron", "cosco", "citicbank", "lithub").
 const SWAPPED_WORDS = new Set([
-	'akuten', 'alzada', 'amaron', 'amazona', 'amazone', 'appel', 'applied', 'auslost', 'ausport', 'azada', 'barclay', 'bebit', 'bibit', 'citicbank', 'civibank', 'comcash', 'cosco', 'coupant', 'feedx', 'gechat', 'giftlab', 'hostmail', 'intui', 'intuis', 'inuit', 'klara', 'klarta', 'lanada', 'lanzada', 'lapada', 'latada', 'lavada', 'lithub', 'mazada', 'mercar', 'mercati', 'mercuri', 'nbank', 'paypak', 'paypay', 'pazada', 'phoneme', 'postbak', 'quirkbooks', 'raketen', 'rauten', 'razada', 'rejolut', 'revolt', 'salesforge', 'setam', 'stema', 'stirpe', 'swissmom', 'swype', 'treezor', 'vazada', 'venom', 'verion', 'wallart', 'webchat', 'weechat', 'yande',
+	'akuten', 'alzada', 'amaron', 'amazona', 'amazone', 'appel', 'applied', 'auslost', 'ausport', 'axosbank', 'azada', 'barclay', 'bebit', 'bibit', 'capitaline', 'citicbank', 'civibank', 'comcash', 'cosco', 'coupant', 'feedx', 'gechat', 'giftlab', 'hostmail', 'intui', 'intuis', 'inuit', 'klara', 'klarta', 'lanada', 'lanzada', 'lapada', 'latada', 'lavada', 'lithub', 'mazada', 'mercar', 'mercati', 'mercuri', 'nbank', 'paypak', 'paypay', 'pazada', 'phoneme', 'postbak', 'quirkbooks', 'raketen', 'rauten', 'razada', 'rejolut', 'revolt', 'salesforge', 'setam', 'stema', 'stirpe', 'swissmom', 'swype', 'treezor', 'vazada', 'venom', 'verion', 'wallart', 'webchat', 'weechat', 'yande',
 ]);
 
 // Official domains of the brands above whose names also hold a brand
@@ -116,7 +140,7 @@ const SWAPPED_WORDS = new Set([
 // its registry, and none that holds its customers' pages under their own
 // names ("salesforce-sites.com", "sharepoint-df.com").
 const OFFICIAL_DOMAINS = [
-	'adobe-addons.com', 'adobe-ap.com', 'adobe-campaign.com', 'adobe-campaign.net', 'adobe-identity.com', 'adobelogin.com', 'ads-twitter.com', 'alibaba-inc.com', 'aliexpress-media.com', 'aliexpress-tech-open.com', 'alipay-eco.com', 'amazon-ads-attestation.com', 'amazon-adsystem.com', 'amazon-corp.com', 'amazon-dss.com', 'amazon-value-service.com', 'apple-cloudkit.com', 'apple-dns.net', 'assoc-amazon.com', 'associates-amazon.com', 'bnpparibas-am.com', 'bnpparibas-pf.com', 'business-tiktok.com', 'canadapost-postescanada.ca', 'cc-costco.com', 'cdn-apple.com', 'cloudflare-dns.com', 'cloudflare-ech.com', 'cloudflare-email.net', 'cloudflare-eth.com', 'cloudflare-gateway.com', 'cloudflare-internal.com', 'cloudflare-ipfs.com', 'cloudflare-quic.com', 'cloudflare-terms-of-service-abuse.com', 'coinbase-corp.com', 'costco-static.com', 'credit-agricole.com', 'credit-agricole.fr', 'deutsche-bank.de', 'deutschebank-dbdirect.com', 'dropbox-dns.com', 'ebay-kleinanzeigen.de', 'facebook-hardware.com', 'facebook-studio.com', 'gitlab-static.net', 'google-analytics.com', 'google-melange.com', 'icloud-content.com', 'icloud-mpp.com', 'icloud-sandbox.com', 'images-amazon.com', 'instagram-brand.com', 'instagram-engineering.com', 'instagram-press.com', 'linkedin-ei.com', 'mcafeesecure.com', 'media-amazon.com', 'mercari-ops.com', 'mercari-shops-static.com', 'microsoft-falcon.net', 'microsoft-int.com', 'microsoft-ppe.com', 'microsoftonline-p.com', 'microsoftonline-p.net', 'okta-emea.com', 'payments-amazon.com', 'paypal-ads.com', 'paypal-communication.com', 'paypal-community.com', 'paypal-corp.com', 'paypal-mktg.com', 'paypal-objects.com', 'paypal-prepaid.com', 'paypal-status.com', 'quip-amazon.com', 'rakuten-bank.co.jp', 'rakuten-bank.net', 'rakuten-card.co.jp', 'rakuten-it.com', 'rakuten-sec.co.jp', 'rakuten-sec.net', 'rakuten-static.com', 's-microsoft.com', 'salesforce-ccaas.com', 'salesforce-dns.com', 'salesforce-hub.com', 'samsung-dict.com', 'samsung-news.com', 'samsung-svoice.com', 'sberbank-ast.ru', 'siege-amazon.com', 'slack-edge.com', 'slack-msgs.com', 'ssl-images-amazon.com', 't-mobile.com', 'thehub-amazon.com', 'tiktok-row.net', 'tiktok-row.org', 'tiktokcdn.com', 'tiktokv.com', 'tmobile-digital.com', 'verizon-gni.net', 'verizon-services.com', 'vodafone-ip.de', 'yahoo-corp.jp', 'yahoo-net.jp', 'yandex-bank.net', 'yandex-team.ru',
+	'adobe-addons.com', 'adobe-ap.com', 'adobe-campaign.com', 'adobe-campaign.net', 'adobe-identity.com', 'adobelogin.com', 'ads-twitter.com', 'alibaba-inc.com', 'aliexpress-media.com', 'aliexpress-tech-open.com', 'alipay-eco.com', 'amazon-ads-attestation.com', 'amazon-adsystem.com', 'amazon-corp.com', 'amazon-dss.com', 'amazon-value-service.com', 'apple-cloudkit.com', 'apple-dns.net', 'assoc-amazon.com', 'associates-amazon.com', 'bluehost-cdn.com', 'bnpparibas-am.com', 'bnpparibas-pf.com', 'bouyguestelecom-entreprises.fr', 'bradescoseguranca.com.br', 'business-tiktok.com', 'canadapost-postescanada.ca', 'cc-costco.com', 'cdn-apple.com', 'cloudflare-dns.com', 'cloudflare-ech.com', 'cloudflare-email.net', 'cloudflare-eth.com', 'cloudflare-gateway.com', 'cloudflare-internal.com', 'cloudflare-ipfs.com', 'cloudflare-quic.com', 'cloudflare-terms-of-service-abuse.com', 'coinbase-corp.com', 'costco-static.com', 'credit-agricole.com', 'credit-agricole.fr', 'creditmutuel-epargnesalariale.fr', 'deutsche-bank.de', 'deutschebank-dbdirect.com', 'dropbox-dns.com', 'ebay-kleinanzeigen.de', 'erstebank-open.com', 'facebook-hardware.com', 'facebook-studio.com', 'gitlab-static.net', 'google-analytics.com', 'google-melange.com', 'icloud-content.com', 'icloud-mpp.com', 'icloud-sandbox.com', 'images-amazon.com', 'instagram-brand.com', 'instagram-engineering.com', 'instagram-press.com', 'labanquepostale-assurances-iard.fr', 'labanquepostale-cartesprepayees.fr', 'labanquepostale-financement.fr', 'labanquepostale-gestionprivee.fr', 'linkedin-ei.com', 'mcafeesecure.com', 'media-amazon.com', 'mercari-ops.com', 'mercari-shops-static.com', 'microsoft-falcon.net', 'microsoft-int.com', 'microsoft-ppe.com', 'microsoftonline-p.com', 'microsoftonline-p.net', 'notif-colissimo-laposte.info', 'okta-emea.com', 'payments-amazon.com', 'payoneer-affiliates.com', 'paypal-ads.com', 'paypal-communication.com', 'paypal-community.com', 'paypal-corp.com', 'paypal-mktg.com', 'paypal-objects.com', 'paypal-prepaid.com', 'paypal-status.com', 'postfinance-checkout.ch', 'quip-amazon.com', 'rakuten-bank.co.jp', 'rakuten-bank.net', 'rakuten-card.co.jp', 'rakuten-it.com', 'rakuten-sec.co.jp', 'rakuten-sec.net', 'rakuten-static.com', 's-microsoft.com', 'saisoncard-international.com', 'saisoncard-promotion.com', 'saisoncard-sindan.jp', 'salesforce-ccaas.com', 'salesforce-dns.com', 'salesforce-hub.com', 'samsung-dict.com', 'samsung-news.com', 'samsung-svoice.com', 'sberbank-ast.ru', 'siege-amazon.com', 'slack-edge.com', 'slack-msgs.com', 'squarespace-cdn.com', 'squarespace-mail.com', 'ssl-images-amazon.com', 't-mobile.com', 'thehub-amazon.com', 'tiktok-row.net', 'tiktok-row.org', 'tiktokcdn.com', 'tiktokv.com', 'tmobile-digital.com', 'verizon-gni.net', 'verizon-services.com', 'vodafone-ip.de', 'xxi-banorte.com', 'yahoo-corp.jp', 'yahoo-net.jp', 'yandex-bank.net', 'yandex-team.ru',
 ];
 // (and each Sparkasse's own, "sparkasse-koelnbonn.de" and
 // "berliner-sparkasse.de", unless a part of it is a phishing word; and a
@@ -133,20 +157,25 @@ const SPARKASSE = /^(?:sparkasse-[a-z\d-]+|[a-z\d-]+-sparkasse)\.(?:de|at)$|^rak
 const CARRIERS = ['aaplimg.com', 'adobedc.net', 'akadns.net', 'akahost.net', 'akamaitech.net', 'akamaized.net', 'alibabadns.com', 'alikunlun.com', 'alikunlun.net', 'cdngslb.com', 'cloud.microsoft', 'ebaycdn.net', 'edgekey.net', 'edgesuite.net', 'fbcdn.net', 'goskope.com', 'kunlunsl.com', 'mcas-gov.ms', 'mcas-gov.us', 'mcas.ms', 'myshn.net', 'omtrdc.net', 'pv-cdn.net', 'trafficmanager.net'];
 const CARRIER_NAME = /(?:^|-)msedge\.net$/;
 // The brands that write their name with a hyphen in their own domains, in
-// any country ("credit-agricole.pl", "deutsche-bank.es", "sber-bank.by")
-const OWN_SPELLINGS = new Set(['credit-agricole', 'deutsche-bank', 'sber-bank', 'wal-mart']);
+// any country ("credit-agricole.pl", "deutsche-bank.es", "sber-bank.by",
+// "bouygues-telecom.fr")
+const OWN_SPELLINGS = new Set(['bouygues-telecom', 'credit-agricole', 'credit-suisse', 'deutsche-bank', 'poczta-polska', 'sber-bank', 'wal-mart']);
 
 // Suffixes put after a brand inside another domain ("paypal.com-verify.example"):
 // the generic ones, which no ordinary name starts with, and country codes and
 // others, which many do ("office.it-haus.de", "microsoft.co-op.org"), so
-// these count fully only with a phishing word after them.
+// these count fully only with a phishing word after them. The country codes
+// are those of the countries the brands are of ("allegro.pl-oferta.example",
+// "marktplaats.nl-betaling.example"), but for the ones that start as many
+// names as "my" does.
+const COUNTRY = 'ae|ar|at|au|be|br|ca|ch|cl|cn|cz|de|dk|es|eu|fi|fr|gr|hk|hu|id|ie|il|in|it|jp|kr|mx|nl|no|nz|pe|ph|pl|pt|ro|ru|sa|se|sg|sk|th|tr|tw|ua|uk|us|vn|za';
 const SUFFIX_DASH = /^(?:com|net|org|gov|edu)-/;
-const OTHER_SUFFIX_DASH = /^(?:co|info|biz|io|app|us|uk|de|fr|es|it|ca|au|jp|br|in)-/;
+const OTHER_SUFFIX_DASH = new RegExp(`^(?:co|info|biz|io|app|${COUNTRY})-`);
 // (and fully, a second-level suffix spelled out: "paypal.co-uk.example")
-const SECOND_SUFFIX_DASH = /^(?:co|com)-(?:uk|jp|au|nz|za|in|kr|br)\b/;
+const SECOND_SUFFIX_DASH = /^(?:co|com)-(?:uk|jp|au|nz|za|in|kr|br|id|il|th|ke)\b/;
 // (the label after a brand in a subdomain that makes it the brand's address:
 // "apple.com.verify.example", not "www.steam.ncsu.edu")
-const SUFFIX_LABEL = /^(?:com|net|org|gov|edu|co|info|biz|io|app|us|uk|de|fr|es|it|ca|au|jp|br|in)$/;
+const SUFFIX_LABEL = new RegExp(`^(?:com|net|org|gov|edu|co|info|biz|io|app|${COUNTRY})$`);
 
 // Letters from other scripts, and accented Latin letters, folded to the plain
 // Latin letter they look like.
@@ -274,19 +303,14 @@ export function editDistance(a, b, max = 2) {
  * @returns {string|null}
  */
 export function brandWithPhishingWord(name, brands) {
-	for (const word of PHISHING_WORDS) {
-		if (name.length <= word.length + 4) {
-			continue;
-		}
-
-		const before = name.endsWith(word) ? name.slice(0, -word.length) : null;
-		if (before && before.length >= 5 && brands.has(before) && !WORD_BRANDS.has(before)) {
-			return before;
-		}
-
-		const after = name.startsWith(word) ? name.slice(word.length) : null;
-		if (after && after.length >= 5 && brands.has(after) && !WORD_BRANDS.has(after)) {
-			return after;
+	// (each way to cut the name in two: a word of four letters or more, a
+	//  brand of five)
+	for (let cut = 4; cut <= name.length - 4; cut++) {
+		const start = name.slice(0, cut);
+		const end = name.slice(cut);
+		const brand = PHISHING_WORD.has(end) ? start : (PHISHING_WORD.has(start) ? end : '');
+		if (brand.length >= 5 && brands.has(brand) && !WORD_BRANDS.has(brand)) {
+			return brand;
 		}
 	}
 
@@ -443,7 +467,7 @@ export default class HomographDetector {
 		}
 
 		const pieces = /^[a-z\d-]+$/.test(folded) && folded.includes('-') ? folded.split('-') : [];
-		const phishy = pieces.some(piece => PHISHING_WORDS.includes(piece));
+		const phishy = pieces.some(piece => PHISHING_WORD.has(piece));
 		const viaConfusable = folded === name ? null : [folded, folded.replaceAll('-', '')].find(value => this.brands.has(value));
 		if (viaConfusable) {
 			flag(0.95, `"${unicode}" imitates ${viaConfusable} with lookalike letters`, viaConfusable);
@@ -517,13 +541,13 @@ export default class HomographDetector {
 		// (or a brand that is a word of five letters or more, but for the
 		//  common nouns, beside a phishing word in the rest of the name:
 		//  "login.apple.example.com", "secure.apple.verify-account.com")
-		const phishyHost = phishy || labels.some(label => PHISHING_WORDS.includes(label));
+		const phishyHost = phishy || labels.some(label => PHISHING_WORD.has(label));
 		const signInHost = labels.some(label => SIGN_IN_LABELS.has(label));
 		const asBrand = label => signInHost && COMMON_WORD_BRANDS.get(label).length > 0;
 		// (a brand alone before another service's name is that service's
 		//  customer, "walmart.wd5.myworkdayjobs.com", "tiktok.en.softonic.com":
 		//  it counts as the start of an address, or beside a phishing word)
-		const phishyLabel = labels.some(label => label.split('-').some(piece => PHISHING_WORDS.includes(piece)));
+		const phishyLabel = labels.some(label => label.split('-').some(piece => PHISHING_WORD.has(piece)));
 		const brandLabel = labels.find((label, index) => label.length >= 4 && this.brands.has(label) && (this.options.strictMode || (label.length >= 5 && (COMMON_WORD_BRANDS.has(label) ? asBrand(label) : phishyHost || phishyLabel)) || SUFFIX_LABEL.test(labels[index + 1] ?? '')));
 		if (brandLabel && (this.options.strictMode || subdomain.length >= 2)) {
 			flag(0.6, `"${unicode}" puts ${brandLabel} in front of another domain`, brandLabel);

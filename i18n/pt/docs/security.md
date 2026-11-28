@@ -1,4 +1,4 @@
-<!-- source: 1d7373f991c2 -->
+<!-- source: 6806f38b2cad -->
 
 # Segurança e privacidade
 
@@ -7,7 +7,7 @@ O Spam Scanner lê e-mails, que são privados, vindos de remetentes, que podem s
 
 ## O que sai da máquina
 
-Por padrão, uma coisa: os **nomes de host dos links** de uma mensagem são consultados nos resolvedores com filtragem da Cloudflare, 1.1.1.2 e 1.0.0.2 (malware e phishing) e 1.1.1.3 e 1.0.0.3 (também conteúdo adulto). São consultas DNS comuns para nomes como `example.com`; nenhuma parte da mensagem ou dos seus endereços é enviada. Desative-as com `phishing: {cloudflare: false}` ou `--no-cloudflare`, ou apenas a verificação de conteúdo adulto com `phishing: {adult: false}`.
+Por padrão, uma coisa: os **nomes de host dos links** de uma mensagem são consultados nos resolvedores com filtragem da Cloudflare, 1.1.1.2 e 1.0.0.2 (malware e phishing) e 1.1.1.3 e 1.0.0.3 (também conteúdo adulto). São consultas DNS comuns para nomes como `example.com`; nenhuma parte da mensagem ou dos seus endereços é enviada. Desative-as com `phishing: {cloudflare: false}` ou `--no-cloudflare`, ou apenas a verificação de conteúdo adulto com `phishing: {adult: false}`. Um nome que eles bloqueiam também é consultado em 1.1.1.1 e 1.0.0.1, que não bloqueiam nada, para distinguir um bloqueio de um nome que aponta ele próprio para `0.0.0.0`.
 
 Todo o resto fica desligado até ser configurado:
 

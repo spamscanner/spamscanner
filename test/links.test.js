@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {Buffer} from 'node:buffer';
 import {describe, it} from 'node:test';
 import SpamScanner from '../src/index.js';
+import {CLOUDFLARE_PLAIN} from '../src/dnsbl.js';
 import {decodeEntities} from '../src/html.js';
 import {carriedLinkHosts} from '../src/links.js';
 import {serializeResult} from '../src/server.js';
@@ -155,9 +156,9 @@ describe('link checks of what a message carries', () => {
 		const asked = [];
 		return {
 			asked,
-			async resolve4(name) {
+			async resolve4(name, servers) {
 				asked.push(name);
-				return name.startsWith('bad') ? ['0.0.0.0'] : ['192.0.2.1'];
+				return name.startsWith('bad') && servers !== CLOUDFLARE_PLAIN ? ['0.0.0.0'] : ['192.0.2.1'];
 			},
 		};
 	};
@@ -208,6 +209,15 @@ describe('link checks of what a message carries', () => {
 		}
 	});
 
+	it('does not block a link to a host that points to 0.0.0.0 itself', async () => {
+		// (as a host no longer in use does, "go.example.com" of a company's
+		//  own site in its signature: every resolver answers that for it)
+		const scanner = new SpamScanner({classifier: false, dns: {resolve4: async name => (name.startsWith('go.') || name.startsWith('bad') ? ['0.0.0.0'] : ['192.0.2.1'])}});
+		const result = await scanner.scan(message({text: 'Track your order at https://go.shop.example/orders'}));
+		assert.deepEqual(result.results.phishing, []);
+		assert.ok(!names(result).includes('MALICIOUS_DOMAIN'));
+	});
+
 	it('looks up the link hosts of the AMP part of a message', async () => {
 		// (the mail programs that show it show it instead of the HTML part)
 		const amp = 'From: a@example.com\r\nTo: b@example.org\r\nSubject: amp\r\nMIME-Version: 1.0\r\nContent-Type: multipart/alternative; boundary=b\r\n\r\n--b\r\nContent-Type: text/plain\r\n\r\nhello\r\n--b\r\nContent-Type: text/x-amp-html\r\n\r\n<!doctype html><html amp4email><body><a href="https://bad.amp.example/">x</a></body></html>\r\n--b\r\nContent-Type: text/html\r\n\r\n<p>hello</p>\r\n--b--\r\n';
@@ -229,11 +239,11 @@ describe('link checks of what a message carries', () => {
 	});
 
 	it('waits for link lookups for phishing.timeout, else for timeout', async () => {
-		const slow = async name => {
+		const slow = async (name, servers) => {
 			await new Promise(resolve => {
 				setTimeout(resolve, 300);
 			});
-			return name.startsWith('bad') ? ['0.0.0.0'] : ['192.0.2.1'];
+			return name.startsWith('bad') && servers !== CLOUDFLARE_PLAIN ? ['0.0.0.0'] : ['192.0.2.1'];
 		};
 
 		const raw = message({text: 'Sign in at https://bad.slow.example/login'});
@@ -640,7 +650,7 @@ describe('carriedLinkHosts on every shape of input', () => {
 
 	it('does not count a known sender\'s own domain as a malicious one when it passes DMARC', async () => {
 		const names = result => result.tests.map(test => test.name);
-		const scanner = new SpamScanner({classifier: false, dns: {resolve4: async name => (name.startsWith('clicks.') ? ['0.0.0.0'] : ['192.0.2.1'])}});
+		const scanner = new SpamScanner({classifier: false, dns: {resolve4: async (name, servers) => (name.startsWith('clicks.') && servers !== CLOUDFLARE_PLAIN ? ['0.0.0.0'] : ['192.0.2.1'])}});
 		const raw = (host = 'clicks.exchange.example') => message({from: 'news@mail.exchange.example', subject: 'This week', html: `<p><a href="https://${host}/c/1">Read more</a></p>`});
 		const passed = {authenticationResults: {dmarc: {status: {result: 'pass'}, domain: 'exchange.example'}}};
 		const known = {phishing: {knownSenders: ['exchange.example']}};

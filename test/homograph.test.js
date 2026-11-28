@@ -92,6 +92,50 @@ describe('homograph detection', () => {
 		assert.equal(brandWithPhishingWord('bookingsecure', brands), null);
 		assert.equal(brandWithPhishingWord('verify', brands), null);
 		assert.equal(brandWithPhishingWord('paypal', brands), null);
+		// (the shortest word, and a word that starts another)
+		assert.equal(brandWithPhishingWord('authpaypal', brands), 'paypal');
+		assert.equal(brandWithPhishingWord('paypalauth', brands), 'paypal');
+		assert.equal(brandWithPhishingWord('verificarpaypal', brands), 'paypal');
+		assert.equal(brandWithPhishingWord('loginverify', brands), null);
+	});
+
+	it('flags a brand beside a phishing word of another language, joined, with a dash or in another label', () => {
+		for (const [domain, brand] of [
+			['paypalkonto.de', 'paypal'],
+			['amazonconnexion.fr', 'amazon'],
+			['netflixcuenta.es', 'netflix'],
+			['sicherheitpaypal.de', 'paypal'],
+			['verificarmercadolibre.com', 'mercadolibre'],
+			['nubankseguranca.com', 'nubank'],
+			['rabobankinloggen.nl', 'rabobank'],
+			['klarnalogowanie.pl', 'klarna'],
+			['garantibbvaguvenlik.com', 'garantibbva'],
+			['tokopediaverifikasi.com', 'tokopedia'],
+			['vietcombankdangnhap.com', 'vietcombank'],
+		]) {
+			const result = risk(domain);
+			assert.equal(result.riskScore, 0.6, domain);
+			assert.equal(result.brand, brand);
+			assert.match(result.riskFactors.at(-1), /phishing word/);
+		}
+
+		// (a short brand or one that is a word, which counts only beside one)
+		for (const [domain, brand] of [['visa-konto.de', 'visa'], ['ebay-sicherheit.de', 'ebay'], ['bbva-seguridad.mx', 'bbva'], ['apple-compte.fr', 'apple'], ['amex-verifica.it', 'amex'], ['bunq-beveiliging.nl', 'bunq']]) {
+			const result = risk(domain);
+			assert.equal(result.riskScore, 0.6, domain);
+			assert.equal(result.brand, brand);
+		}
+
+		for (const domain of ['paypal.konto-sicherheit.example.com', 'netflix.cuenta.example.com', 'amazon.compte.example.fr']) {
+			assert.equal(risk(domain).riskScore, 0.6, domain);
+		}
+
+		// Not: the word alone or in an ordinary name, a brand that is a word
+		// joined to it, a short brand beside an ordinary word, or the brand's
+		// own site of that name
+		for (const domain of ['mein-konto.de', 'kontor.de', 'cuenta.es', 'seguridad-total.es', 'bookingconnexion.fr', 'visa-reisen.de', 'bbva-arena.mx', 'bbva.mx', 'bunq.com', 'bradescoseguranca.com.br']) {
+			assert.equal(risk(domain).riskScore, 0, domain);
+		}
 	});
 
 	it('flags a brand\'s address continued into another domain', () => {
@@ -107,12 +151,19 @@ describe('homograph detection', () => {
 
 		// (a country code and the like, which many names start with: fully
 		// only with a phishing word after it)
-		for (const domain of ['office.it-haus.de', 'microsoft.co-op.org', 'google.de-cix.net', 'paypal.de-sicherheit.top']) {
+		for (const domain of ['office.it-haus.de', 'microsoft.co-op.org', 'google.de-cix.net', 'paypal.de-angebote.top', 'sberbank.ru-bonus.top', 'rabobank.nl-pakket.info', 'pocztapolska.pl-paczka.top', 'swedbank.se-kund.example', 'mercadolibre.cl-envio.example']) {
 			assert.equal(risk(domain).riskScore, 0.6, domain);
 		}
 
-		assert.equal(risk('paypal.de-login.top').riskScore, 0.85);
-		assert.equal(risk('paypal.co-uk.example').riskScore, 0.85);
+		for (const domain of ['paypal.de-login.top', 'paypal.de-sicherheit.top', 'rabobank.nl-inloggen.info', 'paypal.co-uk.example', 'tokopedia.co-id.example']) {
+			assert.equal(risk(domain).riskScore, 0.85, domain);
+		}
+
+		// (not a code that starts as many names as "my" does; and a brand's
+		//  address as labels of another's: "klarna.se.example.net")
+		assert.equal(risk('paypal.my-shop.example').riskScore, 0);
+		assert.equal(risk('static.klarna.se.example.net').riskScore, 0.6);
+		assert.equal(risk('static.klarna.xyz.example.net').riskScore, 0);
 		// (a multi-tenant domain with its own brand in its name is flagged)
 		assert.equal(risk('paypal.com.my.salesforce-sites.com').riskScore >= 0.6, true);
 	});
@@ -122,8 +173,12 @@ describe('homograph detection', () => {
 			assert.equal(risk(domain).riskScore, 0, domain);
 		}
 
-		for (const domain of ['rakutten.com', 'yanbex.ru', 'mercadolibré.com', 'sberbank-online.top', 'flipkart-verify.shop', 'klarnalogin.top']) {
+		for (const domain of ['rakutten.com', 'yanbex.ru', 'mercadolibré.com', 'sberbank-online.top', 'flipkart-verify.shop', 'klarnalogin.top', 'posteitaliane-avviso.top', 'willhaben-zahlung.at', 'thailandpost-track.top', 'coincheck-support.top', 'agenziaentrate-rimborso.top', 'wechatpay-verify.top']) {
 			assert.ok(risk(domain).riskScore >= 0.5, domain);
+		}
+
+		for (const domain of ['posteitaliane.it', 'willhaben.at', 'thailandpost.co.th', 'coincheck.com', 'bbva.es', 'icbc.com.cn']) {
+			assert.equal(risk(domain).riskScore, 0, domain);
 		}
 	});
 

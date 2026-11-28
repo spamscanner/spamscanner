@@ -1,4 +1,4 @@
-<!-- source: 5d22e36f3f16 -->
+<!-- source: 63aeb5e7ec0c -->
 
 # Langues
 
@@ -18,7 +18,7 @@ La langue de chaque message est détectée d’après son écriture et, pour les
 
 * Le hangeul désigne le coréen ; les hiragana et les katakana, le japonais ; le thaï, le grec, l’hébreu, l’arménien, le géorgien, le bengali, le tamoul et les autres écritures propres à une seule langue la désignent directement.
 * Les lettres cyrilliques propres à une seule langue permettent de trancher entre l’ukrainien (і, ї, є, ґ), le biélorusse (ў), le serbe (ђ, ћ, џ), le macédonien (ѓ, ќ, ѕ) et le russe (ы, э, ё) dans les mots autres que les noms (les mots dont seule l’initiale est en majuscule, ailleurs qu’au début d’une phrase ou d’une ligne, pas les mots en capitales, dont les lettres ne comptent que dans un texte trop court pour le détecteur statistique : un texte bulgare qui nomme « господин Рыскулов » est bulgare), sauf si le texte contient aussi des lettres du kazakh, de l’ouzbek, du kirghiz, du tadjik, du tatar, du bachkir ou du mongol (ә, ө, ү, ұ, қ, ғ, ң, һ, ҳ, ҷ et d’autres), dont les alphabets partagent certaines de ces lettres : c’est alors le détecteur statistique qui tranche, et quand il répond par une langue slave (un texte russe ou bulgare contenant un nom ou un mot kazakh), ce sont les mots sans ces lettres, autres que les noms, qui tranchent comme ci-dessus.
-* Le texte dans une écriture partagée par plusieurs langues (latin, cyrillique, arabe, devanagari et d’autres), s’il est assez long pour en juger, est confié à [franc](https://github.com/wooorm/franc), limité aux langues courantes dans le courrier électronique afin que les messages courts ne soient pas étiquetés avec des langues rares.
+* Le texte dans une écriture partagée par plusieurs langues (latin, cyrillique, arabe, devanagari et d’autres), s’il est assez long pour en juger, est confié à [franc](https://github.com/wooorm/franc), limité aux langues courantes dans le courrier électronique afin que les messages courts ne soient pas étiquetés avec des langues rares. L'anglais que franc prend pour une autre langue écrite en lettres latines, comme les noms de produits et les prix du courrier d'une boutique, se reconnaît à ses mots (`the`, `your`, `free shipping`) : trois ou plus, au moins trois pour cent mots, et plus que les mots qui sont de la langue nommée par franc ou qui ont une lettre que l'anglais n'a pas (`é`, `ß`, `ø`).
 
 La langue est indiquée dans `result.language`, et `allowedLanguages: ['en', 'de']` (`--allow-language en,de`) ajoute 3 points au courrier détecté avec certitude dans toute autre langue.
 

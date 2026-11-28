@@ -18,7 +18,7 @@ import {
 	expandAttachments, parseMessage, parseWithin, simpleParse,
 } from '../src/parse.js';
 import {
-	HAM, SPAM, dnsServer, eicar, fakeClamd, httpServer, message, temporaryDirectory, zip,
+	HAM, SPAM, cloudflareServers, dnsServer, eicar, fakeClamd, httpServer, message, temporaryDirectory, zip,
 } from './helpers/index.js';
 import {cpuTime} from './helpers/cpu-time.js';
 
@@ -226,7 +226,6 @@ describe('SpamScanner detectors', () => {
 
 	it('checks links against Cloudflare\'s resolvers and a domain blocklist, and the client against an IP blocklist', async () => {
 		const dns = await dnsServer({
-			'malware.example A': ['0.0.0.0'],
 			'adult.example A': ['0.0.0.0'],
 			'listed.example.dbl.example A': ['127.0.1.2'],
 			'1.2.0.192.zen.example A': ['127.0.0.2'],
@@ -238,9 +237,8 @@ describe('SpamScanner detectors', () => {
 				dns: {servers: [dns.server], timeout: 3000},
 				dnsbl: {ip: ['zen.example'], domain: ['dbl.example']},
 			});
-			// Point the filtering resolvers at the test server.
-			const original = scanner.dns.checkCloudflare.bind(scanner.dns);
-			scanner.dns.checkCloudflare = (hosts, options) => original(hosts, {...options, malwareServers: [malwareOnly.server], familyServers: [dns.server]});
+			// (the family resolver's server also answers as the one that blocks nothing)
+			cloudflareServers(scanner, {malwareServers: [malwareOnly.server], familyServers: [dns.server], plainServers: [dns.server]});
 			const raw = message({text: 'Links: https://malware.example/a https://adult.example/b https://listed.example/c https://fine.example/d'});
 			const result = await scanner.scan(raw, {session: {remoteAddress: '192.0.2.1'}});
 			assert.deepEqual(result.results.phishing.map(item => item.type).sort(), ['adult_domain', 'malicious_domain', 'uribl']);
@@ -268,12 +266,7 @@ describe('SpamScanner detectors', () => {
 		const empty = await dnsServer({});
 		try {
 			const scanner = new SpamScanner({classifier: false, dns: {servers: [dns.server], timeout: 3000}});
-			const original = scanner.dns.checkCloudflare.bind(scanner.dns);
-			const asked = [];
-			scanner.dns.checkCloudflare = (hosts, options) => {
-				asked.push(...hosts);
-				return original(hosts, {...options, malwareServers: [dns.server], familyServers: [empty.server]});
-			};
+			const asked = cloudflareServers(scanner, {malwareServers: [dns.server], familyServers: [empty.server], plainServers: [empty.server]});
 
 			const result = await scanner.scan(message({text: 'Sign in at paypa1-secure.com today, see bare-malware.com, write to help@mail-malware.net, or https://link-malware.com/x'}));
 			const lookalike = result.results.phishing.find(item => item.type === 'homograph');
@@ -332,6 +325,17 @@ describe('SpamScanner detectors', () => {
 		});
 		assert.deepEqual(passed.results.authentication.score.tests.map(test => test.name).sort(), ['DKIM_PASS', 'DMARC_PASS', 'SPF_PASS']);
 		assert.ok(passed.score < result.score);
+
+		// (but what passes as another domain earns nothing for a From address
+		//  under no top-level domain there is, nor for a display name that
+		//  writes a brand with lookalike letters, as one in plain letters
+		//  keeps it)
+		const signed = {
+			spf: {status: {result: 'pass'}, domain: 'sender.example'}, dkim: {results: [{status: {result: 'pass'}, signingDomain: 'sender.example'}]}, dmarc: {status: {result: 'none'}}, arc: {status: {result: 'none'}},
+		};
+		for (const [from, tests] of [['billing@mail.acme.zzq', ['FROM_UNKNOWN_TLD']], ['billing@example.com', ['DKIM_PASS', 'SPF_PASS']], ['root@nas.lan', ['DKIM_PASS', 'SPF_PASS']], [`=?UTF-8?B?${Buffer.from('P\u0251yp\u0251l').toString('base64')}?= <billing@example.com>`, ['FROM_NAME_BRAND', 'FROM_NAME_LOOKALIKE']], ['PayPal <billing@example.com>', ['DKIM_PASS', 'FROM_NAME_BRAND', 'SPF_PASS']]]) {
+			assert.deepEqual(names(await scanner.scan(message({from, text: 'Please see the invoice.'}), {authenticationResults: signed})).sort(), tests, from);
+		}
 	});
 
 	it('allowlists a subdomain sender signed by its organizational domain, as mailauth checks it', async () => {
@@ -650,7 +654,7 @@ describe('link hosts', () => {
 			timeout: 300,
 			...options,
 			dns: {
-				async resolve4(name) {
+				async resolve4(name, servers) {
 					asked.add(name);
 					if (name.startsWith('slow')) {
 						await new Promise(resolve => {
@@ -658,7 +662,7 @@ describe('link hosts', () => {
 						});
 					}
 
-					return name.startsWith('bad') ? ['0.0.0.0'] : ['192.0.2.1'];
+					return name.startsWith('bad') && servers[0] !== '1.1.1.1' ? ['0.0.0.0'] : ['192.0.2.1'];
 				},
 			},
 		});
@@ -1459,7 +1463,7 @@ describe('time limits and failures', () => {
 	});
 
 	it('looks up a link that other links of one domain would push past phishing.maxHosts', async () => {
-		const scanner = new SpamScanner({classifier: false, dns: {resolve4: async name => (name.startsWith('bad') ? ['0.0.0.0'] : ['192.0.2.1'])}});
+		const scanner = new SpamScanner({classifier: false, dns: {resolve4: async (name, servers) => (name.startsWith('bad') && servers[0] !== '1.1.1.1' ? ['0.0.0.0'] : ['192.0.2.1'])}});
 		const padding = Array.from({length: 25}, (_, i) => `<a href="https://n${i}.attacker.example/"></a>`).join('');
 		const result = await scanner.scan(message({text: 'Hello.', html: `${padding}<a href="https://bad.example.org/login">Sign in</a>`}));
 		assert.ok(names(result).includes('MALICIOUS_DOMAIN'));
@@ -1471,9 +1475,9 @@ describe('time limits and failures', () => {
 		const scanner = new SpamScanner({
 			classifier: false,
 			dns: {
-				async resolve4(name) {
+				async resolve4(name, servers) {
 					asked.push(name);
-					return name.startsWith('evil') ? ['0.0.0.0'] : ['192.0.2.1'];
+					return name.startsWith('evil') && servers[0] !== '1.1.1.1' ? ['0.0.0.0'] : ['192.0.2.1'];
 				},
 			},
 		});

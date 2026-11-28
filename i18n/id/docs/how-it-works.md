@@ -1,4 +1,4 @@
-<!-- source: 92d45ef57945 -->
+<!-- source: d573158b4022 -->
 
 # Cara kerja
 
@@ -64,7 +64,7 @@ Setiap tautan diperiksa:
 
 * **Domain tiruan.** Setiap domain direduksi menjadi kerangka dengan tabel confusables Unicode, sehingga `pаypal.com` (а Sirilik), `paypa1.com`, `rnicrosoft.com`, dan `xn--pple-43d.com` semuanya cocok dengan merek yang ditirunya. Aksara campuran dalam satu label, nama merek di subdomain (`paypal.com.example.net`), dan salah ketik satu huruf diberi skor lebih rendah. Hampir 100 merek yang sering ditiru sudah tersedia, dan merek lain dapat ditambahkan.
 * **Tautan menipu.** Tautan HTML yang teks tampilannya berupa alamat yang berbeda dari tujuannya: seluruh teksnya, atau alamat dengan `http://` atau `https://` di dalamnya (`Sign in at https://www.paypal.com`). Nama file atau nama situs dalam sebuah kalimat (`Download report.zip`, `Read why Booking.com switched`) bukan alamat. Tautan yang melewati pelacakan klik layanan pengiriman email (SendGrid, Mailchimp, Amazon SES, Kit, Brevo, beehiiv, Substack, dan lainnya) atau gateway keamanan yang menulis ulang tautan (Microsoft Safe Links, Proofpoint, Mimecast, Barracuda, Cisco) memang mengarah ke tempat lain, jadi tautan itu hanya dihitung jika teksnya adalah alamat lengkap suatu merek, tanpa path atau dengan path masuk (bukan tautan ke jejaring sosial, produk toko, atau peta), dan pengirimnya bukan merek itu atau salah satu domain pengirimannya. Jika tautan gateway memuat alamat tujuan selanjutnya (Safe Links, Proofpoint), alamat itulah yang dibandingkan. Hanya penyamaran yang dihitung: alamat merek, situs pemerintah (`irs.gov`, `gov.uk`), atau domain milik salah satu penerima yang ditampilkan di atas situs lain. Situs lain yang ditampilkan bukanlah penyamaran, karena orang dan toko menamai situs dengan cara lain daripada tempatnya berada (dokumentasi proyek di atas repositorinya, toko di atas platformnya), begitu pula host yang tidak dapat dicapai siapa pun di internet (`localhost`, `192.168.1.1`, `example.com`) atau domain lain dari perusahaan yang sama (`google.com` di atas `blog.google`). Jika pengalihan sebuah situs memuat alamat tujuannya (`google.com/url?q=` milik Google, Facebook, Slack, LinkedIn, YouTube, Wayback Machine), alamat itulah yang dibandingkan.
-* **Resolver penyaring Cloudflare.** Host tautan dicari di 1.1.1.2, yang menjawab `0.0.0.0` untuk situs malware dan phishing yang dikenal, dan 1.1.1.3, yang juga memblokir konten dewasa.
+* **Resolver penyaring Cloudflare.** Host tautan dicari di 1.1.1.2, yang menjawab `0.0.0.0` untuk situs malware dan phishing yang dikenal, dan 1.1.1.3, yang juga memblokir konten dewasa. Host yang diblokir di sana juga ditanyakan ke 1.1.1.1, yang tidak memblokir apa pun: host yang menunjuk sendiri ke `0.0.0.0` tidak dianggap diblokir.
 * **Nama tampilan.** Nama seperti "PayPal Security" dari alamat di domain lain, atau nama yang memuat alamat email yang berbeda.
 
 

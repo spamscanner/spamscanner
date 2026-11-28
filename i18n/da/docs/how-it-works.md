@@ -1,4 +1,4 @@
-<!-- source: 92d45ef57945 -->
+<!-- source: d573158b4022 -->
 
 # Sådan virker det
 
@@ -64,7 +64,7 @@ Hvert link tjekkes:
 
 * **Forvekslelige domæner.** Hvert domæne reduceres til et skelet med Unicodes tabel over forvekslelige tegn, så `pаypal.com` (kyrillisk а), `paypa1.com`, `rnicrosoft.com` og `xn--pple-43d.com` alle matcher det varemærke, de efterligner. Blandede skriftsystemer i én etiket, varemærker i underdomæner (`paypal.com.example.net`) og tastefejl på ét bogstav scores lavere. Næsten 100 varemærker, der ofte efterlignes, er indbygget, og flere kan tilføjes.
 * **Vildledende links.** HTML-links, hvis synlige tekst er en anden adresse end målet: hele teksten, eller en adresse med `http://` eller `https://` i (`Sign in at https://www.paypal.com`). Et filnavn eller et websteds navn i en sætning (`Download report.zip`, `Read why Booking.com switched`) er ingen adresse. Et link gennem en udsendelsestjenestes kliksporing (SendGrid, Mailchimp, Amazon SES, Kit, Brevo, beehiiv, Substack og andre) eller en sikkerhedsgateway, der omskriver links (Microsoft Safe Links, Proofpoint, Mimecast, Barracuda, Cisco), går med vilje et andet sted hen, så det tæller kun, når dets tekst er et varemærkes fulde adresse, uden sti eller med en login-sti (ikke et link til et socialt netværk, en butiks produkt eller et kort), og afsenderen hverken er det varemærke eller et af dets afsenderdomæner. Hvor en gateways link indeholder den adresse, det fører videre til (Safe Links, Proofpoint), sammenlignes den adresse i stedet. Kun en forklædning tæller: et brands adresse, en myndigheds websted (`irs.gov`, `gov.uk`) eller en modtagers eget domæne vist over et andet websted. Ethvert andet vist websted er ingen, da folk og butikker navngiver et websted anderledes end der, hvor det ligger (et projekts dokumentation over dets repository, en butik over dens platform), og det er heller ikke en vært, ingen når på internettet (`localhost`, `192.168.1.1`, `example.com`), eller et andet domæne fra samme virksomhed (`google.com` over `blog.google`). Hvor et websteds omdirigering indeholder den adresse, den fører videre til (Googles `google.com/url?q=`, Facebook, Slack, LinkedIn, YouTube, Wayback Machine), sammenlignes den adresse i stedet.
-* **Cloudflares filtrerende resolvere.** Værter i links slås op på 1.1.1.2, som svarer `0.0.0.0` for kendt malware og phishing, og 1.1.1.3, som også blokerer voksenindhold.
+* **Cloudflares filtrerende resolvere.** Værter i links slås op på 1.1.1.2, som svarer `0.0.0.0` for kendt malware og phishing, og 1.1.1.3, som også blokerer voksenindhold. En vært, der er blokeret dér, slås også op på 1.1.1.1, som intet blokerer: en, der selv peger på `0.0.0.0`, er ikke blokeret.
 * **Visningsnavne.** Et navn som »PayPal Security« fra en adresse på et andet domæne eller et navn, der indeholder en anden e-mailadresse.
 
 

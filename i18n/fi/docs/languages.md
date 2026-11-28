@@ -1,4 +1,4 @@
-<!-- source: 5d22e36f3f16 -->
+<!-- source: 63aeb5e7ec0c -->
 
 # Kielet
 
@@ -18,7 +18,7 @@ Kunkin viestin kieli tunnistetaan sen kirjoitusjärjestelmästä ja, monen kiele
 
 * Hangul on koreaa; hiragana ja katakana tarkoittavat japania; thai, kreikka, heprea, armenia, georgia, bengali, tamili ja muut yhden kielen käyttämät kirjoitusjärjestelmät nimeävät kielen suoraan.
 * Vain yhdessä kielessä esiintyvät kyrilliset kirjaimet ratkaisevat ukrainan (і, ї, є, ґ), valkovenäjän (ў), serbian (ђ, ћ, џ), makedonian (ѓ, ќ, ѕ) ja venäjän (ы, э, ё) välillä niissä sanoissa, jotka eivät ole nimiä (sanat, joissa on iso alkukirjain ja muut kirjaimet pieniä muualla kuin virkkeen tai rivin alussa, eivät kokonaan isoin kirjaimin kirjoitetut sanat, ja joiden kirjaimet lasketaan vain tekstissä, joka on liian lyhyt tilastolliselle tunnistimelle: bulgariankielinen teksti, jossa mainitaan ”господин Рыскулов”, on bulgariaa), ellei tekstissä ole myös kazakin, uzbekin, kirgiisin, tadžikin, tataarin, baškiirin tai mongolin kirjaimia (ә, ө, ү, ұ, қ, ғ, ң, һ, ҳ, ҷ ja muita), joiden aakkostot jakavat osan näistä kirjaimista: silloin ratkaisee tilastollinen tunnistin, ja kun se vastaa slaavilaisella kielellä (venäjän- tai bulgariankielinen teksti, jossa on kazakkilainen nimi tai sana), ratkaisevat sanat, joissa noita kirjaimia ei ole, nimiä lukuun ottamatta, kuten edellä.
-* Usean kielen yhteisillä kirjoitusjärjestelmillä (latinalainen, kyrillinen, arabialainen, devanagari ja muut) kirjoitettu teksti menee, kun se on arvioitavaksi tarpeeksi pitkä, [francille](https://github.com/wooorm/franc), rajattuna sähköpostissa yleisiin kieliin, jotta lyhyitä viestejä ei merkitä harvinaisilla kielillä.
+* Usean kielen yhteisillä kirjoitusjärjestelmillä (latinalainen, kyrillinen, arabialainen, devanagari ja muut) kirjoitettu teksti menee, kun se on arvioitavaksi tarpeeksi pitkä, [francille](https://github.com/wooorm/franc), rajattuna sähköpostissa yleisiin kieliin, jotta lyhyitä viestejä ei merkitä harvinaisilla kielillä. Englanti, jota franc pitää toisena latinalaisin kirjaimin kirjoitettuna kielenä, kuten kaupan postin tuotenimet ja hinnat, tunnistetaan sanoistaan (`the`, `your`, `free shipping`): kolme tai useampi, vähintään kolme sadasta sanasta, ja enemmän kuin sanoja, jotka ovat francin nimeämää kieltä tai joissa on kirjain, jota englannissa ei ole (`é`, `ß`, `ø`).
 
 Kieli ilmoitetaan kentässä `result.language`, ja `allowedLanguages: ['en', 'de']` (`--allow-language en,de`) lisää 3 pistettä postille, joka on varmuudella tunnistettu millä tahansa muulla kielellä kirjoitetuksi.
 

@@ -1,4 +1,4 @@
-<!-- source: 5d22e36f3f16 -->
+<!-- source: 63aeb5e7ec0c -->
 
 # Talen
 
@@ -18,7 +18,7 @@ De taal van elk bericht wordt herkend aan het schrift en, bij schriften die door
 
 * Hangul is Koreaans; Hiragana en Katakana betekenen Japans; Thai, Grieks, Hebreeuws, Armeens, Georgisch, Bengaals, Tamil en andere schriften die door één taal worden gebruikt, noemen die taal direct.
 * Cyrillische letters die in maar één taal voorkomen, beslissen tussen Oekraïens (і, ї, є, ґ), Wit-Russisch (ў), Servisch (ђ, ћ, џ), Macedonisch (ѓ, ќ, ѕ) en Russisch (ы, э, ё) in de woorden die geen namen zijn (woorden met een hoofdletter en verder kleine letters, anders dan aan het begin van een zin of een regel, geen woorden geheel in hoofdletters, waarvan de letters alleen tellen in een tekst die te kort is voor de statistische detector: een Bulgaarse tekst die "господин Рыскулов" noemt, is Bulgaars), tenzij de tekst ook letters van het Kazachs, Oezbeeks, Kirgizisch, Tadzjieks, Tataars, Basjkiers of Mongools heeft (ә, ө, ү, ұ, қ, ғ, ң, һ, ҳ, ҷ en andere), waarvan de alfabetten sommige van die letters delen: dan beslist de statistische detector, en wanneer die met een Slavische taal antwoordt (een Russische of Bulgaarse tekst met een Kazachse naam of een Kazachs woord erin), beslissen de woorden zonder die letters, behalve namen, zoals hierboven.
-* Tekst in schriften die door meerdere talen worden gedeeld (Latijn, Cyrillisch, Arabisch, Devanagari en andere) gaat, als hij lang genoeg is om te beoordelen, naar [franc](https://github.com/wooorm/franc), beperkt tot talen die vaak in e-mail voorkomen, zodat korte berichten geen zeldzame taal als label krijgen.
+* Tekst in schriften die door meerdere talen worden gedeeld (Latijn, Cyrillisch, Arabisch, Devanagari en andere) gaat, als hij lang genoeg is om te beoordelen, naar [franc](https://github.com/wooorm/franc), beperkt tot talen die vaak in e-mail voorkomen, zodat korte berichten geen zeldzame taal als label krijgen. Engels dat franc voor een andere taal in Latijnse letters houdt, zoals de productnamen en prijzen in de mail van een winkel, wordt herkend aan zijn woorden (`the`, `your`, `free shipping`): drie of meer, minstens drie op de honderd woorden, en meer dan de woorden die van de door franc genoemde taal zijn of een letter hebben die het Engels niet heeft (`é`, `ß`, `ø`).
 
 De taal wordt gemeld als `result.language`, en `allowedLanguages: ['en', 'de']` (`--allow-language en,de`) voegt 3 punten toe aan mail die met zekerheid in een andere taal is herkend.
 

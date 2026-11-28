@@ -155,6 +155,18 @@ function noCreditReason(results, tests) {
 		return 'it links to a site blocked as phishing or malware';
 	}
 
+	if (fired('FROM_NAME_BRAND') && results.arbitrary.rules.some(rule => rule.name === 'FROM_NAME_BRAND' && rule.subject)) {
+		return 'its display name and its subject claim a brand it is not from';
+	}
+
+	if (fired('FROM_NAME_LOOKALIKE')) {
+		return 'its display name writes a brand it is not from with lookalike letters';
+	}
+
+	if (fired('FROM_UNKNOWN_TLD')) {
+		return 'its From address is under no top-level domain, so what passes is another domain\'s';
+	}
+
 	return fired('CLOUD_SERVER') ? 'it was sent straight from a rented cloud server without authenticating' : null;
 }
 
@@ -319,7 +331,13 @@ export function scoreResults(results, options) {
 	//  carries, as a mailing list's notice of a post held for approval or a
 	//  bounce quotes one; nor does one sent straight from a rented cloud
 	//  server without authenticating, whose words are the spammer's to
-	//  choose)
+	//  choose; nor one whose display name and subject both name a brand it
+	//  is not from: its authentication shows only that it is not the brand,
+	//  and its words are the brand's own, copied; nor one whose display name
+	//  writes such a brand with lookalike letters, which no sender does but
+	//  to be taken for it; nor one a domain signed from an address under no
+	//  top-level domain there is: no domain can be such a sender's, so what
+	//  passes is another's)
 	const noCredit = noCreditReason(results, tests);
 	if (noCredit) {
 		for (const test of tests.filter(test => test.score < 0 && !['ALLOWLISTED', 'TRUTH_SOURCE'].includes(test.name))) {

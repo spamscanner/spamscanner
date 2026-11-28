@@ -1,4 +1,4 @@
-<!-- source: 5d22e36f3f16 -->
+<!-- source: 63aeb5e7ec0c -->
 
 # Jazyky
 
@@ -18,7 +18,7 @@ Jazyk každé zprávy se rozpozná podle písma a u písem, která sdílí mnoho
 
 * Hangul je korejština; hiragana a katakana znamenají japonštinu; thajské písmo, řecké písmo, hebrejské písmo, arménské písmo, gruzínské písmo, bengálské písmo, tamilské písmo a další písma, která používá jediný jazyk, ho určují přímo.
 * Cyrilická písmena, která se vyskytují jen v jednom jazyce, rozhodnou mezi ukrajinštinou (і, ї, є, ґ), běloruštinou (ў), srbštinou (ђ, ћ, џ), makedonštinou (ѓ, ќ, ѕ) a ruštinou (ы, э, ё) ve slovech, která nejsou jmény (slova s velkým počátečním písmenem a ostatními malými jinde než na začátku věty nebo řádku, ne slova psaná celá velkými písmeny, jejichž písmena se počítají jen v textu příliš krátkém pro statistický detektor: bulharský text, který jmenuje „господин Рыскулов“, je bulharský), pokud text neobsahuje také písmena kazaštiny, uzbečtiny, kyrgyzštiny, tádžičtiny, tatarštiny, baškirštiny nebo mongolštiny (ә, ө, ү, ұ, қ, ғ, ң, һ, ҳ, ҷ a další), jejichž abecedy některá z těchto písmen sdílejí: pak rozhodne statistický detektor, a když odpoví slovanským jazykem (ruský nebo bulharský text s kazašským jménem nebo slovem), rozhodnou slova bez těchto písmen, která nejsou jmény, jako výše.
-* Text v písmech, která sdílí více jazyků (latinka, cyrilice, arabské písmo, dévanágarí a další), jde, pokud je dost dlouhý na posouzení, do [franc](https://github.com/wooorm/franc), omezeného na jazyky běžné v e-mailu, aby krátké zprávy nedostaly štítek vzácného jazyka.
+* Text v písmech, která sdílí více jazyků (latinka, cyrilice, arabské písmo, dévanágarí a další), jde, pokud je dost dlouhý na posouzení, do [franc](https://github.com/wooorm/franc), omezeného na jazyky běžné v e-mailu, aby krátké zprávy nedostaly štítek vzácného jazyka. Angličtina, kterou franc považuje za jiný jazyk psaný latinkou, jako názvy produktů a ceny v poště obchodu, se pozná podle svých slov (`the`, `your`, `free shipping`): tři nebo více, aspoň tři ze sta slov, a více než slov, která jsou z jazyka určeného francem nebo mají písmeno, které angličtina nemá (`é`, `ß`, `ø`).
 
 Jazyk se uvádí v `result.language` a `allowedLanguages: ['en', 'de']` (`--allow-language en,de`) přidá 3 body poště, která je s jistotou rozpoznaná v jakémkoli jiném jazyce.
 

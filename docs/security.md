@@ -5,7 +5,7 @@ Spam Scanner reads mail, which is private, from senders, who may be hostile. Thi
 
 ## What leaves the machine
 
-By default, one thing: the **host names of links** in a message are looked up on Cloudflare's filtering resolvers, 1.1.1.2 and 1.0.0.2 (malware and phishing) and 1.1.1.3 and 1.0.0.3 (also adult content). These are ordinary DNS queries for names such as `example.com`; no part of the message or its addresses is sent. Turn them off with `phishing: {cloudflare: false}` or `--no-cloudflare`, or the adult check alone with `phishing: {adult: false}`.
+By default, one thing: the **host names of links** in a message are looked up on Cloudflare's filtering resolvers, 1.1.1.2 and 1.0.0.2 (malware and phishing) and 1.1.1.3 and 1.0.0.3 (also adult content). These are ordinary DNS queries for names such as `example.com`; no part of the message or its addresses is sent. Turn them off with `phishing: {cloudflare: false}` or `--no-cloudflare`, or the adult check alone with `phishing: {adult: false}`. A name they block is also asked of 1.1.1.1 and 1.0.0.1, which block nothing, to tell a block from a name that points to `0.0.0.0` itself.
 
 Everything else is off until configured:
 
